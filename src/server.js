@@ -101,18 +101,6 @@ const server = createServer(async (req, res) => {
       return json(res, result);
     }
 
-    if (url.pathname === "/api/map-summary") {
-      const dataset = await readDatasetFromDb();
-      return json(res, buildMapSummary(dataset, {
-        level: url.searchParams.get("level") || "sido",
-        sidoCode: url.searchParams.get("sidoCode") || "",
-        sidoCodes: url.searchParams.get("sidoCodes") || "",
-        sigunguCode: url.searchParams.get("sigunguCode") || "",
-        start: url.searchParams.get("start") || "",
-        end: url.searchParams.get("end") || ""
-      }));
-    }
-
     if (url.pathname === "/api/zoom-map-summary") {
       const dataset = await readDatasetFromDb();
       return json(res, buildZoomMapSummary(dataset, {
@@ -189,56 +177,6 @@ function buildRegionStats(dataset) {
       monthlyPrices: dataset.monthlyPrices.filter((price) => areaTypeIdSet.has(price.areaTypeId)).length
     };
   });
-}
-
-function buildMapSummary(dataset, filters) {
-  const ranking = buildApartmentRankings(dataset, {
-    start: filters.start,
-    end: filters.end
-  });
-  const allowedSidoCodes = parseCodeList(filters.sidoCodes);
-  const apartmentById = new Map(dataset.apartments.map((item) => [item.id, item]));
-  const rows = ranking.rows
-    .map((row) => ({
-      ...row,
-      apartment: apartmentById.get(row.apartmentId)
-    }))
-    .filter((row) => row.apartment?.legalDongCode && Number.isFinite(row.apartment.lat) && Number.isFinite(row.apartment.lng));
-
-  if (filters.level === "sigungu") {
-    return {
-      level: "sigungu",
-      period: ranking.period,
-      parent: {
-        code: filters.sidoCode,
-        name: sidoName(filters.sidoCode)
-      },
-      groups: summarizeGroups(rows.filter((row) => row.apartment.legalDongCode.startsWith(filters.sidoCode)), "sigungu")
-    };
-  }
-
-  if (filters.level === "apartment") {
-    return {
-      level: "apartment",
-      period: ranking.period,
-      parent: {
-        code: filters.sigunguCode,
-        name: sigunguName(rows, filters.sigunguCode)
-      },
-      apartments: summarizeApartments(rows.filter((row) => row.apartment.legalDongCode.startsWith(filters.sigunguCode)))
-    };
-  }
-
-  return {
-    level: "sido",
-    period: ranking.period,
-    groups: summarizeGroups(
-      allowedSidoCodes.length
-        ? rows.filter((row) => allowedSidoCodes.includes(row.apartment.legalDongCode.slice(0, 2)))
-        : rows,
-      "sido"
-    )
-  };
 }
 
 function buildZoomMapSummary(dataset, filters) {
@@ -348,54 +286,6 @@ function zoomDongName(apartment) {
   const addressParts = String(apartment.address || "").split(" ").filter(Boolean);
   const sigungu = addressParts.slice(1).find((part) => /구$|시$|군$/.test(part));
   return sigungu ? `${sigungu} ${neighborhood}` : neighborhood;
-}
-
-function parseCodeList(value) {
-  return String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function summarizeGroups(rows, level) {
-  const groups = new Map();
-  for (const row of rows) {
-    const code = level === "sido"
-      ? row.apartment.legalDongCode.slice(0, 2)
-      : row.apartment.legalDongCode.slice(0, 5);
-    if (!groups.has(code)) {
-      groups.set(code, {
-        code,
-        name: level === "sido" ? sidoName(code) : sigunguName(rows, code),
-        latValues: [],
-        lngValues: [],
-        growthRates: [],
-        growthAmounts: [],
-        apartmentIds: new Set(),
-        areaCount: 0
-      });
-    }
-    const group = groups.get(code);
-    group.latValues.push(row.apartment.lat);
-    group.lngValues.push(row.apartment.lng);
-    group.growthRates.push(row.growthRate);
-    group.growthAmounts.push(row.growthAmount);
-    group.apartmentIds.add(row.apartmentId);
-    group.areaCount += 1;
-  }
-
-  return [...groups.values()]
-    .map((group) => ({
-      code: group.code,
-      name: group.name,
-      lat: average(group.latValues),
-      lng: average(group.lngValues),
-      apartmentCount: group.apartmentIds.size,
-      areaCount: group.areaCount,
-      growthRate: average(group.growthRates),
-      growthAmount: Math.round(average(group.growthAmounts))
-    }))
-    .sort((a, b) => b.growthRate - a.growthRate);
 }
 
 function summarizeApartments(rows) {

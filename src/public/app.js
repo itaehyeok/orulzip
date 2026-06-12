@@ -3,17 +3,9 @@ const state = {
   regionStats: [],
   months: [],
   neighborhoods: [],
-  activeTab: "zoomMap",
+  activeTab: "map",
   crawlStatusFilter: "failed",
-  mapColorMode: "hover",
-  mapLevel: "sido",
-  selectedSidoCode: "",
-  selectedSidoName: "",
-  selectedSigunguCode: "",
-  selectedSigunguName: "",
   clientConfig: { maps: { provider: "leaflet", naverKeyId: "" } },
-  map: null,
-  mapLayer: null,
   zoomMap: null,
   zoomMapLayer: null,
   zoomNaverMap: null,
@@ -21,32 +13,13 @@ const state = {
   zoomNaverInfoWindow: null,
   zoomMapTimer: null,
   zoomMapRequestId: 0,
-  naverMap: null,
-  naverOverlays: [],
-  naverInfoWindow: null,
-  naverSdkPromise: null,
-  boundaryCache: new Map()
+  naverSdkPromise: null
 };
 
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
-const homeSidoCodes = ["11", "41"];
-const homeSidoColors = {
-  11: "#2563eb",
-  41: "#16a34a"
-};
 const homeMapView = {
   center: [37.48, 127.18],
   zoom: 9
-};
-const boundarySources = {
-  sido: {
-    url: "https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2018/json/skorea-provinces-2018-topo-simple.json",
-    objectName: "skorea_provinces_2018_geo"
-  },
-  sigungu: {
-    url: "https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2018/json/skorea-municipalities-2018-topo-simple.json",
-    objectName: "skorea_municipalities_2018_geo"
-  }
 };
 
 const els = {
@@ -68,23 +41,11 @@ const els = {
   crawlStats: document.querySelector("#crawlStats"),
   crawlDetailRows: document.querySelector("#crawlDetailRows"),
   mapView: document.querySelector("#mapView"),
-  mapTitle: document.querySelector("#mapTitle"),
-  mapPeriod: document.querySelector("#mapPeriod"),
-  mapBackBtn: document.querySelector("#mapBackBtn"),
-  mapBreadcrumb: document.querySelector("#mapBreadcrumb"),
-  growthMap: document.querySelector("#growthMap"),
-  mapTableTitle: document.querySelector("#mapTableTitle"),
-  mapCount: document.querySelector("#mapCount"),
-  mapRows: document.querySelector("#mapRows"),
-  zoomMapView: document.querySelector("#zoomMapView"),
   zoomMapTitle: document.querySelector("#zoomMapTitle"),
   zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
   zoomMapLevel: document.querySelector("#zoomMapLevel"),
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
-  zoomMapTableTitle: document.querySelector("#zoomMapTableTitle"),
-  zoomMapTableCount: document.querySelector("#zoomMapTableCount"),
-  zoomMapRows: document.querySelector("#zoomMapRows"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
@@ -123,19 +84,6 @@ function bindEvents() {
   els.startInput.addEventListener("change", refresh);
   els.endInput.addEventListener("change", refresh);
   els.syncBtn.addEventListener("click", syncCurrentRegion);
-  els.mapBackBtn.addEventListener("click", drillMapUp);
-
-  document.querySelectorAll("[data-map-color-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.mapColorMode = button.dataset.mapColorMode;
-      document.querySelectorAll("[data-map-color-mode]").forEach((item) => {
-        const active = item === button;
-        item.classList.toggle("active", active);
-        item.setAttribute("aria-selected", String(active));
-      });
-      if (state.activeTab === "map") loadMapSummary();
-    });
-  });
 
   document.querySelectorAll(".quick-buttons button").forEach((button) => {
     button.addEventListener("click", () => {
@@ -154,10 +102,8 @@ function bindEvents() {
       document.querySelector("#apartmentView").classList.toggle("active", state.activeTab === "apartment");
       document.querySelector("#crawlView").classList.toggle("active", state.activeTab === "crawl");
       document.querySelector("#mapView").classList.toggle("active", state.activeTab === "map");
-      document.querySelector("#zoomMapView").classList.toggle("active", state.activeTab === "zoomMap");
       if (state.activeTab === "crawl") loadCrawlDetails();
-      if (state.activeTab === "map") loadMapSummary();
-      if (state.activeTab === "zoomMap") loadZoomMapSummary();
+      if (state.activeTab === "map") loadZoomMapSummary();
     });
   });
 
@@ -227,8 +173,7 @@ async function refresh() {
   renderChart(chartData);
   renderApartmentTable(apartmentRanking);
   if (state.activeTab === "crawl") await loadCrawlDetails();
-  if (state.activeTab === "map") await loadMapSummary();
-  if (state.activeTab === "zoomMap") await loadZoomMapSummary();
+  if (state.activeTab === "map") await loadZoomMapSummary();
 }
 
 async function syncCurrentRegion() {
@@ -351,112 +296,13 @@ function formatMarkerPrice(row) {
   return parts.join(" / ") || "-";
 }
 
-async function loadMapSummary() {
-  const params = new URLSearchParams();
-  params.set("level", state.mapLevel);
-  if (state.mapLevel === "sido") params.set("sidoCodes", homeSidoCodes.join(","));
-  if (state.selectedSidoCode) params.set("sidoCode", state.selectedSidoCode);
-  if (state.selectedSigunguCode) params.set("sigunguCode", state.selectedSigunguCode);
-  if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
-  if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
-  const data = await api(`/api/map-summary?${params}`);
-  await renderMapSummary(data);
-}
-
-async function renderMapSummary(data) {
-  els.mapPeriod.textContent = data.period?.startMonth && data.period?.endMonth
-    ? `${formatMonth(data.period.startMonth)} - ${formatMonth(data.period.endMonth)}`
-    : "";
-  els.mapBackBtn.disabled = data.level === "sido";
-  els.mapBreadcrumb.textContent = [
-    state.mapLevel === "sido" ? "서울/경기" : "전국",
-    state.selectedSidoName,
-    state.selectedSigunguName
-  ].filter(Boolean).join(" / ");
-  els.mapTitle.textContent = {
-    sido: "서울/경기 평균 상승률 지도",
-    sigungu: `${state.selectedSidoName} 구별 평균 상승률`,
-    apartment: `${state.selectedSigunguName} 아파트 상승률 지도`
-  }[data.level] || "평균 상승률 지도";
-  els.mapTableTitle.textContent = {
-    sido: "서울/경기 평균 상승률",
-    sigungu: "구별 평균 상승률",
-    apartment: "아파트별 평균 상승률"
-  }[data.level] || "평균 상승률";
-
-  els.growthMap.dataset.level = data.level;
-
-  if (useNaverMap()) {
-    const rendered = await renderNaverMapSummary(data);
-    if (rendered) return;
-  }
-
-  initGrowthMap();
-  state.mapLayer.clearLayers();
-
-  if (data.level === "apartment") {
-    renderApartmentMap(data.apartments || []);
-    renderMapApartmentRows(data.apartments || []);
-  } else {
-    await renderGroupMap(data.groups || [], data.level);
-    renderMapGroupRows(data.groups || [], data.level);
-  }
-}
-
 function useNaverMap() {
   return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
 }
 
-async function renderNaverMapSummary(data) {
-  const ready = await initNaverGrowthMap();
-  if (!ready) return false;
-
-  clearNaverOverlays();
-  if (data.level === "apartment") {
-    renderNaverApartmentMap(data.apartments || []);
-    renderMapApartmentRows(data.apartments || []);
-  } else {
-    await renderNaverGroupMap(data.groups || [], data.level);
-    renderMapGroupRows(data.groups || [], data.level);
-  }
-  return true;
-}
-
-async function initNaverGrowthMap() {
-  const loaded = await loadNaverSdk().catch(() => false);
-  if (!loaded || !window.naver?.maps) {
-    return false;
-  }
-
-  if (state.naverMap) {
-    setTimeout(() => window.naver.maps.Event.trigger(state.naverMap, "resize"), 0);
-    if (await hasNaverAuthFailure()) return fallbackFromNaverMap();
-    return true;
-  }
-
-  state.naverMap = new window.naver.maps.Map(els.growthMap, {
-    center: new window.naver.maps.LatLng(36.4, 127.8),
-    zoom: 7,
-    zoomControl: true,
-    scaleControl: true,
-    mapDataControl: false
-  });
-  setTimeout(() => window.naver.maps.Event.trigger(state.naverMap, "resize"), 0);
-  if (await hasNaverAuthFailure()) return fallbackFromNaverMap();
-  return true;
-}
-
-async function hasNaverAuthFailure(container = els.growthMap) {
+async function hasNaverAuthFailure(container = els.zoomMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
   return container.textContent.includes("네이버 지도 Open API 인증이 실패");
-}
-
-function fallbackFromNaverMap() {
-  clearNaverOverlays();
-  state.naverMap = null;
-  state.clientConfig.maps.provider = "leaflet";
-  els.growthMap.innerHTML = "";
-  return false;
 }
 
 function loadNaverSdk() {
@@ -488,204 +334,12 @@ function loadNaverSdk() {
   return state.naverSdkPromise;
 }
 
-function clearNaverOverlays() {
-  for (const overlay of state.naverOverlays) {
-    overlay.setMap(null);
-  }
-  state.naverOverlays = [];
-  if (state.naverInfoWindow) state.naverInfoWindow.close();
-}
-
-async function renderNaverGroupMap(groups, level) {
-  if (await renderNaverBoundaryGroupMap(groups, level)) return;
-
-  const positions = [];
-  for (const group of groups) {
-    if (!Number.isFinite(group.lat) || !Number.isFinite(group.lng)) continue;
-    const position = new window.naver.maps.LatLng(group.lat, group.lng);
-    positions.push(position);
-    const marker = new window.naver.maps.Marker({
-      position,
-      map: state.naverMap,
-      icon: naverLabelIcon(`
-        <div class="naver-map-marker" style="--marker-color:${growthColor(group.growthRate)}">
-          <strong>${escapeHtml(shortRegionLabel(group.name))}</strong>
-          <span>${formatPercent(group.growthRate)}</span>
-        </div>
-      `, 92, 48)
-    });
-    window.naver.maps.Event.addListener(marker, "click", () => {
-      openNaverInfoWindow(position, mapGroupPopup(group));
-      drillMapDown(group, level);
-    });
-    state.naverOverlays.push(marker);
-  }
-  if (level === "sido") {
-    focusNaverHomeMap();
-  } else {
-    fitNaverPositions(positions, 11);
-  }
-}
-
-async function renderNaverBoundaryGroupMap(groups, level) {
-  if (!["sido", "sigungu"].includes(level) || !window.topojson) return false;
-
-  const geoJson = await loadBoundaryGeoJson(level).catch(() => null);
-  if (!geoJson?.features?.length) return false;
-
-  const groupLookup = buildBoundaryGroupLookup(groups, level);
-  const features = geoJson.features.filter((feature) => {
-    if (level === "sido") return Boolean(findBoundaryGroup(feature, groupLookup, level));
-    return featureBoundarySidoCode(feature) === state.selectedSidoCode || Boolean(findBoundaryGroup(feature, groupLookup, level));
-  });
-  if (!features.length) return false;
-
-  const boundsPositions = [];
-  const labelPositions = [];
-  for (const feature of features) {
-    const group = findBoundaryGroup(feature, groupLookup, level);
-    boundsPositions.push(...featurePositions(feature));
-    const polygons = createNaverFeaturePolygons(feature, group);
-    const setHovered = (hovered) => {
-      polygons.forEach((polygon) => {
-        polygon.setOptions(hovered ? naverBoundaryHoverStyle(group) : naverBoundaryStyle(group));
-      });
-    };
-    for (const polygon of polygons) {
-      window.naver.maps.Event.addListener(polygon, "mouseover", () => setHovered(true));
-      window.naver.maps.Event.addListener(polygon, "mouseout", () => setHovered(false));
-      if (group) {
-        window.naver.maps.Event.addListener(polygon, "click", () => {
-          const center = boundaryLabelCenter(feature, group);
-          if (center) openNaverInfoWindow(new window.naver.maps.LatLng(center[0], center[1]), mapGroupPopup(group));
-          drillMapDown(group, level);
-        });
-      }
-      state.naverOverlays.push(polygon);
-    }
-
-    if (!group) continue;
-    const center = boundaryLabelCenter(feature, group);
-    if (!center) continue;
-    labelPositions.push(center);
-    const label = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(center[0], center[1]),
-      map: state.naverMap,
-      clickable: true,
-      icon: naverLabelIcon(`
-        <div class="boundary-label naver-boundary-label">
-          <strong>${escapeHtml(shortRegionLabel(group.name))}</strong>
-          <span>${formatPercent(group.growthRate)}</span>
-        </div>
-      `, 92, 42)
-    });
-    window.naver.maps.Event.addListener(label, "mouseover", () => setHovered(true));
-    window.naver.maps.Event.addListener(label, "mouseout", () => setHovered(false));
-    window.naver.maps.Event.addListener(label, "click", () => drillMapDown(group, level));
-    state.naverOverlays.push(label);
-  }
-
-  if (level === "sido") {
-    focusNaverHomeMap();
-  } else {
-    fitNaverPositions(toNaverLatLngs(labelPositions.length ? labelPositions : boundsPositions), 11);
-  }
-  return true;
-}
-
-function toNaverLatLngs(positions) {
-  return positions
-    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
-    .map(([lat, lng]) => new window.naver.maps.LatLng(lat, lng));
-}
-
-function createNaverFeaturePolygons(feature, group) {
-  const geometry = feature.geometry || {};
-  const polygons = geometry.type === "Polygon"
-    ? [geometry.coordinates]
-    : geometry.type === "MultiPolygon"
-      ? geometry.coordinates
-      : [];
-
-  return polygons.map((rings) => new window.naver.maps.Polygon({
-    map: state.naverMap,
-    paths: rings.map((ring) => ring
-      .filter((coord) => Number.isFinite(coord[0]) && Number.isFinite(coord[1]))
-      .map((coord) => new window.naver.maps.LatLng(coord[1], coord[0]))),
-    ...naverBoundaryStyle(group)
-  }));
-}
-
-function naverBoundaryStyle(group) {
-  const style = mapBoundaryStyle(group);
-  return {
-    strokeColor: style.color,
-    strokeOpacity: 1,
-    strokeWeight: style.weight,
-    fillColor: style.fillColor,
-    fillOpacity: style.fillOpacity,
-    clickable: Boolean(group)
-  };
-}
-
-function naverBoundaryHoverStyle(group) {
-  const style = mapBoundaryStyle(group, true);
-  return {
-    strokeColor: style.color,
-    strokeOpacity: 1,
-    strokeWeight: style.weight,
-    fillColor: style.fillColor,
-    fillOpacity: style.fillOpacity,
-    clickable: Boolean(group)
-  };
-}
-
-function renderNaverApartmentMap(apartments) {
-  const positions = [];
-  for (const apartment of apartments) {
-    if (!Number.isFinite(apartment.lat) || !Number.isFinite(apartment.lng)) continue;
-    const position = new window.naver.maps.LatLng(apartment.lat, apartment.lng);
-    positions.push(position);
-    const marker = new window.naver.maps.Marker({
-      position,
-      map: state.naverMap,
-      icon: naverLabelIcon(`
-        <div class="apartment-map-marker" style="--marker-color:${growthColor(apartment.growthRate)}">
-          <span>${formatPercent(apartment.growthRate)}</span>
-        </div>
-      `, 54, 34)
-    });
-    window.naver.maps.Event.addListener(marker, "click", () => {
-      openNaverInfoWindow(position, `
-        <strong>${escapeHtml(apartment.name)}</strong><br>
-        ${escapeHtml(apartment.neighborhoodName || "-")} / ${escapeHtml(apartment.areaSummary || "-")}<br>
-        ${formatMoney(apartment.startPyeongPrice)} → ${formatMoney(apartment.endPyeongPrice)}<br>
-        상승률 ${formatPercent(apartment.growthRate)}
-      `);
-    });
-    state.naverOverlays.push(marker);
-  }
-  fitNaverPositions(positions, 13);
-}
-
 function naverLabelIcon(content, width, height) {
   return {
     content,
     size: new window.naver.maps.Size(width, height),
     anchor: new window.naver.maps.Point(width / 2, height / 2)
   };
-}
-
-function openNaverInfoWindow(position, html) {
-  if (!state.naverInfoWindow) {
-    state.naverInfoWindow = new window.naver.maps.InfoWindow({
-      borderWidth: 0,
-      backgroundColor: "transparent",
-      disableAnchor: false
-    });
-  }
-  state.naverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
-  state.naverInfoWindow.open(state.naverMap, position);
 }
 
 function openZoomNaverInfoWindow(position, html) {
@@ -698,408 +352,6 @@ function openZoomNaverInfoWindow(position, html) {
   }
   state.zoomNaverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
-}
-
-function fitNaverPositions(positions, maxZoom) {
-  if (!state.naverMap || !positions.length) {
-    state.naverMap?.setCenter(new window.naver.maps.LatLng(36.4, 127.8));
-    state.naverMap?.setZoom(7);
-    return;
-  }
-
-  const bounds = positions.reduce((current, position) => {
-    if (!current) return new window.naver.maps.LatLngBounds(position, position);
-    current.extend(position);
-    return current;
-  }, null);
-
-  state.naverMap.fitBounds(bounds);
-  setTimeout(() => {
-    if (state.naverMap.getZoom() > maxZoom) state.naverMap.setZoom(maxZoom);
-  }, 0);
-}
-
-function focusNaverHomeMap() {
-  if (!state.naverMap) return;
-  setTimeout(() => {
-    window.naver.maps.Event.trigger(state.naverMap, "resize");
-    state.naverMap.setCenter(new window.naver.maps.LatLng(homeMapView.center[0], homeMapView.center[1]));
-    state.naverMap.setZoom(homeMapView.zoom);
-  }, 0);
-}
-
-function initGrowthMap() {
-  if (!window.L) {
-    els.growthMap.innerHTML = `<div class="empty">지도 라이브러리를 불러오지 못했습니다.</div>`;
-    return;
-  }
-
-  if (state.map) {
-    setTimeout(() => state.map.invalidateSize(), 0);
-    return;
-  }
-
-  state.map = L.map(els.growthMap, {
-    scrollWheelZoom: false
-  }).setView([36.4, 127.8], 7);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(state.map);
-  state.mapLayer = L.layerGroup().addTo(state.map);
-}
-
-async function renderGroupMap(groups, level) {
-  if (!state.map || !state.mapLayer) return;
-  if (await renderBoundaryGroupMap(groups, level)) return;
-
-  const bounds = [];
-  for (const group of groups) {
-    if (!Number.isFinite(group.lat) || !Number.isFinite(group.lng)) continue;
-    bounds.push([group.lat, group.lng]);
-    const marker = L.circleMarker([group.lat, group.lng], {
-      radius: markerRadius(group.apartmentCount),
-      color: growthColor(group.growthRate),
-      fillColor: growthColor(group.growthRate),
-      fillOpacity: 0.72,
-      weight: 2
-    }).addTo(state.mapLayer);
-    marker.bindTooltip(`${group.name} ${formatPercent(group.growthRate)}`, {
-      direction: "top",
-      sticky: true
-    });
-    marker.bindPopup(mapGroupPopup(group));
-    marker.on("click", () => drillMapDown(group, level));
-  }
-  fitMapBounds(bounds, level === "sido" ? 7 : 11);
-}
-
-async function renderBoundaryGroupMap(groups, level) {
-  if (!["sido", "sigungu"].includes(level) || !window.topojson) return false;
-
-  const geoJson = await loadBoundaryGeoJson(level).catch(() => null);
-  if (!geoJson?.features?.length) return false;
-
-  const groupLookup = buildBoundaryGroupLookup(groups, level);
-  const features = geoJson.features.filter((feature) => {
-    if (level === "sido") return Boolean(findBoundaryGroup(feature, groupLookup, level));
-    return featureBoundarySidoCode(feature) === state.selectedSidoCode || Boolean(findBoundaryGroup(feature, groupLookup, level));
-  });
-  if (!features.length) return false;
-
-  const boundaryLayer = L.geoJSON({ type: "FeatureCollection", features }, {
-    style: (feature) => boundaryStyle(findBoundaryGroup(feature, groupLookup, level)),
-    onEachFeature: (feature, layer) => {
-      const group = findBoundaryGroup(feature, groupLookup, level);
-      if (!group) {
-        layer.bindTooltip(featureName(feature), { direction: "center", permanent: false });
-        return;
-      }
-
-      layer.bindPopup(mapGroupPopup(group));
-      layer.on({
-        mouseover: () => {
-          layer.setStyle(boundaryHoverStyle(group));
-          layer.bringToFront();
-        },
-        mouseout: () => {
-          layer.setStyle(boundaryStyle(group));
-        },
-        click: () => drillMapDown(group, level)
-      });
-    }
-  }).addTo(state.mapLayer);
-
-  for (const feature of features) {
-    const group = findBoundaryGroup(feature, groupLookup, level);
-    if (!group) continue;
-    const center = boundaryLabelCenter(feature, group);
-    if (!center) continue;
-    const targetLayer = Object.values(boundaryLayer._layers || {}).find((layer) => {
-      return findBoundaryGroup(layer.feature, groupLookup, level)?.code === group.code;
-    });
-    const setHovered = (hovered) => {
-      if (!targetLayer) return;
-      targetLayer.setStyle(hovered ? boundaryHoverStyle(group) : boundaryStyle(group));
-      if (hovered) targetLayer.bringToFront();
-    };
-    const label = L.marker(center, {
-      interactive: true,
-      icon: L.divIcon({
-        className: "boundary-label",
-        html: `<strong>${escapeHtml(shortRegionLabel(group.name))}</strong><span>${formatPercent(group.growthRate)}</span>`,
-        iconSize: [92, 42],
-        iconAnchor: [46, 21]
-      })
-    }).addTo(state.mapLayer);
-    label.on({
-      mouseover: () => setHovered(true),
-      mouseout: () => setHovered(false),
-      click: () => drillMapDown(group, level)
-    });
-  }
-
-  fitBoundaryLayer(boundaryLayer, level, groups);
-  return true;
-}
-
-function fitBoundaryLayer(boundaryLayer, level, groups = []) {
-  const bounds = boundaryLayer.getBounds();
-  if (!bounds.isValid()) return;
-
-  if (level === "sido") {
-    setTimeout(() => {
-      state.map.invalidateSize();
-      state.map.setView(homeMapView.center, homeMapView.zoom, { animate: true });
-    }, 0);
-    return;
-  }
-
-  const groupPositions = groups
-    .filter((group) => Number.isFinite(group.lat) && Number.isFinite(group.lng))
-    .map((group) => [group.lat, group.lng]);
-  if (level === "sigungu" && groupPositions.length) {
-    fitMapBounds(groupPositions, 11);
-    return;
-  }
-
-  const options = {
-    animate: true,
-    duration: 0.45,
-    padding: [4, 4],
-    maxZoom: 10
-  };
-
-  setTimeout(() => {
-    state.map.invalidateSize();
-    state.map.flyToBounds(bounds, options);
-  }, 0);
-}
-
-function renderApartmentMap(apartments) {
-  if (!state.map || !state.mapLayer) return;
-  const bounds = [];
-  for (const apartment of apartments) {
-    if (!Number.isFinite(apartment.lat) || !Number.isFinite(apartment.lng)) continue;
-    bounds.push([apartment.lat, apartment.lng]);
-    const marker = L.circleMarker([apartment.lat, apartment.lng], {
-      radius: 8,
-      color: growthColor(apartment.growthRate),
-      fillColor: growthColor(apartment.growthRate),
-      fillOpacity: 0.78,
-      weight: 2
-    }).addTo(state.mapLayer);
-    marker.bindTooltip(`${apartment.name} ${formatPercent(apartment.growthRate)}`, {
-      direction: "top",
-      sticky: true
-    });
-    marker.bindPopup(`
-      <strong>${escapeHtml(apartment.name)}</strong><br>
-      ${escapeHtml(apartment.neighborhoodName || "-")} / ${escapeHtml(apartment.areaSummary || "-")}<br>
-      ${formatMoney(apartment.startPyeongPrice)} → ${formatMoney(apartment.endPyeongPrice)}<br>
-      상승률 ${formatPercent(apartment.growthRate)}
-    `);
-  }
-  fitMapBounds(bounds, 13);
-}
-
-async function loadBoundaryGeoJson(level) {
-  if (state.boundaryCache.has(level)) return state.boundaryCache.get(level);
-  const source = boundarySources[level];
-  const topology = await fetch(source.url).then((response) => {
-    if (!response.ok) throw new Error("boundary load failed");
-    return response.json();
-  });
-  const geoJson = topojson.feature(topology, topology.objects[source.objectName]);
-  state.boundaryCache.set(level, geoJson);
-  return geoJson;
-}
-
-function buildBoundaryGroupLookup(groups, level) {
-  const lookup = new Map();
-  for (const group of groups) {
-    lookup.set(`code:${group.code}`, group);
-    lookup.set(`name:${normalizeBoundaryName(group.name)}`, group);
-    lookup.set(`name:${normalizeBoundaryName(shortRegionLabel(group.name))}`, group);
-    if (level === "sido") lookup.set(`kostat:${legalSidoToKostatCode(group.code)}`, group);
-  }
-  return lookup;
-}
-
-function findBoundaryGroup(feature, lookup, level) {
-  const code = featureCode(feature);
-  const name = normalizeBoundaryName(featureName(feature));
-  if (lookup.has(`code:${code}`)) return lookup.get(`code:${code}`);
-  if (lookup.has(`name:${name}`)) return lookup.get(`name:${name}`);
-  if (level === "sido" && lookup.has(`kostat:${code}`)) return lookup.get(`kostat:${code}`);
-
-  const candidates = new Map();
-  for (const [key, group] of lookup) {
-    if (!key.startsWith("name:")) continue;
-    const candidate = key.slice(5);
-    if (candidate.length >= 2 && name.length >= 2 && (candidate.includes(name) || name.includes(candidate))) {
-      candidates.set(group.code, group);
-    }
-  }
-  const matches = [...candidates.values()];
-  if (matches.length > 1) return combineBoundaryGroups(featureName(feature), matches);
-  if (matches.length === 1) return matches[0];
-  return null;
-}
-
-function combineBoundaryGroups(name, groups) {
-  const totalAreaCount = groups.reduce((sum, group) => sum + group.areaCount, 0) || groups.length;
-  const weightedAverage = (key) => groups.reduce((sum, group) => {
-    const weight = group.areaCount || 1;
-    return sum + Number(group[key] || 0) * weight;
-  }, 0) / totalAreaCount;
-
-  return {
-    code: commonPrefix(groups.map((group) => group.code)),
-    name: shortRegionLabel(name),
-    lat: weightedAverage("lat"),
-    lng: weightedAverage("lng"),
-    apartmentCount: groups.reduce((sum, group) => sum + group.apartmentCount, 0),
-    areaCount: groups.reduce((sum, group) => sum + group.areaCount, 0),
-    growthRate: weightedAverage("growthRate"),
-    growthAmount: Math.round(weightedAverage("growthAmount"))
-  };
-}
-
-function commonPrefix(values) {
-  if (!values.length) return "";
-  let prefix = String(values[0] || "");
-  for (const value of values.slice(1)) {
-    while (prefix && !String(value || "").startsWith(prefix)) {
-      prefix = prefix.slice(0, -1);
-    }
-  }
-  return prefix;
-}
-
-function boundaryStyle(group) {
-  return {
-    ...mapBoundaryStyle(group),
-    opacity: 1,
-    dashArray: group ? "" : "4"
-  };
-}
-
-function boundaryHoverStyle(group) {
-  return {
-    ...mapBoundaryStyle(group, true),
-    opacity: 1,
-    dashArray: ""
-  };
-}
-
-function mapBoundaryStyle(group, hovered = false) {
-  if (!group) {
-    return {
-      color: "#cbd5e1",
-      fillColor: "#e4e7ec",
-      fillOpacity: 0.24,
-      weight: 1
-    };
-  }
-
-  if (state.mapColorMode === "hover" && ["sido", "sigungu"].includes(state.mapLevel)) {
-    return {
-      color: hovered ? "#1d2939" : "#ffffff",
-      fillColor: hovered ? regionFillColor(group) : "#c5d2e3",
-      fillOpacity: hovered ? 0.86 : 0.52,
-      weight: hovered ? 3 : 1.5
-    };
-  }
-
-  if (state.mapLevel === "sido" && state.mapColorMode === "distinct") {
-    return {
-      color: hovered ? "#1d2939" : "#ffffff",
-      fillColor: homeSidoColor(group),
-      fillOpacity: hovered ? 0.82 : 0.68,
-      weight: hovered ? 3 : 1.5
-    };
-  }
-
-  return {
-    color: hovered ? "#1d2939" : "#ffffff",
-    fillColor: growthColor(group.growthRate),
-    fillOpacity: hovered ? 0.78 : 0.64,
-    weight: hovered ? 3 : 1.5
-  };
-}
-
-function homeSidoColor(group) {
-  return homeSidoColors[group?.code] || growthColor(group?.growthRate);
-}
-
-function regionFillColor(group) {
-  if (state.mapLevel === "sido") return homeSidoColor(group);
-  return growthColor(group?.growthRate);
-}
-
-function featureCode(feature) {
-  return String(feature.properties?.code || feature.properties?.SIG_CD || feature.properties?.CTPRVN_CD || "");
-}
-
-function featureName(feature) {
-  return String(feature.properties?.name || feature.properties?.SIG_KOR_NM || feature.properties?.CTP_KOR_NM || "");
-}
-
-function featureBoundarySidoCode(feature) {
-  return kostatSidoToLegalCode(featureCode(feature).slice(0, 2));
-}
-
-function legalSidoToKostatCode(code) {
-  return {
-    11: "11",
-    26: "21",
-    27: "22",
-    28: "23",
-    29: "24",
-    30: "25",
-    31: "26",
-    36: "29",
-    41: "31",
-    42: "32",
-    43: "33",
-    44: "34",
-    45: "35",
-    46: "36",
-    47: "37",
-    48: "38",
-    50: "39"
-  }[code] || code;
-}
-
-function kostatSidoToLegalCode(code) {
-  return {
-    11: "11",
-    21: "26",
-    22: "27",
-    23: "28",
-    24: "29",
-    25: "30",
-    26: "31",
-    29: "36",
-    31: "41",
-    32: "42",
-    33: "43",
-    34: "44",
-    35: "45",
-    36: "46",
-    37: "47",
-    38: "48",
-    39: "50"
-  }[code] || code;
-}
-
-function normalizeBoundaryName(value) {
-  const name = String(value || "")
-    .replace(/\s/g, "")
-    .replace(/특별자치시|특별자치도|특별시|광역시|자치시|자치도/g, "")
-    .replace(/(시|도|군|구)$/g, "");
-  return name.startsWith("시") ? name : name.replace(/시(?=.+$)/g, "");
 }
 
 function shortRegionLabel(name) {
@@ -1116,123 +368,6 @@ function shortRegionLabel(name) {
     .replace("전라남도", "전남")
     .replace("경상북도", "경북")
     .replace("경상남도", "경남");
-}
-
-function boundaryLabelCenter(feature, group = null) {
-  if (Number.isFinite(group?.lat) && Number.isFinite(group?.lng)) {
-    return [group.lat, group.lng];
-  }
-  const positions = featurePositions(feature);
-  if (!positions.length) return null;
-  const lats = positions.map((position) => position[0]);
-  const lngs = positions.map((position) => position[1]);
-  return [
-    (Math.min(...lats) + Math.max(...lats)) / 2,
-    (Math.min(...lngs) + Math.max(...lngs)) / 2
-  ];
-}
-
-function featurePositions(feature) {
-  const positions = [];
-  collectFeaturePositions(feature.geometry?.coordinates, positions);
-  return positions;
-}
-
-function collectFeaturePositions(value, positions) {
-  if (!Array.isArray(value)) return;
-  if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
-    positions.push([value[1], value[0]]);
-    return;
-  }
-  for (const item of value) {
-    collectFeaturePositions(item, positions);
-  }
-}
-
-function drillMapDown(group, level) {
-  if (level === "sido") {
-    state.mapLevel = "sigungu";
-    state.selectedSidoCode = group.code;
-    state.selectedSidoName = group.name;
-    state.selectedSigunguCode = "";
-    state.selectedSigunguName = "";
-  } else {
-    state.mapLevel = "apartment";
-    state.selectedSigunguCode = group.code;
-    state.selectedSigunguName = group.name;
-  }
-  loadMapSummary();
-}
-
-function fitMapBounds(bounds, fallbackZoom) {
-  if (!state.map) return;
-  if (bounds.length) {
-    state.map.fitBounds(bounds, { padding: [28, 28], maxZoom: fallbackZoom });
-  } else {
-    state.map.setView([36.4, 127.8], 7);
-  }
-}
-
-function renderMapGroupRows(groups, level) {
-  els.mapCount.textContent = `${groups.length}개 지역`;
-  els.mapRows.innerHTML = groups.length
-    ? groups.map((group, index) => `
-      <tr class="clickable-row" data-map-code="${escapeHtml(group.code)}" data-map-name="${escapeHtml(group.name)}">
-        <td>${index + 1}</td>
-        <td>${escapeHtml(group.name)}</td>
-        <td>${formatInt(group.apartmentCount)}</td>
-        <td>${formatInt(group.areaCount)}</td>
-        <td class="${group.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(group.growthAmount)}</td>
-        <td class="${group.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(group.growthRate)}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="6" class="empty">표시할 지역 데이터가 없습니다.</td></tr>`;
-
-  els.mapRows.querySelectorAll("[data-map-code]").forEach((row) => {
-    row.addEventListener("click", () => {
-      if (level === "sido") {
-        state.mapLevel = "sigungu";
-        state.selectedSidoCode = row.dataset.mapCode;
-        state.selectedSidoName = row.dataset.mapName;
-        state.selectedSigunguCode = "";
-        state.selectedSigunguName = "";
-      } else {
-        state.mapLevel = "apartment";
-        state.selectedSigunguCode = row.dataset.mapCode;
-        state.selectedSigunguName = row.dataset.mapName;
-      }
-      loadMapSummary();
-    });
-  });
-}
-
-function renderMapApartmentRows(apartments) {
-  els.mapCount.textContent = `${apartments.length}개 아파트`;
-  els.mapRows.innerHTML = apartments.length
-    ? apartments.map((apartment, index) => `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${escapeHtml(apartment.name)}</td>
-        <td>${formatInt(1)}</td>
-        <td>${formatInt(apartment.areaCount)}</td>
-        <td class="${apartment.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(apartment.growthAmount)}</td>
-        <td class="${apartment.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(apartment.growthRate)}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="6" class="empty">표시할 아파트 데이터가 없습니다.</td></tr>`;
-}
-
-function drillMapUp() {
-  if (state.mapLevel === "apartment") {
-    state.mapLevel = "sigungu";
-    state.selectedSigunguCode = "";
-    state.selectedSigunguName = "";
-  } else if (state.mapLevel === "sigungu") {
-    state.mapLevel = "sido";
-    state.selectedSidoCode = "";
-    state.selectedSidoName = "";
-  }
-  loadMapSummary();
 }
 
 function mapGroupPopup(group) {
@@ -1322,7 +457,7 @@ function initLeafletZoomMap() {
 }
 
 function scheduleZoomMapLoad() {
-  if (state.activeTab !== "zoomMap") return;
+  if (state.activeTab !== "map") return;
   clearTimeout(state.zoomMapTimer);
   state.zoomMapTimer = setTimeout(loadZoomMapSummary, 180);
 }
@@ -1415,8 +550,7 @@ function renderZoomMapSummary(data) {
     : "";
   updateZoomMapLevelLabel(data.level);
   els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
-  els.zoomMapTableTitle.textContent = `${levelLabel} 단위 상승률`;
-  els.zoomMapTableCount.textContent = `${formatInt(items.length)}개`;
+  els.zoomMapTitle.textContent = `${levelLabel} 상승률 지도`;
   clearZoomMapOverlays();
 
   for (const item of items) {
@@ -1427,7 +561,6 @@ function renderZoomMapSummary(data) {
       renderZoomGroupMarker(item, data.level);
     }
   }
-  renderZoomMapRows(items, data.level);
 }
 
 function clearZoomMapOverlays() {
@@ -1541,21 +674,6 @@ function renderNaverZoomApartmentMarker(item) {
     `);
   });
   state.zoomNaverOverlays.push(marker);
-}
-
-function renderZoomMapRows(items, level) {
-  els.zoomMapRows.innerHTML = items.length
-    ? items.slice(0, 300).map((item, index) => `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${escapeHtml(item.name)}</td>
-        <td>${formatInt(item.apartmentCount || 1)}</td>
-        <td>${formatInt(item.areaCount)}</td>
-        <td class="${item.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(item.growthAmount)}</td>
-        <td class="${item.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(item.growthRate)}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="6" class="empty">현재 화면에 표시할 ${zoomLevelLabel(level)} 데이터가 없습니다.</td></tr>`;
 }
 
 function zoomGroupPopup(item) {
@@ -1917,7 +1035,6 @@ function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
   els.apartmentRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
-  els.zoomMapRows.innerHTML = `<tr><td colspan="6" class="empty">동기화 후 줌지도가 표시됩니다.</td></tr>`;
 }
 
 function queryParams() {
