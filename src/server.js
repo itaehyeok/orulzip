@@ -206,7 +206,7 @@ function buildZoomMapSummary(dataset, filters) {
 
 function zoomAggregationLevel(zoom) {
   if (zoom >= 15) return "apartment";
-  if (zoom >= 12) return "dong";
+  if (zoom >= 13) return "dong";
   if (zoom >= 11) return "sigungu";
   return "sido";
 }
