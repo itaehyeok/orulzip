@@ -627,10 +627,16 @@ function renderZoomApartmentMarker(item) {
     icon: L.divIcon({
       className: "apartment-map-marker-shell",
       html: apartmentMarkerHtml(item),
-      iconSize: [108, 42],
-      iconAnchor: [54, 21]
+      iconSize: [54, 34],
+      iconAnchor: [27, 17]
     })
   }).addTo(state.zoomMapLayer);
+  marker.bindTooltip(apartmentHoverHtml(item), {
+    className: "apartment-hover-tooltip",
+    direction: "top",
+    opacity: 1,
+    sticky: true
+  });
   marker.on("click", () => openMapApartmentDetail(item.id));
 }
 
@@ -664,7 +670,13 @@ function renderNaverZoomApartmentMarker(item) {
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
-    icon: naverLabelIcon(apartmentMarkerHtml(item), 108, 42)
+    icon: naverLabelIcon(apartmentMarkerHtml(item), 54, 34)
+  });
+  window.naver.maps.Event.addListener(marker, "mouseover", () => {
+    openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
+  });
+  window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     openMapApartmentDetail(item.id);
@@ -676,9 +688,17 @@ function apartmentMarkerHtml(item) {
   const hasData = item.hasData !== false;
   return `
     <div class="apartment-map-marker ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
-      <strong>${escapeHtml(item.name)}</strong>
       <span>${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
     </div>
+  `;
+}
+
+function apartmentHoverHtml(item) {
+  const hasData = item.hasData !== false;
+  return `
+    <strong>${escapeHtml(item.name)}</strong><br>
+    ${escapeHtml(item.neighborhoodName || "-")}<br>
+    상승률 ${hasData ? formatPercent(item.growthRate) : "데이터없음"}
   `;
 }
 

@@ -354,39 +354,23 @@ input {
   align-items: center;
   background: color-mix(in srgb, var(--marker-color) 88%, white);
   border: 2px solid #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.22);
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.2);
   color: #ffffff;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  height: 42px;
-  min-width: 108px;
-  max-width: 136px;
-  padding: 4px 8px;
-  font-size: 11px;
+  height: 30px;
+  min-width: 44px;
+  padding: 0 8px;
+  font-size: 12px;
   font-weight: 800;
   justify-content: center;
-  line-height: 1.05;
+  line-height: 1.1;
   pointer-events: auto;
   text-align: center;
 }
 
-.apartment-map-marker strong {
-  display: block;
-  max-width: 118px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .apartment-map-marker span {
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 999px;
-  color: var(--marker-color);
-  display: inline-block;
-  font-size: 11px;
-  padding: 2px 6px;
+  color: #ffffff;
 }
 
 .apartment-map-marker.no-data {
@@ -394,7 +378,20 @@ input {
 }
 
 .apartment-map-marker.no-data span {
-  color: #667085;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.apartment-hover-tooltip {
+  border: 1px solid rgba(16, 24, 40, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.18);
+  color: #1d2939;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 8px 10px;
+  white-space: nowrap;
 }
 
 .map-apartment-popup {
