@@ -20,6 +20,15 @@ const FORMULAS = [
     method: "average"
   },
   {
+    id: "same_month_trimmed",
+    name: "동월 절사평균",
+    description: "같은 월 거래에서 상하위 극단값을 덜어낸 평당가 평균",
+    monthsBack: 0,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "trimmedAverage"
+  },
+  {
     id: "trailing_3m_median",
     name: "최근 3개월 중앙값",
     description: "기준월 포함 최근 3개월 거래의 평당가 중앙값",
@@ -27,6 +36,51 @@ const FORMULAS = [
     monthsForward: 0,
     areaTolerance: 1.2,
     method: "median"
+  },
+  {
+    id: "trailing_3m_average",
+    name: "최근 3개월 평균",
+    description: "기준월 포함 최근 3개월 거래의 평당가 단순 평균",
+    monthsBack: 2,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "average"
+  },
+  {
+    id: "trailing_3m_weighted",
+    name: "최근 3개월 가중평균",
+    description: "최근 거래일수록 높은 가중치를 둔 3개월 평당가 평균",
+    monthsBack: 2,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "weightedAverage"
+  },
+  {
+    id: "trailing_3m_trimmed",
+    name: "최근 3개월 절사평균",
+    description: "최근 3개월 거래에서 상하위 극단값을 덜어낸 평당가 평균",
+    monthsBack: 2,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "trimmedAverage"
+  },
+  {
+    id: "trailing_6m_median",
+    name: "최근 6개월 중앙값",
+    description: "기준월 포함 최근 6개월 거래의 평당가 중앙값",
+    monthsBack: 5,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "median"
+  },
+  {
+    id: "trailing_6m_average",
+    name: "최근 6개월 평균",
+    description: "기준월 포함 최근 6개월 거래의 평당가 단순 평균",
+    monthsBack: 5,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "average"
   },
   {
     id: "trailing_6m_weighted",
@@ -38,10 +92,73 @@ const FORMULAS = [
     method: "weightedAverage"
   },
   {
+    id: "trailing_6m_trimmed",
+    name: "최근 6개월 절사평균",
+    description: "최근 6개월 거래에서 상하위 극단값을 덜어낸 평당가 평균",
+    monthsBack: 5,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "trimmedAverage"
+  },
+  {
+    id: "trailing_12m_median",
+    name: "최근 12개월 중앙값",
+    description: "기준월 포함 최근 12개월 거래의 평당가 중앙값",
+    monthsBack: 11,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "median"
+  },
+  {
+    id: "trailing_12m_weighted",
+    name: "최근 12개월 가중평균",
+    description: "최근 거래일수록 높은 가중치를 둔 12개월 평당가 평균",
+    monthsBack: 11,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "weightedAverage"
+  },
+  {
+    id: "trailing_12m_trimmed",
+    name: "최근 12개월 절사평균",
+    description: "최근 12개월 거래에서 상하위 극단값을 덜어낸 평당가 평균",
+    monthsBack: 11,
+    monthsForward: 0,
+    areaTolerance: 1.2,
+    method: "trimmedAverage"
+  },
+  {
+    id: "wide_area_3m_median",
+    name: "유사면적 3개월 중앙값",
+    description: "전용면적 허용폭을 넓힌 최근 3개월 평당가 중앙값",
+    monthsBack: 2,
+    monthsForward: 0,
+    areaTolerance: 3.0,
+    method: "median"
+  },
+  {
+    id: "wide_area_6m_median",
+    name: "유사면적 6개월 중앙값",
+    description: "전용면적 허용폭을 넓힌 최근 6개월 평당가 중앙값",
+    monthsBack: 5,
+    monthsForward: 0,
+    areaTolerance: 3.0,
+    method: "median"
+  },
+  {
     id: "wide_area_6m_weighted",
     name: "유사면적 6개월 가중평균",
     description: "전용면적 허용폭을 넓혀 최근 6개월 거래를 더 많이 반영",
     monthsBack: 5,
+    monthsForward: 0,
+    areaTolerance: 3.0,
+    method: "weightedAverage"
+  },
+  {
+    id: "wide_area_12m_weighted",
+    name: "유사면적 12개월 가중평균",
+    description: "전용면적 허용폭을 넓혀 최근 12개월 거래를 더 많이 반영",
+    monthsBack: 11,
     monthsForward: 0,
     areaTolerance: 3.0,
     method: "weightedAverage"
@@ -61,7 +178,7 @@ export async function buildFormulaAnalysis({
 
   const [kbRows, dealRows] = await Promise.all([
     loadKbRows({ target, period, limit }),
-    loadDealRows({ target, period })
+    loadDealRows({ target, period, monthsBack: maxFormulaMonthsBack() })
   ]);
   const dealsByApartment = indexDeals(dealRows);
   const matchedRows = [];
@@ -109,7 +226,7 @@ export async function buildFormulaAnalysis({
       testRows: testRows.length
     },
     formulas,
-    examples: buildExamples(matchedRows, formulas[0]?.id).slice(0, 80)
+    examples: buildExamples(matchedRows, formulas[0]).slice(0, 80)
   };
 }
 
@@ -166,8 +283,8 @@ async function loadKbRows({ target, period, limit }) {
   return result.rows;
 }
 
-async function loadDealRows({ target, period }) {
-  const minMonth = addMonths(period.startMonth, -6);
+async function loadDealRows({ target, period, monthsBack }) {
+  const minMonth = addMonths(period.startMonth, -monthsBack);
   const result = await query(`
     select target_region_id, legal_dong, apt_name, exclusive_area_m2,
            deal_year_month, pyeong_price, deal_amount
@@ -217,6 +334,8 @@ function predictFormula(row, deals, formula) {
     ? median(values)
     : formula.method === "weightedAverage"
       ? weightedAverage(candidates, targetMonth)
+      : formula.method === "trimmedAverage"
+        ? trimmedAverage(values)
       : average(values);
 
   return {
@@ -276,21 +395,22 @@ function bias(pairs, scale) {
   return average(pairs.map((pair) => (pair.predicted * scale - pair.kb) / pair.kb));
 }
 
-function buildExamples(rows, formulaId) {
-  if (!formulaId) return [];
+function buildExamples(rows, formula) {
+  if (!formula) return [];
   return rows
     .map((row) => {
-      const prediction = row.predictions[formulaId];
+      const prediction = row.predictions[formula.id];
       if (!prediction) return null;
+      const calibrated = prediction.value * formula.scale;
       return {
         apartmentName: row.apartmentName,
         neighborhoodName: row.neighborhoodName,
         areaLabel: row.areaLabel,
         yearMonth: row.yearMonth,
         kbPyeongPrice: row.kbPyeongPrice,
-        predictedPyeongPrice: Math.round(prediction.value),
+        predictedPyeongPrice: Math.round(calibrated),
         dealCount: prediction.dealCount,
-        errorRate: (prediction.value - row.kbPyeongPrice) / row.kbPyeongPrice
+        errorRate: (calibrated - row.kbPyeongPrice) / row.kbPyeongPrice
       };
     })
     .filter(Boolean)
@@ -321,6 +441,13 @@ function median(values) {
 
 function average(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function trimmedAverage(values) {
+  if (values.length < 4) return average(values);
+  const sorted = [...values].sort((a, b) => a - b);
+  const trimCount = Math.floor(sorted.length * 0.1);
+  return average(sorted.slice(trimCount, sorted.length - trimCount));
 }
 
 function weightedAverage(deals, targetMonth) {
@@ -355,6 +482,10 @@ function clampMonth(value, min, max) {
   if (min && value < min) return min;
   if (max && value > max) return max;
   return value;
+}
+
+function maxFormulaMonthsBack() {
+  return Math.max(...FORMULAS.map((formula) => formula.monthsBack || 0));
 }
 
 function emptyAnalysis({ target, period, reason }) {
