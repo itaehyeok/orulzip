@@ -199,7 +199,7 @@ function buildZoomMapSummary(dataset, filters) {
     zoom: filters.zoom,
     period: ranking.period,
     items: level === "apartment"
-      ? summarizeApartments(rows).slice(0, 2000).map((item) => ({ ...item, type: "apartment" }))
+      ? summarizeZoomApartments({ rows, dataset, filters }).slice(0, 2000)
       : summarizeZoomGroups(rows, level).map((item) => ({ ...item, type: "group" }))
   };
 }
@@ -286,6 +286,38 @@ function zoomDongName(apartment) {
   const addressParts = String(apartment.address || "").split(" ").filter(Boolean);
   const sigungu = addressParts.slice(1).find((part) => /구$|시$|군$/.test(part));
   return sigungu ? `${sigungu} ${neighborhood}` : neighborhood;
+}
+
+function summarizeZoomApartments({ rows, dataset, filters }) {
+  const summarized = summarizeApartments(rows).map((item) => ({
+    ...item,
+    hasData: true,
+    type: "apartment"
+  }));
+  const includedIds = new Set(summarized.map((item) => item.id));
+  const missing = dataset.apartments
+    .filter((apartment) => apartment?.legalDongCode && Number.isFinite(apartment.lat) && Number.isFinite(apartment.lng))
+    .filter((apartment) => withinBounds(apartment, filters))
+    .filter((apartment) => !includedIds.has(apartment.id))
+    .map((apartment) => ({
+      id: apartment.id,
+      name: apartment.name,
+      neighborhoodName: apartment.neighborhoodName,
+      address: apartment.address,
+      lat: apartment.lat,
+      lng: apartment.lng,
+      areaCount: 0,
+      areaSummary: "데이터없음",
+      growthRate: null,
+      growthAmount: null,
+      startPyeongPrice: null,
+      endPyeongPrice: null,
+      hasData: false,
+      type: "apartment"
+    }));
+
+  return [...summarized, ...missing]
+    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || Number(b.growthRate || -Infinity) - Number(a.growthRate || -Infinity));
 }
 
 function summarizeApartments(rows) {

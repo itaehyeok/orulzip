@@ -13,6 +13,7 @@ const state = {
   zoomNaverInfoWindow: null,
   zoomMapTimer: null,
   zoomMapRequestId: 0,
+  mapPopupRequestId: 0,
   naverSdkPromise: null
 };
 
@@ -46,6 +47,13 @@ const els = {
   zoomMapLevel: document.querySelector("#zoomMapLevel"),
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
+  mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
+  mapPopupTitle: document.querySelector("#mapPopupTitle"),
+  mapPopupMeta: document.querySelector("#mapPopupMeta"),
+  mapPopupCloseBtn: document.querySelector("#mapPopupCloseBtn"),
+  mapPopupStats: document.querySelector("#mapPopupStats"),
+  mapPopupChart: document.querySelector("#mapPopupChart"),
+  mapPopupTooltip: document.querySelector("#mapPopupTooltip"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
@@ -81,15 +89,20 @@ function bindEvents() {
     await refresh();
   });
   els.neighborhoodSelect.addEventListener("change", refresh);
-  els.startInput.addEventListener("change", refresh);
-  els.endInput.addEventListener("change", refresh);
+  els.startInput.addEventListener("change", () => {
+    syncPeriodButtons();
+    refresh();
+  });
+  els.endInput.addEventListener("change", () => {
+    syncPeriodButtons();
+    refresh();
+  });
   els.syncBtn.addEventListener("click", syncCurrentRegion);
+  els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
 
-  document.querySelectorAll(".quick-buttons button").forEach((button) => {
+  document.querySelectorAll("[data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelectorAll(".quick-buttons button").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      applyQuickPeriod(Number(button.dataset.years));
+      setPeriodYears(Number(button.dataset.periodYears));
       refresh();
     });
   });
@@ -141,10 +154,10 @@ async function loadFilters() {
   }
 
   if (state.months.length) {
-    const end = state.months.at(-1);
-    const start = state.months[Math.max(0, state.months.length - 13)];
-    if (!els.endInput.value) els.endInput.value = toMonthInput(end);
-    if (!els.startInput.value) els.startInput.value = toMonthInput(start);
+    if (!els.endInput.value || !els.startInput.value) {
+      applyQuickPeriod(1);
+    }
+    syncPeriodButtons();
   }
 }
 
@@ -610,23 +623,15 @@ function renderZoomApartmentMarker(item) {
     renderNaverZoomApartmentMarker(item);
     return;
   }
-  const marker = L.circleMarker([item.lat, item.lng], {
-    radius: 7,
-    color: growthColor(item.growthRate),
-    fillColor: growthColor(item.growthRate),
-    fillOpacity: 0.78,
-    weight: 2
+  const marker = L.marker([item.lat, item.lng], {
+    icon: L.divIcon({
+      className: "apartment-map-marker-shell",
+      html: apartmentMarkerHtml(item),
+      iconSize: [108, 42],
+      iconAnchor: [54, 21]
+    })
   }).addTo(state.zoomMapLayer);
-  marker.bindTooltip(`${item.name} ${formatPercent(item.growthRate)}`, {
-    direction: "top",
-    sticky: true
-  });
-  marker.bindPopup(`
-    <strong>${escapeHtml(item.name)}</strong><br>
-    ${escapeHtml(item.neighborhoodName || "-")} / ${escapeHtml(item.areaSummary || "-")}<br>
-    ${formatMoney(item.startPyeongPrice)} → ${formatMoney(item.endPyeongPrice)}<br>
-    상승률 ${formatPercent(item.growthRate)}
-  `);
+  marker.on("click", () => openMapApartmentDetail(item.id));
 }
 
 function renderNaverZoomGroupMarker(item, level) {
@@ -659,21 +664,158 @@ function renderNaverZoomApartmentMarker(item) {
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
-    icon: naverLabelIcon(`
-      <div class="apartment-map-marker" style="--marker-color:${growthColor(item.growthRate)}">
-        <span>${formatPercent(item.growthRate)}</span>
-      </div>
-    `, 54, 34)
+    icon: naverLabelIcon(apartmentMarkerHtml(item), 108, 42)
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
-    openZoomNaverInfoWindow(position, `
-      <strong>${escapeHtml(item.name)}</strong><br>
-      ${escapeHtml(item.neighborhoodName || "-")} / ${escapeHtml(item.areaSummary || "-")}<br>
-      ${formatMoney(item.startPyeongPrice)} → ${formatMoney(item.endPyeongPrice)}<br>
-      상승률 ${formatPercent(item.growthRate)}
-    `);
+    openMapApartmentDetail(item.id);
   });
   state.zoomNaverOverlays.push(marker);
+}
+
+function apartmentMarkerHtml(item) {
+  const hasData = item.hasData !== false;
+  return `
+    <div class="apartment-map-marker ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
+      <strong>${escapeHtml(item.name)}</strong>
+      <span>${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
+    </div>
+  `;
+}
+
+async function openMapApartmentDetail(apartmentId) {
+  const requestId = ++state.mapPopupRequestId;
+  const detail = await api(`/api/apartment-detail?apartmentId=${encodeURIComponent(apartmentId)}`);
+  if (requestId !== state.mapPopupRequestId) return;
+  renderMapApartmentDetail(detail);
+}
+
+function closeMapApartmentPopup() {
+  els.mapApartmentPopup.hidden = true;
+  if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
+}
+
+function renderMapApartmentDetail(detail) {
+  if (!detail.apartment) return;
+
+  els.mapApartmentPopup.hidden = false;
+  els.mapPopupTitle.textContent = detail.apartment.name;
+  els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / 최근 3년`;
+
+  const latestMonth = detail.months.at(-1);
+  if (!latestMonth) {
+    els.mapPopupStats.innerHTML = "";
+    els.mapPopupChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
+    return;
+  }
+
+  const startDate = parseMonth(latestMonth);
+  startDate.setFullYear(startDate.getFullYear() - 3);
+  const startMonth = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+  const months = detail.months.filter((month) => month >= startMonth && month <= latestMonth);
+  const series = detail.areaTypes
+    .map((areaType, index) => ({
+      ...areaType,
+      color: colors[index % colors.length],
+      prices: areaType.prices.filter((price) => price.yearMonth >= startMonth && price.yearMonth <= latestMonth)
+    }))
+    .filter((areaType) => areaType.prices.length)
+    .slice(0, 8);
+
+  if (!series.length) {
+    els.mapPopupStats.innerHTML = "";
+    els.mapPopupChart.innerHTML = `<div class="empty">최근 3년 시세 데이터가 없습니다.</div>`;
+    return;
+  }
+
+  els.mapPopupStats.innerHTML = series.map((item) => {
+    const first = item.prices[0];
+    const last = item.prices.at(-1);
+    const growthAmount = last.saleMid - first.saleMid;
+    const growthRate = first.saleMid ? growthAmount / first.saleMid : null;
+    return `
+      <div class="map-popup-stat">
+        <strong><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")}</strong>
+        <span>${formatKoreanPrice(first.saleMid)} → ${formatKoreanPrice(last.saleMid)}</span>
+        <em class="${growthAmount >= 0 ? "positive" : "negative"}">${formatPercent(growthRate)}</em>
+      </div>
+    `;
+  }).join("");
+
+  renderMapPopupChart({ months, series });
+}
+
+function renderMapPopupChart({ months, series }) {
+  const width = 660;
+  const height = 260;
+  const padding = { top: 20, right: 22, bottom: 34, left: 62 };
+  const values = series.flatMap((item) => item.prices.map((price) => price.saleMid).filter(Number.isFinite));
+  const yMin = Math.floor(Math.min(...values) / 5000) * 5000;
+  const yMax = Math.ceil(Math.max(...values) / 5000) * 5000;
+
+  const x = (month) => {
+    const index = months.indexOf(month);
+    if (months.length <= 1) return padding.left;
+    return padding.left + (index / (months.length - 1)) * (width - padding.left - padding.right);
+  };
+  const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (height - padding.top - padding.bottom);
+
+  const grid = [yMin, Math.round((yMin + yMax) / 2), yMax].map((value) => `
+    <line x1="${padding.left}" y1="${y(value)}" x2="${width - padding.right}" y2="${y(value)}" stroke="#e5e8ef"></line>
+    <text x="${padding.left - 8}" y="${y(value) + 4}" text-anchor="end" font-size="11" fill="#667085">${formatKoreanPrice(value)}</text>
+  `).join("");
+  const paths = series.map((item) => {
+    const commands = item.prices
+      .map((price, index) => `${index === 0 ? "M" : "L"} ${x(price.yearMonth).toFixed(1)} ${y(price.saleMid).toFixed(1)}`)
+      .join(" ");
+    return `<path d="${commands}" fill="none" stroke="${item.color}" stroke-width="2.5"></path>`;
+  }).join("");
+  const labels = months.filter((_, index) => index === 0 || index === months.length - 1 || index % Math.ceil(months.length / 4) === 0)
+    .map((month) => `<text x="${x(month)}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#667085">${formatMonth(month)}</text>`)
+    .join("");
+
+  els.mapPopupChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="최근 3년 평형별 시세 그래프">
+      ${grid}
+      ${paths}
+      ${labels}
+      <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
+      <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
+      <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" hidden></line>
+      <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${width - padding.left - padding.right}" height="${height - padding.top - padding.bottom}" fill="transparent"></rect>
+    </svg>
+  `;
+  bindMapPopupChartHover({ width, months, series, x });
+}
+
+function bindMapPopupChartHover({ width, months, series, x }) {
+  const svg = els.mapPopupChart.querySelector("svg");
+  const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
+  const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
+  if (!svg || !hit || !line || !els.mapPopupTooltip || !months.length) return;
+
+  hit.addEventListener("mousemove", (event) => {
+    const month = nearestMonthFromEvent(event, svg, width, months, x);
+    const xPos = x(month);
+    line.setAttribute("x1", xPos);
+    line.setAttribute("x2", xPos);
+    line.hidden = false;
+
+    const rows = series.map((item) => {
+      const price = item.prices.find((entry) => entry.yearMonth === month);
+      if (!price) return "";
+      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`;
+    }).filter(Boolean).join("");
+
+    showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
+      <strong>${formatMonth(month)}</strong>
+      ${rows || "<span>데이터 없음</span>"}
+    `);
+  });
+
+  hit.addEventListener("mouseleave", () => {
+    line.hidden = true;
+    els.mapPopupTooltip.hidden = true;
+  });
 }
 
 function zoomGroupPopup(item) {
@@ -714,6 +856,7 @@ function markerRadius(count) {
 }
 
 function growthColor(rate) {
+  if (!Number.isFinite(rate)) return "#667085";
   if (rate >= 1) return "#b42318";
   if (rate >= 0.5) return "#c24132";
   if (rate >= 0.2) return "#d97706";
@@ -729,6 +872,27 @@ function applyQuickPeriod(years) {
   target.setFullYear(target.getFullYear() - years);
   els.endInput.value = toMonthInput(end);
   els.startInput.value = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function setPeriodYears(years) {
+  applyQuickPeriod(years);
+  syncPeriodButtons(years);
+}
+
+function syncPeriodButtons(activeYears = currentPeriodYears()) {
+  document.querySelectorAll("[data-period-years]").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.periodYears) === activeYears);
+  });
+}
+
+function currentPeriodYears() {
+  if (!els.startInput.value || !els.endInput.value) return 1;
+  const start = new Date(`${els.startInput.value}-01`);
+  const end = new Date(`${els.endInput.value}-01`);
+  const monthDiff = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
+  if (monthDiff >= 54) return 5;
+  if (monthDiff >= 30) return 3;
+  return 1;
 }
 
 function renderNeighborhoodTable(result) {
@@ -1090,6 +1254,7 @@ function formatInt(value) {
 }
 
 function formatPercent(value) {
+  if (!Number.isFinite(value)) return "데이터없음";
   return `${(value * 100).toFixed(1)}%`;
 }
 
