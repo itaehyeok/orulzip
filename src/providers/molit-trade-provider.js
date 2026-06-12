@@ -60,7 +60,7 @@ export class MolitTradeProvider extends PriceDataProvider {
 function parseTradeResponse(xml) {
   const resultCode = tagValue(xml, "resultCode");
   const resultMsg = tagValue(xml, "resultMsg");
-  if (resultCode && resultCode !== "00") {
+  if (resultCode && !["00", "000"].includes(resultCode)) {
     throw new Error(`MOLIT API ${resultCode}: ${resultMsg || "unknown error"}`);
   }
   if (!xml.includes("<response")) {
