@@ -112,10 +112,70 @@ export async function initDb() {
       details jsonb,
       created_at timestamptz not null default now()
     );
+
+    create table if not exists molit_trade_deals (
+      id text primary key,
+      source text not null default 'molit_apt_trade_detail',
+      target_region_id text not null,
+      lawd_cd text not null,
+      sgg_cd text,
+      deal_year_month text not null,
+      deal_year integer,
+      deal_month integer,
+      deal_day integer,
+      apt_name text,
+      apt_dong text,
+      legal_dong text,
+      jibun text,
+      floor integer,
+      build_year integer,
+      exclusive_area_m2 numeric,
+      deal_amount integer,
+      pyeong_price integer,
+      cancel_type text,
+      cancel_day text,
+      registration_date text,
+      dealing_type text,
+      estate_agent_sgg_name text,
+      buyer_type text,
+      seller_type text,
+      raw jsonb not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+
+    create index if not exists molit_trade_deals_target_month_idx
+      on molit_trade_deals(target_region_id, deal_year_month);
+    create index if not exists molit_trade_deals_lawd_month_idx
+      on molit_trade_deals(lawd_cd, deal_year_month);
+    create index if not exists molit_trade_deals_apt_idx
+      on molit_trade_deals(apt_name, legal_dong);
+
+    create table if not exists molit_trade_fetches (
+      id bigserial primary key,
+      target_region_id text not null,
+      lawd_cd text not null,
+      lawd_name text not null,
+      year_month text not null,
+      status text not null default 'pending',
+      total_count integer not null default 0,
+      fetched_count integer not null default 0,
+      saved_count integer not null default 0,
+      filtered_count integer not null default 0,
+      page_count integer not null default 0,
+      error_message text,
+      started_at timestamptz,
+      completed_at timestamptz,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique(target_region_id, lawd_cd, year_month)
+    );
+
+    create index if not exists molit_trade_fetches_status_idx
+      on molit_trade_fetches(status, target_region_id, year_month);
   `);
 }
 
 export async function closeDb() {
   await pool.end();
 }
-

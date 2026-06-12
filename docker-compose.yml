@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
       NAVER_MAP_NCP_KEY_ID: ${NAVER_MAP_NCP_KEY_ID:-}
       NAVER_MAP_DISABLED: ${NAVER_MAP_DISABLED:-}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
     ports:
       - "${WEB_PORT:-3050}:3050"
 
@@ -42,3 +43,4 @@ services:
     environment:
       DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
       WORKER_IDLE_DELAY_MS: 5000
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
