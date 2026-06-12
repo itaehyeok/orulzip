@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Apartment Growth MVP</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>아파트 평당가 상승률 MVP</h1>
+          <p>내부 개발용 KB시세 기반 프로토타입</p>
+        </div>
+        <button id="syncBtn" class="primary-btn">분당 샘플 동기화</button>
+      </header>
+
+      <section class="toolbar" aria-label="필터">
+        <label>
+          지역
+          <select id="regionSelect"></select>
+        </label>
+        <label>
+          동
+          <select id="neighborhoodSelect">
+            <option value="">전체</option>
+          </select>
+        </label>
+        <label>
+          시작년월
+          <input id="startInput" type="month">
+        </label>
+        <label>
+          종료년월
+          <input id="endInput" type="month">
+        </label>
+        <div class="quick-buttons" aria-label="빠른 기간">
+          <button data-years="1">1년전</button>
+          <button data-years="2">2년전</button>
+          <button data-years="3">3년전</button>
+          <button data-years="4">4년전</button>
+          <button data-years="5">5년전</button>
+          <button data-years="6">6년전</button>
+          <button data-years="7">7년전</button>
+          <button data-years="8">8년전</button>
+          <button data-years="9">9년전</button>
+          <button data-years="10">10년전</button>
+        </div>
+      </section>
+
+      <section class="status-line" id="statusLine">데이터 상태 확인 중</section>
+
+      <section class="panel crawl-panel">
+        <div class="panel-head">
+          <h2>수집 진행 상태</h2>
+          <span id="crawlSummary">대기 중</span>
+        </div>
+        <div class="crawl-body">
+          <div class="progress-track" aria-label="수집 진행률">
+            <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <div class="crawl-grid">
+            <div>
+              <strong id="progressText">0%</strong>
+              <span>진행률</span>
+            </div>
+            <div>
+              <strong id="currentComplex">-</strong>
+              <span>현재 처리 중</span>
+            </div>
+            <div>
+              <strong id="crawlCounts">-</strong>
+              <span>완료 / 실패 / 전체</span>
+            </div>
+            <div>
+              <strong id="crawlDelay">-</strong>
+              <span>요청 간격</span>
+            </div>
+          </div>
+          <div id="crawlLogs" class="crawl-logs"></div>
+        </div>
+      </section>
+
+      <section class="panel info-panel">
+        <div class="panel-head">
+          <h2>KB시세 수집 범위</h2>
+          <span>내부 MVP 기준</span>
+        </div>
+        <div class="info-grid">
+          <div>
+            <h3>KB가 제공하는 정보</h3>
+            <p>단지, 면적 타입, 현재 KB시세, 과거 월별 시세, 실거래 일부, 매물/중개/커뮤니티/광고 등 다양한 화면 데이터를 제공합니다.</p>
+          </div>
+          <div>
+            <h3>수집할 정보</h3>
+            <p>단지 ID, 단지명, 법정동, 주소, 준공년, 세대수, 면적 ID, 공급/전용면적, 월별 매매 하한/일반/상한가, 평당가 계산값만 저장합니다.</p>
+          </div>
+          <div>
+            <h3>수집하지 않을 정보</h3>
+            <p>매물 상세, 중개업소, 전화번호, 이미지, 광고, 로그인/사용자 정보, 커뮤니티, 관심단지, 추적 로그, 대출/마케팅 정보는 저장하지 않습니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="보기 전환">
+        <button class="active" data-tab="map">지도</button>
+        <button data-tab="neighborhood">동네별</button>
+        <button data-tab="apartment">아파트별</button>
+        <button data-tab="crawl">수집 현황</button>
+      </nav>
+
+      <section id="mapView" class="view active">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 id="mapTitle">전국 평균 상승률 지도</h2>
+            <span id="mapPeriod"></span>
+          </div>
+          <div class="map-toolbar">
+            <button id="mapBackBtn" disabled>상위로</button>
+            <span id="mapBreadcrumb">전국</span>
+            <div class="map-mode-tabs" role="tablist" aria-label="지도 색상 모드">
+              <button data-map-color-mode="distinct" role="tab" aria-selected="false">고정색</button>
+              <button class="active" data-map-color-mode="hover" role="tab" aria-selected="true">호버강조</button>
+            </div>
+          </div>
+          <div id="growthMap" class="growth-map"></div>
+          <div class="map-note">색상과 라벨은 선택 기간의 평균 상승률입니다. 지역을 클릭하면 시도, 구, 아파트 순서로 내려갑니다.</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <h2 id="mapTableTitle">시도별 평균 상승률</h2>
+            <span id="mapCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>지역</th>
+                  <th>아파트</th>
+                  <th>면적</th>
+                  <th>평균 상승액</th>
+                  <th>평균 상승률</th>
+                </tr>
+              </thead>
+              <tbody id="mapRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="neighborhoodView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>동네별 지수 그래프</h2>
+            <span id="chartPeriod"></span>
+          </div>
+          <div id="chart" class="chart"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>동네별 상승률 랭킹</h2>
+            <span id="neighborhoodCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>동</th>
+                  <th>면적수</th>
+                  <th>시작 평당가</th>
+                  <th>현재 평당가</th>
+                  <th>상승액</th>
+                  <th>상승률</th>
+                </tr>
+              </thead>
+              <tbody id="neighborhoodRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="apartmentView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>아파트별 통합 랭킹</h2>
+            <span id="apartmentCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>아파트</th>
+                  <th>동</th>
+                  <th>면적 구성</th>
+                  <th>시작 평당가</th>
+                  <th>현재 평당가</th>
+                  <th>상승액</th>
+                  <th>상승률</th>
+                </tr>
+              </thead>
+              <tbody id="apartmentRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="apartmentDetailPanel" class="panel detail-panel" hidden>
+          <div class="panel-head">
+            <h2 id="detailTitle">KB 월별 시세</h2>
+            <span id="detailMeta"></span>
+          </div>
+          <div class="detail-body">
+            <div id="detailChart" class="detail-chart"></div>
+            <div id="detailTooltip" class="chart-tooltip" hidden></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="crawlView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>수집 작업 상세</h2>
+            <span id="crawlDetailSummary">-</span>
+          </div>
+          <div class="crawl-detail-tools">
+            <button class="active" data-crawl-status="failed">실패</button>
+            <button data-crawl-status="running">진행 중</button>
+            <button data-crawl-status="pending">대기</button>
+            <button data-crawl-status="completed">성공</button>
+            <button data-crawl-status="">전체</button>
+          </div>
+          <div class="crawl-stats" id="crawlStats"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>상태</th>
+                  <th>단지</th>
+                  <th>평수</th>
+                  <th>마커 시세</th>
+                  <th>시도</th>
+                  <th>실패 사유</th>
+                  <th>업데이트</th>
+                </tr>
+              </thead>
+              <tbody id="crawlDetailRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

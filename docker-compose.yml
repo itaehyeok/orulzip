@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: orulzip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orulzip
+      POSTGRES_USER: orulzip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orulzip_change_me}
+    volumes:
+      - /mnt/elements10tb/orulzip/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orulzip -d orulzip"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: orulzip-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3050
+      DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
+      NAVER_MAP_NCP_KEY_ID: ${NAVER_MAP_NCP_KEY_ID:-}
+      NAVER_MAP_DISABLED: ${NAVER_MAP_DISABLED:-}
+    ports:
+      - "${WEB_PORT:-3050}:3050"
+
+  worker:
+    build: .
+    container_name: orulzip-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
+      WORKER_IDLE_DELAY_MS: 5000
