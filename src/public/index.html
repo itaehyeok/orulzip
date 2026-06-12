@@ -13,6 +13,7 @@
         <button class="active" data-tab="map">지도</button>
         <button data-tab="neighborhood">동네별</button>
         <button data-tab="apartment">아파트별</button>
+        <button data-tab="formula">시세식</button>
         <button data-tab="crawl">수집현황</button>
       </nav>
 
@@ -117,6 +118,109 @@
           <div class="detail-body">
             <div id="detailChart" class="detail-chart"></div>
             <div id="detailTooltip" class="chart-tooltip" hidden></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="formulaView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>실거래가 기반 KB 계산식 비교</h2>
+            <span id="formulaSummary">표본 대기 중</span>
+          </div>
+          <section class="toolbar formula-toolbar" aria-label="시세식 분석 조건">
+            <label>
+              대상
+              <select id="formulaTargetSelect">
+                <option value="seoul">서울</option>
+                <option value="bundang">분당</option>
+                <option value="dongtan">동탄</option>
+              </select>
+            </label>
+            <label>
+              시작년월
+              <input id="formulaStartInput" type="month">
+            </label>
+            <label>
+              종료년월
+              <input id="formulaEndInput" type="month">
+            </label>
+            <label>
+              표본 상한
+              <select id="formulaLimitSelect">
+                <option value="8000">8,000</option>
+                <option value="15000" selected>15,000</option>
+                <option value="30000">30,000</option>
+              </select>
+            </label>
+            <button id="formulaRunBtn" class="primary-btn" type="button">분석</button>
+          </section>
+          <div class="crawl-grid formula-grid">
+            <div>
+              <strong id="formulaMatchedRows">0</strong>
+              <span>매칭 표본</span>
+            </div>
+            <div>
+              <strong id="formulaTrainRows">0</strong>
+              <span>학습 표본</span>
+            </div>
+            <div>
+              <strong id="formulaTestRows">0</strong>
+              <span>검증 표본</span>
+            </div>
+            <div>
+              <strong id="formulaBestName">-</strong>
+              <span>최저 검증 오차식</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>계산식 버전별 오차율</h2>
+            <span id="formulaPeriod">-</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>계산식</th>
+                  <th>설명</th>
+                  <th>보정계수</th>
+                  <th>학습 raw</th>
+                  <th>학습 보정</th>
+                  <th>검증 raw</th>
+                  <th>검증 보정</th>
+                  <th>검증 편향</th>
+                  <th>표본</th>
+                </tr>
+              </thead>
+              <tbody id="formulaRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>매칭 예시</h2>
+            <span>최저 오차식 기준</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>단지</th>
+                  <th>동</th>
+                  <th>면적</th>
+                  <th>년월</th>
+                  <th>KB 평당가</th>
+                  <th>계산 평당가</th>
+                  <th>거래수</th>
+                  <th>오차</th>
+                </tr>
+              </thead>
+              <tbody id="formulaExampleRows"></tbody>
+            </table>
           </div>
         </section>
       </section>

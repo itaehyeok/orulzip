@@ -7,6 +7,7 @@ import { initDb } from "./services/db.js";
 import { createCrawlJob, crawlDetails, crawlStatus, readDatasetFromDb } from "./services/db-store.js";
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
+import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -72,6 +73,15 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/molit/status") {
       return json(res, await tradeCollectionStatus({
         limit: Number(url.searchParams.get("limit") || 30)
+      }));
+    }
+
+    if (url.pathname === "/api/formula-analysis") {
+      return json(res, await buildFormulaAnalysis({
+        target: url.searchParams.get("target") || "seoul",
+        start: url.searchParams.get("start") || "",
+        end: url.searchParams.get("end") || "",
+        limit: Number(url.searchParams.get("limit") || 15000)
       }));
     }
 

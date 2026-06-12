@@ -86,6 +86,14 @@ h2 {
   margin: 0;
 }
 
+.formula-toolbar {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -170,6 +178,10 @@ input {
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-top: 14px;
+}
+
+.formula-grid {
+  padding: 0 16px 16px;
 }
 
 .crawl-grid div {

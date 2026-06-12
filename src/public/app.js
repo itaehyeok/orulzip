@@ -41,6 +41,20 @@ const els = {
   crawlDetailSummary: document.querySelector("#crawlDetailSummary"),
   crawlStats: document.querySelector("#crawlStats"),
   crawlDetailRows: document.querySelector("#crawlDetailRows"),
+  formulaView: document.querySelector("#formulaView"),
+  formulaTargetSelect: document.querySelector("#formulaTargetSelect"),
+  formulaStartInput: document.querySelector("#formulaStartInput"),
+  formulaEndInput: document.querySelector("#formulaEndInput"),
+  formulaLimitSelect: document.querySelector("#formulaLimitSelect"),
+  formulaRunBtn: document.querySelector("#formulaRunBtn"),
+  formulaSummary: document.querySelector("#formulaSummary"),
+  formulaMatchedRows: document.querySelector("#formulaMatchedRows"),
+  formulaTrainRows: document.querySelector("#formulaTrainRows"),
+  formulaTestRows: document.querySelector("#formulaTestRows"),
+  formulaBestName: document.querySelector("#formulaBestName"),
+  formulaPeriod: document.querySelector("#formulaPeriod"),
+  formulaRows: document.querySelector("#formulaRows"),
+  formulaExampleRows: document.querySelector("#formulaExampleRows"),
   molitSummary: document.querySelector("#molitSummary"),
   molitDeals: document.querySelector("#molitDeals"),
   molitFetchCounts: document.querySelector("#molitFetchCounts"),
@@ -106,6 +120,7 @@ function bindEvents() {
     refresh();
   });
   els.syncBtn.addEventListener("click", syncCurrentRegion);
+  els.formulaRunBtn.addEventListener("click", loadFormulaAnalysis);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
 
   document.querySelectorAll("[data-period-years]").forEach((button) => {
@@ -121,9 +136,11 @@ function bindEvents() {
       document.querySelectorAll(".tabs button").forEach((item) => item.classList.toggle("active", item === button));
       document.querySelector("#neighborhoodView").classList.toggle("active", state.activeTab === "neighborhood");
       document.querySelector("#apartmentView").classList.toggle("active", state.activeTab === "apartment");
+      document.querySelector("#formulaView").classList.toggle("active", state.activeTab === "formula");
       document.querySelector("#crawlView").classList.toggle("active", state.activeTab === "crawl");
       document.querySelector("#mapView").classList.toggle("active", state.activeTab === "map");
       if (state.activeTab === "crawl") loadCrawlDetails();
+      if (state.activeTab === "formula") loadFormulaAnalysis();
       if (state.activeTab === "map") loadZoomMapSummary();
     });
   });
@@ -165,6 +182,7 @@ async function loadFilters() {
     if (!els.endInput.value || !els.startInput.value) {
       applyQuickPeriod(1);
     }
+    applyFormulaDefaultPeriod();
     syncPeriodButtons();
   }
 }
@@ -307,6 +325,85 @@ function renderMolitStatus(status) {
       </tr>
     `).join("")
     : `<tr><td colspan="6" class="empty">최근 fetch 기록이 없습니다.</td></tr>`;
+}
+
+async function loadFormulaAnalysis() {
+  if (!els.formulaRunBtn) return;
+  els.formulaRunBtn.disabled = true;
+  els.formulaRunBtn.textContent = "분석 중";
+  els.formulaSummary.textContent = "KB 시세와 실거래가 표본을 매칭 중입니다.";
+
+  try {
+    const params = new URLSearchParams();
+    params.set("target", els.formulaTargetSelect.value || "seoul");
+    if (els.formulaStartInput.value) params.set("start", els.formulaStartInput.value.replace("-", ""));
+    if (els.formulaEndInput.value) params.set("end", els.formulaEndInput.value.replace("-", ""));
+    params.set("limit", els.formulaLimitSelect.value || "15000");
+    renderFormulaAnalysis(await api(`/api/formula-analysis?${params}`));
+  } catch (error) {
+    els.formulaSummary.textContent = `분석 실패: ${error.message}`;
+  } finally {
+    els.formulaRunBtn.disabled = false;
+    els.formulaRunBtn.textContent = "분석";
+  }
+}
+
+function renderFormulaAnalysis(result) {
+  const samples = result.samples || {};
+  const formulas = result.formulas || [];
+  const best = formulas[0];
+  els.formulaMatchedRows.textContent = formatInt(samples.matchedRows || 0);
+  els.formulaTrainRows.textContent = formatInt(samples.trainRows || 0);
+  els.formulaTestRows.textContent = formatInt(samples.testRows || 0);
+  els.formulaBestName.textContent = best ? best.name : "-";
+  els.formulaPeriod.textContent = result.period?.startMonth && result.period?.endMonth
+    ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
+    : "-";
+  els.formulaSummary.textContent = result.reason
+    ? result.reason
+    : `KB ${formatInt(samples.kbRows || 0)}건 / 실거래 ${formatInt(samples.tradeRows || 0)}건에서 ${formatInt(samples.matchedRows || 0)}건 매칭`;
+
+  els.formulaRows.innerHTML = formulas.length
+    ? formulas.map((formula) => `
+      <tr>
+        <td><strong>${escapeHtml(formula.name)}</strong></td>
+        <td>${escapeHtml(formula.description)}</td>
+        <td>${formatDecimal(formula.scale, 3)}</td>
+        <td>${formatPercentValue(formula.trainRawMape)}</td>
+        <td>${formatPercentValue(formula.trainCalibratedMape)}</td>
+        <td>${formatPercentValue(formula.testRawMape)}</td>
+        <td class="${formula.testCalibratedMape <= 0.08 ? "positive" : ""}">${formatPercentValue(formula.testCalibratedMape)}</td>
+        <td class="${Number(formula.testBias || 0) >= 0 ? "positive" : "negative"}">${formatSignedPercent(formula.testBias)}</td>
+        <td>${formatInt(formula.totalCount)} / 검증 ${formatInt(formula.testCount)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="9" class="empty">매칭된 계산식 표본이 없습니다. 수집이 더 진행된 뒤 다시 실행하세요.</td></tr>`;
+
+  els.formulaExampleRows.innerHTML = (result.examples || []).length
+    ? result.examples.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.apartmentName)}</td>
+        <td>${escapeHtml(row.neighborhoodName)}</td>
+        <td>${escapeHtml(row.areaLabel || "-")}</td>
+        <td>${formatMonth(row.yearMonth)}</td>
+        <td>${formatMoney(row.kbPyeongPrice)}</td>
+        <td>${formatMoney(row.predictedPyeongPrice)}</td>
+        <td>${formatInt(row.dealCount)}</td>
+        <td class="${Number(row.errorRate || 0) >= 0 ? "positive" : "negative"}">${formatSignedPercent(row.errorRate)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="8" class="empty">표시할 매칭 예시가 없습니다.</td></tr>`;
+}
+
+function applyFormulaDefaultPeriod() {
+  if (!state.months.length || !els.formulaStartInput || !els.formulaEndInput) return;
+  if (!els.formulaEndInput.value) {
+    els.formulaEndInput.value = toMonthInput(state.months.at(-1));
+  }
+  if (!els.formulaStartInput.value) {
+    const index = Math.max(0, state.months.length - 37);
+    els.formulaStartInput.value = toMonthInput(state.months[index]);
+  }
 }
 
 async function loadCrawlDetails() {
@@ -1354,6 +1451,22 @@ function formatInt(value) {
 function formatPercent(value) {
   if (!Number.isFinite(value)) return "데이터없음";
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatPercentValue(value) {
+  if (!Number.isFinite(value)) return "-";
+  return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatSignedPercent(value) {
+  if (!Number.isFinite(value)) return "-";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${(value * 100).toFixed(2)}%`;
+}
+
+function formatDecimal(value, digits = 2) {
+  if (!Number.isFinite(value)) return "-";
+  return Number(value).toFixed(digits);
 }
 
 function formatDateTime(value) {
