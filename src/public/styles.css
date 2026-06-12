@@ -329,6 +329,11 @@ input {
   text-overflow: ellipsis;
 }
 
+.muted-code {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .growth-map {
   height: 560px;
   min-height: 420px;

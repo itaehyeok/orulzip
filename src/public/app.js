@@ -20,7 +20,7 @@ const state = {
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
 const homeMapView = {
   center: [37.48, 127.18],
-  zoom: 9
+  zoom: 12
 };
 
 const els = {
@@ -41,6 +41,14 @@ const els = {
   crawlDetailSummary: document.querySelector("#crawlDetailSummary"),
   crawlStats: document.querySelector("#crawlStats"),
   crawlDetailRows: document.querySelector("#crawlDetailRows"),
+  molitSummary: document.querySelector("#molitSummary"),
+  molitDeals: document.querySelector("#molitDeals"),
+  molitFetchCounts: document.querySelector("#molitFetchCounts"),
+  molitPeriod: document.querySelector("#molitPeriod"),
+  molitScope: document.querySelector("#molitScope"),
+  molitRegionRows: document.querySelector("#molitRegionRows"),
+  molitDongRows: document.querySelector("#molitDongRows"),
+  molitRecentRows: document.querySelector("#molitRecentRows"),
   mapView: document.querySelector("#mapView"),
   zoomMapTitle: document.querySelector("#zoomMapTitle"),
   zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
@@ -162,8 +170,12 @@ async function loadFilters() {
 }
 
 async function refresh() {
-  const status = await api("/api/status");
+  const [status, molitStatus] = await Promise.all([
+    api("/api/status"),
+    api("/api/molit/status")
+  ]);
   renderCrawlStatus(status.crawl);
+  renderMolitStatus(molitStatus);
   const months = status.months || [];
   state.months = months;
   els.statusLine.textContent = status.counts.monthlyPrices
@@ -205,8 +217,12 @@ async function syncCurrentRegion() {
 }
 
 async function refreshStatusOnly() {
-  const status = await api("/api/status");
+  const [status, molitStatus] = await Promise.all([
+    api("/api/status"),
+    api("/api/molit/status")
+  ]);
   renderCrawlStatus(status.crawl);
+  renderMolitStatus(molitStatus);
   els.statusLine.textContent = status.counts.monthlyPrices
     ? `아파트 ${formatInt(status.counts.apartments)}개, 면적 ${formatInt(status.counts.areaTypes)}개, 월별 시세 ${formatInt(status.counts.monthlyPrices)}건. 최근 저장: ${status.meta.syncedAt || "-"}`
     : "아직 저장된 시세 데이터가 없습니다. 수집 작업을 등록하고 worker가 처리할 때까지 기다려주세요.";
@@ -237,6 +253,60 @@ function renderCrawlStatus(crawl) {
     const time = new Date(log.createdAt).toLocaleTimeString("ko-KR");
     return `<div>[${time}] ${escapeHtml(log.level)} ${escapeHtml(log.message)}</div>`;
   }).join("");
+}
+
+function renderMolitStatus(status) {
+  if (!status) return;
+
+  const progress = status.progress || {};
+  const overall = status.overall || {};
+  els.molitDeals.textContent = formatInt(overall.deals || 0);
+  els.molitFetchCounts.textContent = `${formatInt(progress.completed || 0)} / ${formatInt(progress.running || 0)} / ${formatInt(progress.failed || 0)}`;
+  els.molitPeriod.textContent = overall.start_month && overall.end_month
+    ? `${formatMonth(overall.start_month)} - ${formatMonth(overall.end_month)}`
+    : "-";
+  els.molitScope.textContent = `대상 ${formatInt(overall.targets || 0)}개 / 법정동 ${formatInt(overall.legal_dongs || 0)}개`;
+  els.molitSummary.textContent = `${formatInt(progress.savedCount || 0)}건 저장 / ${formatInt(progress.completed || 0)} fetch 완료`;
+
+  els.molitRegionRows.innerHTML = (status.lawdRows || []).length
+    ? status.lawdRows.map((row) => {
+      const state = row.running_fetches ? "running" : row.failed_fetches ? "failed" : "completed";
+      return `
+        <tr>
+          <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
+          <td>${escapeHtml(row.lawd_name)} <span class="muted-code">${escapeHtml(row.lawd_cd)}</span></td>
+          <td>${formatInt(row.completed_fetches)} / ${formatInt(row.fetches)}</td>
+          <td>${formatInt(row.saved_count)}</td>
+          <td>${row.start_month && row.end_month ? `${formatMonth(row.start_month)} - ${formatMonth(row.end_month)}` : "-"}</td>
+          <td><span class="status-pill ${state}">${statusLabel(state)}</span></td>
+        </tr>
+      `;
+    }).join("")
+    : `<tr><td colspan="6" class="empty">아직 실거래가 fetch 기록이 없습니다.</td></tr>`;
+
+  els.molitDongRows.innerHTML = (status.dongRows || []).length
+    ? status.dongRows.map((row) => `
+      <tr>
+        <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
+        <td>${escapeHtml(row.legal_dong || "-")}</td>
+        <td>${formatInt(row.deals)}</td>
+        <td>${row.start_month && row.end_month ? `${formatMonth(row.start_month)} - ${formatMonth(row.end_month)}` : "-"}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="4" class="empty">아직 법정동별 실거래가 저장 기록이 없습니다.</td></tr>`;
+
+  els.molitRecentRows.innerHTML = (status.recentRows || []).length
+    ? status.recentRows.map((row) => `
+      <tr>
+        <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
+        <td>${escapeHtml(row.lawd_name)} <span class="muted-code">${escapeHtml(row.lawd_cd)}</span></td>
+        <td>${formatMonth(row.year_month)}</td>
+        <td><span class="status-pill ${escapeHtml(row.status)}">${statusLabel(row.status)}</span></td>
+        <td>${formatInt(row.saved_count)}</td>
+        <td class="error-cell">${escapeHtml(row.error_message || "-")}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="6" class="empty">최근 fetch 기록이 없습니다.</td></tr>`;
 }
 
 async function loadCrawlDetails() {
@@ -299,6 +369,14 @@ function statusLabel(status) {
     running: "진행 중",
     pending: "대기"
   }[status] || status;
+}
+
+function targetLabel(target) {
+  return {
+    seoul: "서울",
+    bundang: "분당",
+    dongtan: "동탄"
+  }[target] || target || "-";
 }
 
 function formatMarkerPrice(row) {
@@ -415,7 +493,7 @@ async function initNaverZoomMap() {
 
   state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
     center: new window.naver.maps.LatLng(homeMapView.center[0], homeMapView.center[1]),
-    zoom: 8,
+    zoom: homeMapView.zoom,
     zoomControl: true,
     scaleControl: true,
     mapDataControl: false
@@ -455,7 +533,7 @@ function initLeafletZoomMap() {
 
   state.zoomMap = L.map(els.zoomMap, {
     scrollWheelZoom: true
-  }).setView(homeMapView.center, 8);
+  }).setView(homeMapView.center, homeMapView.zoom);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
