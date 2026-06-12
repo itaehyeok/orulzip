@@ -356,6 +356,10 @@ input {
   background: #eef2f7;
 }
 
+.map-canvas-wrap {
+  position: relative;
+}
+
 .map-note {
   padding: 10px 16px 14px;
   border-top: 1px solid var(--line);
@@ -449,6 +453,51 @@ input {
   line-height: 1.55;
   padding: 10px 12px;
   white-space: nowrap;
+}
+
+.zoom-cluster-marker {
+  background: transparent;
+  border: 0;
+}
+
+.zoom-cluster-marker > div {
+  align-items: center;
+  background: color-mix(in srgb, var(--zoom-color) 86%, white);
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.24);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1.05;
+  height: 100%;
+  text-align: center;
+  width: 100%;
+}
+
+.zoom-cluster-marker strong {
+  display: block;
+  font-size: 12px;
+  max-width: 74px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zoom-cluster-marker span {
+  font-size: 15px;
+}
+
+.zoom-cluster-marker em {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 999px;
+  color: var(--zoom-color);
+  font-size: 11px;
+  font-style: normal;
+  margin-top: 3px;
+  padding: 2px 7px;
 }
 
 .view {

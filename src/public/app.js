@@ -3,7 +3,7 @@ const state = {
   regionStats: [],
   months: [],
   neighborhoods: [],
-  activeTab: "map",
+  activeTab: "zoomMap",
   crawlStatusFilter: "failed",
   mapColorMode: "hover",
   mapLevel: "sido",
@@ -14,6 +14,13 @@ const state = {
   clientConfig: { maps: { provider: "leaflet", naverKeyId: "" } },
   map: null,
   mapLayer: null,
+  zoomMap: null,
+  zoomMapLayer: null,
+  zoomNaverMap: null,
+  zoomNaverOverlays: [],
+  zoomNaverInfoWindow: null,
+  zoomMapTimer: null,
+  zoomMapRequestId: 0,
   naverMap: null,
   naverOverlays: [],
   naverInfoWindow: null,
@@ -69,6 +76,15 @@ const els = {
   mapTableTitle: document.querySelector("#mapTableTitle"),
   mapCount: document.querySelector("#mapCount"),
   mapRows: document.querySelector("#mapRows"),
+  zoomMapView: document.querySelector("#zoomMapView"),
+  zoomMapTitle: document.querySelector("#zoomMapTitle"),
+  zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
+  zoomMapLevel: document.querySelector("#zoomMapLevel"),
+  zoomMapCount: document.querySelector("#zoomMapCount"),
+  zoomMap: document.querySelector("#zoomMap"),
+  zoomMapTableTitle: document.querySelector("#zoomMapTableTitle"),
+  zoomMapTableCount: document.querySelector("#zoomMapTableCount"),
+  zoomMapRows: document.querySelector("#zoomMapRows"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
@@ -138,8 +154,10 @@ function bindEvents() {
       document.querySelector("#apartmentView").classList.toggle("active", state.activeTab === "apartment");
       document.querySelector("#crawlView").classList.toggle("active", state.activeTab === "crawl");
       document.querySelector("#mapView").classList.toggle("active", state.activeTab === "map");
+      document.querySelector("#zoomMapView").classList.toggle("active", state.activeTab === "zoomMap");
       if (state.activeTab === "crawl") loadCrawlDetails();
       if (state.activeTab === "map") loadMapSummary();
+      if (state.activeTab === "zoomMap") loadZoomMapSummary();
     });
   });
 
@@ -210,6 +228,7 @@ async function refresh() {
   renderApartmentTable(apartmentRanking);
   if (state.activeTab === "crawl") await loadCrawlDetails();
   if (state.activeTab === "map") await loadMapSummary();
+  if (state.activeTab === "zoomMap") await loadZoomMapSummary();
 }
 
 async function syncCurrentRegion() {
@@ -427,9 +446,9 @@ async function initNaverGrowthMap() {
   return true;
 }
 
-async function hasNaverAuthFailure() {
+async function hasNaverAuthFailure(container = els.growthMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
-  return els.growthMap.textContent.includes("네이버 지도 Open API 인증이 실패");
+  return container.textContent.includes("네이버 지도 Open API 인증이 실패");
 }
 
 function fallbackFromNaverMap() {
@@ -667,6 +686,18 @@ function openNaverInfoWindow(position, html) {
   }
   state.naverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
   state.naverInfoWindow.open(state.naverMap, position);
+}
+
+function openZoomNaverInfoWindow(position, html) {
+  if (!state.zoomNaverInfoWindow) {
+    state.zoomNaverInfoWindow = new window.naver.maps.InfoWindow({
+      borderWidth: 0,
+      backgroundColor: "transparent",
+      disableAnchor: false
+    });
+  }
+  state.zoomNaverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
+  state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
 }
 
 function fitNaverPositions(positions, maxZoom) {
@@ -1213,6 +1244,353 @@ function mapGroupPopup(group) {
   `;
 }
 
+async function initZoomMap() {
+  if (useNaverMap()) {
+    const ready = await initNaverZoomMap();
+    if (ready) return true;
+  }
+  return initLeafletZoomMap();
+}
+
+async function initNaverZoomMap() {
+  const loaded = await loadNaverSdk().catch(() => false);
+  if (!loaded || !window.naver?.maps) return false;
+
+  if (state.zoomNaverMap) {
+    setTimeout(() => {
+      window.naver.maps.Event.trigger(state.zoomNaverMap, "resize");
+      updateZoomMapLevelLabel();
+    }, 0);
+    if (await hasNaverAuthFailure(els.zoomMap)) return fallbackFromNaverZoomMap();
+    return true;
+  }
+
+  state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
+    center: new window.naver.maps.LatLng(homeMapView.center[0], homeMapView.center[1]),
+    zoom: 8,
+    zoomControl: true,
+    scaleControl: true,
+    mapDataControl: false
+  });
+  window.naver.maps.Event.addListener(state.zoomNaverMap, "zoom_changed", updateZoomMapLevelLabel);
+  window.naver.maps.Event.addListener(state.zoomNaverMap, "idle", () => {
+    updateZoomMapLevelLabel();
+    scheduleZoomMapLoad();
+  });
+  setTimeout(() => window.naver.maps.Event.trigger(state.zoomNaverMap, "resize"), 0);
+  updateZoomMapLevelLabel();
+  if (await hasNaverAuthFailure(els.zoomMap)) return fallbackFromNaverZoomMap();
+  return true;
+}
+
+function fallbackFromNaverZoomMap() {
+  clearZoomNaverOverlays();
+  state.zoomNaverMap = null;
+  state.clientConfig.maps.provider = "leaflet";
+  els.zoomMap.innerHTML = "";
+  return false;
+}
+
+function initLeafletZoomMap() {
+  if (!window.L) {
+    els.zoomMap.innerHTML = `<div class="empty">지도 라이브러리를 불러오지 못했습니다.</div>`;
+    return false;
+  }
+
+  if (state.zoomMap) {
+    setTimeout(() => {
+      state.zoomMap.invalidateSize();
+      updateZoomMapLevelLabel();
+    }, 0);
+    return true;
+  }
+
+  state.zoomMap = L.map(els.zoomMap, {
+    scrollWheelZoom: true
+  }).setView(homeMapView.center, 8);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap"
+  }).addTo(state.zoomMap);
+  state.zoomMapLayer = L.layerGroup().addTo(state.zoomMap);
+  state.zoomMap.on("moveend zoomend", () => {
+    updateZoomMapLevelLabel();
+    scheduleZoomMapLoad();
+  });
+  updateZoomMapLevelLabel();
+  return true;
+}
+
+function scheduleZoomMapLoad() {
+  if (state.activeTab !== "zoomMap") return;
+  clearTimeout(state.zoomMapTimer);
+  state.zoomMapTimer = setTimeout(loadZoomMapSummary, 180);
+}
+
+async function loadZoomMapSummary() {
+  if (!(await initZoomMap())) return;
+  const requestId = ++state.zoomMapRequestId;
+  const params = new URLSearchParams();
+  const view = currentZoomMapView();
+  if (!view) return;
+  const { zoom, bounds } = view;
+  params.set("zoom", String(zoom));
+  params.set("north", String(bounds.north));
+  params.set("south", String(bounds.south));
+  params.set("east", String(bounds.east));
+  params.set("west", String(bounds.west));
+  if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
+  if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+
+  const data = await api(`/api/zoom-map-summary?${params}`);
+  if (requestId !== state.zoomMapRequestId) return;
+  renderZoomMapSummary(data);
+}
+
+function currentZoomMapView() {
+  if (state.zoomNaverMap && window.naver?.maps) {
+    const bounds = state.zoomNaverMap.getBounds();
+    const ne = bounds.getNE ? bounds.getNE() : bounds.getMax();
+    const sw = bounds.getSW ? bounds.getSW() : bounds.getMin();
+    return {
+      zoom: state.zoomNaverMap.getZoom(),
+      bounds: {
+        north: naverCoordLat(ne),
+        south: naverCoordLat(sw),
+        east: naverCoordLng(ne),
+        west: naverCoordLng(sw)
+      }
+    };
+  }
+
+  if (!state.zoomMap) return null;
+  const bounds = state.zoomMap.getBounds();
+  return {
+    zoom: state.zoomMap.getZoom(),
+    bounds: {
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest()
+    }
+  };
+}
+
+function updateZoomMapLevelLabel(level = null) {
+  const view = currentZoomMapView();
+  if (!view) {
+    return;
+  }
+  const zoom = formatZoomValue(view.zoom);
+  const levelLabel = zoomLevelLabel(level || zoomAggregationLevel(view.zoom));
+  if (els.zoomMapLevel) els.zoomMapLevel.textContent = `${levelLabel} 단위 · 줌 ${zoom}`;
+}
+
+function zoomAggregationLevel(zoom) {
+  if (zoom >= 15) return "apartment";
+  if (zoom >= 12) return "dong";
+  if (zoom >= 11) return "sigungu";
+  return "sido";
+}
+
+function formatZoomValue(zoom) {
+  const value = Number(zoom);
+  if (!Number.isFinite(value)) return "-";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function naverCoordLat(coord) {
+  return typeof coord.lat === "function" ? coord.lat() : Number(coord.y ?? coord._lat ?? coord.lat);
+}
+
+function naverCoordLng(coord) {
+  return typeof coord.lng === "function" ? coord.lng() : Number(coord.x ?? coord._lng ?? coord.lng);
+}
+
+function renderZoomMapSummary(data) {
+  const items = data.items || [];
+  const levelLabel = zoomLevelLabel(data.level);
+  els.zoomMapPeriod.textContent = data.period?.startMonth && data.period?.endMonth
+    ? `${formatMonth(data.period.startMonth)} - ${formatMonth(data.period.endMonth)}`
+    : "";
+  updateZoomMapLevelLabel(data.level);
+  els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
+  els.zoomMapTableTitle.textContent = `${levelLabel} 단위 상승률`;
+  els.zoomMapTableCount.textContent = `${formatInt(items.length)}개`;
+  clearZoomMapOverlays();
+
+  for (const item of items) {
+    if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) continue;
+    if (data.level === "apartment") {
+      renderZoomApartmentMarker(item);
+    } else {
+      renderZoomGroupMarker(item, data.level);
+    }
+  }
+  renderZoomMapRows(items, data.level);
+}
+
+function clearZoomMapOverlays() {
+  if (state.zoomNaverMap) {
+    clearZoomNaverOverlays();
+    return;
+  }
+  state.zoomMapLayer?.clearLayers();
+}
+
+function clearZoomNaverOverlays() {
+  for (const overlay of state.zoomNaverOverlays) {
+    overlay.setMap(null);
+  }
+  state.zoomNaverOverlays = [];
+  if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
+}
+
+function renderZoomGroupMarker(item, level) {
+  if (state.zoomNaverMap && window.naver?.maps) {
+    renderNaverZoomGroupMarker(item, level);
+    return;
+  }
+  const marker = L.marker([item.lat, item.lng], {
+    icon: L.divIcon({
+      className: "zoom-cluster-marker",
+      html: `
+        <div style="--zoom-color: ${growthColor(item.growthRate)}">
+        <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
+        <span>${formatPercent(item.growthRate)}</span>
+        <em>${formatInt(item.apartmentCount)}</em>
+        </div>
+      `,
+      iconSize: zoomMarkerSize(item.apartmentCount),
+      iconAnchor: zoomMarkerAnchor(item.apartmentCount)
+    })
+  }).addTo(state.zoomMapLayer);
+  marker.bindPopup(zoomGroupPopup(item));
+  marker.on("click", () => {
+    const nextZoom = { sido: 9, sigungu: 11, dong: 13 }[level] || state.zoomMap.getZoom() + 1;
+    state.zoomMap.setView([item.lat, item.lng], Math.max(state.zoomMap.getZoom() + 1, nextZoom), { animate: true });
+  });
+}
+
+function renderZoomApartmentMarker(item) {
+  if (state.zoomNaverMap && window.naver?.maps) {
+    renderNaverZoomApartmentMarker(item);
+    return;
+  }
+  const marker = L.circleMarker([item.lat, item.lng], {
+    radius: 7,
+    color: growthColor(item.growthRate),
+    fillColor: growthColor(item.growthRate),
+    fillOpacity: 0.78,
+    weight: 2
+  }).addTo(state.zoomMapLayer);
+  marker.bindTooltip(`${item.name} ${formatPercent(item.growthRate)}`, {
+    direction: "top",
+    sticky: true
+  });
+  marker.bindPopup(`
+    <strong>${escapeHtml(item.name)}</strong><br>
+    ${escapeHtml(item.neighborhoodName || "-")} / ${escapeHtml(item.areaSummary || "-")}<br>
+    ${formatMoney(item.startPyeongPrice)} → ${formatMoney(item.endPyeongPrice)}<br>
+    상승률 ${formatPercent(item.growthRate)}
+  `);
+}
+
+function renderNaverZoomGroupMarker(item, level) {
+  const position = new window.naver.maps.LatLng(item.lat, item.lng);
+  const [width, height] = zoomMarkerSize(item.apartmentCount);
+  const marker = new window.naver.maps.Marker({
+    position,
+    map: state.zoomNaverMap,
+    icon: naverLabelIcon(`
+      <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
+        <div style="--zoom-color: ${growthColor(item.growthRate)}">
+          <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
+          <span>${formatPercent(item.growthRate)}</span>
+          <em>${formatInt(item.apartmentCount)}</em>
+        </div>
+      </div>
+    `, width, height)
+  });
+  window.naver.maps.Event.addListener(marker, "click", () => {
+    openZoomNaverInfoWindow(position, zoomGroupPopup(item));
+    const nextZoom = { sido: 9, sigungu: 11, dong: 13 }[level] || state.zoomNaverMap.getZoom() + 1;
+    state.zoomNaverMap.setCenter(position);
+    state.zoomNaverMap.setZoom(Math.max(state.zoomNaverMap.getZoom() + 1, nextZoom));
+  });
+  state.zoomNaverOverlays.push(marker);
+}
+
+function renderNaverZoomApartmentMarker(item) {
+  const position = new window.naver.maps.LatLng(item.lat, item.lng);
+  const marker = new window.naver.maps.Marker({
+    position,
+    map: state.zoomNaverMap,
+    icon: naverLabelIcon(`
+      <div class="apartment-map-marker" style="--marker-color:${growthColor(item.growthRate)}">
+        <span>${formatPercent(item.growthRate)}</span>
+      </div>
+    `, 54, 34)
+  });
+  window.naver.maps.Event.addListener(marker, "click", () => {
+    openZoomNaverInfoWindow(position, `
+      <strong>${escapeHtml(item.name)}</strong><br>
+      ${escapeHtml(item.neighborhoodName || "-")} / ${escapeHtml(item.areaSummary || "-")}<br>
+      ${formatMoney(item.startPyeongPrice)} → ${formatMoney(item.endPyeongPrice)}<br>
+      상승률 ${formatPercent(item.growthRate)}
+    `);
+  });
+  state.zoomNaverOverlays.push(marker);
+}
+
+function renderZoomMapRows(items, level) {
+  els.zoomMapRows.innerHTML = items.length
+    ? items.slice(0, 300).map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(item.name)}</td>
+        <td>${formatInt(item.apartmentCount || 1)}</td>
+        <td>${formatInt(item.areaCount)}</td>
+        <td class="${item.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(item.growthAmount)}</td>
+        <td class="${item.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(item.growthRate)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="6" class="empty">현재 화면에 표시할 ${zoomLevelLabel(level)} 데이터가 없습니다.</td></tr>`;
+}
+
+function zoomGroupPopup(item) {
+  return `
+    <strong>${escapeHtml(item.name)}</strong><br>
+    아파트 ${formatInt(item.apartmentCount)}개 / 면적 ${formatInt(item.areaCount)}개<br>
+    평균 상승액 ${formatMoney(item.growthAmount)}<br>
+    평균 상승률 ${formatPercent(item.growthRate)}
+  `;
+}
+
+function zoomLevelLabel(level) {
+  return {
+    sido: "시도",
+    sigungu: "구/시군",
+    dong: "동",
+    apartment: "아파트"
+  }[level] || "지역";
+}
+
+function shortZoomLabel(name, level) {
+  if (level === "sido") return shortRegionLabel(name);
+  return String(name || "").replace(/^.+\s([^\s]+)$/g, "$1");
+}
+
+function zoomMarkerSize(count) {
+  const size = Math.max(58, Math.min(96, 48 + Math.sqrt(Number(count || 0)) * 4));
+  return [size, size];
+}
+
+function zoomMarkerAnchor(count) {
+  const [width, height] = zoomMarkerSize(count);
+  return [width / 2, height / 2];
+}
+
 function markerRadius(count) {
   return Math.max(9, Math.min(26, 7 + Math.sqrt(Number(count || 0)) * 2.4));
 }
@@ -1539,6 +1917,7 @@ function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
   els.apartmentRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
+  els.zoomMapRows.innerHTML = `<tr><td colspan="6" class="empty">동기화 후 줌지도가 표시됩니다.</td></tr>`;
 }
 
 function queryParams() {

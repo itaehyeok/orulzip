@@ -113,6 +113,19 @@ const server = createServer(async (req, res) => {
       }));
     }
 
+    if (url.pathname === "/api/zoom-map-summary") {
+      const dataset = await readDatasetFromDb();
+      return json(res, buildZoomMapSummary(dataset, {
+        zoom: Number(url.searchParams.get("zoom") || 9),
+        start: url.searchParams.get("start") || "",
+        end: url.searchParams.get("end") || "",
+        north: optionalNumber(url.searchParams.get("north")),
+        south: optionalNumber(url.searchParams.get("south")),
+        east: optionalNumber(url.searchParams.get("east")),
+        west: optionalNumber(url.searchParams.get("west"))
+      }));
+    }
+
     if (url.pathname === "/api/apartment-detail") {
       const dataset = await readDatasetFromDb();
       const apartmentId = url.searchParams.get("apartmentId") || "";
@@ -226,6 +239,115 @@ function buildMapSummary(dataset, filters) {
       "sido"
     )
   };
+}
+
+function buildZoomMapSummary(dataset, filters) {
+  const ranking = buildApartmentRankings(dataset, {
+    start: filters.start,
+    end: filters.end
+  });
+  const apartmentById = new Map(dataset.apartments.map((item) => [item.id, item]));
+  const rows = ranking.rows
+    .map((row) => ({
+      ...row,
+      apartment: apartmentById.get(row.apartmentId)
+    }))
+    .filter((row) => row.apartment?.legalDongCode && Number.isFinite(row.apartment.lat) && Number.isFinite(row.apartment.lng))
+    .filter((row) => withinBounds(row.apartment, filters));
+  const level = zoomAggregationLevel(filters.zoom);
+
+  return {
+    level,
+    zoom: filters.zoom,
+    period: ranking.period,
+    items: level === "apartment"
+      ? summarizeApartments(rows).slice(0, 2000).map((item) => ({ ...item, type: "apartment" }))
+      : summarizeZoomGroups(rows, level).map((item) => ({ ...item, type: "group" }))
+  };
+}
+
+function zoomAggregationLevel(zoom) {
+  if (zoom >= 15) return "apartment";
+  if (zoom >= 12) return "dong";
+  if (zoom >= 11) return "sigungu";
+  return "sido";
+}
+
+function withinBounds(apartment, filters) {
+  const hasBounds = [filters.north, filters.south, filters.east, filters.west].every(Number.isFinite);
+  if (!hasBounds) return true;
+  return apartment.lat <= filters.north
+    && apartment.lat >= filters.south
+    && apartment.lng <= filters.east
+    && apartment.lng >= filters.west;
+}
+
+function optionalNumber(value) {
+  if (value === null || value === "") return null;
+  return Number(value);
+}
+
+function summarizeZoomGroups(rows, level) {
+  const groups = new Map();
+  for (const row of rows) {
+    const group = zoomGroupInfo(row, rows, level);
+    if (!groups.has(group.code)) {
+      groups.set(group.code, {
+        code: group.code,
+        name: group.name,
+        latValues: [],
+        lngValues: [],
+        growthRates: [],
+        growthAmounts: [],
+        apartmentIds: new Set(),
+        areaCount: 0
+      });
+    }
+    const current = groups.get(group.code);
+    current.latValues.push(row.apartment.lat);
+    current.lngValues.push(row.apartment.lng);
+    current.growthRates.push(row.growthRate);
+    current.growthAmounts.push(row.growthAmount);
+    current.apartmentIds.add(row.apartmentId);
+    current.areaCount += 1;
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      code: group.code,
+      name: group.name,
+      lat: average(group.latValues),
+      lng: average(group.lngValues),
+      apartmentCount: group.apartmentIds.size,
+      areaCount: group.areaCount,
+      growthRate: average(group.growthRates),
+      growthAmount: Math.round(average(group.growthAmounts))
+    }))
+    .sort((a, b) => b.apartmentCount - a.apartmentCount || b.growthRate - a.growthRate);
+}
+
+function zoomGroupInfo(row, rows, level) {
+  const code = row.apartment.legalDongCode || "";
+  if (level === "sido") {
+    const sidoCode = code.slice(0, 2);
+    return { code: sidoCode, name: sidoName(sidoCode) };
+  }
+  if (level === "sigungu") {
+    const sigunguCode = code.slice(0, 5);
+    return { code: sigunguCode, name: sigunguName(rows, sigunguCode) };
+  }
+  const dongCode = code.slice(0, 8) || `${row.apartment.address}:${row.apartment.neighborhoodName}`;
+  return {
+    code: dongCode,
+    name: zoomDongName(row.apartment)
+  };
+}
+
+function zoomDongName(apartment) {
+  const neighborhood = apartment.neighborhoodName || "미분류";
+  const addressParts = String(apartment.address || "").split(" ").filter(Boolean);
+  const sigungu = addressParts.slice(1).find((part) => /구$|시$|군$/.test(part));
+  return sigungu ? `${sigungu} ${neighborhood}` : neighborhood;
 }
 
 function parseCodeList(value) {
