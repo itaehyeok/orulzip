@@ -8,6 +8,7 @@
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
     "sync:molit": "node scripts/sync-molit-trades.js",
+    "refresh:map-cache": "node scripts/refresh-map-cache.js",
     "check": "node scripts/check.js"
   },
   "dependencies": {

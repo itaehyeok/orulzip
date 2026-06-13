@@ -173,6 +173,46 @@ export async function initDb() {
 
     create index if not exists molit_trade_fetches_status_idx
       on molit_trade_fetches(status, target_region_id, year_month);
+
+    create table if not exists map_growth_snapshots (
+      id bigserial primary key,
+      source text not null default 'kb',
+      period_years integer not null,
+      start_month text not null,
+      end_month text not null,
+      apartment_count integer not null default 0,
+      area_count integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique(source, period_years, start_month, end_month)
+    );
+
+    create table if not exists map_growth_items (
+      snapshot_id bigint not null references map_growth_snapshots(id) on delete cascade,
+      level text not null,
+      item_key text not null,
+      item_name text not null,
+      apartment_id text,
+      neighborhood_name text,
+      address text,
+      lat double precision,
+      lng double precision,
+      apartment_count integer not null default 0,
+      area_count integer not null default 0,
+      area_summary text,
+      growth_rate double precision,
+      growth_amount integer,
+      start_pyeong_price integer,
+      end_pyeong_price integer,
+      has_data boolean not null default true,
+      updated_at timestamptz not null default now(),
+      primary key(snapshot_id, level, item_key)
+    );
+
+    create index if not exists map_growth_snapshots_period_idx
+      on map_growth_snapshots(source, start_month, end_month, updated_at desc);
+    create index if not exists map_growth_items_lookup_idx
+      on map_growth_items(snapshot_id, level, lat, lng);
   `);
 }
 

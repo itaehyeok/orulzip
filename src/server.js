@@ -8,6 +8,7 @@ import { createCrawlJob, crawlDetails, crawlStatus, readDatasetFromDb } from "./
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
+import { readCachedZoomMapSummary } from "./services/map-growth-cache.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -119,8 +120,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/zoom-map-summary") {
-      const dataset = await readDatasetFromDb();
-      return json(res, buildZoomMapSummary(dataset, {
+      const filters = {
         zoom: Number(url.searchParams.get("zoom") || 9),
         start: url.searchParams.get("start") || "",
         end: url.searchParams.get("end") || "",
@@ -128,7 +128,15 @@ const server = createServer(async (req, res) => {
         south: optionalNumber(url.searchParams.get("south")),
         east: optionalNumber(url.searchParams.get("east")),
         west: optionalNumber(url.searchParams.get("west"))
-      }));
+      };
+      const cached = await readCachedZoomMapSummary(filters);
+      if (cached) return json(res, cached);
+
+      const dataset = await readDatasetFromDb();
+      return json(res, {
+        ...buildZoomMapSummary(dataset, filters),
+        cache: { hit: false, updatedAt: null }
+      });
     }
 
     if (url.pathname === "/api/apartment-detail") {

@@ -733,8 +733,9 @@ function naverCoordLng(coord) {
 function renderZoomMapSummary(data) {
   const items = data.items || [];
   const levelLabel = zoomLevelLabel(data.level);
+  const cacheLabel = formatMapCacheLabel(data.cache);
   els.zoomMapPeriod.textContent = data.period?.startMonth && data.period?.endMonth
-    ? `${formatMonth(data.period.startMonth)} - ${formatMonth(data.period.endMonth)}`
+    ? `${formatMonth(data.period.startMonth)} - ${formatMonth(data.period.endMonth)}${cacheLabel ? ` · ${cacheLabel}` : ""}`
     : "";
   updateZoomMapLevelLabel(data.level);
   els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
@@ -1477,6 +1478,23 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatMapCacheLabel(cache) {
+  if (!cache) return "";
+  if (cache.hit === false) return "실시간 계산";
+  if (!cache.updatedAt) return "";
+  const updatedAt = new Date(cache.updatedAt);
+  const today = new Date();
+  const sameDay = updatedAt.getFullYear() === today.getFullYear()
+    && updatedAt.getMonth() === today.getMonth()
+    && updatedAt.getDate() === today.getDate();
+  const time = updatedAt.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  if (sameDay) return `오늘 ${time} 업데이트 기준`;
+  return `${formatDateTime(cache.updatedAt)} 업데이트 기준`;
 }
 
 function escapeHtml(value) {
