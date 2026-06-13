@@ -749,28 +749,175 @@ input {
   box-shadow: 0 8px 18px rgba(16, 24, 40, 0.2);
   color: #ffffff;
   display: flex;
-  height: 30px;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 30px;
   min-width: 44px;
-  padding: 0 8px;
+  padding: 5px 9px;
   font-size: 12px;
   font-weight: 800;
   justify-content: center;
   line-height: 1.1;
   pointer-events: auto;
   text-align: center;
+  white-space: nowrap;
 }
 
-.apartment-map-marker span {
+.apartment-map-marker .marker-rate {
   color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.apartment-map-marker small {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .apartment-map-marker.no-data {
   background: #667085;
 }
 
-.apartment-map-marker.no-data span {
+.apartment-map-marker.no-data .marker-rate {
   color: #ffffff;
   font-size: 10px;
+}
+
+.apartment-map-marker.marker-size-compact {
+  flex-direction: row;
+  height: 30px;
+  padding: 0 8px;
+}
+
+.apartment-map-marker.marker-size-small {
+  min-height: 34px;
+  padding: 5px 8px;
+}
+
+.apartment-map-marker.marker-size-large {
+  min-height: 48px;
+  padding: 7px 12px;
+}
+
+.apartment-map-marker.marker-size-large .marker-rate {
+  font-size: 15px;
+}
+
+.apartment-map-marker.marker-size-large small {
+  font-size: 10px;
+}
+
+.apartment-map-marker.marker-shape-card {
+  border-radius: 8px;
+}
+
+.apartment-map-marker.marker-shape-badge {
+  border-radius: 14px 14px 14px 4px;
+}
+
+.apartment-map-marker.marker-shape-minimal {
+  border-radius: 6px;
+  box-shadow: 0 6px 14px rgba(16, 24, 40, 0.14);
+}
+
+.apartment-map-marker.marker-shape-dot {
+  border-radius: 999px;
+  padding-left: 18px;
+  position: relative;
+}
+
+.apartment-map-marker.marker-shape-dot::before {
+  background: #ffffff;
+  border-radius: 999px;
+  content: "";
+  height: 6px;
+  left: 8px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+}
+
+.apartment-map-marker.marker-shape-flag {
+  border-radius: 7px 7px 7px 1px;
+}
+
+.apartment-map-marker.marker-shape-pin {
+  border-radius: 999px 999px 999px 5px;
+  transform: rotate(-2deg);
+}
+
+.apartment-map-marker.marker-shape-chip {
+  border-radius: 999px;
+  border-width: 1px;
+}
+
+.apartment-map-marker.marker-shape-stack {
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 rgba(255, 255, 255, 0.92), 0 10px 20px rgba(16, 24, 40, 0.18);
+}
+
+.apartment-map-marker.marker-shape-split {
+  align-items: stretch;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.apartment-map-marker.marker-shape-split small {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 2px 5px;
+}
+
+.apartment-map-marker.marker-shape-ring {
+  background: #ffffff;
+  border-color: var(--marker-color);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.18);
+}
+
+.apartment-map-marker.marker-shape-ring .marker-rate,
+.apartment-map-marker.marker-shape-ring small {
+  color: var(--marker-color);
+}
+
+.apartment-map-marker.marker-tone-soft {
+  background: color-mix(in srgb, var(--marker-color) 18%, white);
+  border-color: color-mix(in srgb, var(--marker-color) 72%, white);
+}
+
+.apartment-map-marker.marker-tone-soft .marker-rate,
+.apartment-map-marker.marker-tone-soft small {
+  color: color-mix(in srgb, var(--marker-color) 84%, #101828);
+}
+
+.apartment-map-marker.marker-tone-outline,
+.apartment-map-marker.marker-tone-white {
+  background: #ffffff;
+  border-color: var(--marker-color);
+}
+
+.apartment-map-marker.marker-tone-outline .marker-rate,
+.apartment-map-marker.marker-tone-outline small,
+.apartment-map-marker.marker-tone-white .marker-rate,
+.apartment-map-marker.marker-tone-white small {
+  color: var(--marker-color);
+}
+
+.apartment-map-marker.marker-tone-floating {
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 26px rgba(16, 24, 40, 0.3);
+}
+
+.apartment-map-marker.marker-tone-dark {
+  background: #101828;
+  border-color: color-mix(in srgb, var(--marker-color) 72%, #ffffff);
+}
+
+.apartment-map-marker.marker-tone-flat {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .apartment-hover-tooltip {
@@ -1211,14 +1358,16 @@ input {
   margin-bottom: 16px;
 }
 
-.graph-design-grid {
+.graph-design-grid,
+.marker-design-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
   padding: 16px;
 }
 
-.graph-design-card {
+.graph-design-card,
+.marker-design-card {
   display: grid;
   gap: 10px;
   min-width: 0;
@@ -1233,13 +1382,15 @@ input {
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
-.graph-design-card:hover {
+.graph-design-card:hover,
+.marker-design-card:hover {
   border-color: #9db7ea;
   box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
   transform: translateY(-1px);
 }
 
-.graph-design-card.active {
+.graph-design-card.active,
+.marker-design-card.active {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(35, 103, 209, 0.12);
 }
@@ -1270,7 +1421,8 @@ input {
   padding: 4px 8px;
 }
 
-.graph-design-card.active .graph-design-card-head em {
+.graph-design-card.active .graph-design-card-head em,
+.marker-design-card.active .graph-design-card-head em {
   background: #e8f0ff;
   color: var(--blue);
 }
@@ -1287,6 +1439,27 @@ input {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.marker-design-preview {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 78px;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(152, 162, 179, 0.16) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(152, 162, 179, 0.16) 1px, transparent 1px),
+    #f8fafc;
+  background-size: 24px 24px;
+  padding: 14px;
+}
+
+.marker-design-preview .apartment-map-marker {
+  pointer-events: none;
 }
 
 .legend {
@@ -1376,6 +1549,7 @@ td:nth-child(4) {
   .crawl-grid,
   .crawl-job-progress,
   .graph-design-grid,
+  .marker-design-grid,
   .info-grid {
     grid-template-columns: 1fr;
   }

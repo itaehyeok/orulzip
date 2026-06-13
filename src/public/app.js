@@ -40,6 +40,8 @@ const state = {
   mapPopupDetail: null,
   mapPopupPeriodYears: 3,
   activeGraphDesignId: null,
+  activeMarkerDesignId: null,
+  latestZoomMapData: null,
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
@@ -48,6 +50,8 @@ const state = {
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
 const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
+const defaultMarkerDesignId = "current";
+const markerDesignStorageKey = "orulzip.markerDesignId";
 const graphPalettes = {
   market: ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"],
   naver: ["#03c75a", "#2f80ed", "#f2994a", "#9b51e0", "#eb5757", "#219653", "#56ccf2", "#6b7280"],
@@ -60,37 +64,32 @@ const graphPalettes = {
 };
 const graphDesignVariants = [
   graphDesign("clean-line", "01 클린 라인", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
-  graphDesign("soft-line", "02 소프트 라인", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", background: "#ffffff", plotBackground: "#fbfdff", shadow: false }),
-  graphDesign("finance-blue", "03 금융 블루", { curve: "smooth", fillOpacity: 0.035, pointMode: "end", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#f8fbff", shadow: false }),
-  graphDesign("naver-fresh", "04 네이버 그린", { curve: "smooth", fillOpacity: 0.035, pointMode: "end", labelMode: "none", palette: "naver", background: "#ffffff", plotBackground: "#fbfefc", shadow: false }),
-  graphDesign("mono-report", "05 리포트 모노", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", background: "#ffffff", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
-  graphDesign("forest-clean", "06 포레스트", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "forest", background: "#ffffff", plotBackground: "#fbfffd", shadow: false }),
-  graphDesign("slate-focus", "07 슬레이트", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "none", palette: "slate", background: "#ffffff", plotBackground: "#f8fafc", shadow: false }),
-  graphDesign("warm-index", "08 웜 인덱스", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "end", palette: "warm", background: "#fffdfb", plotBackground: "#fffaf5", shadow: false }),
-  graphDesign("thin-grid", "09 씬 그리드", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "market", gridMode: "thin", lineWidth: 2.1, shadow: false }),
-  graphDesign("no-grid", "10 노 그리드", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", gridMode: "none", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
-  graphDesign("soft-area", "11 소프트 에어리어", { curve: "smooth", fillOpacity: 0.06, pointMode: "end", labelMode: "end", palette: "market", shadow: false }),
-  graphDesign("paper-area", "12 페이퍼 에어리어", { curve: "smooth", fillOpacity: 0.045, pointMode: "none", labelMode: "end", palette: "kb", background: "#fbfcfe", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
-  graphDesign("bold-end", "13 볼드 엔드", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "slate", lineWidth: 3.4, shadow: true }),
-  graphDesign("compact-label", "14 컴팩트 라벨", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "none", palette: "market", lineWidth: 2.5, shadow: false }),
-  graphDesign("all-points", "15 포인트 라인", { curve: "linear", fillOpacity: 0, pointMode: "all", labelMode: "none", palette: "kb", lineWidth: 2.2, shadow: false }),
-  graphDesign("dotted-line", "16 도트 라인", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "forest", dash: "2 6", lineWidth: 3, shadow: false }),
-  graphDesign("dashed-report", "17 대시 리포트", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", dash: "8 5", gridMode: "solid", shadow: false }),
-  graphDesign("step-market", "18 스텝 마켓", { curve: "step", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", lineWidth: 2.8, shadow: false }),
-  graphDesign("step-area", "19 스텝 에어리어", { curve: "step", fillOpacity: 0.04, pointMode: "none", labelMode: "none", palette: "naver", lineWidth: 2.5, shadow: false }),
-  graphDesign("dark-board", "20 다크 보드", { curve: "smooth", fillOpacity: 0.055, pointMode: "end", labelMode: "end", palette: "dusk", background: "#101828", plotBackground: "#111c2f", textColor: "#d0d5dd", axisColor: "#475467", gridColor: "#344054", shadow: false }),
-  graphDesign("midnight", "21 미드나이트", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "naver", background: "#0f172a", plotBackground: "#111827", textColor: "#cbd5e1", axisColor: "#475569", gridColor: "#334155", shadow: false }),
-  graphDesign("ink-card", "22 잉크 카드", { curve: "smooth", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", background: "#f8fafc", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
-  graphDesign("glass-light", "23 글래스 라이트", { curve: "smooth", fillOpacity: 0.03, pointMode: "end", labelMode: "end", palette: "slate", background: "#f8fbff", plotBackground: "#ffffff", shadow: true }),
-  graphDesign("calm-green", "24 캄 그린", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "none", palette: "forest", background: "#fbfffd", plotBackground: "#ffffff", gridMode: "thin", shadow: false }),
-  graphDesign("executive", "25 임원 보고", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#ffffff", gridMode: "solid", lineWidth: 2.4, shadow: false }),
-  graphDesign("signal", "26 시그널", { curve: "smooth", fillOpacity: 0, pointMode: "all", labelMode: "end", palette: "dusk", background: "#ffffff", plotBackground: "#fbfbff", lineWidth: 2.6, shadow: false }),
-  graphDesign("minimal-axis", "27 미니멀 축", { curve: "smooth", fillOpacity: 0, pointMode: "none", labelMode: "none", palette: "market", gridMode: "minimal", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
-  graphDesign("soft-shadow", "28 소프트 섀도", { curve: "smooth", fillOpacity: 0.02, pointMode: "end", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#fbfdff", shadow: true }),
-  graphDesign("warm-paper", "29 웜 페이퍼", { curve: "linear", fillOpacity: 0.02, pointMode: "end", labelMode: "end", palette: "warm", background: "#fffaf5", plotBackground: "#fffefd", gridMode: "thin", shadow: false }),
-  graphDesign("presentation", "30 프레젠테이션", { curve: "smooth", fillOpacity: 0.04, pointMode: "end", labelMode: "end", palette: "dusk", background: "#ffffff", plotBackground: "#ffffff", gridMode: "none", lineWidth: 3.2, shadow: true })
+  graphDesign("compact-label", "02 컴팩트 라벨", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "none", palette: "market", lineWidth: 2.5, shadow: false })
 ];
 const graphDesignVariantMap = new Map(graphDesignVariants.map((item) => [item.id, item]));
+const markerDesignVariants = [
+  markerDesign("current", "01 현재 마커", { showRank: false, shape: "pill", size: "compact", tone: "solid" }),
+  markerDesign("rank-pill", "02 순위 필", { showRank: true, shape: "pill", size: "wide", tone: "solid" }),
+  markerDesign("rank-card", "03 순위 카드", { showRank: true, shape: "card", size: "wide", tone: "solid" }),
+  markerDesign("rank-soft", "04 소프트 카드", { showRank: true, shape: "card", size: "wide", tone: "soft" }),
+  markerDesign("rank-outline", "05 아웃라인", { showRank: true, shape: "pill", size: "wide", tone: "outline" }),
+  markerDesign("rank-badge", "06 배지형", { showRank: true, shape: "badge", size: "wide", tone: "solid" }),
+  markerDesign("rank-minimal", "07 미니멀", { showRank: true, shape: "minimal", size: "wide", tone: "solid" }),
+  markerDesign("rank-floating", "08 플로팅", { showRank: true, shape: "card", size: "wide", tone: "floating" }),
+  markerDesign("rank-dark", "09 다크", { showRank: true, shape: "card", size: "wide", tone: "dark" }),
+  markerDesign("rank-white", "10 화이트", { showRank: true, shape: "card", size: "wide", tone: "white" }),
+  markerDesign("rank-dot", "11 도트 라벨", { showRank: true, shape: "dot", size: "wide", tone: "solid" }),
+  markerDesign("rank-flag", "12 플래그", { showRank: true, shape: "flag", size: "wide", tone: "solid" }),
+  markerDesign("rank-pin", "13 핀", { showRank: true, shape: "pin", size: "wide", tone: "solid" }),
+  markerDesign("rank-chip", "14 칩", { showRank: true, shape: "chip", size: "wide", tone: "solid" }),
+  markerDesign("rank-stack", "15 스택", { showRank: true, shape: "stack", size: "wide", tone: "solid" }),
+  markerDesign("rank-split", "16 스플릿", { showRank: true, shape: "split", size: "wide", tone: "solid" }),
+  markerDesign("rank-ring", "17 링", { showRank: true, shape: "ring", size: "wide", tone: "outline" }),
+  markerDesign("rank-flat", "18 플랫", { showRank: true, shape: "card", size: "wide", tone: "flat" }),
+  markerDesign("rank-tiny", "19 타이니", { showRank: true, shape: "pill", size: "small", tone: "solid" }),
+  markerDesign("rank-big", "20 빅 넘버", { showRank: true, shape: "card", size: "large", tone: "solid" })
+];
+const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
   center: [37.48, 127.18],
   zoom: 12
@@ -139,6 +138,8 @@ const els = {
   designView: document.querySelector("#designView"),
   designGraphSelected: document.querySelector("#designGraphSelected"),
   graphDesignGrid: document.querySelector("#graphDesignGrid"),
+  designMarkerSelected: document.querySelector("#designMarkerSelected"),
+  markerDesignGrid: document.querySelector("#markerDesignGrid"),
   molitSummary: document.querySelector("#molitSummary"),
   molitCompletionList: document.querySelector("#molitCompletionList"),
   mapView: document.querySelector("#mapView"),
@@ -177,6 +178,7 @@ init();
 
 async function init() {
   state.activeGraphDesignId = readStoredGraphDesignId();
+  state.activeMarkerDesignId = readStoredMarkerDesignId();
   setActiveTab(tabFromLocation());
   bindEvents();
   await loadClientConfig();
@@ -217,6 +219,11 @@ function bindEvents() {
     const card = event.target.closest("[data-graph-design-id]");
     if (!card) return;
     setActiveGraphDesign(card.dataset.graphDesignId);
+  });
+  els.markerDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-marker-design-id]");
+    if (!card) return;
+    setActiveMarkerDesign(card.dataset.markerDesignId);
   });
 
   document.querySelectorAll("[data-period-years]").forEach((button) => {
@@ -293,7 +300,7 @@ async function refresh() {
     : "아직 수집된 데이터가 없습니다. 상단의 샘플 동기화 버튼을 눌러 시작하세요.";
 
   if (state.activeTab === "design") {
-    renderGraphDesignGallery();
+    renderDesignTab();
     return;
   }
 
@@ -334,7 +341,7 @@ async function loadActiveViewData() {
   }
 
   if (state.activeTab === "design") {
-    renderGraphDesignGallery();
+    renderDesignTab();
     return;
   }
 
@@ -1041,7 +1048,8 @@ function naverCoordLng(coord) {
 }
 
 function renderZoomMapSummary(data) {
-  const items = data.items || [];
+  const items = addApartmentDongRanks(data.items || []);
+  state.latestZoomMapData = { ...data, items };
   const levelLabel = zoomLevelLabel(data.level);
   const cacheLabel = formatMapCacheLabel(data.cache);
   els.zoomMapPeriod.textContent = data.period?.startMonth && data.period?.endMonth
@@ -1061,6 +1069,32 @@ function renderZoomMapSummary(data) {
       renderZoomGroupMarker(item, data.level);
     }
   }
+}
+
+function addApartmentDongRanks(items) {
+  const ranked = items.map((item) => ({ ...item }));
+  const groups = new Map();
+  for (const item of ranked) {
+    if (item.type !== "apartment" || !item.id) continue;
+    const key = item.neighborhoodName || "미분류";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+
+  for (const group of groups.values()) {
+    group
+      .sort((a, b) => {
+        if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
+        const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
+        if (rateDiff) return rateDiff;
+        return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+      })
+      .forEach((item, index) => {
+        item.dongRank = index + 1;
+        item.dongRankTotal = group.length;
+      });
+  }
+  return ranked;
 }
 
 function scheduleMapSearch(delay = 160) {
@@ -1369,12 +1403,13 @@ function renderZoomApartmentMarker(item) {
     renderNaverZoomApartmentMarker(item);
     return;
   }
+  const [width, height] = markerIconSize(activeMarkerDesign());
   const marker = L.marker([item.lat, item.lng], {
     icon: L.divIcon({
       className: "apartment-map-marker-shell",
       html: apartmentMarkerHtml(item),
-      iconSize: [54, 34],
-      iconAnchor: [27, 17]
+      iconSize: [width, height],
+      iconAnchor: [width / 2, height / 2]
     })
   }).addTo(state.zoomMapLayer);
   marker.bindTooltip(apartmentHoverHtml(item), {
@@ -1411,10 +1446,11 @@ function renderNaverZoomGroupMarker(item, level) {
 
 function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
+  const [width, height] = markerIconSize(activeMarkerDesign());
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
-    icon: naverLabelIcon(apartmentMarkerHtml(item), 54, 34)
+    icon: naverLabelIcon(apartmentMarkerHtml(item), width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
@@ -1430,11 +1466,33 @@ function renderNaverZoomApartmentMarker(item) {
 
 function apartmentMarkerHtml(item) {
   const hasData = item.hasData !== false;
+  const design = activeMarkerDesign();
+  const rankLabel = apartmentMarkerRankLabel(item);
   return `
-    <div class="apartment-map-marker ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
-      <span>${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
+    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
+      <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
+      ${design.showRank ? `<small>${escapeHtml(rankLabel)}</small>` : ""}
     </div>
   `;
+}
+
+function apartmentMarkerRankLabel(item) {
+  const dong = shortDongLabel(item.neighborhoodName || "-");
+  const rank = Number(item.dongRank);
+  if (!Number.isFinite(rank)) return `${dong} -`;
+  return `${dong} ${formatInt(rank)}등`;
+}
+
+function markerIconSize(design) {
+  if (!design.showRank) return [54, 34];
+  if (design.size === "small") return [70, 42];
+  if (design.size === "large") return [92, 58];
+  return [82, 48];
+}
+
+function shortDongLabel(value) {
+  return String(value || "-")
+    .replace(/^.+\s([^\s]+)$/g, "$1");
 }
 
 function apartmentHoverHtml(item) {
@@ -1640,6 +1698,52 @@ function setActiveGraphDesign(id) {
   }
 }
 
+function markerDesign(id, name, overrides = {}) {
+  return {
+    id,
+    name,
+    showRank: true,
+    shape: "pill",
+    size: "wide",
+    tone: "solid",
+    ...overrides
+  };
+}
+
+function activeMarkerDesign() {
+  return markerDesignVariantMap.get(state.activeMarkerDesignId)
+    || markerDesignVariantMap.get(defaultMarkerDesignId)
+    || markerDesignVariants[0];
+}
+
+function readStoredMarkerDesignId() {
+  try {
+    const stored = window.localStorage.getItem(markerDesignStorageKey);
+    return markerDesignVariantMap.has(stored) ? stored : defaultMarkerDesignId;
+  } catch {
+    return defaultMarkerDesignId;
+  }
+}
+
+function setActiveMarkerDesign(id) {
+  if (!markerDesignVariantMap.has(id)) return;
+  state.activeMarkerDesignId = id;
+  try {
+    window.localStorage.setItem(markerDesignStorageKey, id);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  renderMarkerDesignGallery();
+  if (state.latestZoomMapData?.level === "apartment") {
+    renderZoomMapSummary(state.latestZoomMapData);
+  }
+}
+
+function renderDesignTab() {
+  renderGraphDesignGallery();
+  renderMarkerDesignGallery();
+}
+
 function renderGraphDesignGallery() {
   if (!els.graphDesignGrid) return;
   const sample = graphDesignSampleData();
@@ -1662,12 +1766,48 @@ function renderGraphDesignGallery() {
       <button class="graph-design-card ${isActive ? "active" : ""}" type="button" data-graph-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
         <span class="graph-design-card-head">
           <strong>${escapeHtml(design.name)}</strong>
-          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/30`}</em>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${graphDesignVariants.length}`}</em>
         </span>
         <span class="graph-design-preview">${result.html}</span>
       </button>
     `;
   }).join("");
+}
+
+function renderMarkerDesignGallery() {
+  if (!els.markerDesignGrid) return;
+  const active = activeMarkerDesign();
+  const sampleItems = markerDesignSampleItems();
+  els.designMarkerSelected.textContent = `${active.name} / ${markerDesignVariants.length}개`;
+  els.markerDesignGrid.innerHTML = markerDesignVariants.map((design, index) => {
+    const isActive = design.id === active.id;
+    const markers = sampleItems.map((item) => markerPreviewHtml(item, design)).join("");
+    return `
+      <button class="marker-design-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
+        </span>
+        <span class="marker-design-preview">${markers}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function markerDesignSampleItems() {
+  return [
+    { id: "sample-1", name: "래미안", neighborhoodName: "잠원동", growthRate: 0.158, dongRank: 1, hasData: true },
+    { id: "sample-2", name: "자이", neighborhoodName: "반포동", growthRate: 0.083, dongRank: 3, hasData: true },
+    { id: "sample-3", name: "힐스테이트", neighborhoodName: "도곡동", growthRate: -0.012, dongRank: 8, hasData: true }
+  ];
+}
+
+function markerPreviewHtml(item, design) {
+  const previous = state.activeMarkerDesignId;
+  state.activeMarkerDesignId = design.id;
+  const html = apartmentMarkerHtml(item);
+  state.activeMarkerDesignId = previous;
+  return html;
 }
 
 function graphDesignSampleData() {
