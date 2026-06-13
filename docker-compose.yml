@@ -43,4 +43,19 @@ services:
     environment:
       DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
       WORKER_IDLE_DELAY_MS: 5000
+      WORKER_REGION_IDS: seoul
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+
+  worker-gyeonggi:
+    build: .
+    container_name: orulzip-worker-gyeonggi
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
+      WORKER_IDLE_DELAY_MS: 5000
+      WORKER_REGION_IDS: gyeonggi
       MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}

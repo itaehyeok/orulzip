@@ -319,6 +319,7 @@ function renderCrawlJobProgress(items) {
           <span>${formatInt(done)} / ${formatInt(total)}</span>
           <span>실패 ${formatInt(failed)}</span>
         </div>
+        ${job.currentComplexName ? `<div class="crawl-job-current">${escapeHtml(job.currentComplexName)}</div>` : ""}
       </article>
     `;
   }).join("");

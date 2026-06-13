@@ -262,6 +262,15 @@ input {
   font-size: 12px;
 }
 
+.crawl-job-current {
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .crawl-logs {
   display: grid;
   gap: 4px;

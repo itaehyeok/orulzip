@@ -5,9 +5,10 @@ import { getRegion } from "./services/region-config.js";
 
 const provider = new KBPriceProvider();
 const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
+const workerRegionIds = parseWorkerRegionIds(process.env.WORKER_REGION_IDS || "");
 
 await initDb();
-console.log("KB worker started");
+console.log(`KB worker started${workerRegionIds.length ? ` for ${workerRegionIds.join(",")}` : ""}`);
 
 while (true) {
   try {
@@ -36,13 +37,21 @@ while (true) {
 }
 
 async function getRunnableJob() {
+  const params = [];
+  let regionClause = "";
+  if (workerRegionIds.length) {
+    params.push(workerRegionIds);
+    regionClause = `and region_id = any($${params.length}::text[])`;
+  }
+
   const result = await query(`
     select *
     from crawl_jobs
     where status in ('requested', 'discovering', 'running')
+      ${regionClause}
     order by created_at asc
     limit 1
-  `);
+  `, params);
   return result.rows[0] || null;
 }
 
@@ -341,6 +350,13 @@ function politeDelay(job) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseWorkerRegionIds(value) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function dedupeBy(items, key) {
