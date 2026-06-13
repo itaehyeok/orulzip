@@ -1490,7 +1490,6 @@ function renderZoomGroupMarker(item, level) {
         <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
           <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
           <span>${formatPercent(item.growthRate)}</span>
-          <em>${formatInt(item.apartmentCount)}</em>
           ${zoomGroupMarkerRankHtml(item, level)}
         </div>
       `,
@@ -1538,7 +1537,6 @@ function renderNaverZoomGroupMarker(item, level) {
         <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
           <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
           <span>${formatPercent(item.growthRate)}</span>
-          <em>${formatInt(item.apartmentCount)}</em>
           ${zoomGroupMarkerRankHtml(item, level)}
         </div>
       </div>
@@ -2542,14 +2540,27 @@ function shortZoomLabel(name, level) {
 }
 
 function zoomGroupMarkerRankHtml(item, level) {
-  if (level !== "dong") return "";
-  const sigunguLabel = zoomRankSigunguLabel(item);
   const sidoLabel = zoomRankSidoLabel(item);
+  if (level === "dong") {
+    const sigunguLabel = zoomRankSigunguLabel(item);
+    return `
+      <small class="zoom-cluster-rank">
+        <b>${escapeHtml(sigunguLabel)} ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
+        <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
+        <b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b>
+      </small>
+    `;
+  }
+  if (level === "sigungu") {
+    return `
+      <small class="zoom-cluster-rank">
+        <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
+        <b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b>
+      </small>
+    `;
+  }
   return `
-    <small class="zoom-cluster-rank">
-      <b>${escapeHtml(sigunguLabel)} ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
-      <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
-    </small>
+    ${level === "sido" && Number.isFinite(Number(item.countryRank)) ? `<small class="zoom-cluster-rank"><b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b></small>` : ""}
   `;
 }
 
@@ -2574,7 +2585,8 @@ function formatRankText(rank, total) {
 }
 
 function zoomMarkerSize(level = "") {
-  if (level === "dong") return [104, 92];
+  if (level === "dong") return [104, 86];
+  if (level === "sigungu") return [96, 78];
   return [72, 72];
 }
 

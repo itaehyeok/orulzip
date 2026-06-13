@@ -1455,6 +1455,11 @@ input {
   padding: 6px 5px;
 }
 
+.zoom-cluster-marker .level-sigungu {
+  gap: 2px;
+  padding: 6px 5px;
+}
+
 .zoom-cluster-marker strong {
   display: block;
   font-size: 12px;
@@ -1466,16 +1471,6 @@ input {
 
 .zoom-cluster-marker span {
   font-size: 15px;
-}
-
-.zoom-cluster-marker em {
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 999px;
-  color: var(--zoom-color);
-  font-size: 11px;
-  font-style: normal;
-  margin-top: 3px;
-  padding: 2px 7px;
 }
 
 .zoom-cluster-rank {
@@ -1495,6 +1490,10 @@ input {
   text-overflow: ellipsis;
   text-shadow: 0 1px 2px rgba(16, 24, 40, 0.22);
   white-space: nowrap;
+}
+
+.level-sigungu .zoom-cluster-rank {
+  max-width: 84px;
 }
 
 .view {

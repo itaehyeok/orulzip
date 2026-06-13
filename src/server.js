@@ -266,9 +266,16 @@ function summarizeZoomGroups(rows, level) {
 }
 
 function rankZoomGroups(items, level) {
-  if (level !== "dong") return items;
-  assignGroupRanks(items, (item) => String(item.code || "").slice(0, 5), "sigunguRank", "sigunguRankTotal");
-  assignGroupRanks(items, (item) => String(item.code || "").slice(0, 2), "sidoRank", "sidoRankTotal");
+  if (level === "dong") {
+    assignGroupRanks(items, (item) => String(item.code || "").slice(0, 5), "sigunguRank", "sigunguRankTotal");
+    assignGroupRanks(items, (item) => String(item.code || "").slice(0, 2), "sidoRank", "sidoRankTotal");
+    assignGroupRanks(items, () => "country", "countryRank", "countryRankTotal");
+  } else if (level === "sigungu") {
+    assignGroupRanks(items, (item) => String(item.code || "").slice(0, 2), "sidoRank", "sidoRankTotal");
+    assignGroupRanks(items, () => "country", "countryRank", "countryRankTotal");
+  } else if (level === "sido") {
+    assignGroupRanks(items, () => "country", "countryRank", "countryRankTotal");
+  }
   return items;
 }
 
