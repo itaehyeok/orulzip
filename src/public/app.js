@@ -47,6 +47,8 @@ const homeMapView = {
   center: [37.48, 127.18],
   zoom: 12
 };
+const apartmentMapZoom = 16;
+const animatedMapMoveDuration = 0.9;
 
 const els = {
   regionSelect: document.querySelector("#regionSelect"),
@@ -1116,18 +1118,7 @@ async function selectMapSearchResult(item) {
 }
 
 function focusMapTarget(item, zoom = 16) {
-  if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
-
-  if (state.zoomNaverMap && window.naver?.maps) {
-    const position = new window.naver.maps.LatLng(item.lat, item.lng);
-    state.zoomNaverMap.setCenter(position);
-    state.zoomNaverMap.setZoom(Math.max(Number(state.zoomNaverMap.getZoom() || 0), zoom));
-    return;
-  }
-
-  if (state.zoomMap) {
-    state.zoomMap.setView([item.lat, item.lng], Math.max(Number(state.zoomMap.getZoom() || 0), zoom), { animate: true });
-  }
+  moveZoomMapTo(item, zoom);
 }
 
 function hideMapSearchResults() {
@@ -1193,16 +1184,75 @@ function renderMapApartmentRanking(level, items) {
 }
 
 function focusMapApartment(item) {
+  moveZoomMapTo(item, apartmentMapZoom);
+}
+
+function moveZoomMapTo(item, zoom, { exactZoom = false } = {}) {
   if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
   if (state.zoomNaverMap && window.naver?.maps) {
-    const position = new window.naver.maps.LatLng(item.lat, item.lng);
-    state.zoomNaverMap.setCenter(position);
-    if (state.zoomNaverMap.getZoom() < 16) state.zoomNaverMap.setZoom(16);
+    moveNaverZoomMapTo(item, zoom, { exactZoom });
     return;
   }
   if (state.zoomMap) {
-    state.zoomMap.setView([item.lat, item.lng], Math.max(state.zoomMap.getZoom(), 16), { animate: true });
+    moveLeafletZoomMapTo(item, zoom, { exactZoom });
   }
+}
+
+function moveLeafletZoomMapTo(item, zoom, { exactZoom = false } = {}) {
+  const currentZoom = Number(state.zoomMap.getZoom() || 0);
+  const targetZoom = exactZoom ? zoom : Math.max(currentZoom, zoom);
+  if (typeof state.zoomMap.flyTo === "function") {
+    state.zoomMap.flyTo([item.lat, item.lng], targetZoom, {
+      animate: true,
+      duration: animatedMapMoveDuration,
+      easeLinearity: 0.25
+    });
+    return;
+  }
+  state.zoomMap.setView([item.lat, item.lng], targetZoom, { animate: true });
+}
+
+function moveNaverZoomMapTo(item, zoom, { exactZoom = false } = {}) {
+  const map = state.zoomNaverMap;
+  const currentZoom = Number(map.getZoom?.() || 0);
+  const targetZoom = exactZoom ? zoom : Math.max(currentZoom, zoom);
+  const position = new window.naver.maps.LatLng(item.lat, item.lng);
+
+  if (typeof map.morph === "function") {
+    try {
+      map.morph(position, targetZoom, { duration: animatedMapMoveDuration * 1000 });
+      return;
+    } catch (error) {
+      try {
+        map.morph(position, targetZoom);
+        return;
+      } catch (fallbackError) {
+        // Fall through to panTo/setCenter when morph is unavailable in this SDK build.
+      }
+    }
+  }
+
+  if (typeof map.panTo === "function") {
+    try {
+      map.panTo(position, { duration: animatedMapMoveDuration * 1000 });
+    } catch (error) {
+      map.panTo(position);
+    }
+    if (targetZoom !== currentZoom && typeof map.setZoom === "function") {
+      setTimeout(() => map.setZoom(targetZoom), 260);
+    }
+    return;
+  }
+
+  map.setCenter(position);
+  if (typeof map.setZoom === "function") map.setZoom(targetZoom);
+}
+
+function zoomGroupTargetZoom(level, currentZoom) {
+  if (level === "sido") return Math.max(Number(currentZoom || 0) + 1, 11);
+  if (level === "sigungu") return Math.max(Number(currentZoom || 0) + 1, 13);
+  if (level === "dong") return apartmentMapZoom;
+  return Math.max(Number(currentZoom || 0) + 1, apartmentMapZoom);
 }
 
 function clearZoomMapOverlays() {
@@ -1242,8 +1292,7 @@ function renderZoomGroupMarker(item, level) {
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
   marker.on("click", () => {
-    const nextZoom = { sido: 9, sigungu: 11, dong: 13 }[level] || state.zoomMap.getZoom() + 1;
-    state.zoomMap.setView([item.lat, item.lng], Math.max(state.zoomMap.getZoom() + 1, nextZoom), { animate: true });
+    moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
 }
 
@@ -1287,9 +1336,7 @@ function renderNaverZoomGroupMarker(item, level) {
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     openZoomNaverInfoWindow(position, zoomGroupPopup(item));
-    const nextZoom = { sido: 9, sigungu: 11, dong: 13 }[level] || state.zoomNaverMap.getZoom() + 1;
-    state.zoomNaverMap.setCenter(position);
-    state.zoomNaverMap.setZoom(Math.max(state.zoomNaverMap.getZoom() + 1, nextZoom));
+    moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomNaverMap.getZoom()), { exactZoom: true });
   });
   state.zoomNaverOverlays.push(marker);
 }
