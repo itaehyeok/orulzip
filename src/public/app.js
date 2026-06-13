@@ -29,6 +29,7 @@ const state = {
   zoomNaverMap: null,
   zoomNaverOverlays: [],
   zoomNaverInfoWindow: null,
+  zoomMarkerTopZIndex: 10000,
   zoomMapTimer: null,
   zoomMapRequestId: 0,
   mapPopupRequestId: 0,
@@ -1491,7 +1492,13 @@ function setNaverMarkerZIndex(marker, zIndex) {
   if (typeof marker.setZIndex === "function") marker.setZIndex(zIndex);
 }
 
+function nextZoomMarkerTopZIndex() {
+  state.zoomMarkerTopZIndex += 1;
+  return state.zoomMarkerTopZIndex;
+}
+
 function clearZoomMapOverlays() {
+  state.zoomMarkerTopZIndex = 10000;
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
     return;
@@ -1530,8 +1537,7 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
-  marker.on("mouseover", () => marker.setZIndexOffset(10000));
-  marker.on("mouseout", () => marker.setZIndexOffset(baseZIndex));
+  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
   marker.on("click", () => {
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
@@ -1559,8 +1565,7 @@ function renderZoomApartmentMarker(item) {
     opacity: 1,
     sticky: true
   });
-  marker.on("mouseover", () => marker.setZIndexOffset(10000));
-  marker.on("mouseout", () => marker.setZIndexOffset(baseZIndex));
+  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
   marker.on("click", () => openMapApartmentDetail(item.id, item));
 }
 
@@ -1583,10 +1588,7 @@ function renderNaverZoomGroupMarker(item, level) {
     `, width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
-    setNaverMarkerZIndex(marker, 10000);
-  });
-  window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    setNaverMarkerZIndex(marker, baseZIndex);
+    setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     openZoomNaverInfoWindow(position, zoomGroupPopup(item));
@@ -1606,11 +1608,10 @@ function renderNaverZoomApartmentMarker(item) {
     icon: naverLabelIcon(apartmentMarkerHtml(item), width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
-    setNaverMarkerZIndex(marker, 10000);
+    setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
     openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    setNaverMarkerZIndex(marker, baseZIndex);
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
