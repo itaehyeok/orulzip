@@ -14,7 +14,9 @@ const state = {
   zoomMapTimer: null,
   zoomMapRequestId: 0,
   mapPopupRequestId: 0,
-  naverSdkPromise: null
+  naverSdkPromise: null,
+  latestStatus: null,
+  latestMolitStatus: null
 };
 
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
@@ -38,6 +40,14 @@ const els = {
   crawlDelay: document.querySelector("#crawlDelay"),
   crawlTrackedJobs: document.querySelector("#crawlTrackedJobs"),
   crawlLogs: document.querySelector("#crawlLogs"),
+  collectionSummaryKb: document.querySelector("#collectionSummaryKb"),
+  collectionSummaryKbMeta: document.querySelector("#collectionSummaryKbMeta"),
+  collectionSummaryMolit: document.querySelector("#collectionSummaryMolit"),
+  collectionSummaryMolitMeta: document.querySelector("#collectionSummaryMolitMeta"),
+  collectionSummaryFailure: document.querySelector("#collectionSummaryFailure"),
+  collectionSummaryFailureMeta: document.querySelector("#collectionSummaryFailureMeta"),
+  collectionSummaryCache: document.querySelector("#collectionSummaryCache"),
+  collectionSummaryCacheMeta: document.querySelector("#collectionSummaryCacheMeta"),
   crawlView: document.querySelector("#crawlView"),
   crawlDetailSummary: document.querySelector("#crawlDetailSummary"),
   crawlStats: document.querySelector("#crawlStats"),
@@ -192,6 +202,8 @@ async function loadFilters() {
 
 async function refresh() {
   const status = await api("/api/status");
+  state.latestStatus = status;
+  renderCollectionSummary();
   renderCrawlStatus(status.crawl);
   const months = status.months || [];
   state.months = months;
@@ -253,6 +265,8 @@ async function syncCurrentRegion() {
 
 async function refreshStatusOnly() {
   const status = await api("/api/status");
+  state.latestStatus = status;
+  renderCollectionSummary();
   renderCrawlStatus(status.crawl);
   const months = status.months || [];
   if (months.length) state.months = months;
@@ -262,6 +276,43 @@ async function refreshStatusOnly() {
   if (state.activeTab === "crawl") {
     renderMolitStatus(await api("/api/molit/status"));
     await loadCrawlDetails();
+  }
+}
+
+function renderCollectionSummary() {
+  const status = state.latestStatus || {};
+  const crawl = status.crawl || {};
+  const molit = state.latestMolitStatus || {};
+  const jobs = crawl.jobProgress || [];
+  const runningJobs = jobs.filter((item) => ["discovering", "running"].includes(item.job?.status)).length;
+  const pendingJobs = jobs.filter((item) => item.job?.status === "requested").length;
+  const kbFailed = jobs.reduce((sum, item) => sum + Number(item.job?.failedComplexes || 0), 0);
+  const molitProgress = molit.progress || {};
+  const molitOverall = molit.overall || {};
+  const mapCache = status.mapCache || {};
+
+  if (els.collectionSummaryKb) {
+    els.collectionSummaryKb.textContent = `${formatInt(runningJobs)}개 진행 중`;
+    els.collectionSummaryKbMeta.textContent = `${formatInt(pendingJobs)}개 대기 · ${formatInt(jobs.length)}개 주요 작업 추적`;
+  }
+  if (els.collectionSummaryMolit) {
+    const completed = Number(molitProgress.completed || 0);
+    const totalKnown = Number(molitProgress.totalKnown || completed || 0);
+    els.collectionSummaryMolit.textContent = molitOverall.deals ? `${formatInt(molitOverall.deals)}건` : "-";
+    els.collectionSummaryMolitMeta.textContent = totalKnown
+      ? `API 요청 ${formatInt(completed)} / ${formatInt(totalKnown)} 완료`
+      : "실거래가 상태 확인 전";
+  }
+  if (els.collectionSummaryFailure) {
+    const molitFailed = Number(molitProgress.failed || 0);
+    els.collectionSummaryFailure.textContent = `${formatInt(kbFailed + molitFailed)}개`;
+    els.collectionSummaryFailureMeta.textContent = `KB 실패 ${formatInt(kbFailed)} · 실거래 API 실패 ${formatInt(molitFailed)}`;
+  }
+  if (els.collectionSummaryCache) {
+    els.collectionSummaryCache.textContent = mapCache.updatedAt ? formatDateTime(mapCache.updatedAt) : "-";
+    els.collectionSummaryCacheMeta.textContent = mapCache.snapshots
+      ? `${formatInt(mapCache.snapshots)}개 기간 캐시 · ${formatMonthRange(mapCache.startMonth, mapCache.endMonth)}`
+      : "지도 캐시 없음";
   }
 }
 
@@ -279,10 +330,10 @@ function renderCrawlStatus(crawl) {
   }
 
   const job = crawl.job;
-  const progress = crawl.progress || 0;
-  els.crawlSummary.textContent = `#${job.id} ${job.regionId} / ${job.status}`;
-  els.progressBar.style.width = `${progress}%`;
-  els.progressText.textContent = `${progress}%`;
+  const activeProgress = crawlJobProgress({ job, queueCounts: crawl.queueCounts || {}, progress: crawl.progress || 0 });
+  els.crawlSummary.textContent = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치 / ${statusLabel(job.status)}`;
+  els.progressBar.style.width = `${activeProgress.percent}%`;
+  els.progressText.textContent = `${activeProgress.percent.toFixed(1)}%`;
   els.currentComplex.textContent = job.currentComplexName || "-";
   els.crawlCounts.textContent = `${job.completedComplexes} / ${job.failedComplexes} / ${job.totalComplexes}`;
   els.crawlDelay.textContent = `${Math.round(job.delayMinMs / 1000)}-${Math.round(job.delayMaxMs / 1000)}초`;
@@ -293,17 +344,60 @@ function renderCrawlStatus(crawl) {
   }).join("");
 }
 
+function crawlJobProgress(item) {
+  const job = item.job || {};
+  const counts = item.queueCounts || {};
+  const completed = Number(counts.completed || 0);
+  const failed = Number(counts.failed || 0);
+  const done = completed + failed;
+  const total = Number(job.totalComplexes || 0);
+  const discovery = parseDiscoveryProgress(job.currentComplexName || "");
+
+  if (job.status === "discovering" && discovery) {
+    return {
+      percent: discovery.total ? (discovery.current / discovery.total) * 100 : 0,
+      label: `탐색 ${formatInt(discovery.current)} / ${formatInt(discovery.total)} 타일 · 발견 ${formatInt(discovery.found)}개`
+    };
+  }
+
+  if (total) {
+    return {
+      percent: Number(item.progress || ((done / total) * 100)),
+      label: `${formatInt(done)} / ${formatInt(total)} 단지`
+    };
+  }
+
+  if (job.status === "requested") {
+    return {
+      percent: 0,
+      label: job.sourceJobId ? "선행 작업 완료 후 대기" : "대기 중"
+    };
+  }
+
+  return {
+    percent: 0,
+    label: "대상 준비 중"
+  };
+}
+
+function parseDiscoveryProgress(value) {
+  const match = String(value || "").match(/단지 탐색\s+([\d,]+)\/([\d,]+)\s*타일,\s*발견\s*([\d,]+)개/);
+  if (!match) return null;
+  return {
+    current: Number(match[1].replaceAll(",", "")),
+    total: Number(match[2].replaceAll(",", "")),
+    found: Number(match[3].replaceAll(",", ""))
+  };
+}
+
 function renderCrawlJobProgress(items) {
-  if (!items.length) return "";
+  if (!items.length) return `<div class="empty crawl-job-empty">진행 중이거나 대기 중인 주요 작업이 없습니다.</div>`;
   return items.map((item) => {
     const job = item.job;
     const counts = item.queueCounts || {};
-    const completed = Number(counts.completed || 0);
     const failed = Number(counts.failed || 0);
-    const done = completed + failed;
-    const total = Number(job.totalComplexes || 0);
-    const progress = Number(item.progress || 0);
     const status = job.status || "requested";
+    const progress = crawlJobProgress(item);
     const label = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치`;
     return `
       <article class="crawl-job-card">
@@ -311,12 +405,12 @@ function renderCrawlJobProgress(items) {
           <strong>${escapeHtml(label)}</strong>
           <span class="status-pill ${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</span>
         </div>
-        <div class="crawl-job-percent">${progress.toFixed(1)}%</div>
+        <div class="crawl-job-percent">${progress.percent.toFixed(1)}%</div>
         <div class="crawl-job-track" aria-hidden="true">
-          <span style="width: ${Math.max(0, Math.min(progress, 100))}%"></span>
+          <span style="width: ${Math.max(0, Math.min(progress.percent, 100))}%"></span>
         </div>
         <div class="crawl-job-meta">
-          <span>${formatInt(done)} / ${formatInt(total)}</span>
+          <span>${escapeHtml(progress.label)}</span>
           <span>실패 ${formatInt(failed)}</span>
         </div>
         ${job.currentComplexName ? `<div class="crawl-job-current">${escapeHtml(job.currentComplexName)}</div>` : ""}
@@ -327,6 +421,8 @@ function renderCrawlJobProgress(items) {
 
 function renderMolitStatus(status) {
   if (!status) return;
+  state.latestMolitStatus = status;
+  renderCollectionSummary();
 
   const progress = status.progress || {};
   const overall = status.overall || {};
@@ -336,7 +432,7 @@ function renderMolitStatus(status) {
     ? `${formatMonth(overall.start_month)} - ${formatMonth(overall.end_month)}`
     : "-";
   els.molitScope.textContent = `대상 ${formatInt(overall.targets || 0)}개 / 법정동 ${formatInt(overall.legal_dongs || 0)}개`;
-  els.molitSummary.textContent = `${formatInt(progress.savedCount || 0)}건 저장 / ${formatInt(progress.completed || 0)} fetch 완료`;
+  els.molitSummary.textContent = `${formatInt(progress.savedCount || 0)}건 저장 / ${formatInt(progress.completed || 0)}개 API 요청 완료`;
 
   els.molitRegionRows.innerHTML = (status.lawdRows || []).length
     ? status.lawdRows.map((row) => {
@@ -352,7 +448,7 @@ function renderMolitStatus(status) {
         </tr>
       `;
     }).join("")
-    : `<tr><td colspan="6" class="empty">아직 실거래가 fetch 기록이 없습니다.</td></tr>`;
+    : `<tr><td colspan="6" class="empty">아직 실거래가 API 요청 기록이 없습니다.</td></tr>`;
 
   els.molitDongRows.innerHTML = (status.dongRows || []).length
     ? status.dongRows.map((row) => `
@@ -376,7 +472,7 @@ function renderMolitStatus(status) {
         <td class="error-cell">${escapeHtml(row.error_message || "-")}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="6" class="empty">최근 fetch 기록이 없습니다.</td></tr>`;
+    : `<tr><td colspan="6" class="empty">최근 API 요청 기록이 없습니다.</td></tr>`;
 }
 
 async function loadFormulaAnalysis() {
@@ -470,7 +566,7 @@ function renderCrawlDetails(details) {
   const counts = details.queueCounts || {};
   const job = details.job;
   els.crawlDetailSummary.textContent = job
-    ? `#${job.id} ${job.regionId} / ${job.status}`
+    ? `#${job.id} ${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치 / ${statusLabel(job.status)}`
     : "작업 없음";
 
   const statItems = [
@@ -514,10 +610,10 @@ function renderCrawlDetails(details) {
 function statusLabel(status) {
   return {
     requested: "대기",
-    discovering: "탐색 중",
-    completed: "성공",
+    discovering: "단지 탐색 중",
+    completed: "완료",
     failed: "실패",
-    running: "진행 중",
+    running: "수집 중",
     pending: "대기"
   }[status] || status;
 }
@@ -1550,6 +1646,11 @@ function toMonthInput(value) {
 
 function formatMonth(value) {
   return `${value.slice(2, 4)}.${value.slice(4, 6)}`;
+}
+
+function formatMonthRange(start, end) {
+  if (!start || !end) return "-";
+  return `${formatMonth(start)} - ${formatMonth(end)}`;
 }
 
 function formatMoney(value) {

@@ -159,6 +159,36 @@ input {
   padding: 16px;
 }
 
+.collection-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.collection-summary-grid div {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.collection-summary-grid strong {
+  display: block;
+  overflow: hidden;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-summary-grid span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .progress-track {
   height: 14px;
   background: #edf1f7;
@@ -271,6 +301,11 @@ input {
   white-space: nowrap;
 }
 
+.crawl-job-empty {
+  grid-column: 1 / -1;
+  padding: 28px 16px;
+}
+
 .crawl-logs {
   display: grid;
   gap: 4px;
@@ -314,6 +349,26 @@ input {
 
 .top-tabs {
   margin-bottom: 12px;
+}
+
+.crawl-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfe;
+}
+
+.crawl-section-head strong {
+  font-size: 14px;
+}
+
+.crawl-section-head span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .crawl-detail-tools {
@@ -1000,6 +1055,7 @@ td:nth-child(4) {
     grid-template-columns: 1fr;
   }
 
+  .collection-summary-grid,
   .crawl-grid,
   .crawl-job-progress,
   .crawl-stats,

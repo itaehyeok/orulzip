@@ -235,17 +235,102 @@
       <section id="crawlView" class="view">
         <section class="panel crawl-panel">
           <div class="panel-head">
-            <h2>주요 수집 완료율</h2>
+            <h2>전체 요약</h2>
+            <span>KB시세·실거래가·지도 캐시</span>
+          </div>
+          <div class="collection-summary-grid">
+            <div>
+              <strong id="collectionSummaryKb">-</strong>
+              <span id="collectionSummaryKbMeta">KB시세 수집 상태</span>
+            </div>
+            <div>
+              <strong id="collectionSummaryMolit">-</strong>
+              <span id="collectionSummaryMolitMeta">실거래가 수집 상태</span>
+            </div>
+            <div>
+              <strong id="collectionSummaryFailure">-</strong>
+              <span id="collectionSummaryFailureMeta">점검 필요 항목</span>
+            </div>
+            <div>
+              <strong id="collectionSummaryCache">-</strong>
+              <span id="collectionSummaryCacheMeta">지도 캐시</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel crawl-panel">
+          <div class="panel-head">
+            <h2>진행 중 작업</h2>
             <span>서울/경기 3년치·10년치</span>
           </div>
           <div class="crawl-body">
-            <div id="crawlTrackedJobs" class="crawl-job-progress" aria-label="주요 수집 완료율"></div>
+            <div id="crawlTrackedJobs" class="crawl-job-progress" aria-label="진행 중 작업"></div>
+          </div>
+        </section>
+
+        <section class="panel crawl-panel">
+          <div class="panel-head">
+            <h2>KB시세 수집</h2>
+            <span id="crawlSummary">대기 중</span>
+          </div>
+          <div class="crawl-body">
+            <div class="progress-track" aria-label="수집 진행률">
+              <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div class="crawl-grid">
+              <div>
+                <strong id="progressText">0%</strong>
+                <span>진행률</span>
+              </div>
+              <div>
+                <strong id="currentComplex">-</strong>
+                <span>현재 처리 중</span>
+              </div>
+              <div>
+                <strong id="crawlCounts">-</strong>
+                <span>완료 / 실패 / 전체</span>
+              </div>
+              <div>
+                <strong id="crawlDelay">-</strong>
+                <span>요청 간격</span>
+              </div>
+            </div>
+            <div id="crawlLogs" class="crawl-logs"></div>
+          </div>
+          <div class="crawl-section-head">
+            <strong>수집 대상 상세</strong>
+            <span id="crawlDetailSummary">-</span>
+          </div>
+          <div class="crawl-detail-tools">
+            <button class="active" data-crawl-status="failed">실패</button>
+            <button data-crawl-status="running">진행 중</button>
+            <button data-crawl-status="pending">대기</button>
+            <button data-crawl-status="completed">성공</button>
+            <button data-crawl-status="">전체</button>
+          </div>
+          <div class="crawl-stats" id="crawlStats"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>상태</th>
+                  <th>단지</th>
+                  <th>평수</th>
+                  <th>마커 시세</th>
+                  <th>재시도 횟수</th>
+                  <th>실패 사유</th>
+                  <th>업데이트</th>
+                </tr>
+              </thead>
+              <tbody id="crawlDetailRows"></tbody>
+            </table>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
-            <h2>조회 기준</h2>
+            <h2>새 KB시세 수집 작업</h2>
             <button id="syncBtn" class="primary-btn">분당 샘플 동기화</button>
           </div>
           <section class="toolbar embedded-toolbar" aria-label="필터">
@@ -278,49 +363,18 @@
 
         <section class="panel crawl-panel">
           <div class="panel-head">
-            <h2>수집 진행 상태</h2>
-            <span id="crawlSummary">대기 중</span>
-          </div>
-          <div class="crawl-body">
-            <div class="progress-track" aria-label="수집 진행률">
-              <div id="progressBar" class="progress-bar" style="width: 0%"></div>
-            </div>
-            <div class="crawl-grid">
-              <div>
-                <strong id="progressText">0%</strong>
-                <span>진행률</span>
-              </div>
-              <div>
-                <strong id="currentComplex">-</strong>
-                <span>현재 처리 중</span>
-              </div>
-              <div>
-                <strong id="crawlCounts">-</strong>
-                <span>완료 / 실패 / 전체</span>
-              </div>
-              <div>
-                <strong id="crawlDelay">-</strong>
-                <span>요청 간격</span>
-              </div>
-            </div>
-            <div id="crawlLogs" class="crawl-logs"></div>
-          </div>
-        </section>
-
-        <section class="panel crawl-panel">
-          <div class="panel-head">
-            <h2>실거래가 수집 현황</h2>
+            <h2>실거래가 수집</h2>
             <span id="molitSummary">대기 중</span>
           </div>
           <div class="crawl-body">
             <div class="crawl-grid">
               <div>
                 <strong id="molitDeals">0</strong>
-                <span>저장된 실거래 row</span>
+                <span>저장된 실거래</span>
               </div>
               <div>
                 <strong id="molitFetchCounts">-</strong>
-                <span>완료 / 진행 / 실패 fetch</span>
+                <span>완료 / 진행 / 실패 API 요청</span>
               </div>
               <div>
                 <strong id="molitPeriod">-</strong>
@@ -332,14 +386,17 @@
               </div>
             </div>
           </div>
+          <div class="crawl-section-head">
+            <strong>시군구별 API 요청 현황</strong>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>대상</th>
                   <th>시군구</th>
-                  <th>완료 fetch</th>
-                  <th>저장 row</th>
+                  <th>완료 API 요청</th>
+                  <th>저장 건수</th>
                   <th>기간</th>
                   <th>상태</th>
                 </tr>
@@ -347,18 +404,24 @@
               <tbody id="molitRegionRows"></tbody>
             </table>
           </div>
+          <div class="crawl-section-head">
+            <strong>법정동별 저장 현황</strong>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>대상</th>
                   <th>법정동</th>
-                  <th>저장 row</th>
+                  <th>저장 건수</th>
                   <th>기간</th>
                 </tr>
               </thead>
               <tbody id="molitDongRows"></tbody>
             </table>
+          </div>
+          <div class="crawl-section-head">
+            <strong>최근 API 요청</strong>
           </div>
           <div class="table-wrap">
             <table>
@@ -368,43 +431,11 @@
                   <th>시군구</th>
                   <th>년월</th>
                   <th>상태</th>
-                  <th>저장 row</th>
+                  <th>저장 건수</th>
                   <th>실패 사유</th>
                 </tr>
               </thead>
               <tbody id="molitRecentRows"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>수집 작업 상세</h2>
-            <span id="crawlDetailSummary">-</span>
-          </div>
-          <div class="crawl-detail-tools">
-            <button class="active" data-crawl-status="failed">실패</button>
-            <button data-crawl-status="running">진행 중</button>
-            <button data-crawl-status="pending">대기</button>
-            <button data-crawl-status="completed">성공</button>
-            <button data-crawl-status="">전체</button>
-          </div>
-          <div class="crawl-stats" id="crawlStats"></div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>상태</th>
-                  <th>단지</th>
-                  <th>평수</th>
-                  <th>마커 시세</th>
-                  <th>시도</th>
-                  <th>실패 사유</th>
-                  <th>업데이트</th>
-                </tr>
-              </thead>
-              <tbody id="crawlDetailRows"></tbody>
             </table>
           </div>
         </section>

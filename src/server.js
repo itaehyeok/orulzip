@@ -14,7 +14,7 @@ import {
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
-import { readCachedZoomMapSummary } from "./services/map-growth-cache.js";
+import { readCachedZoomMapSummary, readMapGrowthCacheOverview } from "./services/map-growth-cache.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -45,12 +45,16 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/status") {
-      const status = await readStatusOverview();
+      const [status, mapCache] = await Promise.all([
+        readStatusOverview(),
+        readMapGrowthCacheOverview()
+      ]);
       return json(res, {
         meta: status.meta,
         counts: status.counts,
         months: status.months,
-        crawl: serializeCrawlStatus(status.crawl)
+        crawl: serializeCrawlStatus(status.crawl),
+        mapCache
       });
     }
 

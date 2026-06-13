@@ -4,6 +4,25 @@ import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.j
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+export async function readMapGrowthCacheOverview() {
+  const result = await query(`
+    select
+      count(*)::int as snapshots,
+      max(updated_at) as updated_at,
+      min(start_month) as start_month,
+      max(end_month) as end_month
+    from map_growth_snapshots
+    where source = 'kb'
+  `);
+  const row = result.rows[0] || {};
+  return {
+    snapshots: Number(row.snapshots || 0),
+    updatedAt: row.updated_at || null,
+    startMonth: row.start_month || "",
+    endMonth: row.end_month || ""
+  };
+}
+
 export async function readCachedZoomMapSummary(filters) {
   const startMonth = filters.start || "";
   const endMonth = filters.end || "";
