@@ -70,7 +70,7 @@ async function discoverJob(job) {
       wait,
       onProgress: (progress) => updateDiscoveryProgress(job.id, progress)
     });
-    const existingComplexIds = await existingSourceComplexIds(job.region_id);
+    const existingComplexIds = await existingSourceComplexIds(region);
     const unique = dedupeBy(markers, "단지기본일련번호")
       .filter((item) => ["01", "41"].includes(String(item.물건종류 || "")))
       .filter((item) => !existingComplexIds.has(Number(item.단지기본일련번호)))
@@ -113,17 +113,21 @@ async function discoverJob(job) {
   }
 }
 
-async function existingSourceComplexIds(regionId) {
+async function existingSourceComplexIds(region) {
+  const regionClause = region.dedupeAgainstAllRegions ? "" : "where region_id = $1";
+  const queueRegionClause = region.dedupeAgainstAllRegions ? "" : "and j.region_id = $1";
+  const params = region.dedupeAgainstAllRegions ? [] : [region.id];
   const result = await query(`
     select source_complex_id
     from apartments
-    where region_id = $1
+    ${regionClause}
     union
     select q.source_complex_id
     from crawl_queue q
     join crawl_jobs j on j.id = q.job_id
-    where j.region_id = $1 and q.status = 'completed'
-  `, [regionId]);
+    where q.status = 'completed'
+    ${queueRegionClause}
+  `, params);
   return new Set(result.rows.map((row) => Number(row.source_complex_id)));
 }
 
@@ -166,6 +170,7 @@ async function processNextQueueItem(job) {
 
   try {
     await log(job.id, "info", `Collecting ${claimed.marker?.단지명 || claimed.source_complex_id}`);
+    const region = getRegion(job.region_id);
     const sinceYear = new Date().getFullYear() - Number(job.years_back);
     const collected = await provider.collectComplex(job.region_id, claimed.marker, {
       maxAreaTypesPerComplex: job.max_area_types_per_complex,
@@ -173,7 +178,8 @@ async function processNextQueueItem(job) {
       wait: () => politeDelay(job)
     });
 
-    await upsertCollectedData(collected);
+    const filtered = filterCollectedDataForRegion(collected, region);
+    await upsertCollectedData(filtered);
     await query(`
       update crawl_queue
       set status = 'completed', completed_at = now(), updated_at = now()
@@ -185,9 +191,10 @@ async function processNextQueueItem(job) {
       where id = $1
     `, [job.id]);
     await log(job.id, "info", `Completed ${claimed.marker?.단지명 || claimed.source_complex_id}`, {
-      apartments: collected.apartments.length,
-      areaTypes: collected.areaTypes.length,
-      monthlyPrices: collected.monthlyPrices.length
+      apartments: filtered.apartments.length,
+      areaTypes: filtered.areaTypes.length,
+      monthlyPrices: filtered.monthlyPrices.length,
+      skippedByRegionFilter: collected.apartments.length - filtered.apartments.length
     });
   } catch (error) {
     await query(`
@@ -207,6 +214,24 @@ async function processNextQueueItem(job) {
 
   await politeDelay(job);
   return true;
+}
+
+function filterCollectedDataForRegion(collected, region) {
+  if (!region?.legalDongCodePrefix) return collected;
+
+  const apartments = collected.apartments.filter((apartment) =>
+    String(apartment.legalDongCode || "").startsWith(region.legalDongCodePrefix)
+  );
+  const apartmentIds = new Set(apartments.map((apartment) => apartment.id));
+  const areaTypes = collected.areaTypes.filter((areaType) => apartmentIds.has(areaType.apartmentId));
+  const areaTypeIds = new Set(areaTypes.map((areaType) => areaType.id));
+  const monthlyPrices = collected.monthlyPrices.filter((price) => areaTypeIds.has(price.areaTypeId));
+
+  return {
+    apartments,
+    areaTypes,
+    monthlyPrices
+  };
 }
 
 async function updateDiscoveryProgress(jobId, progress) {

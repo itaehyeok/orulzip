@@ -31,6 +31,19 @@ export const regions = [
       endLng: 127.2
     },
     tileSize: 0.015
+  },
+  {
+    id: "gyeonggi",
+    name: "경기도",
+    bbox: {
+      startLat: 36.88,
+      endLat: 38.32,
+      startLng: 126.35,
+      endLng: 127.9
+    },
+    tileSize: 0.015,
+    legalDongCodePrefix: "41",
+    dedupeAgainstAllRegions: true
   }
 ];
 
