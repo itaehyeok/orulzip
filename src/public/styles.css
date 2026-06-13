@@ -950,16 +950,66 @@ input {
 
 .map-popup-chart-wrap {
   position: relative;
-  min-height: 280px;
+  min-height: 320px;
   overflow: auto;
-  padding: 12px 14px 16px;
+  padding: 14px 14px 18px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
 }
 
 .map-popup-chart svg {
-  width: 660px;
+  width: 680px;
   max-width: none;
-  height: 260px;
+  height: 300px;
   display: block;
+}
+
+.map-popup-plot-bg {
+  fill: #fbfdff;
+  stroke: #eef2f7;
+}
+
+.map-popup-grid-line {
+  stroke: #e7edf5;
+  stroke-dasharray: 3 5;
+  stroke-width: 1;
+}
+
+.map-popup-axis-line {
+  stroke: #cfd7e3;
+  stroke-width: 1.15;
+}
+
+.map-popup-axis-label {
+  fill: #667085;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.map-popup-area {
+  pointer-events: none;
+}
+
+.map-popup-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 2px rgba(16, 24, 40, 0.12));
+}
+
+.map-popup-point {
+  stroke-width: 2.5;
+}
+
+.map-popup-end-label {
+  dominant-baseline: middle;
+  font-size: 11px;
+  font-weight: 900;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-linejoin: round;
+  stroke-width: 4px;
 }
 
 .naver-info-window {

@@ -1508,46 +1508,87 @@ function renderMapApartmentDetail(detail) {
 }
 
 function renderMapPopupChart({ months, series }) {
-  const width = 660;
-  const height = 260;
-  const padding = { top: 20, right: 22, bottom: 34, left: 62 };
+  const width = 680;
+  const height = 300;
+  const padding = { top: 26, right: 92, bottom: 42, left: 72 };
   const values = series.flatMap((item) => item.prices.map((price) => price.saleMid).filter(Number.isFinite));
-  const yMin = Math.floor(Math.min(...values) / 5000) * 5000;
-  const yMax = Math.ceil(Math.max(...values) / 5000) * 5000;
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const valueSpan = Math.max(rawMax - rawMin, 10000);
+  const yMin = Math.max(0, Math.floor((rawMin - valueSpan * 0.12) / 5000) * 5000);
+  const yMax = Math.ceil((rawMax + valueSpan * 0.12) / 5000) * 5000;
+  const chartBottom = height - padding.bottom;
+  const chartRight = width - padding.right;
 
   const x = (month) => {
     const index = months.indexOf(month);
     if (months.length <= 1) return padding.left;
-    return padding.left + (index / (months.length - 1)) * (width - padding.left - padding.right);
+    return padding.left + (index / (months.length - 1)) * (chartRight - padding.left);
   };
-  const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (height - padding.top - padding.bottom);
+  const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (chartBottom - padding.top);
 
-  const grid = [yMin, Math.round((yMin + yMax) / 2), yMax].map((value) => `
-    <line x1="${padding.left}" y1="${y(value)}" x2="${width - padding.right}" y2="${y(value)}" stroke="#e5e8ef"></line>
-    <text x="${padding.left - 8}" y="${y(value) + 4}" text-anchor="end" font-size="11" fill="#667085">${formatKoreanPrice(value)}</text>
+  const gridValues = [0, 0.33, 0.66, 1].map((ratio) => Math.round((yMin + (yMax - yMin) * ratio) / 1000) * 1000);
+  const grid = gridValues.map((value) => `
+    <line class="map-popup-grid-line" x1="${padding.left}" y1="${y(value).toFixed(1)}" x2="${chartRight}" y2="${y(value).toFixed(1)}"></line>
+    <text class="map-popup-axis-label" x="${padding.left - 10}" y="${(y(value) + 4).toFixed(1)}" text-anchor="end">${formatKoreanPrice(value)}</text>
   `).join("");
-  const paths = series.map((item) => {
-    const commands = item.prices
-      .map((price, index) => `${index === 0 ? "M" : "L"} ${x(price.yearMonth).toFixed(1)} ${y(price.saleMid).toFixed(1)}`)
-      .join(" ");
-    return `<path d="${commands}" fill="none" stroke="${item.color}" stroke-width="2.5"></path>`;
+  const paths = series.map((item, index) => {
+    const points = item.prices.map((price) => ({
+      x: x(price.yearMonth),
+      y: y(price.saleMid),
+      price
+    }));
+    const linePath = smoothSvgPath(points);
+    const areaPath = `${linePath} L ${points.at(-1).x.toFixed(1)} ${chartBottom} L ${points[0].x.toFixed(1)} ${chartBottom} Z`;
+    const last = points.at(-1);
+    const first = points[0];
+    const labelY = Math.max(padding.top + 12, Math.min(chartBottom - 10, last.y));
+    const endLabel = index < 5
+      ? `<text class="map-popup-end-label" x="${(last.x + 10).toFixed(1)}" y="${(labelY + 4).toFixed(1)}" fill="${item.color}">${escapeHtml(item.label || "-")} ${formatKoreanPrice(last.price.saleMid)}</text>`
+      : "";
+    return `
+      <path class="map-popup-area" d="${areaPath}" fill="url(#mapPopupArea${index})"></path>
+      <path class="map-popup-line" d="${linePath}" stroke="${item.color}"></path>
+      <circle class="map-popup-point start" cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="3.5" fill="#fff" stroke="${item.color}"></circle>
+      <circle class="map-popup-point end" cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.5" fill="#fff" stroke="${item.color}"></circle>
+      ${endLabel}
+    `;
   }).join("");
   const labels = months.filter((_, index) => index === 0 || index === months.length - 1 || index % Math.ceil(months.length / 4) === 0)
-    .map((month) => `<text x="${x(month)}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#667085">${formatMonth(month)}</text>`)
+    .map((month) => `<text class="map-popup-axis-label" x="${x(month).toFixed(1)}" y="${height - 12}" text-anchor="middle">${formatMonth(month)}</text>`)
     .join("");
+  const defs = series.map((item, index) => `
+    <linearGradient id="mapPopupArea${index}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${item.color}" stop-opacity="0.18"></stop>
+      <stop offset="72%" stop-color="${item.color}" stop-opacity="0.045"></stop>
+      <stop offset="100%" stop-color="${item.color}" stop-opacity="0"></stop>
+    </linearGradient>
+  `).join("");
 
   els.mapPopupChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="최근 3년 평형별 시세 그래프">
+    <svg class="map-popup-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="평형별 시세 그래프">
+      <defs>${defs}</defs>
+      <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="8"></rect>
       ${grid}
       ${paths}
       ${labels}
-      <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
-      <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
-      <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" hidden></line>
-      <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${width - padding.left - padding.right}" height="${height - padding.top - padding.bottom}" fill="transparent"></rect>
+      <line class="map-popup-axis-line" x1="${padding.left}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}"></line>
+      <line class="map-popup-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}"></line>
+      <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" hidden></line>
+      <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" fill="transparent"></rect>
     </svg>
   `;
   bindMapPopupChartHover({ width, months, series, x });
+}
+
+function smoothSvgPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  return points.slice(1).reduce((path, point, index) => {
+    const previous = points[index];
+    const midX = (previous.x + point.x) / 2;
+    return `${path} C ${midX.toFixed(1)} ${previous.y.toFixed(1)}, ${midX.toFixed(1)} ${point.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }, `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`);
 }
 
 function bindMapPopupChartHover({ width, months, series, x }) {
