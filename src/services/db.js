@@ -168,6 +168,12 @@ export async function initDb() {
       apt_name text not null,
       normalized_apt_name text not null,
       address text,
+      sido_code text,
+      sido_name text,
+      sigungu_code text,
+      sigungu_name text,
+      dong_key text,
+      dong_name text,
       target_region_ids text,
       build_year integer,
       deal_count integer not null default 0,
@@ -195,8 +201,18 @@ export async function initDb() {
       updated_at timestamptz not null default now()
     );
 
+    alter table molit_complexes
+      add column if not exists sido_code text,
+      add column if not exists sido_name text,
+      add column if not exists sigungu_code text,
+      add column if not exists sigungu_name text,
+      add column if not exists dong_key text,
+      add column if not exists dong_name text;
+
     create index if not exists molit_complexes_lawd_dong_idx
       on molit_complexes(lawd_cd, legal_dong);
+    create index if not exists molit_complexes_hierarchy_idx
+      on molit_complexes(sido_code, sigungu_code, dong_key);
     create index if not exists molit_complexes_coord_idx
       on molit_complexes(lat, lng);
     create index if not exists molit_complexes_review_idx
@@ -248,6 +264,12 @@ export async function initDb() {
       apartment_id text,
       neighborhood_name text,
       address text,
+      sido_code text,
+      sido_name text,
+      sigungu_code text,
+      sigungu_name text,
+      dong_key text,
+      dong_name text,
       lat double precision,
       lng double precision,
       apartment_count integer not null default 0,
@@ -262,10 +284,20 @@ export async function initDb() {
       primary key(snapshot_id, level, item_key)
     );
 
+    alter table map_growth_items
+      add column if not exists sido_code text,
+      add column if not exists sido_name text,
+      add column if not exists sigungu_code text,
+      add column if not exists sigungu_name text,
+      add column if not exists dong_key text,
+      add column if not exists dong_name text;
+
     create index if not exists map_growth_snapshots_period_idx
       on map_growth_snapshots(source, start_month, end_month, updated_at desc);
     create index if not exists map_growth_items_lookup_idx
       on map_growth_items(snapshot_id, level, lat, lng);
+    create index if not exists map_growth_items_hierarchy_idx
+      on map_growth_items(snapshot_id, level, sido_code, sigungu_code, dong_key);
 
     create table if not exists app_cache_entries (
       cache_key text primary key,

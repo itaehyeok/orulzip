@@ -153,6 +153,31 @@ async function upsertMolitComplexesFromDeals() {
         coalesce(trim(d.apt_name), '') as apt_name,
         regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g') as normalized_apt_name,
         trim(concat_ws(' ', coalesce(nullif(f.lawd_name, ''), d.lawd_cd), nullif(trim(d.legal_dong), ''), nullif(trim(d.jibun), ''))) as address,
+        left(d.lawd_cd, 2) as sido_code,
+        case left(d.lawd_cd, 2)
+          when '11' then '서울'
+          when '26' then '부산'
+          when '27' then '대구'
+          when '28' then '인천'
+          when '29' then '광주'
+          when '30' then '대전'
+          when '31' then '울산'
+          when '36' then '세종'
+          when '41' then '경기'
+          when '42' then '강원'
+          when '43' then '충북'
+          when '44' then '충남'
+          when '45' then '전북'
+          when '46' then '전남'
+          when '47' then '경북'
+          when '48' then '경남'
+          when '50' then '제주'
+          else left(d.lawd_cd, 2)
+        end as sido_name,
+        d.lawd_cd as sigungu_code,
+        coalesce(nullif(f.lawd_name, ''), d.lawd_cd) as sigungu_name,
+        concat_ws(':', d.lawd_cd, coalesce(trim(d.legal_dong), '')) as dong_key,
+        coalesce(trim(d.legal_dong), '') as dong_name,
         string_agg(distinct d.target_region_id, ',' order by d.target_region_id) as target_region_ids,
         min(d.build_year) filter (where d.build_year is not null) as build_year,
         count(*)::int as deal_count,
@@ -170,10 +195,12 @@ async function upsertMolitComplexesFromDeals() {
     )
     insert into molit_complexes (
       id, lawd_cd, lawd_name, legal_dong, jibun, apt_name, normalized_apt_name, address,
+      sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
       target_region_ids, build_year, deal_count, first_month, last_month, updated_at
     )
     select
       id, lawd_cd, lawd_name, legal_dong, jibun, apt_name, normalized_apt_name, address,
+      sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
       target_region_ids, build_year, deal_count, first_month, last_month, now()
     from trade_complexes
     on conflict (id) do update set
@@ -184,6 +211,12 @@ async function upsertMolitComplexesFromDeals() {
       apt_name = excluded.apt_name,
       normalized_apt_name = excluded.normalized_apt_name,
       address = excluded.address,
+      sido_code = excluded.sido_code,
+      sido_name = excluded.sido_name,
+      sigungu_code = excluded.sigungu_code,
+      sigungu_name = excluded.sigungu_name,
+      dong_key = excluded.dong_key,
+      dong_name = excluded.dong_name,
       target_region_ids = excluded.target_region_ids,
       build_year = excluded.build_year,
       deal_count = excluded.deal_count,

@@ -1718,7 +1718,7 @@ function apartmentMarkerHtml(item) {
 }
 
 function apartmentMarkerRankParts(item) {
-  const dong = shortDongLabel(item.neighborhoodName || "-");
+  const dong = shortDongLabel(item.dongName || item.neighborhoodName || "-");
   const rank = Number(item.dongRank);
   const total = Number(item.dongRankTotal);
   const rankText = Number.isFinite(rank)
@@ -1749,7 +1749,7 @@ function apartmentHoverHtml(item) {
   const hasData = item.hasData !== false;
   return `
     <strong>${escapeHtml(item.name)}</strong><br>
-    ${escapeHtml(item.neighborhoodName || "-")}<br>
+    ${escapeHtml(item.dongName || item.neighborhoodName || "-")}<br>
     상승률 ${hasData ? formatPercent(item.growthRate) : "데이터없음"}
   `;
 }
@@ -2661,7 +2661,33 @@ function zoomLevelLabel(level) {
 
 function shortZoomLabel(name, level) {
   if (level === "sido") return shortRegionLabel(name);
-  return String(name || "").replace(/^.+\s([^\s]+)$/g, "$1");
+  const parts = String(name || "").split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+
+  if (level === "sigungu") {
+    const startIndex = isSidoLabelPart(parts[0]) ? 1 : 0;
+    const first = parts[startIndex] || "";
+    const second = parts[startIndex + 1] || "";
+    if (/시$/.test(first) && /구$/.test(second)) return `${first} ${second}`;
+    const sigungu = parts.slice(startIndex).find((part) => /구$|시$|군$/.test(part));
+    if (sigungu) return sigungu;
+  }
+
+  if (level === "dong") {
+    const dong = [...parts].reverse().find((part) => /동$|가$|읍$|면$|리$/.test(part));
+    if (dong) return dong;
+  }
+
+  return [...parts].reverse().find((part) => !isJibunLike(part)) || parts.at(-1);
+}
+
+function isSidoLabelPart(value = "") {
+  return /특별시$|광역시$|특별자치시$|특별자치도$|도$/.test(value)
+    || ["서울", "서울시", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "경기도", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"].includes(value);
+}
+
+function isJibunLike(value = "") {
+  return /^\d+(?:-\d+)?$/.test(String(value));
 }
 
 function zoomGroupMarkerRankHtml(item, level) {
@@ -2690,15 +2716,41 @@ function zoomGroupMarkerRankHtml(item, level) {
 }
 
 function zoomRankSigunguLabel(item) {
-  const code = String(item.code || "").slice(0, 5);
+  const code = String(item.sigunguCode || item.code || "").slice(0, 5);
   if (sigunguLabelByCode[code]) return sigunguLabelByCode[code];
+  if (item.sigunguName) return shortZoomLabel(item.sigunguName, "sigungu");
   const parts = String(item.name || "").split(/\s+/).filter(Boolean);
-  return parts.length > 1 ? parts.slice(0, -1).join(" ") : "시군구";
+  if (parts.length > 1) return shortZoomLabel(parts.slice(0, -1).join(" "), "sigungu");
+  return shortZoomLabel(item.name, "sigungu") || "시군구";
 }
 
 function zoomRankSidoLabel(item) {
-  const code = String(item.code || "").slice(0, 2);
-  return sidoLabelByCode[code] || "시도";
+  const code = String(item.sidoCode || item.code || "").slice(0, 2);
+  return sidoLabelByCode[code] || fullSidoLabel(item.sidoName) || "시도";
+}
+
+function fullSidoLabel(name = "") {
+  const compact = shortRegionLabel(name);
+  if (!compact) return "";
+  return {
+    서울: "서울시",
+    부산: "부산시",
+    대구: "대구시",
+    인천: "인천시",
+    광주: "광주시",
+    대전: "대전시",
+    울산: "울산시",
+    세종: "세종시",
+    경기: "경기도",
+    강원: "강원도",
+    충북: "충청북도",
+    충남: "충청남도",
+    전북: "전라북도",
+    전남: "전라남도",
+    경북: "경상북도",
+    경남: "경상남도",
+    제주: "제주도"
+  }[compact] || compact;
 }
 
 function formatRankText(rank, total) {

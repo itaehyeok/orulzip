@@ -1071,11 +1071,14 @@ input {
   top: 14px;
   right: 14px;
   z-index: 600;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   width: min(720px, calc(100% - 28px));
   max-height: calc(100% - 28px);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border: 1px solid rgba(16, 24, 40, 0.16);
   border-radius: 8px;
@@ -1087,6 +1090,7 @@ input {
 }
 
 .map-popup-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1161,6 +1165,7 @@ input {
 }
 
 .map-popup-stats {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -1316,9 +1321,11 @@ input {
 }
 
 .map-popup-chart-wrap {
+  flex: 0 0 auto;
   position: relative;
   min-height: 320px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   padding: 14px 14px 18px;
   background:
     linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);

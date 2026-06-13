@@ -52,17 +52,22 @@ export async function readCachedZoomMapSummary(filters) {
         select
           mgi.*,
           row_number() over (
-            partition by coalesce(nullif(a.legal_dong_code, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+            partition by coalesce(
+              nullif(mgi.dong_key, ''),
+              concat(mgi.address, ':', mgi.neighborhood_name)
+            )
             order by
               mgi.has_data desc,
               mgi.growth_rate desc nulls last,
               mgi.item_name asc
           )::int as dong_rank,
           count(*) over (
-            partition by coalesce(nullif(a.legal_dong_code, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+            partition by coalesce(
+              nullif(mgi.dong_key, ''),
+              concat(mgi.address, ':', mgi.neighborhood_name)
+            )
           )::int as dong_rank_total
         from map_growth_items mgi
-        left join apartments a on a.id = mgi.apartment_id
         where mgi.snapshot_id = $1
           and mgi.level = $2
       )
@@ -83,24 +88,24 @@ export async function readCachedZoomMapSummary(filters) {
           select
             mgi.*,
             row_number() over (
-              partition by substring(mgi.item_key from 1 for 5)
+              partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
               order by
                 mgi.has_data desc,
                 mgi.growth_rate desc nulls last,
                 mgi.item_name asc
             )::int as sigungu_rank,
             count(*) over (
-              partition by substring(mgi.item_key from 1 for 5)
+              partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
             )::int as sigungu_rank_total,
             row_number() over (
-              partition by substring(mgi.item_key from 1 for 2)
+              partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
               order by
                 mgi.has_data desc,
                 mgi.growth_rate desc nulls last,
                 mgi.item_name asc
             )::int as sido_rank,
             count(*) over (
-              partition by substring(mgi.item_key from 1 for 2)
+              partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
             )::int as sido_rank_total,
             row_number() over (
               order by
@@ -129,14 +134,14 @@ export async function readCachedZoomMapSummary(filters) {
           select
             mgi.*,
             row_number() over (
-              partition by substring(mgi.item_key from 1 for 2)
+              partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
               order by
                 mgi.has_data desc,
                 mgi.growth_rate desc nulls last,
                 mgi.item_name asc
             )::int as sido_rank,
             count(*) over (
-              partition by substring(mgi.item_key from 1 for 2)
+              partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
             )::int as sido_rank_total,
             row_number() over (
               order by
@@ -229,7 +234,9 @@ export async function buildMolitApartmentDetail(apartmentId) {
   const currentMonth = today.slice(0, 7).replace("-", "");
   const [complexResult, monthlyResult, recentResult] = await Promise.all([
     query(`
-      select id, apt_name, legal_dong, lawd_cd, address, build_year, lat, lng, deal_count
+      select id, apt_name, legal_dong, lawd_cd, address,
+             sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
+             build_year, lat, lng, deal_count
       from molit_complexes
       where id = $1
     `, [normalizedApartmentId]),
@@ -424,6 +431,7 @@ function buildCacheItems(dataset, rankingRows) {
     apartmentId: item.id,
     neighborhoodName: item.neighborhoodName,
     address: item.address,
+    ...item.hierarchy,
     lat: item.lat,
     lng: item.lng,
     apartmentCount: 1,
@@ -446,6 +454,7 @@ function buildCacheItems(dataset, rankingRows) {
       apartmentId: apartment.id,
       neighborhoodName: apartment.neighborhoodName,
       address: apartment.address,
+      ...hierarchyFromApartment(apartment),
       lat: apartment.lat,
       lng: apartment.lng,
       apartmentCount: 1,
@@ -474,8 +483,14 @@ async function readMolitMatchedMonthlyRows(today) {
           c.id as apartment_id,
           c.apt_name as apartment_name,
           c.legal_dong as neighborhood_name,
-          c.lawd_cd as legal_dong_code,
+          c.dong_key as legal_dong_code,
           c.address,
+          c.sido_code,
+          c.sido_name,
+          c.sigungu_code,
+          c.sigungu_name,
+          c.dong_key,
+          c.dong_name,
           c.lat,
           c.lng,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
@@ -501,6 +516,12 @@ async function readMolitMatchedMonthlyRows(today) {
         neighborhood_name,
         legal_dong_code,
         address,
+        sido_code,
+        sido_name,
+        sigungu_code,
+        sigungu_name,
+        dong_key,
+        dong_name,
         lat,
         lng,
         exclusive_area_m2,
@@ -511,7 +532,9 @@ async function readMolitMatchedMonthlyRows(today) {
         round(avg(pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
       from matched
-      group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address, lat, lng, exclusive_area_m2, deal_year_month
+      group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
+               sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
+               lat, lng, exclusive_area_m2, deal_year_month
       order by apartment_id, exclusive_area_m2, deal_year_month
     `),
     query(`
@@ -556,6 +579,12 @@ async function readMolitMatchedMonthlyRows(today) {
       neighborhoodName: row.neighborhood_name || "",
       legalDongCode: row.legal_dong_code || "",
       address: row.address || "",
+      sidoCode: row.sido_code || "",
+      sidoName: row.sido_name || "",
+      sigunguCode: row.sigungu_code || "",
+      sigunguName: row.sigungu_name || "",
+      dongKey: row.dong_key || "",
+      dongName: row.dong_name || "",
       lat: Number(row.lat),
       lng: Number(row.lng)
     },
@@ -603,6 +632,7 @@ function buildMolitCacheItems(rows, { startMonth, endMonth }) {
     apartmentId: item.id,
     neighborhoodName: item.neighborhoodName,
     address: item.address,
+    ...item.hierarchy,
     lat: item.lat,
     lng: item.lng,
     apartmentCount: 1,
@@ -689,10 +719,11 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
         await client.query(`
           insert into map_growth_items (
             snapshot_id, level, item_key, item_name, apartment_id, neighborhood_name, address,
+            sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
             lat, lng, apartment_count, area_count, area_summary, growth_rate, growth_amount,
             start_pyeong_price, end_pyeong_price, has_data, updated_at
           ) values (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now()
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now()
           )
         `, [
           snapshot.id,
@@ -702,6 +733,12 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
           item.apartmentId || null,
           item.neighborhoodName || "",
           item.address || "",
+          item.sidoCode || "",
+          item.sidoName || "",
+          item.sigunguCode || "",
+          item.sigunguName || "",
+          item.dongKey || "",
+          item.dongName || "",
           item.lat,
           item.lng,
           item.apartmentCount || 0,
@@ -742,6 +779,7 @@ function summarizeGroups(rows, level) {
       groups.set(group.code, {
         code: group.code,
         name: group.name,
+        hierarchy: group.hierarchy,
         latValues: [],
         lngValues: [],
         growthRates: [],
@@ -764,6 +802,7 @@ function summarizeGroups(rows, level) {
       level,
       itemKey: group.code,
       itemName: group.name,
+      ...group.hierarchy,
       lat: average(group.latValues),
       lng: average(group.lngValues),
       apartmentCount: group.apartmentIds.size,
@@ -776,38 +815,82 @@ function summarizeGroups(rows, level) {
 }
 
 function summarizeApartments(rows) {
-  return rows.map((row) => ({
-    id: row.apartment.id,
-    name: row.apartment.name,
-    neighborhoodName: row.apartment.neighborhoodName,
-    address: row.apartment.address,
-    lat: row.apartment.lat,
-    lng: row.apartment.lng,
-    areaCount: Number(row.areaTypeCount || 0),
-    areaSummary: row.areaLabel || "-",
-    growthRate: row.growthRate,
-    growthAmount: Math.round(row.growthAmount),
-    startPyeongPrice: Math.round(row.startPyeongPrice),
-    endPyeongPrice: Math.round(row.endPyeongPrice)
-  }));
+  return rows.map((row) => {
+    const hierarchy = hierarchyFromApartment(row.apartment);
+    return {
+      id: row.apartment.id,
+      name: row.apartment.name,
+      neighborhoodName: row.apartment.neighborhoodName,
+      address: row.apartment.address,
+      hierarchy,
+      lat: row.apartment.lat,
+      lng: row.apartment.lng,
+      areaCount: Number(row.areaTypeCount || 0),
+      areaSummary: row.areaLabel || "-",
+      growthRate: row.growthRate,
+      growthAmount: Math.round(row.growthAmount),
+      startPyeongPrice: Math.round(row.startPyeongPrice),
+      endPyeongPrice: Math.round(row.endPyeongPrice)
+    };
+  });
+}
+
+function hierarchyFromApartment(apartment = {}) {
+  const legalDongCode = apartment.legalDongCode || "";
+  const sidoCode = apartment.sidoCode || legalDongCode.slice(0, 2);
+  const sigunguCode = apartment.sigunguCode || legalDongCode.slice(0, 5);
+  const dongKey = apartment.dongKey || (legalDongCode.length >= 8
+    ? legalDongCode.slice(0, 8)
+    : `${sigunguCode || "unknown"}:${apartment.neighborhoodName || apartment.address || "미분류"}`);
+  const sidoLabel = apartment.sidoName || sidoName(sidoCode);
+  const sigunguLabel = apartment.sigunguName || sigunguNameFromAddress(apartment.address || "", sigunguCode);
+  const dongLabel = apartment.dongName || apartment.neighborhoodName || "미분류";
+  return {
+    sidoCode,
+    sidoName: sidoLabel,
+    sigunguCode,
+    sigunguName: sigunguLabel,
+    dongKey,
+    dongName: dongLabel,
+    dongDisplayName: sigunguLabel && !String(dongLabel).startsWith(sigunguLabel)
+      ? `${sigunguLabel} ${dongLabel}`
+      : dongLabel
+  };
 }
 
 function zoomGroupInfo(row, rows, level) {
-  const code = row.apartment.legalDongCode || "";
+  const hierarchy = hierarchyFromApartment(row.apartment);
   if (level === "sido") {
-    const sidoCode = code.slice(0, 2);
-    return { code: sidoCode, name: sidoName(sidoCode) };
+    return {
+      code: hierarchy.sidoCode || row.apartment.legalDongCode?.slice(0, 2) || "unknown",
+      name: hierarchy.sidoName || sidoName(row.apartment.legalDongCode?.slice(0, 2) || ""),
+      hierarchy: {
+        sidoCode: hierarchy.sidoCode,
+        sidoName: hierarchy.sidoName
+      }
+    };
   }
   if (level === "sigungu") {
-    const sigunguCode = code.slice(0, 5);
-    return { code: sigunguCode, name: sigunguName(rows, sigunguCode) };
+    const sigunguCode = hierarchy.sigunguCode || row.apartment.legalDongCode?.slice(0, 5) || "unknown";
+    return {
+      code: sigunguCode,
+      name: hierarchy.sigunguName || sigunguName(rows, sigunguCode),
+      hierarchy: {
+        sidoCode: hierarchy.sidoCode,
+        sidoName: hierarchy.sidoName,
+        sigunguCode,
+        sigunguName: hierarchy.sigunguName || sigunguName(rows, sigunguCode)
+      }
+    };
   }
-  const dongCode = code.length >= 8
-    ? code.slice(0, 8)
-    : `${code || "unknown"}:${row.apartment.neighborhoodName || row.apartment.address || "미분류"}`;
+  const dongCode = hierarchy.dongKey
+    || (row.apartment.legalDongCode?.length >= 8
+      ? row.apartment.legalDongCode.slice(0, 8)
+      : `${hierarchy.sigunguCode || "unknown"}:${row.apartment.neighborhoodName || row.apartment.address || "미분류"}`);
   return {
     code: dongCode,
-    name: zoomDongName(row.apartment)
+    name: hierarchy.dongDisplayName || zoomDongName(row.apartment),
+    hierarchy
   };
 }
 
@@ -843,12 +926,26 @@ function sidoName(code) {
 function sigunguName(rows, code) {
   const row = rows.find((item) => item.apartment.legalDongCode.startsWith(code));
   if (!row) return code || "미분류";
-  const address = row.apartment.address || "";
-  const neighborhood = row.apartment.neighborhoodName || "";
-  const withoutSido = address.split(" ").slice(1);
+  return sigunguNameFromAddress(row.apartment.address || "", code, row.apartment.neighborhoodName || "");
+}
+
+function sigunguNameFromAddress(address, code = "", neighborhood = "") {
+  const parts = address.split(" ").filter(Boolean);
+  const startIndex = isSidoAddressPart(parts[0]) ? 1 : 0;
+  const first = parts[startIndex] || "";
+  const second = parts[startIndex + 1] || "";
+  if (/시$/.test(first) && /구$/.test(second)) return `${first} ${second}`;
+  if (/구$|시$|군$/.test(first)) return first;
+  if (/구$|시$|군$/.test(second)) return second;
+  const withoutSido = parts.slice(startIndex + 1);
   const dongIndex = withoutSido.findIndex((part) => part === neighborhood);
   if (dongIndex > 0) return withoutSido.slice(0, dongIndex).join(" ");
   return withoutSido.slice(0, 2).join(" ") || code;
+}
+
+function isSidoAddressPart(value = "") {
+  return /특별시$|광역시$|특별자치시$|특별자치도$|도$/.test(value)
+    || ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"].includes(value);
 }
 
 function serializeCachedItem(row, level) {
@@ -861,7 +958,13 @@ function serializeCachedItem(row, level) {
     growthRate,
     growthAmount,
     hasData: row.has_data,
-    type: level === "apartment" ? "apartment" : "group"
+    type: level === "apartment" ? "apartment" : "group",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || ""
   };
   if (level === "apartment") {
     return {
@@ -955,6 +1058,12 @@ function serializeApartmentRow(row) {
     neighborhoodName: row.neighborhood_name || "",
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
     builtYear: row.built_year || "",
     householdCount: Number(row.household_count || 0),
     lat: Number(row.lat || 0),
@@ -971,8 +1080,14 @@ function serializeMolitComplexRow(row) {
     sourceComplexId: 0,
     name: row.apt_name,
     neighborhoodName: row.legal_dong || "",
-    legalDongCode: row.lawd_cd || "",
+    legalDongCode: row.dong_key || row.lawd_cd || "",
     address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || row.lawd_cd || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || row.legal_dong || "",
     builtYear: row.build_year || "",
     householdCount: Number(row.deal_count || 0),
     lat: Number(row.lat || 0),
