@@ -1034,8 +1034,10 @@ input {
   bottom: 14px;
   z-index: 580;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   width: min(360px, calc(100% - 28px));
-  max-height: min(66%, 620px);
+  height: auto;
+  max-height: min(620px, calc(100% - 28px));
   overflow: hidden;
   border: 1px solid rgba(16, 24, 40, 0.16);
   border-radius: 8px;
@@ -1067,8 +1069,12 @@ input {
 .map-design-body {
   display: grid;
   gap: 12px;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .map-design-panel.collapsed .map-design-body {
@@ -1862,7 +1868,7 @@ td:nth-child(4) {
     bottom: 10px;
     left: 10px;
     width: auto;
-    max-height: 48%;
+    max-height: min(520px, calc(100% - 20px));
   }
 
   .map-design-panel.collapsed {
