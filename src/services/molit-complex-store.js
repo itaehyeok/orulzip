@@ -131,6 +131,10 @@ async function upsertMolitComplexesFromDeals() {
       select
         lawd_cd,
         case
+          when lawd_cd = '41591' then '화성시 만세구'
+          when lawd_cd = '41593' then '화성시 효행구'
+          when lawd_cd = '41595' then '화성시 병점구'
+          when lawd_cd = '41597' then '화성시 동탄구'
           when lawd_cd like '11%' then max(lawd_name)
           when lawd_cd like '41%' then regexp_replace(max(lawd_name), '\\s+[^\\s]*권$', '')
           else max(lawd_name)

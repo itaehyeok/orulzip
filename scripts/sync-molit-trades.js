@@ -94,10 +94,10 @@ const GYEONGGI_LAWD_CODES = [
   ["41500", "이천시"],
   ["41550", "안성시"],
   ["41570", "김포시"],
-  ["41591", "화성시 남양·향남권"],
-  ["41593", "화성시 봉담권"],
-  ["41595", "화성시 병점권"],
-  ["41597", "화성시 동탄권"],
+  ["41591", "화성시 만세구"],
+  ["41593", "화성시 효행구"],
+  ["41595", "화성시 병점구"],
+  ["41597", "화성시 동탄구"],
   ["41610", "광주시"],
   ["41630", "양주시"],
   ["41650", "포천시"],
@@ -122,8 +122,8 @@ const TARGETS = {
   },
   dongtan: {
     id: "dongtan",
-    // MOLIT apartment trade API is queried by 시군구 5-digit code. Dongtan is filtered from Hwaseong rows by legal dong.
-    lawdCodes: [{ lawdCd: "41590", lawdName: "화성시" }],
+    // Keep the legal-dong filter so older 41590 fetches and current 41597 fetches both remain safe.
+    lawdCodes: [{ lawdCd: "41597", lawdName: "화성시 동탄구" }],
     filter: (deal) => DONGTAN_LEGAL_DONGS.has(String(deal.umdNm || deal.법정동 || "").trim())
   }
 };
