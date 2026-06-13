@@ -358,6 +358,139 @@ input {
   position: relative;
 }
 
+.map-apartment-ranking {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 14px;
+  z-index: 610;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 330px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 24, 40, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.map-apartment-ranking[hidden] {
+  display: none;
+}
+
+.map-ranking-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.map-ranking-head strong {
+  font-size: 15px;
+}
+
+.map-ranking-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.map-ranking-rows {
+  overflow: auto;
+  padding: 8px;
+}
+
+.map-ranking-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 72px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 8px 6px;
+  text-align: left;
+}
+
+.map-ranking-row:hover {
+  background: #f3f7ff;
+}
+
+.map-ranking-rank {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #edf1f7;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.map-ranking-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.map-ranking-main strong {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-ranking-main em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-ranking-rate {
+  justify-self: end;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.map-ranking-rate.positive {
+  background: #e9f7f1;
+  color: #087443;
+}
+
+.map-ranking-rate.negative {
+  background: #e8f0ff;
+  color: var(--blue);
+}
+
+.map-ranking-rate.no-data {
+  background: #f2f4f7;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.map-ranking-empty {
+  padding: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .leaflet-popup-content {
   line-height: 1.55;
 }
@@ -857,6 +990,19 @@ td:nth-child(4) {
     top: 10px;
     width: auto;
     max-height: calc(100% - 20px);
+  }
+
+  .map-apartment-ranking {
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    max-height: 42%;
+  }
+
+  .map-ranking-row {
+    grid-template-columns: 30px minmax(0, 1fr) 68px;
   }
 
   .map-popup-stats {

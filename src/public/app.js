@@ -69,6 +69,9 @@ const els = {
   zoomMapLevel: document.querySelector("#zoomMapLevel"),
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
+  mapApartmentRanking: document.querySelector("#mapApartmentRanking"),
+  mapRankingCount: document.querySelector("#mapRankingCount"),
+  mapRankingRows: document.querySelector("#mapRankingRows"),
   mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
   mapPopupTitle: document.querySelector("#mapPopupTitle"),
   mapPopupMeta: document.querySelector("#mapPopupMeta"),
@@ -754,6 +757,7 @@ function renderZoomMapSummary(data) {
   updateZoomMapLevelLabel(data.level);
   els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
   els.zoomMapTitle.textContent = `${levelLabel} 상승률 지도`;
+  renderMapApartmentRanking(data.level, items);
   clearZoomMapOverlays();
 
   for (const item of items) {
@@ -763,6 +767,63 @@ function renderZoomMapSummary(data) {
     } else {
       renderZoomGroupMarker(item, data.level);
     }
+  }
+}
+
+function renderMapApartmentRanking(level, items) {
+  if (!els.mapApartmentRanking || !els.mapRankingRows || !els.mapRankingCount) return;
+  if (level !== "apartment") {
+    els.mapApartmentRanking.hidden = true;
+    els.mapRankingRows.innerHTML = "";
+    els.mapRankingCount.textContent = "";
+    return;
+  }
+
+  const rows = [...items]
+    .filter((item) => item.type === "apartment" && item.id)
+    .sort((a, b) => {
+      if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
+      const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
+      if (rateDiff) return rateDiff;
+      return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+    });
+
+  els.mapApartmentRanking.hidden = false;
+  els.mapRankingCount.textContent = `${formatInt(rows.length)}개`;
+  els.mapRankingRows.innerHTML = rows.length
+    ? rows.map((item, index) => `
+      <button class="map-ranking-row" type="button" data-apartment-id="${escapeHtml(item.id)}">
+        <span class="map-ranking-rank">${index + 1}</span>
+        <span class="map-ranking-main">
+          <strong>${escapeHtml(item.name)}</strong>
+          <em>${escapeHtml(item.neighborhoodName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
+        </span>
+        <span class="map-ranking-rate ${rateClass(item.growthRate)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+      </button>
+    `).join("")
+    : `<div class="map-ranking-empty">현재 지도에 표시할 아파트가 없습니다.</div>`;
+
+  const itemById = new Map(rows.map((item) => [item.id, item]));
+  els.mapRankingRows.querySelectorAll("[data-apartment-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = itemById.get(button.dataset.apartmentId);
+      if (!item) return;
+      focusMapApartment(item);
+      openMapApartmentDetail(item.id);
+    });
+  });
+}
+
+function focusMapApartment(item) {
+  if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
+  if (state.zoomNaverMap && window.naver?.maps) {
+    const position = new window.naver.maps.LatLng(item.lat, item.lng);
+    state.zoomNaverMap.setCenter(position);
+    if (state.zoomNaverMap.getZoom() < 16) state.zoomNaverMap.setZoom(16);
+    return;
+  }
+  if (state.zoomMap) {
+    state.zoomMap.setView([item.lat, item.lng], Math.max(state.zoomMap.getZoom(), 16), { animate: true });
   }
 }
 
@@ -1067,6 +1128,15 @@ function growthColor(rate) {
   if (rate >= 0.2) return "#d97706";
   if (rate >= 0) return "#16805f";
   return "#2367d1";
+}
+
+function sortableRate(rate) {
+  return Number.isFinite(rate) ? Number(rate) : -Infinity;
+}
+
+function rateClass(rate) {
+  if (!Number.isFinite(rate)) return "no-data";
+  return rate >= 0 ? "positive" : "negative";
 }
 
 function applyQuickPeriod(years) {
