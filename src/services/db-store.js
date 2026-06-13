@@ -264,8 +264,8 @@ export async function createCrawlJob(options) {
   const result = await query(`
     insert into crawl_jobs (
       region_id, status, max_complexes, years_back, max_area_types_per_complex,
-      max_tiles, delay_min_ms, delay_max_ms
-    ) values ($1,'requested',$2,$3,$4,$5,$6,$7)
+      max_tiles, delay_min_ms, delay_max_ms, source_job_id
+    ) values ($1,'requested',$2,$3,$4,$5,$6,$7,$8)
     returning *
   `, [
     options.regionId,
@@ -274,7 +274,8 @@ export async function createCrawlJob(options) {
     options.maxAreaTypesPerComplex,
     options.maxTiles,
     options.delayMinMs,
-    options.delayMaxMs
+    options.delayMaxMs,
+    options.sourceJobId || null
   ]);
   return result.rows[0];
 }

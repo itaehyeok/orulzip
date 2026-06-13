@@ -77,6 +77,7 @@ export async function initDb() {
       max_tiles integer not null default 50,
       delay_min_ms integer not null default 15000,
       delay_max_ms integer not null default 60000,
+      source_job_id bigint references crawl_jobs(id) on delete set null,
       total_complexes integer not null default 0,
       completed_complexes integer not null default 0,
       failed_complexes integer not null default 0,
@@ -88,6 +89,9 @@ export async function initDb() {
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+
+    alter table crawl_jobs
+      add column if not exists source_job_id bigint references crawl_jobs(id) on delete set null;
 
     create table if not exists crawl_queue (
       id bigserial primary key,

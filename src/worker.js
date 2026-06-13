@@ -65,6 +65,11 @@ async function discoverJob(job) {
   await log(job.id, "info", `Discovering complexes for ${job.region_id}`);
 
   try {
+    if (job.source_job_id) {
+      await queueFromSourceJob(job);
+      return;
+    }
+
     const wait = () => politeDelay(job);
     const markers = await provider.fetchComplexesFromTiles(region, job.max_tiles, {
       wait,
@@ -111,6 +116,47 @@ async function discoverJob(job) {
     `, [job.id, error.message]);
     await log(job.id, "error", "Discovery failed", { error: error.message });
   }
+}
+
+async function queueFromSourceJob(job) {
+  const sourceRows = await query(`
+    select distinct on (source_complex_id)
+      source_complex_id,
+      marker
+    from crawl_queue
+    where job_id = $1
+    order by source_complex_id, id
+  `, [job.source_job_id]);
+
+  const selected = sourceRows.rows.slice(0, Number(job.max_complexes || sourceRows.rows.length));
+
+  await withClient(async (client) => {
+    await client.query("begin");
+    try {
+      for (const row of selected) {
+        await client.query(`
+          insert into crawl_queue (job_id, source_complex_id, marker, status, updated_at)
+          values ($1, $2, $3, 'pending', now())
+          on conflict (job_id, source_complex_id) do nothing
+        `, [job.id, row.source_complex_id, row.marker]);
+      }
+      await client.query(`
+        update crawl_jobs
+        set status = 'running', total_complexes = $2, updated_at = now()
+        where id = $1
+      `, [job.id, selected.length]);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+
+  await log(job.id, "info", `Queued ${selected.length} complexes from source job ${job.source_job_id}`, {
+    sourceJobId: Number(job.source_job_id),
+    sourceQueueRows: sourceRows.rows.length,
+    selected: selected.length
+  });
 }
 
 async function existingSourceComplexIds(region) {

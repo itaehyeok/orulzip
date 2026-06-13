@@ -477,6 +477,7 @@ function serializeJob(job) {
     maxTiles: Number(job.max_tiles),
     delayMinMs: Number(job.delay_min_ms),
     delayMaxMs: Number(job.delay_max_ms),
+    sourceJobId: job.source_job_id ? Number(job.source_job_id) : null,
     totalComplexes: Number(job.total_complexes),
     completedComplexes: Number(job.completed_complexes),
     failedComplexes: Number(job.failed_complexes),
