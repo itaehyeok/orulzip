@@ -783,6 +783,10 @@ input {
   justify-content: center;
 }
 
+.apartment-map-marker .marker-rank-phrase {
+  gap: 2px;
+}
+
 .apartment-map-marker .marker-dong {
   overflow: hidden;
   max-width: 42px;
@@ -802,6 +806,15 @@ input {
 .apartment-map-marker.no-data .marker-rate {
   color: #ffffff;
   font-size: 10px;
+}
+
+.apartment-map-marker.marker-size-sentence {
+  min-width: 96px;
+  padding: 5px 8px;
+}
+
+.apartment-map-marker.marker-size-sentence .marker-dong {
+  max-width: 38px;
 }
 
 .apartment-map-marker.marker-shape-card {
@@ -960,6 +973,22 @@ input {
 }
 
 .map-marker-design-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.map-marker-design-group {
+  display: grid;
+  gap: 6px;
+}
+
+.map-marker-design-group > strong {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.map-marker-design-group-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
@@ -1434,11 +1463,32 @@ input {
 }
 
 .graph-design-grid,
-.marker-design-grid {
+.marker-design-group > .marker-design-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
   padding: 16px;
+}
+
+#markerDesignGrid.marker-design-grid {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.marker-design-group {
+  display: grid;
+  gap: 10px;
+}
+
+.marker-design-group h3 {
+  margin: 0;
+  color: #344054;
+  font-size: 14px;
+}
+
+.marker-design-group > .marker-design-grid {
+  padding: 0;
 }
 
 .graph-design-card,

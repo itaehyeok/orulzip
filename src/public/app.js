@@ -69,9 +69,12 @@ const graphDesignVariants = [
 ];
 const graphDesignVariantMap = new Map(graphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
-  markerDesign("rank-outline", "01 아웃라인", { showRank: true, shape: "pill", size: "wide", tone: "outline" }),
-  markerDesign("rank-number-box", "02 숫자 박스", { showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
-  markerDesign("rank-number-circle", "03 숫자 원형", { showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" })
+  markerDesign("rank-outline", "01 아웃라인", { group: "기본형", showRank: true, shape: "pill", size: "wide", tone: "outline" }),
+  markerDesign("rank-number-box", "02 숫자 박스", { group: "기본형", showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
+  markerDesign("rank-number-circle", "03 숫자 원형", { group: "기본형", showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" }),
+  markerDesign("phrase-outline", "04 문장 아웃라인", { group: "문장형", showRank: true, shape: "pill", size: "sentence", tone: "outline", rankFormat: "phrase" }),
+  markerDesign("phrase-box", "05 문장 박스", { group: "문장형", showRank: true, shape: "card", size: "sentence", tone: "white", rankStyle: "box", rankFormat: "phrase" }),
+  markerDesign("phrase-circle", "06 문장 원형", { group: "문장형", showRank: true, shape: "card", size: "sentence", tone: "soft", rankStyle: "circle", rankFormat: "phrase" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
@@ -1446,15 +1449,24 @@ function apartmentMarkerHtml(item) {
   const hasData = item.hasData !== false;
   const design = activeMarkerDesign();
   const rank = apartmentMarkerRankParts(item);
-  return `
-    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
-      <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
-      ${design.showRank ? `
+  const rankLine = design.rankFormat === "phrase"
+    ? `
+        <small class="marker-rank-line marker-rank-phrase">
+          <span class="marker-dong">${escapeHtml(rank.dong)}</span>
+          <span>상승률</span>
+          <b>${escapeHtml(rank.rank)}</b>
+        </small>
+      `
+    : `
         <small class="marker-rank-line">
           <span class="marker-dong">${escapeHtml(rank.dong)}</span>
           <b>${escapeHtml(rank.rank)}</b>
         </small>
-      ` : ""}
+      `;
+  return `
+    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
+      <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
+      ${design.showRank ? rankLine : ""}
     </div>
   `;
 }
@@ -1462,14 +1474,21 @@ function apartmentMarkerHtml(item) {
 function apartmentMarkerRankParts(item) {
   const dong = shortDongLabel(item.neighborhoodName || "-");
   const rank = Number(item.dongRank);
+  const total = Number(item.dongRankTotal);
+  const rankText = Number.isFinite(rank)
+    ? Number.isFinite(total) && total > 0
+      ? `${formatInt(rank)}/${formatInt(total)}등`
+      : `${formatInt(rank)}등`
+    : "-";
   return {
     dong,
-    rank: Number.isFinite(rank) ? `${formatInt(rank)}등` : "-"
+    rank: rankText
   };
 }
 
 function markerIconSize(design) {
   if (!design.showRank) return [54, 34];
+  if (design.size === "sentence") return [116, 48];
   if (design.size === "small") return [70, 42];
   if (design.size === "large") return [92, 58];
   return [82, 48];
@@ -1688,10 +1707,12 @@ function markerDesign(id, name, overrides = {}) {
   return {
     id,
     name,
+    group: "기본형",
     showRank: true,
     shape: "pill",
     size: "wide",
     rankStyle: "plain",
+    rankFormat: "compact",
     tone: "solid",
     ...overrides
   };
@@ -1761,16 +1782,63 @@ function renderMapDesignPanel() {
   }
   if (els.mapMarkerDesignGrid) {
     const sample = markerDesignSampleItems()[0];
-    els.mapMarkerDesignGrid.innerHTML = markerDesignVariants.map((item) => {
-      const isActive = item.id === marker.id;
-      return `
-        <button class="map-marker-design-option ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
-          <span>${escapeHtml(item.name.replace(/^\d+\s*/, ""))}</span>
-          <em>${markerPreviewHtml(sample, item)}</em>
-        </button>
-      `;
-    }).join("");
+    els.mapMarkerDesignGrid.innerHTML = groupedMarkerDesignVariants().map((group) => `
+      <div class="map-marker-design-group">
+        <strong>${escapeHtml(group.name)}</strong>
+        <div class="map-marker-design-group-grid">
+          ${group.items.map((item) => {
+            const isActive = item.id === marker.id;
+            return `
+              <button class="map-marker-design-option ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
+                <span>${escapeHtml(item.name.replace(/^\d+\s*/, ""))}</span>
+                <em>${markerPreviewHtml(sample, item)}</em>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `).join("");
   }
+}
+
+function groupedMarkerDesignVariants() {
+  const groups = [];
+  const byName = new Map();
+  for (const item of markerDesignVariants) {
+    const name = item.group || "기본형";
+    if (!byName.has(name)) {
+      const group = { name, items: [] };
+      byName.set(name, group);
+      groups.push(group);
+    }
+    byName.get(name).items.push(item);
+  }
+  return groups;
+}
+
+function renderMarkerDesignOptionGroups({ active, sampleItems, mode }) {
+  return groupedMarkerDesignVariants().map((group) => `
+    <section class="marker-design-group">
+      <h3>${escapeHtml(group.name)}</h3>
+      <div class="marker-design-grid">
+        ${group.items.map((design) => {
+          const index = markerDesignVariants.indexOf(design);
+          const isActive = design.id === active.id;
+          const previewItems = mode === "map" ? [sampleItems[0]] : sampleItems;
+          const markers = previewItems.map((item) => markerPreviewHtml(item, design)).join("");
+          return `
+            <button class="marker-design-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+              <span class="graph-design-card-head">
+                <strong>${escapeHtml(design.name)}</strong>
+                <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
+              </span>
+              <span class="marker-design-preview">${markers}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `).join("");
 }
 
 function renderGraphDesignGallery() {
@@ -1808,26 +1876,14 @@ function renderMarkerDesignGallery() {
   const active = activeMarkerDesign();
   const sampleItems = markerDesignSampleItems();
   els.designMarkerSelected.textContent = `${active.name} / ${markerDesignVariants.length}개`;
-  els.markerDesignGrid.innerHTML = markerDesignVariants.map((design, index) => {
-    const isActive = design.id === active.id;
-    const markers = sampleItems.map((item) => markerPreviewHtml(item, design)).join("");
-    return `
-      <button class="marker-design-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
-        <span class="graph-design-card-head">
-          <strong>${escapeHtml(design.name)}</strong>
-          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
-        </span>
-        <span class="marker-design-preview">${markers}</span>
-      </button>
-    `;
-  }).join("");
+  els.markerDesignGrid.innerHTML = renderMarkerDesignOptionGroups({ active, sampleItems });
 }
 
 function markerDesignSampleItems() {
   return [
-    { id: "sample-1", name: "래미안", neighborhoodName: "잠원동", growthRate: 0.158, dongRank: 1, hasData: true },
-    { id: "sample-2", name: "자이", neighborhoodName: "반포동", growthRate: 0.083, dongRank: 3, hasData: true },
-    { id: "sample-3", name: "힐스테이트", neighborhoodName: "도곡동", growthRate: -0.012, dongRank: 8, hasData: true }
+    { id: "sample-1", name: "래미안", neighborhoodName: "목동", growthRate: 0.158, dongRank: 1, dongRankTotal: 14, hasData: true },
+    { id: "sample-2", name: "자이", neighborhoodName: "반포동", growthRate: 0.083, dongRank: 3, dongRankTotal: 21, hasData: true },
+    { id: "sample-3", name: "힐스테이트", neighborhoodName: "도곡동", growthRate: -0.012, dongRank: 8, dongRankTotal: 18, hasData: true }
   ];
 }
 
