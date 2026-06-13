@@ -16,6 +16,7 @@ import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
 import { buildMolitApartmentDetail, readCachedZoomMapSummary } from "./services/map-growth-cache.js";
+import { readMolitCoordinateAudit } from "./services/molit-complex-store.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -87,6 +88,12 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/molit/status") {
       return json(res, await tradeCollectionStatus({
         limit: Number(url.searchParams.get("limit") || 30)
+      }));
+    }
+
+    if (url.pathname === "/api/molit/coordinate-audit") {
+      return json(res, await readMolitCoordinateAudit({
+        limit: Number(url.searchParams.get("limit") || 50)
       }));
     }
 

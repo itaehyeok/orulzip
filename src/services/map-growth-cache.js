@@ -227,11 +227,10 @@ export async function buildMolitApartmentDetail(apartmentId) {
   const normalizedApartmentId = normalizeApartmentPrimaryId(apartmentId);
   const today = todayKstDateString();
   const currentMonth = today.slice(0, 7).replace("-", "");
-  const [apartmentResult, monthlyResult, recentResult] = await Promise.all([
+  const [complexResult, monthlyResult, recentResult] = await Promise.all([
     query(`
-      select id, region_id, source, source_complex_id, name, neighborhood_name, legal_dong_code, address,
-             built_year, household_count, lat, lng
-      from apartments
+      select id, apt_name, legal_dong, lawd_cd, address, build_year, lat, lng, deal_count
+      from molit_complexes
       where id = $1
     `, [normalizedApartmentId]),
     query(`
@@ -244,11 +243,12 @@ export async function buildMolitApartmentDetail(apartmentId) {
         round(avg(d.pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
       from molit_trade_deals d
-      join apartments a
-        on a.id = $1
-       and a.legal_dong_code like d.lawd_cd || '%'
-       and a.neighborhood_name = d.legal_dong
-       and regexp_replace(lower(a.name), '[^0-9a-z가-힣]', '', 'g') = regexp_replace(lower(d.apt_name), '[^0-9a-z가-힣]', '', 'g')
+      join molit_complexes c
+        on c.id = $1
+       and c.lawd_cd = d.lawd_cd
+       and c.legal_dong = coalesce(trim(d.legal_dong), '')
+       and c.jibun = coalesce(trim(d.jibun), '')
+       and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
       where d.exclusive_area_m2 is not null
         and d.deal_amount is not null
         and d.pyeong_price is not null
@@ -265,11 +265,12 @@ export async function buildMolitApartmentDetail(apartmentId) {
         round(avg(d.pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
       from molit_trade_deals d
-      join apartments a
-        on a.id = $1
-       and a.legal_dong_code like d.lawd_cd || '%'
-       and a.neighborhood_name = d.legal_dong
-       and regexp_replace(lower(a.name), '[^0-9a-z가-힣]', '', 'g') = regexp_replace(lower(d.apt_name), '[^0-9a-z가-힣]', '', 'g')
+      join molit_complexes c
+        on c.id = $1
+       and c.lawd_cd = d.lawd_cd
+       and c.legal_dong = coalesce(trim(d.legal_dong), '')
+       and c.jibun = coalesce(trim(d.jibun), '')
+       and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
       where d.exclusive_area_m2 is not null
         and d.deal_amount is not null
         and d.pyeong_price is not null
@@ -279,7 +280,7 @@ export async function buildMolitApartmentDetail(apartmentId) {
     `, [normalizedApartmentId, today])
   ]);
 
-  const apartment = serializeApartmentRow(apartmentResult.rows[0]);
+  const apartment = serializeMolitComplexRow(complexResult.rows[0]);
   if (!apartment) {
     return { apartment: null, areaTypes: [], months: [] };
   }
@@ -470,28 +471,29 @@ async function readMolitMatchedMonthlyRows(today) {
     query(`
       with matched as (
         select
-          a.id as apartment_id,
-          a.name as apartment_name,
-          a.neighborhood_name,
-          a.legal_dong_code,
-          a.address,
-          a.lat,
-          a.lng,
+          c.id as apartment_id,
+          c.apt_name as apartment_name,
+          c.legal_dong as neighborhood_name,
+          c.lawd_cd as legal_dong_code,
+          c.address,
+          c.lat,
+          c.lng,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_year_month,
           d.deal_amount,
           d.pyeong_price
         from molit_trade_deals d
-        join apartments a
-          on a.legal_dong_code like d.lawd_cd || '%'
-         and a.neighborhood_name = d.legal_dong
-         and regexp_replace(lower(a.name), '[^0-9a-z가-힣]', '', 'g') = regexp_replace(lower(d.apt_name), '[^0-9a-z가-힣]', '', 'g')
+        join molit_complexes c
+          on c.lawd_cd = d.lawd_cd
+         and c.legal_dong = coalesce(trim(d.legal_dong), '')
+         and c.jibun = coalesce(trim(d.jibun), '')
+         and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
           and coalesce(d.cancel_type, '') = ''
-          and a.lat is not null
-          and a.lng is not null
+          and c.lat is not null
+          and c.lng is not null
       )
       select
         apartment_id,
@@ -515,22 +517,23 @@ async function readMolitMatchedMonthlyRows(today) {
     query(`
       with matched as (
         select
-          a.id as apartment_id,
+          c.id as apartment_id,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_amount,
           d.pyeong_price
         from molit_trade_deals d
-        join apartments a
-          on a.legal_dong_code like d.lawd_cd || '%'
-         and a.neighborhood_name = d.legal_dong
-         and regexp_replace(lower(a.name), '[^0-9a-z가-힣]', '', 'g') = regexp_replace(lower(d.apt_name), '[^0-9a-z가-힣]', '', 'g')
+        join molit_complexes c
+          on c.lawd_cd = d.lawd_cd
+         and c.legal_dong = coalesce(trim(d.legal_dong), '')
+         and c.jibun = coalesce(trim(d.jibun), '')
+         and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
           and coalesce(d.cancel_type, '') = ''
           and make_date(d.deal_year, d.deal_month, d.deal_day) between $1::date - interval '30 days' and $1::date
-          and a.lat is not null
-          and a.lng is not null
+          and c.lat is not null
+          and c.lng is not null
       )
       select
         apartment_id,
@@ -799,7 +802,9 @@ function zoomGroupInfo(row, rows, level) {
     const sigunguCode = code.slice(0, 5);
     return { code: sigunguCode, name: sigunguName(rows, sigunguCode) };
   }
-  const dongCode = code.slice(0, 8) || `${row.apartment.address}:${row.apartment.neighborhoodName}`;
+  const dongCode = code.length >= 8
+    ? code.slice(0, 8)
+    : `${code || "unknown"}:${row.apartment.neighborhoodName || row.apartment.address || "미분류"}`;
   return {
     code: dongCode,
     name: zoomDongName(row.apartment)
@@ -952,6 +957,24 @@ function serializeApartmentRow(row) {
     address: row.address || "",
     builtYear: row.built_year || "",
     householdCount: Number(row.household_count || 0),
+    lat: Number(row.lat || 0),
+    lng: Number(row.lng || 0)
+  };
+}
+
+function serializeMolitComplexRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    regionId: "molit",
+    source: "molit",
+    sourceComplexId: 0,
+    name: row.apt_name,
+    neighborhoodName: row.legal_dong || "",
+    legalDongCode: row.lawd_cd || "",
+    address: row.address || "",
+    builtYear: row.build_year || "",
+    householdCount: Number(row.deal_count || 0),
     lat: Number(row.lat || 0),
     lng: Number(row.lng || 0)
   };

@@ -1,10 +1,12 @@
 import { closeDb, initDb } from "../src/services/db.js";
 import { refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
+import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
 
 const options = parseArgs(process.argv.slice(2));
 
 await initDb();
 try {
+  await syncMolitComplexes({ geocode: false });
   const result = await refreshMolitMapGrowthCache({
     periodYears: options.years
   });

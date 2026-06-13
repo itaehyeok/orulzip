@@ -21,6 +21,8 @@ export async function withClient(callback) {
 
 export async function initDb() {
   await query(`
+    create extension if not exists pg_trgm;
+
     create table if not exists apartments (
       id text primary key,
       region_id text not null,
@@ -156,6 +158,51 @@ export async function initDb() {
       on molit_trade_deals(lawd_cd, deal_year_month);
     create index if not exists molit_trade_deals_apt_idx
       on molit_trade_deals(apt_name, legal_dong);
+
+    create table if not exists molit_complexes (
+      id text primary key,
+      lawd_cd text not null,
+      lawd_name text,
+      legal_dong text,
+      jibun text,
+      apt_name text not null,
+      normalized_apt_name text not null,
+      address text,
+      target_region_ids text,
+      build_year integer,
+      deal_count integer not null default 0,
+      first_month text,
+      last_month text,
+      matched_apartment_id text,
+      match_method text,
+      match_score numeric,
+      kb_lat double precision,
+      kb_lng double precision,
+      geocoded_lat double precision,
+      geocoded_lng double precision,
+      geocode_provider text,
+      geocode_status text not null default 'pending',
+      geocode_query text,
+      geocode_error text,
+      geocoded_at timestamptz,
+      lat double precision,
+      lng double precision,
+      coord_source text,
+      coord_status text not null default 'missing',
+      distance_to_kb_m integer,
+      needs_review boolean not null default false,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    );
+
+    create index if not exists molit_complexes_lawd_dong_idx
+      on molit_complexes(lawd_cd, legal_dong);
+    create index if not exists molit_complexes_coord_idx
+      on molit_complexes(lat, lng);
+    create index if not exists molit_complexes_review_idx
+      on molit_complexes(needs_review, distance_to_kb_m desc);
+    create index if not exists molit_complexes_name_trgm_idx
+      on molit_complexes using gin (normalized_apt_name gin_trgm_ops);
 
     create table if not exists molit_trade_fetches (
       id bigserial primary key,

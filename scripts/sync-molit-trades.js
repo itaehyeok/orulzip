@@ -10,6 +10,7 @@ import {
   tradeCollectionSummary,
   upsertTradeDeals
 } from "../src/services/molit-trade-store.js";
+import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
 import { refreshMapGrowthCacheIfUnlocked, refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
 
 const SEOUL_LAWD_CODES = [
@@ -250,6 +251,21 @@ if (!options.skipMapCacheRefresh) {
   }, null, 2));
 
   console.log("[molit] refreshing MOLIT map growth cache");
+  const geocodeEnabled = Boolean(process.env.NAVER_MAP_NCP_KEY_ID && (
+    process.env.NAVER_MAP_NCP_KEY_SECRET || process.env.NAVER_MAP_NCP_CLIENT_SECRET
+  ));
+  const complexResult = await syncMolitComplexes({
+    geocode: geocodeEnabled,
+    geocodeMode: "missing",
+    geocodeLimit: Number(process.env.MOLIT_GEOCODE_LIMIT || 5000)
+  });
+  console.log(JSON.stringify({
+    message: "MOLIT complexes synced",
+    geocodeEnabled,
+    overview: complexResult.overview,
+    geocode: complexResult.geocode
+  }, null, 2));
+
   const molitCacheResult = await refreshMolitMapGrowthCache();
   console.log(JSON.stringify({
     message: "MOLIT map growth cache refreshed",

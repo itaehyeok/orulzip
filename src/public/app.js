@@ -241,6 +241,8 @@ const els = {
   markerDesignGrid: document.querySelector("#markerDesignGrid"),
   molitSummary: document.querySelector("#molitSummary"),
   molitCompletionList: document.querySelector("#molitCompletionList"),
+  molitCoordinateSummary: document.querySelector("#molitCoordinateSummary"),
+  molitCoordinateRows: document.querySelector("#molitCoordinateRows"),
   mapView: document.querySelector("#mapView"),
   zoomMapTitle: document.querySelector("#zoomMapTitle"),
   zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
@@ -480,8 +482,17 @@ async function loadActiveViewData() {
   }
 
   if (state.activeTab === "crawl") {
-    renderMolitStatus(await api("/api/molit/status"));
+    await loadCrawlTabData();
   }
+}
+
+async function loadCrawlTabData() {
+  const [molitStatus, coordinateAudit] = await Promise.all([
+    api("/api/molit/status"),
+    api("/api/molit/coordinate-audit?limit=80")
+  ]);
+  renderMolitStatus(molitStatus);
+  renderMolitCoordinateAudit(coordinateAudit);
 }
 
 async function activateTab(tab, { push = false } = {}) {
@@ -559,7 +570,7 @@ async function refreshStatusOnly() {
     ? `아파트 ${formatInt(status.counts.apartments)}개, 면적 ${formatInt(status.counts.areaTypes)}개, 월별 시세 ${formatInt(status.counts.monthlyPrices)}건. 최근 저장: ${status.meta.syncedAt || "-"}`
     : "아직 저장된 시세 데이터가 없습니다. 수집 작업을 등록하고 worker가 처리할 때까지 기다려주세요.";
   if (state.activeTab === "crawl") {
-    renderMolitStatus(await api("/api/molit/status"));
+    await loadCrawlTabData();
   }
 }
 
@@ -757,6 +768,53 @@ function renderMolitStatus(status) {
       </div>
     `).join("")
     : `<div class="empty">${escapeHtml(completion.title)}</div>`;
+}
+
+function renderMolitCoordinateAudit(audit) {
+  if (!els.molitCoordinateSummary || !els.molitCoordinateRows) return;
+  const overview = audit?.overview || {};
+  const rows = audit?.rows || [];
+  const ready = Number(overview.with_coordinates || 0);
+  const total = Number(overview.complexes || 0);
+  const review = Number(overview.needs_review || 0);
+  const missing = Number(overview.missing_coordinates || 0);
+
+  els.molitCoordinateSummary.textContent = `${formatInt(ready)} / ${formatInt(total)} 좌표 확보 · 점검 ${formatInt(review)}개 · 미확보 ${formatInt(missing)}개`;
+  els.molitCoordinateRows.innerHTML = rows.length
+    ? rows.map((row) => `
+      <tr>
+        <td>${row.needsReview ? `<span class="status-pill failed">점검</span>` : coordinateStatusPill(row)}</td>
+        <td>
+          <strong>${escapeHtml(row.aptName || "-")}</strong><br>
+          <span class="muted-cell">${escapeHtml(row.legalDong || "-")}${row.jibun ? ` ${escapeHtml(row.jibun)}` : ""}</span>
+        </td>
+        <td>${escapeHtml(row.address || "-")}</td>
+        <td>
+          ${row.kbName ? `<strong>${escapeHtml(row.kbName)}</strong><br><span class="muted-cell">${escapeHtml(row.kbAddress || "-")}</span>` : "-"}
+        </td>
+        <td>${escapeHtml(coordinateSourceLabel(row.coordSource || row.geocodeStatus || "-"))}</td>
+        <td>${row.distanceToKbM === null ? "-" : `${formatInt(row.distanceToKbM)}m`}</td>
+        <td>${formatInt(row.dealCount || 0)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="7" class="empty">점검할 좌표 차이 항목이 없습니다.</td></tr>`;
+}
+
+function coordinateStatusPill(row) {
+  if (row.coordStatus === "ready") return `<span class="status-pill completed">정상</span>`;
+  if (row.geocodeStatus === "failed" || row.geocodeStatus === "no_result") return `<span class="status-pill failed">${escapeHtml(coordinateSourceLabel(row.geocodeStatus))}</span>`;
+  return `<span class="status-pill pending">미확보</span>`;
+}
+
+function coordinateSourceLabel(value) {
+  return {
+    kb_match: "KB 좌표",
+    naver_geocode: "네이버 지오코딩",
+    geocoded: "지오코딩 완료",
+    no_result: "검색결과 없음",
+    failed: "지오코딩 실패",
+    pending: "대기"
+  }[value] || value || "-";
 }
 
 function molitCompletionSummary(status) {

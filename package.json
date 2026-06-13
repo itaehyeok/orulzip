@@ -8,6 +8,7 @@
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
     "sync:molit": "node scripts/sync-molit-trades.js",
+    "sync:molit-complexes": "node scripts/sync-molit-complexes.js",
     "refresh:app-cache": "node scripts/refresh-app-cache.js",
     "refresh:map-cache": "node scripts/refresh-map-cache.js",
     "refresh:molit-map-cache": "node scripts/refresh-molit-map-cache.js",
