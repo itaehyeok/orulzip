@@ -1451,7 +1451,7 @@ input {
 }
 
 .zoom-cluster-marker .level-dong {
-  gap: 2px;
+  gap: 1px;
   padding: 6px 5px;
 }
 
@@ -1482,13 +1482,13 @@ input {
   display: grid;
   gap: 1px;
   margin-top: 1px;
-  max-width: 78px;
+  max-width: 92px;
 }
 
 .zoom-cluster-rank b {
   color: rgba(255, 255, 255, 0.94);
   display: block;
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 900;
   line-height: 1.04;
   overflow: hidden;

@@ -95,6 +95,100 @@ const homeMapView = {
   zoom: 12
 };
 const apartmentMapZoom = 16;
+const sidoLabelByCode = {
+  11: "서울시",
+  26: "부산시",
+  27: "대구시",
+  28: "인천시",
+  29: "광주시",
+  30: "대전시",
+  31: "울산시",
+  36: "세종시",
+  41: "경기도",
+  42: "강원도",
+  43: "충청북도",
+  44: "충청남도",
+  45: "전라북도",
+  46: "전라남도",
+  47: "경상북도",
+  48: "경상남도",
+  50: "제주도"
+};
+const sigunguLabelByCode = {
+  11110: "종로구",
+  11140: "중구",
+  11170: "용산구",
+  11200: "성동구",
+  11215: "광진구",
+  11230: "동대문구",
+  11260: "중랑구",
+  11290: "성북구",
+  11305: "강북구",
+  11320: "도봉구",
+  11350: "노원구",
+  11380: "은평구",
+  11410: "서대문구",
+  11440: "마포구",
+  11470: "양천구",
+  11500: "강서구",
+  11530: "구로구",
+  11545: "금천구",
+  11560: "영등포구",
+  11590: "동작구",
+  11620: "관악구",
+  11650: "서초구",
+  11680: "강남구",
+  11710: "송파구",
+  11740: "강동구",
+  41111: "수원시 장안구",
+  41113: "수원시 권선구",
+  41115: "수원시 팔달구",
+  41117: "수원시 영통구",
+  41131: "성남시 수정구",
+  41133: "성남시 중원구",
+  41135: "성남시 분당구",
+  41150: "의정부시",
+  41171: "안양시 만안구",
+  41173: "안양시 동안구",
+  41192: "부천시 원미구",
+  41194: "부천시 소사구",
+  41196: "부천시 오정구",
+  41210: "광명시",
+  41220: "평택시",
+  41250: "동두천시",
+  41271: "안산시 상록구",
+  41273: "안산시 단원구",
+  41281: "고양시 덕양구",
+  41285: "고양시 일산동구",
+  41287: "고양시 일산서구",
+  41290: "과천시",
+  41310: "구리시",
+  41360: "남양주시",
+  41370: "오산시",
+  41390: "시흥시",
+  41410: "군포시",
+  41430: "의왕시",
+  41450: "하남시",
+  41461: "용인시 처인구",
+  41463: "용인시 기흥구",
+  41465: "용인시 수지구",
+  41480: "파주시",
+  41500: "이천시",
+  41550: "안성시",
+  41570: "김포시",
+  41590: "화성시",
+  41591: "화성시 남양구",
+  41593: "화성시 봉담구",
+  41595: "화성시 병점구",
+  41597: "화성시 동탄구",
+  41610: "광주시",
+  41630: "양주시",
+  41650: "포천시",
+  41670: "여주시",
+  41800: "연천군",
+  41820: "가평군",
+  41830: "양평군"
+};
 const animatedMapMoveDuration = 0.9;
 
 const els = {
@@ -2449,12 +2543,26 @@ function shortZoomLabel(name, level) {
 
 function zoomGroupMarkerRankHtml(item, level) {
   if (level !== "dong") return "";
+  const sigunguLabel = zoomRankSigunguLabel(item);
+  const sidoLabel = zoomRankSidoLabel(item);
   return `
     <small class="zoom-cluster-rank">
-      <b>시군구 ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
-      <b>시도 ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
+      <b>${escapeHtml(sigunguLabel)} ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
+      <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
     </small>
   `;
+}
+
+function zoomRankSigunguLabel(item) {
+  const code = String(item.code || "").slice(0, 5);
+  if (sigunguLabelByCode[code]) return sigunguLabelByCode[code];
+  const parts = String(item.name || "").split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join(" ") : "시군구";
+}
+
+function zoomRankSidoLabel(item) {
+  const code = String(item.code || "").slice(0, 2);
+  return sidoLabelByCode[code] || "시도";
 }
 
 function formatRankText(rank, total) {
@@ -2466,7 +2574,7 @@ function formatRankText(rank, total) {
 }
 
 function zoomMarkerSize(level = "") {
-  if (level === "dong") return [90, 90];
+  if (level === "dong") return [104, 92];
   return [72, 72];
 }
 
