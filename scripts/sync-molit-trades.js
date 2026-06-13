@@ -10,6 +10,7 @@ import {
   tradeCollectionSummary,
   upsertTradeDeals
 } from "../src/services/molit-trade-store.js";
+import { refreshMapGrowthCacheIfUnlocked } from "../src/services/map-growth-cache.js";
 
 const SEOUL_LAWD_CODES = [
   ["11110", "서울 종로구"],
@@ -232,6 +233,23 @@ console.log(JSON.stringify({
   summary: await tradeCollectionSummary()
 }, null, 2));
 
+if (!options.skipMapCacheRefresh) {
+  console.log("[molit] refreshing map growth cache");
+  const cacheResult = await refreshMapGrowthCacheIfUnlocked();
+  console.log(JSON.stringify({
+    message: cacheResult.skipped ? "Map growth cache refresh skipped" : "Map growth cache refreshed",
+    skipped: Boolean(cacheResult.skipped),
+    reason: cacheResult.reason || "",
+    refreshedAt: cacheResult.refreshedAt,
+    snapshots: (cacheResult.snapshots || []).map((snapshot) => ({
+      periodYears: snapshot.periodYears,
+      startMonth: snapshot.startMonth,
+      endMonth: snapshot.endMonth,
+      itemCount: snapshot.itemCount
+    }))
+  }, null, 2));
+}
+
 function buildTasks({ targetIds, startMonth, endMonth }) {
   const months = monthRange(startMonth, endMonth);
   const result = [];
@@ -272,7 +290,8 @@ function parseArgs(args) {
     delayMs: 250,
     numRows: 1000,
     force: false,
-    plan: false
+    plan: false,
+    skipMapCacheRefresh: false
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -284,6 +303,7 @@ function parseArgs(args) {
     else if (arg === "--num-rows") parsed.numRows = Number(args[++index] || parsed.numRows);
     else if (arg === "--force") parsed.force = true;
     else if (arg === "--plan") parsed.plan = true;
+    else if (arg === "--skip-map-cache-refresh") parsed.skipMapCacheRefresh = true;
   }
   return parsed;
 }

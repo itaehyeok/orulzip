@@ -191,7 +191,6 @@ function buildZoomMapSummary(dataset, filters) {
       apartment: apartmentById.get(row.apartmentId)
     }))
     .filter((row) => row.apartment?.legalDongCode && Number.isFinite(row.apartment.lat) && Number.isFinite(row.apartment.lng));
-  const visibleRows = rows.filter((row) => withinBounds(row.apartment, filters));
   const level = zoomAggregationLevel(filters.zoom);
 
   return {
@@ -200,7 +199,9 @@ function buildZoomMapSummary(dataset, filters) {
     period: ranking.period,
     items: level === "apartment"
       ? summarizeZoomApartments({ rows, dataset, filters }).slice(0, 2000)
-      : summarizeZoomGroups(visibleRows, level).map((item) => ({ ...item, type: "group" }))
+      : rankZoomGroups(summarizeZoomGroups(rows, level), level)
+        .filter((item) => withinBounds(item, filters))
+        .map((item) => ({ ...item, type: "group" }))
   };
 }
 
@@ -262,6 +263,35 @@ function summarizeZoomGroups(rows, level) {
       growthAmount: Math.round(average(group.growthAmounts))
     }))
     .sort((a, b) => b.apartmentCount - a.apartmentCount || b.growthRate - a.growthRate);
+}
+
+function rankZoomGroups(items, level) {
+  if (level !== "dong") return items;
+  assignGroupRanks(items, (item) => String(item.code || "").slice(0, 5), "sigunguRank", "sigunguRankTotal");
+  assignGroupRanks(items, (item) => String(item.code || "").slice(0, 2), "sidoRank", "sidoRankTotal");
+  return items;
+}
+
+function assignGroupRanks(items, keyOf, rankField, totalField) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = keyOf(item) || "unknown";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+
+  for (const group of groups.values()) {
+    group
+      .sort((a, b) => {
+        const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
+        if (rateDiff) return rateDiff;
+        return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+      })
+      .forEach((item, index) => {
+        item[rankField] = index + 1;
+        item[totalField] = group.length;
+      });
+  }
 }
 
 function zoomGroupInfo(row, rows, level) {

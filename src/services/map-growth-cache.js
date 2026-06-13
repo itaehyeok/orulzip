@@ -3,6 +3,7 @@ import { readDatasetFromDb } from "./db-store.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
 
 export async function readMapGrowthCacheOverview() {
   const result = await query(`
@@ -74,6 +75,45 @@ export async function readCachedZoomMapSummary(filters) {
         item_name asc
       limit 2000
     `, params)
+    : level === "dong"
+      ? await query(`
+        with ranked as (
+          select
+            mgi.*,
+            row_number() over (
+              partition by substring(mgi.item_key from 1 for 5)
+              order by
+                mgi.has_data desc,
+                mgi.growth_rate desc nulls last,
+                mgi.item_name asc
+            )::int as sigungu_rank,
+            count(*) over (
+              partition by substring(mgi.item_key from 1 for 5)
+            )::int as sigungu_rank_total,
+            row_number() over (
+              partition by substring(mgi.item_key from 1 for 2)
+              order by
+                mgi.has_data desc,
+                mgi.growth_rate desc nulls last,
+                mgi.item_name asc
+            )::int as sido_rank,
+            count(*) over (
+              partition by substring(mgi.item_key from 1 for 2)
+            )::int as sido_rank_total
+          from map_growth_items mgi
+          where mgi.snapshot_id = $1
+            and mgi.level = $2
+        )
+        select *
+        from ranked
+        where true
+          ${boundsClause}
+        order by
+          has_data desc,
+          growth_rate desc nulls last,
+          apartment_count desc,
+          item_name asc
+      `, params)
     : await query(`
       select *
       from map_growth_items
@@ -139,6 +179,25 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
     refreshedAt: new Date().toISOString(),
     snapshots
   };
+}
+
+export async function refreshMapGrowthCacheIfUnlocked(options = {}) {
+  return withClient(async (client) => {
+    const lockResult = await client.query("select pg_try_advisory_lock($1) as locked", [MAP_CACHE_REFRESH_LOCK_ID]);
+    if (!lockResult.rows[0]?.locked) {
+      return {
+        refreshedAt: new Date().toISOString(),
+        skipped: true,
+        reason: "Map growth cache refresh is already running"
+      };
+    }
+
+    try {
+      return await refreshMapGrowthCache(options);
+    } finally {
+      await client.query("select pg_advisory_unlock($1)", [MAP_CACHE_REFRESH_LOCK_ID]);
+    }
+  });
 }
 
 function buildCacheItems(dataset, rankingRows) {
@@ -409,7 +468,11 @@ function serializeCachedItem(row, level) {
     ...base,
     code: row.item_key,
     name: row.item_name,
-    apartmentCount: Number(row.apartment_count || 0)
+    apartmentCount: Number(row.apartment_count || 0),
+    sigunguRank: row.sigungu_rank === null || row.sigungu_rank === undefined ? null : Number(row.sigungu_rank),
+    sigunguRankTotal: row.sigungu_rank_total === null || row.sigungu_rank_total === undefined ? null : Number(row.sigungu_rank_total),
+    sidoRank: row.sido_rank === null || row.sido_rank === undefined ? null : Number(row.sido_rank),
+    sidoRankTotal: row.sido_rank_total === null || row.sido_rank_total === undefined ? null : Number(row.sido_rank_total)
   };
 }
 

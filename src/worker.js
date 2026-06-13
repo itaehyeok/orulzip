@@ -1,6 +1,7 @@
 import { KBPriceProvider } from "./providers/kb-price-provider.js";
 import { initDb, query, withClient } from "./services/db.js";
 import { upsertCollectedData } from "./services/db-store.js";
+import { refreshMapGrowthCacheIfUnlocked } from "./services/map-growth-cache.js";
 import { getRegion } from "./services/region-config.js";
 
 const provider = new KBPriceProvider();
@@ -321,6 +322,29 @@ async function finishIfDone(jobId) {
       where id = $1 and status = 'running'
     `, [jobId]);
     await log(jobId, "info", "Crawl job completed");
+    await refreshMapCacheAfterJob(jobId);
+  }
+}
+
+async function refreshMapCacheAfterJob(jobId) {
+  try {
+    await log(jobId, "info", "Refreshing map growth cache");
+    const result = await refreshMapGrowthCacheIfUnlocked();
+    if (result.skipped) {
+      await log(jobId, "info", "Map growth cache refresh skipped", {
+        reason: result.reason
+      });
+      return;
+    }
+    await log(jobId, "info", "Map growth cache refreshed", {
+      snapshots: (result.snapshots || []).length,
+      refreshedAt: result.refreshedAt
+    });
+  } catch (error) {
+    console.error(error);
+    await log(jobId, "error", "Map growth cache refresh failed", {
+      error: error.message
+    });
   }
 }
 

@@ -1388,18 +1388,20 @@ function renderZoomGroupMarker(item, level) {
     renderNaverZoomGroupMarker(item, level);
     return;
   }
+  const [width, height] = zoomMarkerSize(level);
   const marker = L.marker([item.lat, item.lng], {
     icon: L.divIcon({
       className: "zoom-cluster-marker",
       html: `
-        <div style="--zoom-color: ${growthColor(item.growthRate)}">
-        <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
-        <span>${formatPercent(item.growthRate)}</span>
-        <em>${formatInt(item.apartmentCount)}</em>
+        <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
+          <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
+          <span>${formatPercent(item.growthRate)}</span>
+          <em>${formatInt(item.apartmentCount)}</em>
+          ${zoomGroupMarkerRankHtml(item, level)}
         </div>
       `,
-      iconSize: zoomMarkerSize(item.apartmentCount),
-      iconAnchor: zoomMarkerAnchor(item.apartmentCount)
+      iconSize: [width, height],
+      iconAnchor: zoomMarkerAnchor(level)
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
@@ -1433,16 +1435,17 @@ function renderZoomApartmentMarker(item) {
 
 function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
-  const [width, height] = zoomMarkerSize(item.apartmentCount);
+  const [width, height] = zoomMarkerSize(level);
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
     icon: naverLabelIcon(`
       <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
-        <div style="--zoom-color: ${growthColor(item.growthRate)}">
+        <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
           <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
           <span>${formatPercent(item.growthRate)}</span>
           <em>${formatInt(item.apartmentCount)}</em>
+          ${zoomGroupMarkerRankHtml(item, level)}
         </div>
       </div>
     `, width, height)
@@ -2130,9 +2133,11 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
-  const pyeongGeometry = graphPyeongGeometry({ series, padding, chartBottom });
+  const periodMarkers = renderGraphPeriodMarkers({ months, x, padding, chartBottom });
+  const pyeongSeries = averagePyeongGraphSeries({ months, series });
+  const pyeongGeometry = graphPyeongGeometry({ pyeongSeries, padding, chartBottom });
   const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
-  const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, mode, series, x, y: pyeongGeometry?.y });
+  const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, pyeongSeries, x, y: pyeongGeometry?.y });
   const seriesMarkup = series.map((item, index) => renderGraphSeries({
     chartBottom,
     design,
@@ -2159,6 +2164,7 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
         <rect x="0" y="0" width="${width}" height="${height}" rx="${mode === "preview" ? 12 : 0}" fill="${design.background}"></rect>
         <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="${design.plotRadius}" style="fill:${design.plotBackground};stroke:${design.gridMode === "none" ? "transparent" : design.gridColor};"></rect>
         ${grid}
+        ${periodMarkers}
         ${pyeongAxis}
         ${pyeongSeriesMarkup}
         ${seriesMarkup}
@@ -2172,8 +2178,18 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
   };
 }
 
-function graphPyeongGeometry({ series, padding, chartBottom }) {
-  const values = series.flatMap((item) => item.prices.map((price) => Number(price.pyeongPrice)).filter(Number.isFinite));
+function averagePyeongGraphSeries({ months, series }) {
+  return months.map((yearMonth) => {
+    const pyeongPrice = average(series.flatMap((item) => {
+      const price = item.prices.find((entry) => entry.yearMonth === yearMonth);
+      return Number.isFinite(Number(price?.pyeongPrice)) ? [Number(price.pyeongPrice)] : [];
+    }));
+    return Number.isFinite(pyeongPrice) ? { yearMonth, pyeongPrice } : null;
+  }).filter(Boolean);
+}
+
+function graphPyeongGeometry({ pyeongSeries, padding, chartBottom }) {
+  const values = pyeongSeries.map((price) => Number(price.pyeongPrice)).filter(Number.isFinite);
   if (!values.length) return null;
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
@@ -2196,27 +2212,41 @@ function renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, 
   }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당</text>`;
 }
 
-function renderPyeongGraphSeries({ design, mode, series, x, y }) {
+function renderPyeongGraphSeries({ design, pyeongSeries, x, y }) {
   if (!y) return "";
-  const limit = mode === "preview" ? 3 : 8;
-  return series.slice(0, limit).map((item) => {
-    const color = design.monochrome ? "#98a2b3" : item.color;
-    const points = item.prices
-      .filter((price) => Number.isFinite(Number(price.pyeongPrice)))
-      .map((price) => ({
-        x: x(price.yearMonth),
-        y: y(Number(price.pyeongPrice)),
-        price
-      }));
-    if (!points.length) return "";
-    const path = graphLinePath(points, "linear");
-    const style = [
-      `stroke-width:${design.lineWidth}px`,
-      `opacity:${design.opacity}`,
-      `stroke-linecap:${design.linecap}`,
-      design.dash ? `stroke-dasharray:${design.dash}` : ""
-    ].filter(Boolean).join(";");
-    return `<path class="map-popup-pyeong-line" d="${path}" stroke="${color}" style="${style}"></path>`;
+  const color = design.monochrome ? "#98a2b3" : "#475467";
+  const points = pyeongSeries
+    .filter((price) => Number.isFinite(Number(price.pyeongPrice)))
+    .map((price) => ({
+      x: x(price.yearMonth),
+      y: y(Number(price.pyeongPrice)),
+      price
+    }));
+  if (!points.length) return "";
+  const path = graphLinePath(points, "linear");
+  const style = [
+    `stroke-width:${design.lineWidth}px`,
+    `opacity:${design.opacity}`,
+    `stroke-linecap:${design.linecap}`,
+    design.dash ? `stroke-dasharray:${design.dash}` : ""
+  ].filter(Boolean).join(";");
+  return `<path class="map-popup-pyeong-line" d="${path}" stroke="${color}" style="${style}"></path>`;
+}
+
+function renderGraphPeriodMarkers({ months, x, padding, chartBottom }) {
+  if (!months.length) return "";
+  const latestMonth = months.at(-1);
+  return [1, 3, 5].map((years) => {
+    const yearMonth = periodStartMonth(latestMonth, years);
+    if (!months.includes(yearMonth)) return "";
+    const xPos = x(yearMonth);
+    const labelX = Math.min(xPos + 7, x(months.at(-1)) - 16);
+    return `
+      <g class="map-popup-period-marker">
+        <line x1="${xPos.toFixed(1)}" y1="${padding.top}" x2="${xPos.toFixed(1)}" y2="${chartBottom}"></line>
+        <text x="${labelX.toFixed(1)}" y="${padding.top + 14}" text-anchor="start">${years}년</text>
+      </g>
+    `;
   }).join("");
 }
 
@@ -2374,13 +2404,17 @@ function bindMapPopupChartHover({ width, months, series, x }) {
     const rows = series.map((item) => {
       const price = item.prices.find((entry) => entry.yearMonth === month);
       if (!price) return "";
-      const pyeong = Number.isFinite(Number(price.pyeongPrice)) ? ` · 평당 ${formatMoney(price.pyeongPrice)}` : "";
-      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}${pyeong}</span>`;
+      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`;
     }).filter(Boolean).join("");
+    const pyeongAverage = averagePyeongAtMonth(series, month);
+    const pyeongRow = Number.isFinite(pyeongAverage)
+      ? `<span class="map-popup-tooltip-secondary">평당 평균 ${formatMoney(pyeongAverage)}</span>`
+      : "";
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
       <strong>${formatMonth(month)}</strong>
       ${rows || "<span>데이터 없음</span>"}
+      ${pyeongRow}
     `);
   });
 
@@ -2413,12 +2447,31 @@ function shortZoomLabel(name, level) {
   return String(name || "").replace(/^.+\s([^\s]+)$/g, "$1");
 }
 
-function zoomMarkerSize() {
+function zoomGroupMarkerRankHtml(item, level) {
+  if (level !== "dong") return "";
+  return `
+    <small class="zoom-cluster-rank">
+      <b>시군구 ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
+      <b>시도 ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
+    </small>
+  `;
+}
+
+function formatRankText(rank, total) {
+  const rankNumber = Number(rank);
+  const totalNumber = Number(total);
+  if (!Number.isFinite(rankNumber)) return "-";
+  if (Number.isFinite(totalNumber) && totalNumber > 0) return `${formatInt(rankNumber)}/${formatInt(totalNumber)}등`;
+  return `${formatInt(rankNumber)}등`;
+}
+
+function zoomMarkerSize(level = "") {
+  if (level === "dong") return [90, 90];
   return [72, 72];
 }
 
-function zoomMarkerAnchor() {
-  const [width, height] = zoomMarkerSize();
+function zoomMarkerAnchor(level = "") {
+  const [width, height] = zoomMarkerSize(level);
   return [width / 2, height / 2];
 }
 
