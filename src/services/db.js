@@ -219,6 +219,13 @@ export async function initDb() {
       on map_growth_snapshots(source, start_month, end_month, updated_at desc);
     create index if not exists map_growth_items_lookup_idx
       on map_growth_items(snapshot_id, level, lat, lng);
+
+    create table if not exists app_cache_entries (
+      cache_key text primary key,
+      payload jsonb not null,
+      created_at timestamptz not null default now(),
+      refreshed_at timestamptz not null default now()
+    );
   `);
 }
 

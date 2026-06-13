@@ -292,8 +292,10 @@ async function init() {
   setActiveTab(tabFromLocation());
   bindEvents();
   renderMapDesignPanel();
-  await loadClientConfig();
-  await loadFilters();
+  await Promise.all([
+    loadClientConfig(),
+    loadFilters()
+  ]);
   await refresh();
   setInterval(refreshStatusOnly, 5000);
 }
@@ -940,6 +942,21 @@ async function hasNaverAuthFailure(container = els.zoomMap) {
   return container.textContent.includes("네이버 지도 Open API 인증이 실패");
 }
 
+function watchNaverAuthFailure(container = els.zoomMap) {
+  if (state.naverAuthFailureWatch) return;
+  const watchedMap = state.zoomNaverMap;
+  state.naverAuthFailureWatch = hasNaverAuthFailure(container)
+    .then((failed) => {
+      state.naverAuthFailureWatch = null;
+      if (!failed || !watchedMap || state.zoomNaverMap !== watchedMap) return;
+      fallbackFromNaverZoomMap();
+      if (state.activeTab === "map") loadZoomMapSummary();
+    })
+    .catch(() => {
+      state.naverAuthFailureWatch = null;
+    });
+}
+
 function loadNaverSdk() {
   if (window.naver?.maps) return Promise.resolve(true);
   if (state.naverSdkPromise) return state.naverSdkPromise;
@@ -1031,7 +1048,7 @@ async function initNaverZoomMap() {
       window.naver.maps.Event.trigger(state.zoomNaverMap, "resize");
       updateZoomMapLevelLabel();
     }, 0);
-    if (await hasNaverAuthFailure(els.zoomMap)) return fallbackFromNaverZoomMap();
+    watchNaverAuthFailure();
     return true;
   }
 
@@ -1049,7 +1066,7 @@ async function initNaverZoomMap() {
   });
   setTimeout(() => window.naver.maps.Event.trigger(state.zoomNaverMap, "resize"), 0);
   updateZoomMapLevelLabel();
-  if (await hasNaverAuthFailure(els.zoomMap)) return fallbackFromNaverZoomMap();
+  watchNaverAuthFailure();
   return true;
 }
 

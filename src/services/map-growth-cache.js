@@ -1,4 +1,5 @@
 import { query, withClient } from "./db.js";
+import { refreshAppOverviewCache } from "./app-overview-cache.js";
 import { readDatasetFromDb } from "./db-store.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 
@@ -218,9 +219,18 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
     snapshots.push(snapshot);
   }
 
+  const appOverview = await refreshAppOverviewCache();
+
   return {
     refreshedAt: new Date().toISOString(),
-    snapshots
+    snapshots,
+    appOverviewCache: {
+      refreshedAt: appOverview.cache.refreshedAt,
+      counts: appOverview.counts,
+      months: appOverview.months.length,
+      regionStats: appOverview.regionStats.length,
+      neighborhoods: appOverview.neighborhoods.length
+    }
   };
 }
 
