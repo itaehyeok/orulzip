@@ -36,6 +36,7 @@ const els = {
   currentComplex: document.querySelector("#currentComplex"),
   crawlCounts: document.querySelector("#crawlCounts"),
   crawlDelay: document.querySelector("#crawlDelay"),
+  crawlTrackedJobs: document.querySelector("#crawlTrackedJobs"),
   crawlLogs: document.querySelector("#crawlLogs"),
   crawlView: document.querySelector("#crawlView"),
   crawlDetailSummary: document.querySelector("#crawlDetailSummary"),
@@ -272,6 +273,7 @@ function renderCrawlStatus(crawl) {
     els.currentComplex.textContent = "-";
     els.crawlCounts.textContent = "-";
     els.crawlDelay.textContent = "-";
+    els.crawlTrackedJobs.innerHTML = "";
     els.crawlLogs.innerHTML = "";
     return;
   }
@@ -284,9 +286,41 @@ function renderCrawlStatus(crawl) {
   els.currentComplex.textContent = job.currentComplexName || "-";
   els.crawlCounts.textContent = `${job.completedComplexes} / ${job.failedComplexes} / ${job.totalComplexes}`;
   els.crawlDelay.textContent = `${Math.round(job.delayMinMs / 1000)}-${Math.round(job.delayMaxMs / 1000)}초`;
+  els.crawlTrackedJobs.innerHTML = renderCrawlJobProgress(crawl.jobProgress || []);
   els.crawlLogs.innerHTML = (crawl.logs || []).map((log) => {
     const time = new Date(log.createdAt).toLocaleTimeString("ko-KR");
     return `<div>[${time}] ${escapeHtml(log.level)} ${escapeHtml(log.message)}</div>`;
+  }).join("");
+}
+
+function renderCrawlJobProgress(items) {
+  if (!items.length) return "";
+  return items.map((item) => {
+    const job = item.job;
+    const counts = item.queueCounts || {};
+    const completed = Number(counts.completed || 0);
+    const failed = Number(counts.failed || 0);
+    const done = completed + failed;
+    const total = Number(job.totalComplexes || 0);
+    const progress = Number(item.progress || 0);
+    const status = job.status || "requested";
+    const label = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치`;
+    return `
+      <article class="crawl-job-card">
+        <div class="crawl-job-card-head">
+          <strong>${escapeHtml(label)}</strong>
+          <span class="status-pill ${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</span>
+        </div>
+        <div class="crawl-job-percent">${progress.toFixed(1)}%</div>
+        <div class="crawl-job-track" aria-hidden="true">
+          <span style="width: ${Math.max(0, Math.min(progress, 100))}%"></span>
+        </div>
+        <div class="crawl-job-meta">
+          <span>${formatInt(done)} / ${formatInt(total)}</span>
+          <span>실패 ${formatInt(failed)}</span>
+        </div>
+      </article>
+    `;
   }).join("");
 }
 
@@ -478,11 +512,20 @@ function renderCrawlDetails(details) {
 
 function statusLabel(status) {
   return {
+    requested: "대기",
+    discovering: "탐색 중",
     completed: "성공",
     failed: "실패",
     running: "진행 중",
     pending: "대기"
   }[status] || status;
+}
+
+function crawlRegionLabel(regionId) {
+  return {
+    seoul: "서울",
+    gyeonggi: "경기"
+  }[regionId] || regionId || "-";
 }
 
 function targetLabel(target) {

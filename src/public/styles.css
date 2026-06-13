@@ -205,6 +205,63 @@ input {
   font-size: 12px;
 }
 
+.crawl-job-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.crawl-job-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.crawl-job-card-head,
+.crawl-job-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.crawl-job-card-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.crawl-job-percent {
+  margin-top: 10px;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.crawl-job-track {
+  height: 8px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f7;
+}
+
+.crawl-job-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2367d1;
+}
+
+.crawl-job-meta {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .crawl-logs {
   display: grid;
   gap: 4px;
@@ -935,6 +992,7 @@ td:nth-child(4) {
   }
 
   .crawl-grid,
+  .crawl-job-progress,
   .crawl-stats,
   .info-grid {
     grid-template-columns: 1fr;

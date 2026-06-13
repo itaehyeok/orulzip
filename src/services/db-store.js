@@ -283,23 +283,55 @@ export async function createCrawlJob(options) {
 export async function crawlStatus() {
   const job = await latestJob();
   if (!job) return null;
-  const queue = await query(`
-    select status, count(*)::int as count
-    from crawl_queue
-    where job_id = $1
-    group by status
-  `, [job.id]);
-  const logs = await query(`
-    select level, message, details, created_at
-    from crawl_logs
-    where job_id = $1
-    order by created_at desc
-    limit 20
-  `, [job.id]);
+  const [queue, logs, trackedJobs] = await Promise.all([
+    query(`
+      select status, count(*)::int as count
+      from crawl_queue
+      where job_id = $1
+      group by status
+    `, [job.id]),
+    query(`
+      select level, message, details, created_at
+      from crawl_logs
+      where job_id = $1
+      order by created_at desc
+      limit 20
+    `, [job.id]),
+    query(`
+      select *
+      from (
+        select
+          j.*,
+          row_number() over (
+            partition by j.region_id, j.years_back
+            order by j.created_at desc
+          ) as row_number
+        from crawl_jobs j
+        where j.region_id in ('seoul', 'gyeonggi')
+          and j.years_back in (3, 10)
+      ) ranked
+      where row_number = 1
+      order by
+        case region_id when 'seoul' then 0 when 'gyeonggi' then 1 else 2 end,
+        years_back
+    `)
+  ]);
+  const trackedIds = trackedJobs.rows.map((row) => row.id);
+  const trackedQueue = trackedIds.length
+    ? await query(`
+        select job_id, status, count(*)::int as count
+        from crawl_queue
+        where job_id = any($1::bigint[])
+        group by job_id, status
+      `, [trackedIds])
+    : { rows: [] };
+
   return {
     job,
     queue: queue.rows,
-    logs: logs.rows
+    logs: logs.rows,
+    trackedJobs: trackedJobs.rows,
+    trackedQueue: trackedQueue.rows
   };
 }
 

@@ -429,10 +429,28 @@ function serializeCrawlStatus(crawl) {
   const queueCounts = Object.fromEntries(crawl.queue.map((row) => [row.status, row.count]));
   const total = job.totalComplexes || 0;
   const done = (queueCounts.completed || 0) + (queueCounts.failed || 0);
+  const trackedQueueByJob = new Map();
+  for (const row of crawl.trackedQueue || []) {
+    const jobId = Number(row.job_id);
+    const counts = trackedQueueByJob.get(jobId) || {};
+    counts[row.status] = Number(row.count || 0);
+    trackedQueueByJob.set(jobId, counts);
+  }
   return {
     job,
     queueCounts,
     progress: total ? Math.round((done / total) * 1000) / 10 : 0,
+    jobProgress: (crawl.trackedJobs || []).map((row) => {
+      const trackedJob = serializeJob(row);
+      const trackedCounts = trackedQueueByJob.get(trackedJob.id) || {};
+      const trackedTotal = trackedJob.totalComplexes || 0;
+      const trackedDone = (trackedCounts.completed || 0) + (trackedCounts.failed || 0);
+      return {
+        job: trackedJob,
+        queueCounts: trackedCounts,
+        progress: trackedTotal ? Math.round((trackedDone / trackedTotal) * 1000) / 10 : 0
+      };
+    }),
     logs: crawl.logs.map((row) => ({
       level: row.level,
       message: row.message,
