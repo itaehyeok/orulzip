@@ -325,13 +325,59 @@ export async function crawlStatus() {
         group by job_id, status
       `, [trackedIds])
     : { rows: [] };
+  const trackedRecent = trackedIds.length
+    ? await query(`
+        select
+          job_id,
+          count(*) filter (where completed_at >= now() - interval '10 minutes')::int as completed_last_10_minutes,
+          count(*) filter (where completed_at >= now() - interval '1 hour')::int as completed_last_hour,
+          count(*) filter (where completed_at >= now() - interval '24 hours')::int as completed_last_day
+        from crawl_queue
+        where job_id = any($1::bigint[])
+          and status = 'completed'
+          and completed_at is not null
+        group by job_id
+      `, [trackedIds])
+    : { rows: [] };
+  const trackedRecentLabels = trackedIds.length
+    ? await query(`
+        select
+          job_id,
+          label,
+          count(*)::int as count
+        from (
+          select
+            q.job_id,
+            coalesce(
+              nullif(q.marker->>'읍면동명', ''),
+              nullif(q.marker->>'법정동명', ''),
+              nullif(q.marker->>'읍면동', ''),
+              nullif(q.marker->>'법정동', ''),
+              nullif(a.neighborhood_name, ''),
+              j.region_id
+            ) as label
+          from crawl_queue q
+          join crawl_jobs j on j.id = q.job_id
+          left join apartments a
+            on a.region_id = j.region_id
+           and a.source_complex_id = q.source_complex_id
+          where q.job_id = any($1::bigint[])
+            and q.status = 'completed'
+            and q.completed_at >= now() - interval '1 hour'
+        ) recent
+        group by job_id, label
+        order by job_id, count desc, label
+      `, [trackedIds])
+    : { rows: [] };
 
   return {
     job,
     queue: queue.rows,
     logs: logs.rows,
     trackedJobs: trackedJobs.rows,
-    trackedQueue: trackedQueue.rows
+    trackedQueue: trackedQueue.rows,
+    trackedRecent: trackedRecent.rows,
+    trackedRecentLabels: trackedRecentLabels.rows
   };
 }
 

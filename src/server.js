@@ -441,6 +441,26 @@ function serializeCrawlStatus(crawl) {
     counts[row.status] = Number(row.count || 0);
     trackedQueueByJob.set(jobId, counts);
   }
+  const trackedRecentByJob = new Map();
+  for (const row of crawl.trackedRecent || []) {
+    trackedRecentByJob.set(Number(row.job_id), {
+      completedLast10Minutes: Number(row.completed_last_10_minutes || 0),
+      completedLastHour: Number(row.completed_last_hour || 0),
+      completedLastDay: Number(row.completed_last_day || 0)
+    });
+  }
+  const recentLabelsByJob = new Map();
+  for (const row of crawl.trackedRecentLabels || []) {
+    const jobId = Number(row.job_id);
+    const labels = recentLabelsByJob.get(jobId) || [];
+    if (labels.length < 3) {
+      labels.push({
+        label: row.label || "",
+        count: Number(row.count || 0)
+      });
+    }
+    recentLabelsByJob.set(jobId, labels);
+  }
   return {
     job,
     queueCounts,
@@ -453,7 +473,13 @@ function serializeCrawlStatus(crawl) {
       return {
         job: trackedJob,
         queueCounts: trackedCounts,
-        progress: trackedTotal ? Math.round((trackedDone / trackedTotal) * 1000) / 10 : 0
+        progress: trackedTotal ? Math.round((trackedDone / trackedTotal) * 1000) / 10 : 0,
+        recent: {
+          completedLast10Minutes: trackedRecentByJob.get(trackedJob.id)?.completedLast10Minutes || 0,
+          completedLastHour: trackedRecentByJob.get(trackedJob.id)?.completedLastHour || 0,
+          completedLastDay: trackedRecentByJob.get(trackedJob.id)?.completedLastDay || 0,
+          topLabels: recentLabelsByJob.get(trackedJob.id) || []
+        }
       };
     }),
     logs: crawl.logs.map((row) => ({

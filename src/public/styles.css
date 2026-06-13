@@ -298,6 +298,23 @@ input {
   font-size: 12px;
 }
 
+.crawl-job-activity {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.crawl-job-activity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .crawl-job-current {
   overflow: hidden;
   margin-top: 8px;

@@ -458,6 +458,7 @@ function renderCrawlJobProgress(items) {
     const failed = Number(counts.failed || 0);
     const status = job.status || "requested";
     const progress = crawlJobProgress(item);
+    const activity = crawlJobActivity(item, progress);
     const label = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치`;
     return `
       <article class="crawl-job-card">
@@ -473,10 +474,52 @@ function renderCrawlJobProgress(items) {
           <span>${escapeHtml(progress.label)}</span>
           <span>실패 ${formatInt(failed)}</span>
         </div>
+        <div class="crawl-job-activity">
+          ${activity.map((line) => `<span>${escapeHtml(line)}</span>`).join("")}
+        </div>
         ${job.currentComplexName ? `<div class="crawl-job-current">${escapeHtml(job.currentComplexName)}</div>` : ""}
       </article>
     `;
   }).join("");
+}
+
+function crawlJobActivity(item, progress) {
+  const job = item.job || {};
+  const recent = item.recent || {};
+  const completedLastHour = Number(recent.completedLastHour || 0);
+  const completedLast10Minutes = Number(recent.completedLast10Minutes || 0);
+  const hourlyRate = completedLastHour;
+  const lines = [
+    `최근 1시간 완료 ${formatInt(completedLastHour)}개 · ${formatInt(hourlyRate)}개/시간`
+  ];
+
+  if (completedLast10Minutes) {
+    lines.push(`최근 10분 ${formatInt(completedLast10Minutes)}개 · 단기속도 ${formatInt(completedLast10Minutes * 6)}개/시간`);
+  }
+
+  const topLabels = (recent.topLabels || [])
+    .filter((item) => item.label)
+    .map((item) => `${formatRecentLabel(item.label)} ${formatInt(item.count)}개`)
+    .join(" · ");
+  if (topLabels) {
+    lines.push(`최근 지역 ${topLabels}`);
+  }
+
+  const discovery = parseDiscoveryProgress(job.currentComplexName || "");
+  if (job.status === "discovering" && discovery && job.startedAt) {
+    const elapsedHours = Math.max((Date.now() - new Date(job.startedAt).getTime()) / 3600000, 0.01);
+    lines.push(`탐색 속도 ${formatInt(discovery.current / elapsedHours)}타일/시간 · 발견 ${formatInt(discovery.found / elapsedHours)}개/시간`);
+  }
+
+  if (job.status === "requested" && job.sourceJobId) {
+    lines.push("선행 작업 완료 후 자동 시작");
+  }
+
+  if (progress.percent >= 100 && job.status === "completed") {
+    lines.push(`최근 24시간 완료 ${formatInt(recent.completedLastDay || 0)}개`);
+  }
+
+  return lines;
 }
 
 function renderMolitStatus(status) {
@@ -680,9 +723,15 @@ function statusLabel(status) {
 
 function crawlRegionLabel(regionId) {
   return {
+    bundang: "분당",
+    dongtan: "동탄",
     seoul: "서울",
     gyeonggi: "경기"
   }[regionId] || regionId || "-";
+}
+
+function formatRecentLabel(label) {
+  return crawlRegionLabel(label);
 }
 
 function targetLabel(target) {

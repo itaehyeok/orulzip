@@ -108,6 +108,7 @@ export async function initDb() {
     );
 
     create index if not exists crawl_queue_job_status_idx on crawl_queue(job_id, status, id);
+    create index if not exists crawl_queue_job_completed_idx on crawl_queue(job_id, completed_at);
 
     create table if not exists crawl_logs (
       id bigserial primary key,
