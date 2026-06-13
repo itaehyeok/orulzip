@@ -51,7 +51,7 @@ const state = {
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
 const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
-const defaultMarkerDesignId = "current";
+const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
 const graphPalettes = {
   market: ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"],
@@ -69,36 +69,9 @@ const graphDesignVariants = [
 ];
 const graphDesignVariantMap = new Map(graphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
-  markerDesign("current", "01 현재 마커", { showRank: false, shape: "pill", size: "compact", tone: "solid" }),
-  markerDesign("rank-pill", "02 순위 필", { showRank: true, shape: "pill", size: "wide", tone: "solid" }),
-  markerDesign("rank-card", "03 순위 카드", { showRank: true, shape: "card", size: "wide", tone: "solid" }),
-  markerDesign("rank-soft", "04 소프트 카드", { showRank: true, shape: "card", size: "wide", tone: "soft" }),
-  markerDesign("rank-outline", "05 아웃라인", { showRank: true, shape: "pill", size: "wide", tone: "outline" }),
-  markerDesign("rank-badge", "06 배지형", { showRank: true, shape: "badge", size: "wide", tone: "solid" }),
-  markerDesign("rank-minimal", "07 미니멀", { showRank: true, shape: "minimal", size: "wide", tone: "solid" }),
-  markerDesign("rank-floating", "08 플로팅", { showRank: true, shape: "card", size: "wide", tone: "floating" }),
-  markerDesign("rank-dark", "09 다크", { showRank: true, shape: "card", size: "wide", tone: "dark" }),
-  markerDesign("rank-white", "10 화이트", { showRank: true, shape: "card", size: "wide", tone: "white" }),
-  markerDesign("rank-dot", "11 도트 라벨", { showRank: true, shape: "dot", size: "wide", tone: "solid" }),
-  markerDesign("rank-flag", "12 플래그", { showRank: true, shape: "flag", size: "wide", tone: "solid" }),
-  markerDesign("rank-pin", "13 핀", { showRank: true, shape: "pin", size: "wide", tone: "solid" }),
-  markerDesign("rank-chip", "14 칩", { showRank: true, shape: "chip", size: "wide", tone: "solid" }),
-  markerDesign("rank-stack", "15 스택", { showRank: true, shape: "stack", size: "wide", tone: "solid" }),
-  markerDesign("rank-split", "16 스플릿", { showRank: true, shape: "split", size: "wide", tone: "solid" }),
-  markerDesign("rank-ring", "17 링", { showRank: true, shape: "ring", size: "wide", tone: "outline" }),
-  markerDesign("rank-flat", "18 플랫", { showRank: true, shape: "card", size: "wide", tone: "flat" }),
-  markerDesign("rank-tiny", "19 타이니", { showRank: true, shape: "pill", size: "small", tone: "solid" }),
-  markerDesign("rank-big", "20 빅 넘버", { showRank: true, shape: "card", size: "large", tone: "solid" }),
-  markerDesign("rank-number-pill", "21 숫자 필", { showRank: true, shape: "card", size: "wide", tone: "solid", rankStyle: "pill" }),
-  markerDesign("rank-number-chip", "22 숫자 칩", { showRank: true, shape: "pill", size: "wide", tone: "solid", rankStyle: "chip" }),
-  markerDesign("rank-number-box", "23 숫자 박스", { showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
-  markerDesign("rank-number-invert", "24 숫자 반전", { showRank: true, shape: "card", size: "wide", tone: "solid", rankStyle: "invert" }),
-  markerDesign("rank-number-under", "25 숫자 밑줄", { showRank: true, shape: "minimal", size: "wide", tone: "solid", rankStyle: "underline" }),
-  markerDesign("rank-number-circle", "26 숫자 원형", { showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" }),
-  markerDesign("rank-number-tag", "27 숫자 태그", { showRank: true, shape: "flag", size: "wide", tone: "solid", rankStyle: "tag" }),
-  markerDesign("rank-number-large", "28 숫자 크게", { showRank: true, shape: "card", size: "large", tone: "solid", rankStyle: "large" }),
-  markerDesign("rank-number-ghost", "29 숫자 고스트", { showRank: true, shape: "ring", size: "wide", tone: "outline", rankStyle: "ghost" }),
-  markerDesign("rank-number-compact", "30 숫자 컴팩트", { showRank: true, shape: "pill", size: "small", tone: "solid", rankStyle: "compact" })
+  markerDesign("rank-outline", "01 아웃라인", { showRank: true, shape: "pill", size: "wide", tone: "outline" }),
+  markerDesign("rank-number-box", "02 숫자 박스", { showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
+  markerDesign("rank-number-circle", "03 숫자 원형", { showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {

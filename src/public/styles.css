@@ -804,101 +804,8 @@ input {
   font-size: 10px;
 }
 
-.apartment-map-marker.marker-size-compact {
-  flex-direction: row;
-  height: 30px;
-  padding: 0 8px;
-}
-
-.apartment-map-marker.marker-size-small {
-  min-height: 34px;
-  padding: 5px 8px;
-}
-
-.apartment-map-marker.marker-size-large {
-  min-height: 48px;
-  padding: 7px 12px;
-}
-
-.apartment-map-marker.marker-size-large .marker-rate {
-  font-size: 15px;
-}
-
-.apartment-map-marker.marker-size-large small {
-  font-size: 10px;
-}
-
 .apartment-map-marker.marker-shape-card {
   border-radius: 8px;
-}
-
-.apartment-map-marker.marker-shape-badge {
-  border-radius: 14px 14px 14px 4px;
-}
-
-.apartment-map-marker.marker-shape-minimal {
-  border-radius: 6px;
-  box-shadow: 0 6px 14px rgba(16, 24, 40, 0.14);
-}
-
-.apartment-map-marker.marker-shape-dot {
-  border-radius: 999px;
-  padding-left: 18px;
-  position: relative;
-}
-
-.apartment-map-marker.marker-shape-dot::before {
-  background: #ffffff;
-  border-radius: 999px;
-  content: "";
-  height: 6px;
-  left: 8px;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-}
-
-.apartment-map-marker.marker-shape-flag {
-  border-radius: 7px 7px 7px 1px;
-}
-
-.apartment-map-marker.marker-shape-pin {
-  border-radius: 999px 999px 999px 5px;
-  transform: rotate(-2deg);
-}
-
-.apartment-map-marker.marker-shape-chip {
-  border-radius: 999px;
-  border-width: 1px;
-}
-
-.apartment-map-marker.marker-shape-stack {
-  border-radius: 8px;
-  box-shadow: 4px 4px 0 rgba(255, 255, 255, 0.92), 0 10px 20px rgba(16, 24, 40, 0.18);
-}
-
-.apartment-map-marker.marker-shape-split {
-  align-items: stretch;
-  border-radius: 8px;
-  gap: 2px;
-}
-
-.apartment-map-marker.marker-shape-split small {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  padding: 2px 5px;
-}
-
-.apartment-map-marker.marker-shape-ring {
-  background: #ffffff;
-  border-color: var(--marker-color);
-  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.18);
-}
-
-.apartment-map-marker.marker-shape-ring .marker-rate,
-.apartment-map-marker.marker-shape-ring small {
-  color: var(--marker-color);
 }
 
 .apartment-map-marker.marker-tone-soft {
@@ -924,51 +831,10 @@ input {
   color: var(--marker-color);
 }
 
-.apartment-map-marker.marker-tone-floating {
-  border-color: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 14px 26px rgba(16, 24, 40, 0.3);
-}
-
-.apartment-map-marker.marker-tone-dark {
-  background: #101828;
-  border-color: color-mix(in srgb, var(--marker-color) 72%, #ffffff);
-}
-
-.apartment-map-marker.marker-tone-flat {
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.apartment-map-marker.marker-rank-pill .marker-rank-line b,
-.apartment-map-marker.marker-rank-chip .marker-rank-line b {
-  background: rgba(255, 255, 255, 0.24);
-  border-radius: 999px;
-  padding: 2px 5px;
-}
-
-.apartment-map-marker.marker-rank-chip .marker-rank-line {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  padding: 1px 2px 1px 5px;
-}
-
 .apartment-map-marker.marker-rank-box .marker-rank-line b {
   border: 1px solid currentColor;
   border-radius: 4px;
   padding: 2px 4px;
-}
-
-.apartment-map-marker.marker-rank-invert .marker-rank-line b,
-.apartment-map-marker.marker-rank-tag .marker-rank-line b {
-  background: #ffffff;
-  border-radius: 4px;
-  color: var(--marker-color);
-  padding: 2px 4px;
-}
-
-.apartment-map-marker.marker-rank-underline .marker-rank-line b {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.78);
-  padding-bottom: 1px;
 }
 
 .apartment-map-marker.marker-rank-circle .marker-rank-line b {
@@ -981,39 +847,6 @@ input {
   justify-content: center;
   min-width: 18px;
   padding: 0 4px;
-}
-
-.apartment-map-marker.marker-rank-large .marker-rank-line b {
-  font-size: 13px;
-  letter-spacing: 0;
-}
-
-.apartment-map-marker.marker-rank-ghost .marker-rank-line b {
-  border: 1px solid color-mix(in srgb, var(--marker-color) 70%, white);
-  border-radius: 999px;
-  padding: 2px 5px;
-}
-
-.apartment-map-marker.marker-rank-compact .marker-rank-line {
-  gap: 2px;
-}
-
-.apartment-map-marker.marker-rank-compact .marker-dong {
-  max-width: 30px;
-}
-
-.apartment-map-marker.marker-rank-compact .marker-rank-line b {
-  font-size: 8px;
-}
-
-.apartment-map-marker.marker-tone-outline.marker-rank-invert .marker-rank-line b,
-.apartment-map-marker.marker-tone-white.marker-rank-invert .marker-rank-line b,
-.apartment-map-marker.marker-shape-ring.marker-rank-invert .marker-rank-line b,
-.apartment-map-marker.marker-tone-outline.marker-rank-tag .marker-rank-line b,
-.apartment-map-marker.marker-tone-white.marker-rank-tag .marker-rank-line b,
-.apartment-map-marker.marker-shape-ring.marker-rank-tag .marker-rank-line b {
-  background: var(--marker-color);
-  color: #ffffff;
 }
 
 .apartment-hover-tooltip {
