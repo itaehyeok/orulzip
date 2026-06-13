@@ -41,6 +41,7 @@ const state = {
   mapPopupPeriodYears: 3,
   activeGraphDesignId: null,
   activeMarkerDesignId: null,
+  markerLineGapPx: null,
   mapDesignCollapsed: false,
   latestZoomMapData: null,
   naverSdkPromise: null,
@@ -53,6 +54,8 @@ const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
 const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
+const defaultMarkerLineGapPx = 3;
+const markerLineGapStorageKey = "orulzip.markerLineGapPx";
 const graphPalettes = {
   market: ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"],
   naver: ["#03c75a", "#2f80ed", "#f2994a", "#9b51e0", "#eb5757", "#219653", "#56ccf2", "#6b7280"],
@@ -154,6 +157,7 @@ const els = {
   mapDesignMarkerSelected: document.querySelector("#mapDesignMarkerSelected"),
   mapDesignGraphSelected: document.querySelector("#mapDesignGraphSelected"),
   mapMarkerDesignGrid: document.querySelector("#mapMarkerDesignGrid"),
+  mapMarkerLineGapInput: document.querySelector("#mapMarkerLineGapInput"),
   mapGraphDesignGrid: document.querySelector("#mapGraphDesignGrid"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
@@ -173,6 +177,8 @@ init();
 async function init() {
   state.activeGraphDesignId = readStoredGraphDesignId();
   state.activeMarkerDesignId = readStoredMarkerDesignId();
+  state.markerLineGapPx = readStoredMarkerLineGapPx();
+  applyMarkerLineGap();
   setActiveTab(tabFromLocation());
   bindEvents();
   renderMapDesignPanel();
@@ -229,6 +235,9 @@ function bindEvents() {
     const card = event.target.closest("[data-marker-design-id]");
     if (!card) return;
     setActiveMarkerDesign(card.dataset.markerDesignId);
+  });
+  els.mapMarkerLineGapInput?.addEventListener("input", () => {
+    setMarkerLineGapPx(els.mapMarkerLineGapInput.value);
   });
   els.mapDesignToggleBtn?.addEventListener("click", toggleMapDesignPanel);
 
@@ -1748,6 +1757,38 @@ function setActiveMarkerDesign(id) {
   }
 }
 
+function readStoredMarkerLineGapPx() {
+  try {
+    return normalizeMarkerLineGapPx(window.localStorage.getItem(markerLineGapStorageKey));
+  } catch {
+    return defaultMarkerLineGapPx;
+  }
+}
+
+function setMarkerLineGapPx(value) {
+  const next = normalizeMarkerLineGapPx(value);
+  state.markerLineGapPx = next;
+  applyMarkerLineGap();
+  if (els.mapMarkerLineGapInput && Number(els.mapMarkerLineGapInput.value) !== next) {
+    els.mapMarkerLineGapInput.value = String(next);
+  }
+  try {
+    window.localStorage.setItem(markerLineGapStorageKey, String(next));
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+}
+
+function applyMarkerLineGap() {
+  document.documentElement.style.setProperty("--marker-line-gap", `${normalizeMarkerLineGapPx(state.markerLineGapPx)}px`);
+}
+
+function normalizeMarkerLineGapPx(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return defaultMarkerLineGapPx;
+  return Math.max(0, Math.min(10, Math.round(number)));
+}
+
 function renderDesignTab() {
   renderGraphDesignGallery();
   renderMarkerDesignGallery();
@@ -1770,6 +1811,9 @@ function renderMapDesignPanel() {
   }
   if (els.mapDesignGraphSelected) els.mapDesignGraphSelected.textContent = graph.name.replace(/^\d+\s*/, "");
   if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = marker.name.replace(/^\d+\s*/, "");
+  if (els.mapMarkerLineGapInput) {
+    els.mapMarkerLineGapInput.value = String(normalizeMarkerLineGapPx(state.markerLineGapPx));
+  }
   if (els.mapGraphDesignGrid) {
     els.mapGraphDesignGrid.innerHTML = graphDesignVariants.map((item) => {
       const isActive = item.id === graph.id;
