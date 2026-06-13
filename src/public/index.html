@@ -79,6 +79,25 @@
                 <div id="mapPopupTooltip" class="chart-tooltip" hidden></div>
               </div>
             </aside>
+            <aside id="mapDesignPanel" class="map-design-panel">
+              <button id="mapDesignToggleBtn" class="map-design-toggle" type="button" aria-expanded="true" aria-controls="mapDesignBody">디자인 접기</button>
+              <div id="mapDesignBody" class="map-design-body">
+                <div class="map-design-section">
+                  <div class="map-design-section-head">
+                    <strong>마커</strong>
+                    <span id="mapDesignMarkerSelected">-</span>
+                  </div>
+                  <div id="mapMarkerDesignGrid" class="map-marker-design-grid"></div>
+                </div>
+                <div class="map-design-section">
+                  <div class="map-design-section-head">
+                    <strong>그래프</strong>
+                    <span id="mapDesignGraphSelected">-</span>
+                  </div>
+                  <div id="mapGraphDesignGrid" class="map-graph-design-grid"></div>
+                </div>
+              </div>
+            </aside>
           </div>
         </section>
       </section>

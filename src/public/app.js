@@ -41,6 +41,7 @@ const state = {
   mapPopupPeriodYears: 3,
   activeGraphDesignId: null,
   activeMarkerDesignId: null,
+  mapDesignCollapsed: false,
   latestZoomMapData: null,
   naverSdkPromise: null,
   latestStatus: null,
@@ -87,7 +88,17 @@ const markerDesignVariants = [
   markerDesign("rank-ring", "17 링", { showRank: true, shape: "ring", size: "wide", tone: "outline" }),
   markerDesign("rank-flat", "18 플랫", { showRank: true, shape: "card", size: "wide", tone: "flat" }),
   markerDesign("rank-tiny", "19 타이니", { showRank: true, shape: "pill", size: "small", tone: "solid" }),
-  markerDesign("rank-big", "20 빅 넘버", { showRank: true, shape: "card", size: "large", tone: "solid" })
+  markerDesign("rank-big", "20 빅 넘버", { showRank: true, shape: "card", size: "large", tone: "solid" }),
+  markerDesign("rank-number-pill", "21 숫자 필", { showRank: true, shape: "card", size: "wide", tone: "solid", rankStyle: "pill" }),
+  markerDesign("rank-number-chip", "22 숫자 칩", { showRank: true, shape: "pill", size: "wide", tone: "solid", rankStyle: "chip" }),
+  markerDesign("rank-number-box", "23 숫자 박스", { showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
+  markerDesign("rank-number-invert", "24 숫자 반전", { showRank: true, shape: "card", size: "wide", tone: "solid", rankStyle: "invert" }),
+  markerDesign("rank-number-under", "25 숫자 밑줄", { showRank: true, shape: "minimal", size: "wide", tone: "solid", rankStyle: "underline" }),
+  markerDesign("rank-number-circle", "26 숫자 원형", { showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" }),
+  markerDesign("rank-number-tag", "27 숫자 태그", { showRank: true, shape: "flag", size: "wide", tone: "solid", rankStyle: "tag" }),
+  markerDesign("rank-number-large", "28 숫자 크게", { showRank: true, shape: "card", size: "large", tone: "solid", rankStyle: "large" }),
+  markerDesign("rank-number-ghost", "29 숫자 고스트", { showRank: true, shape: "ring", size: "wide", tone: "outline", rankStyle: "ghost" }),
+  markerDesign("rank-number-compact", "30 숫자 컴팩트", { showRank: true, shape: "pill", size: "small", tone: "solid", rankStyle: "compact" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
@@ -161,6 +172,13 @@ const els = {
   mapPopupStats: document.querySelector("#mapPopupStats"),
   mapPopupChart: document.querySelector("#mapPopupChart"),
   mapPopupTooltip: document.querySelector("#mapPopupTooltip"),
+  mapDesignPanel: document.querySelector("#mapDesignPanel"),
+  mapDesignToggleBtn: document.querySelector("#mapDesignToggleBtn"),
+  mapDesignBody: document.querySelector("#mapDesignBody"),
+  mapDesignMarkerSelected: document.querySelector("#mapDesignMarkerSelected"),
+  mapDesignGraphSelected: document.querySelector("#mapDesignGraphSelected"),
+  mapMarkerDesignGrid: document.querySelector("#mapMarkerDesignGrid"),
+  mapGraphDesignGrid: document.querySelector("#mapGraphDesignGrid"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
@@ -181,6 +199,7 @@ async function init() {
   state.activeMarkerDesignId = readStoredMarkerDesignId();
   setActiveTab(tabFromLocation());
   bindEvents();
+  renderMapDesignPanel();
   await loadClientConfig();
   await loadFilters();
   await refresh();
@@ -225,6 +244,17 @@ function bindEvents() {
     if (!card) return;
     setActiveMarkerDesign(card.dataset.markerDesignId);
   });
+  els.mapGraphDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-graph-design-id]");
+    if (!card) return;
+    setActiveGraphDesign(card.dataset.graphDesignId);
+  });
+  els.mapMarkerDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-marker-design-id]");
+    if (!card) return;
+    setActiveMarkerDesign(card.dataset.markerDesignId);
+  });
+  els.mapDesignToggleBtn?.addEventListener("click", toggleMapDesignPanel);
 
   document.querySelectorAll("[data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1467,20 +1497,27 @@ function renderNaverZoomApartmentMarker(item) {
 function apartmentMarkerHtml(item) {
   const hasData = item.hasData !== false;
   const design = activeMarkerDesign();
-  const rankLabel = apartmentMarkerRankLabel(item);
+  const rank = apartmentMarkerRankParts(item);
   return `
-    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
+    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
       <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
-      ${design.showRank ? `<small>${escapeHtml(rankLabel)}</small>` : ""}
+      ${design.showRank ? `
+        <small class="marker-rank-line">
+          <span class="marker-dong">${escapeHtml(rank.dong)}</span>
+          <b>${escapeHtml(rank.rank)}</b>
+        </small>
+      ` : ""}
     </div>
   `;
 }
 
-function apartmentMarkerRankLabel(item) {
+function apartmentMarkerRankParts(item) {
   const dong = shortDongLabel(item.neighborhoodName || "-");
   const rank = Number(item.dongRank);
-  if (!Number.isFinite(rank)) return `${dong} -`;
-  return `${dong} ${formatInt(rank)}등`;
+  return {
+    dong,
+    rank: Number.isFinite(rank) ? `${formatInt(rank)}등` : "-"
+  };
 }
 
 function markerIconSize(design) {
@@ -1693,6 +1730,7 @@ function setActiveGraphDesign(id) {
     // localStorage may be disabled in private contexts.
   }
   renderGraphDesignGallery();
+  renderMapDesignPanel();
   if (state.mapPopupDetail && !els.mapApartmentPopup.hidden) {
     renderMapApartmentDetail(state.mapPopupDetail);
   }
@@ -1705,6 +1743,7 @@ function markerDesign(id, name, overrides = {}) {
     showRank: true,
     shape: "pill",
     size: "wide",
+    rankStyle: "plain",
     tone: "solid",
     ...overrides
   };
@@ -1734,6 +1773,7 @@ function setActiveMarkerDesign(id) {
     // localStorage may be disabled in private contexts.
   }
   renderMarkerDesignGallery();
+  renderMapDesignPanel();
   if (state.latestZoomMapData?.level === "apartment") {
     renderZoomMapSummary(state.latestZoomMapData);
   }
@@ -1742,6 +1782,47 @@ function setActiveMarkerDesign(id) {
 function renderDesignTab() {
   renderGraphDesignGallery();
   renderMarkerDesignGallery();
+  renderMapDesignPanel();
+}
+
+function toggleMapDesignPanel() {
+  state.mapDesignCollapsed = !state.mapDesignCollapsed;
+  renderMapDesignPanel();
+}
+
+function renderMapDesignPanel() {
+  if (!els.mapDesignPanel) return;
+  const graph = activeGraphDesign();
+  const marker = activeMarkerDesign();
+  els.mapDesignPanel.classList.toggle("collapsed", state.mapDesignCollapsed);
+  if (els.mapDesignToggleBtn) {
+    els.mapDesignToggleBtn.textContent = state.mapDesignCollapsed ? "디자인 펼치기" : "디자인 접기";
+    els.mapDesignToggleBtn.setAttribute("aria-expanded", String(!state.mapDesignCollapsed));
+  }
+  if (els.mapDesignGraphSelected) els.mapDesignGraphSelected.textContent = graph.name.replace(/^\d+\s*/, "");
+  if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = marker.name.replace(/^\d+\s*/, "");
+  if (els.mapGraphDesignGrid) {
+    els.mapGraphDesignGrid.innerHTML = graphDesignVariants.map((item) => {
+      const isActive = item.id === graph.id;
+      return `
+        <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-graph-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
+          ${escapeHtml(item.name.replace(/^\d+\s*/, ""))}
+        </button>
+      `;
+    }).join("");
+  }
+  if (els.mapMarkerDesignGrid) {
+    const sample = markerDesignSampleItems()[0];
+    els.mapMarkerDesignGrid.innerHTML = markerDesignVariants.map((item) => {
+      const isActive = item.id === marker.id;
+      return `
+        <button class="map-marker-design-option ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
+          <span>${escapeHtml(item.name.replace(/^\d+\s*/, ""))}</span>
+          <em>${markerPreviewHtml(sample, item)}</em>
+        </button>
+      `;
+    }).join("");
+  }
 }
 
 function renderGraphDesignGallery() {

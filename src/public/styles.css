@@ -776,6 +776,25 @@ input {
   line-height: 1;
 }
 
+.apartment-map-marker .marker-rank-line {
+  align-items: center;
+  display: inline-flex;
+  gap: 3px;
+  justify-content: center;
+}
+
+.apartment-map-marker .marker-dong {
+  overflow: hidden;
+  max-width: 42px;
+  text-overflow: ellipsis;
+}
+
+.apartment-map-marker .marker-rank-line b {
+  font-size: 9px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
 .apartment-map-marker.no-data {
   background: #667085;
 }
@@ -920,6 +939,83 @@ input {
   box-shadow: none;
 }
 
+.apartment-map-marker.marker-rank-pill .marker-rank-line b,
+.apartment-map-marker.marker-rank-chip .marker-rank-line b {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 2px 5px;
+}
+
+.apartment-map-marker.marker-rank-chip .marker-rank-line {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 1px 2px 1px 5px;
+}
+
+.apartment-map-marker.marker-rank-box .marker-rank-line b {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.apartment-map-marker.marker-rank-invert .marker-rank-line b,
+.apartment-map-marker.marker-rank-tag .marker-rank-line b {
+  background: #ffffff;
+  border-radius: 4px;
+  color: var(--marker-color);
+  padding: 2px 4px;
+}
+
+.apartment-map-marker.marker-rank-underline .marker-rank-line b {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.78);
+  padding-bottom: 1px;
+}
+
+.apartment-map-marker.marker-rank-circle .marker-rank-line b {
+  align-items: center;
+  background: var(--marker-color);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  height: 18px;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 4px;
+}
+
+.apartment-map-marker.marker-rank-large .marker-rank-line b {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.apartment-map-marker.marker-rank-ghost .marker-rank-line b {
+  border: 1px solid color-mix(in srgb, var(--marker-color) 70%, white);
+  border-radius: 999px;
+  padding: 2px 5px;
+}
+
+.apartment-map-marker.marker-rank-compact .marker-rank-line {
+  gap: 2px;
+}
+
+.apartment-map-marker.marker-rank-compact .marker-dong {
+  max-width: 30px;
+}
+
+.apartment-map-marker.marker-rank-compact .marker-rank-line b {
+  font-size: 8px;
+}
+
+.apartment-map-marker.marker-tone-outline.marker-rank-invert .marker-rank-line b,
+.apartment-map-marker.marker-tone-white.marker-rank-invert .marker-rank-line b,
+.apartment-map-marker.marker-shape-ring.marker-rank-invert .marker-rank-line b,
+.apartment-map-marker.marker-tone-outline.marker-rank-tag .marker-rank-line b,
+.apartment-map-marker.marker-tone-white.marker-rank-tag .marker-rank-line b,
+.apartment-map-marker.marker-shape-ring.marker-rank-tag .marker-rank-line b {
+  background: var(--marker-color);
+  color: #ffffff;
+}
+
 .apartment-hover-tooltip {
   border: 1px solid rgba(16, 24, 40, 0.16);
   border-radius: 8px;
@@ -930,6 +1026,146 @@ input {
   line-height: 1.45;
   padding: 8px 10px;
   white-space: nowrap;
+}
+
+.map-design-panel {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 580;
+  display: grid;
+  width: min(360px, calc(100% - 28px));
+  max-height: min(66%, 620px);
+  overflow: hidden;
+  border: 1px solid rgba(16, 24, 40, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.map-design-panel.collapsed {
+  width: auto;
+}
+
+.map-design-toggle {
+  height: 38px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.map-design-panel.collapsed .map-design-toggle {
+  border-bottom: 0;
+  min-width: 118px;
+}
+
+.map-design-body {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.map-design-panel.collapsed .map-design-body {
+  display: none;
+}
+
+.map-design-section {
+  display: grid;
+  gap: 8px;
+}
+
+.map-design-section-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-design-section-head strong {
+  font-size: 13px;
+}
+
+.map-design-section-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.map-graph-design-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.map-design-option {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.map-design-option.active {
+  border-color: var(--blue);
+  background: #e8f0ff;
+  color: var(--blue);
+}
+
+.map-marker-design-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.map-marker-design-option {
+  display: grid;
+  gap: 6px;
+  min-height: 78px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px;
+  text-align: left;
+}
+
+.map-marker-design-option.active {
+  border-color: var(--blue);
+  background: #f5f8ff;
+  box-shadow: inset 0 0 0 1px rgba(35, 103, 209, 0.18);
+}
+
+.map-marker-design-option > span {
+  overflow: hidden;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-marker-design-option > em {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 40px;
+  overflow: visible;
+  font-style: normal;
+}
+
+.map-marker-design-option .apartment-map-marker {
+  pointer-events: none;
 }
 
 .map-apartment-popup {
@@ -1619,6 +1855,18 @@ td:nth-child(4) {
     top: auto;
     bottom: 10px;
     max-height: 42%;
+  }
+
+  .map-design-panel {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    max-height: 48%;
+  }
+
+  .map-design-panel.collapsed {
+    left: auto;
   }
 
   .map-ranking-row {
