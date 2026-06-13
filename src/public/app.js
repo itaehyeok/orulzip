@@ -1051,18 +1051,13 @@ function shortZoomLabel(name, level) {
   return String(name || "").replace(/^.+\s([^\s]+)$/g, "$1");
 }
 
-function zoomMarkerSize(count) {
-  const size = Math.max(58, Math.min(96, 48 + Math.sqrt(Number(count || 0)) * 4));
-  return [size, size];
+function zoomMarkerSize() {
+  return [72, 72];
 }
 
-function zoomMarkerAnchor(count) {
-  const [width, height] = zoomMarkerSize(count);
+function zoomMarkerAnchor() {
+  const [width, height] = zoomMarkerSize();
   return [width / 2, height / 2];
-}
-
-function markerRadius(count) {
-  return Math.max(9, Math.min(26, 7 + Math.sqrt(Number(count || 0)) * 2.4));
 }
 
 function growthColor(rate) {
