@@ -791,7 +791,7 @@ input {
   right: 14px;
   z-index: 600;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   width: min(720px, calc(100% - 28px));
   max-height: calc(100% - 28px);
   overflow: hidden;
@@ -834,6 +834,12 @@ input {
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
+}
+
+.map-popup-period-buttons {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
 }
 
 .map-popup-stats {

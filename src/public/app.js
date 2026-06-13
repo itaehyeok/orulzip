@@ -35,6 +35,8 @@ const state = {
   mapSearchItems: [],
   mapSearchActiveIndex: -1,
   mapApartmentDetails: new Map(),
+  mapPopupDetail: null,
+  mapPopupPeriodYears: 3,
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
@@ -162,6 +164,12 @@ function bindEvents() {
     button.addEventListener("click", () => {
       setPeriodYears(Number(button.dataset.periodYears));
       refresh();
+    });
+  });
+
+  document.querySelectorAll("[data-map-popup-years]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setMapPopupPeriodYears(Number(button.dataset.mapPopupYears));
     });
   });
 
@@ -1325,6 +1333,8 @@ function apartmentHoverHtml(item) {
 
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
+  syncMapPopupPeriodButtons();
+  state.mapPopupDetail = null;
   if (state.mapApartmentDetails.has(apartmentId)) {
     renderMapApartmentDetail(state.mapApartmentDetails.get(apartmentId));
     return;
@@ -1348,11 +1358,25 @@ function closeMapApartmentPopup() {
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
 }
 
+function setMapPopupPeriodYears(years) {
+  state.mapPopupPeriodYears = [1, 3, 5].includes(years) ? years : 3;
+  syncMapPopupPeriodButtons();
+  if (state.mapPopupDetail) {
+    renderMapApartmentDetail(state.mapPopupDetail);
+  }
+}
+
+function syncMapPopupPeriodButtons() {
+  document.querySelectorAll("[data-map-popup-years]").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.mapPopupYears) === state.mapPopupPeriodYears);
+  });
+}
+
 function renderMapApartmentLoading(seedItem = null) {
   els.mapApartmentPopup.hidden = false;
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
-  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 3년`;
+  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / ${state.mapPopupPeriodYears}년전 기준`;
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
   els.mapPopupStats.innerHTML = `
     <div class="map-popup-loading-card"></div>
@@ -1370,6 +1394,7 @@ function renderMapApartmentLoading(seedItem = null) {
 function renderMapApartmentError(seedItem = null, error = null) {
   els.mapApartmentPopup.hidden = false;
   els.mapApartmentPopup.classList.remove("loading");
+  state.mapPopupDetail = null;
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
   els.mapPopupMeta.textContent = "불러오기 실패";
   els.mapPopupStats.innerHTML = "";
@@ -1378,6 +1403,8 @@ function renderMapApartmentError(seedItem = null, error = null) {
 
 function renderMapApartmentDetail(detail) {
   els.mapApartmentPopup.classList.remove("loading");
+  state.mapPopupDetail = detail;
+  const years = state.mapPopupPeriodYears || 3;
   if (!detail.apartment) {
     els.mapApartmentPopup.hidden = false;
     els.mapPopupTitle.textContent = "아파트 시세";
@@ -1389,19 +1416,18 @@ function renderMapApartmentDetail(detail) {
 
   els.mapApartmentPopup.hidden = false;
   els.mapPopupTitle.textContent = detail.apartment.name;
-  els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / 최근 3년`;
 
   const latestMonth = detail.months.at(-1);
   if (!latestMonth) {
+    els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${years}년전 기준`;
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
     return;
   }
 
-  const startDate = parseMonth(latestMonth);
-  startDate.setFullYear(startDate.getFullYear() - 3);
-  const startMonth = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+  const startMonth = periodStartMonth(latestMonth, years);
   const months = detail.months.filter((month) => month >= startMonth && month <= latestMonth);
+  els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${formatMonth(startMonth)} - ${formatMonth(latestMonth)} / ${years}년전 기준`;
   const series = detail.areaTypes
     .map((areaType, index) => ({
       ...areaType,
@@ -1413,7 +1439,7 @@ function renderMapApartmentDetail(detail) {
 
   if (!series.length) {
     els.mapPopupStats.innerHTML = "";
-    els.mapPopupChart.innerHTML = `<div class="empty">최근 3년 시세 데이터가 없습니다.</div>`;
+    els.mapPopupChart.innerHTML = `<div class="empty">선택 기간의 시세 데이터가 없습니다.</div>`;
     return;
   }
 
@@ -1587,6 +1613,12 @@ function currentPeriodYears() {
   if (monthDiff >= 54) return 5;
   if (monthDiff >= 30) return 3;
   return 1;
+}
+
+function periodStartMonth(endMonth, years) {
+  const startDate = parseMonth(endMonth);
+  startDate.setFullYear(startDate.getFullYear() - years);
+  return `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function renderNeighborhoodTable(result) {
