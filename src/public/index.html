@@ -17,6 +17,17 @@
         <a data-tab="crawl" href="/crawl">수집현황</a>
       </nav>
 
+      <div class="app-state-controls" hidden>
+        <select id="regionSelect"></select>
+        <select id="neighborhoodSelect">
+          <option value="">전체</option>
+        </select>
+        <input id="startInput" type="month">
+        <input id="endInput" type="month">
+        <button id="syncBtn" type="button">분당 샘플 동기화</button>
+        <div id="statusLine">데이터 상태 확인 중</div>
+      </div>
+
       <section id="mapView" class="view active map-view">
         <section class="panel map-panel">
           <div class="panel-head map-head">
@@ -328,115 +339,15 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>새 KB시세 수집 작업</h2>
-            <button id="syncBtn" class="primary-btn">분당 샘플 동기화</button>
-          </div>
-          <section class="toolbar embedded-toolbar" aria-label="필터">
-            <label>
-              지역
-              <select id="regionSelect"></select>
-            </label>
-            <label>
-              동
-              <select id="neighborhoodSelect">
-                <option value="">전체</option>
-              </select>
-            </label>
-            <label>
-              시작년월
-              <input id="startInput" type="month">
-            </label>
-            <label>
-              종료년월
-              <input id="endInput" type="month">
-            </label>
-            <div class="quick-buttons" aria-label="빠른 기간">
-              <button class="active" data-period-years="1">1년전 기준</button>
-              <button data-period-years="3">3년전 기준</button>
-              <button data-period-years="5">5년전 기준</button>
-            </div>
-          </section>
-          <section class="status-line" id="statusLine">데이터 상태 확인 중</section>
-        </section>
-
         <section class="panel crawl-panel">
           <div class="panel-head">
             <h2>실거래가 수집</h2>
             <span id="molitSummary">대기 중</span>
           </div>
           <div class="crawl-body">
-            <div class="crawl-grid">
-              <div>
-                <strong id="molitDeals">0</strong>
-                <span>저장된 실거래</span>
-              </div>
-              <div>
-                <strong id="molitFetchCounts">-</strong>
-                <span>완료 / 진행 / 실패 API 요청</span>
-              </div>
-              <div>
-                <strong id="molitPeriod">-</strong>
-                <span>저장 기간</span>
-              </div>
-              <div>
-                <strong id="molitScope">서울/분당/동탄</strong>
-                <span>현재 수집 범위</span>
-              </div>
+            <div id="molitCompletionList" class="completion-list">
+              <div class="empty">실거래가 완료 상태 확인 중입니다.</div>
             </div>
-          </div>
-          <div class="crawl-section-head">
-            <strong>시군구별 API 요청 현황</strong>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>대상</th>
-                  <th>시군구</th>
-                  <th>완료 API 요청</th>
-                  <th>저장 건수</th>
-                  <th>기간</th>
-                  <th>상태</th>
-                </tr>
-              </thead>
-              <tbody id="molitRegionRows"></tbody>
-            </table>
-          </div>
-          <div class="crawl-section-head">
-            <strong>법정동별 저장 현황</strong>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>대상</th>
-                  <th>법정동</th>
-                  <th>저장 건수</th>
-                  <th>기간</th>
-                </tr>
-              </thead>
-              <tbody id="molitDongRows"></tbody>
-            </table>
-          </div>
-          <div class="crawl-section-head">
-            <strong>최근 API 요청</strong>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>대상</th>
-                  <th>시군구</th>
-                  <th>년월</th>
-                  <th>상태</th>
-                  <th>저장 건수</th>
-                  <th>실패 사유</th>
-                </tr>
-              </thead>
-              <tbody id="molitRecentRows"></tbody>
-            </table>
           </div>
         </section>
 

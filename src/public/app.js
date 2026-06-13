@@ -84,13 +84,7 @@ const els = {
   formulaRows: document.querySelector("#formulaRows"),
   formulaExampleRows: document.querySelector("#formulaExampleRows"),
   molitSummary: document.querySelector("#molitSummary"),
-  molitDeals: document.querySelector("#molitDeals"),
-  molitFetchCounts: document.querySelector("#molitFetchCounts"),
-  molitPeriod: document.querySelector("#molitPeriod"),
-  molitScope: document.querySelector("#molitScope"),
-  molitRegionRows: document.querySelector("#molitRegionRows"),
-  molitDongRows: document.querySelector("#molitDongRows"),
-  molitRecentRows: document.querySelector("#molitRecentRows"),
+  molitCompletionList: document.querySelector("#molitCompletionList"),
   mapView: document.querySelector("#mapView"),
   zoomMapTitle: document.querySelector("#zoomMapTitle"),
   zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
@@ -342,13 +336,12 @@ async function refreshStatusOnly() {
 function renderCollectionSummary() {
   const status = state.latestStatus || {};
   const crawl = status.crawl || {};
-  const molit = state.latestMolitStatus || {};
+  const molit = state.latestMolitStatus;
   const jobs = crawl.jobProgress || [];
   const runningJobs = jobs.filter((item) => ["discovering", "running"].includes(item.job?.status)).length;
   const pendingJobs = jobs.filter((item) => item.job?.status === "requested").length;
   const kbFailed = jobs.reduce((sum, item) => sum + Number(item.job?.failedComplexes || 0), 0);
-  const molitProgress = molit.progress || {};
-  const molitOverall = molit.overall || {};
+  const molitProgress = molit?.progress || {};
   const mapCache = status.mapCache || {};
 
   if (els.collectionSummaryKb) {
@@ -356,12 +349,9 @@ function renderCollectionSummary() {
     els.collectionSummaryKbMeta.textContent = `${formatInt(pendingJobs)}개 대기 · ${formatInt(jobs.length)}개 주요 작업 추적`;
   }
   if (els.collectionSummaryMolit) {
-    const completed = Number(molitProgress.completed || 0);
-    const totalKnown = Number(molitProgress.totalKnown || completed || 0);
-    els.collectionSummaryMolit.textContent = molitOverall.deals ? `${formatInt(molitOverall.deals)}건` : "-";
-    els.collectionSummaryMolitMeta.textContent = totalKnown
-      ? `API 요청 ${formatInt(completed)} / ${formatInt(totalKnown)} 완료`
-      : "실거래가 상태 확인 전";
+    const completion = molitCompletionSummary(molit);
+    els.collectionSummaryMolit.textContent = completion.isComplete ? "완료" : completion.title;
+    els.collectionSummaryMolitMeta.textContent = completion.title;
   }
   if (els.collectionSummaryFailure) {
     const molitFailed = Number(molitProgress.failed || 0);
@@ -527,55 +517,89 @@ function renderMolitStatus(status) {
   state.latestMolitStatus = status;
   renderCollectionSummary();
 
-  const progress = status.progress || {};
-  const overall = status.overall || {};
-  els.molitDeals.textContent = formatInt(overall.deals || 0);
-  els.molitFetchCounts.textContent = `${formatInt(progress.completed || 0)} / ${formatInt(progress.running || 0)} / ${formatInt(progress.failed || 0)}`;
-  els.molitPeriod.textContent = overall.start_month && overall.end_month
-    ? `${formatMonth(overall.start_month)} - ${formatMonth(overall.end_month)}`
-    : "-";
-  els.molitScope.textContent = `대상 ${formatInt(overall.targets || 0)}개 / 법정동 ${formatInt(overall.legal_dongs || 0)}개`;
-  els.molitSummary.textContent = `${formatInt(progress.savedCount || 0)}건 저장 / ${formatInt(progress.completed || 0)}개 API 요청 완료`;
-
-  els.molitRegionRows.innerHTML = (status.lawdRows || []).length
-    ? status.lawdRows.map((row) => {
-      const state = row.running_fetches ? "running" : row.failed_fetches ? "failed" : "completed";
-      return `
-        <tr>
-          <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
-          <td>${escapeHtml(row.lawd_name)} <span class="muted-code">${escapeHtml(row.lawd_cd)}</span></td>
-          <td>${formatInt(row.completed_fetches)} / ${formatInt(row.fetches)}</td>
-          <td>${formatInt(row.saved_count)}</td>
-          <td>${row.start_month && row.end_month ? `${formatMonth(row.start_month)} - ${formatMonth(row.end_month)}` : "-"}</td>
-          <td><span class="status-pill ${state}">${statusLabel(state)}</span></td>
-        </tr>
-      `;
-    }).join("")
-    : `<tr><td colspan="6" class="empty">아직 실거래가 API 요청 기록이 없습니다.</td></tr>`;
-
-  els.molitDongRows.innerHTML = (status.dongRows || []).length
-    ? status.dongRows.map((row) => `
-      <tr>
-        <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
-        <td>${escapeHtml(row.legal_dong || "-")}</td>
-        <td>${formatInt(row.deals)}</td>
-        <td>${row.start_month && row.end_month ? `${formatMonth(row.start_month)} - ${formatMonth(row.end_month)}` : "-"}</td>
-      </tr>
+  const completion = molitCompletionSummary(status);
+  els.molitSummary.textContent = completion.title;
+  els.molitCompletionList.innerHTML = completion.items.length
+    ? completion.items.map((item) => `
+      <div class="completion-item">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span class="status-pill ${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
+      </div>
     `).join("")
-    : `<tr><td colspan="4" class="empty">아직 법정동별 실거래가 저장 기록이 없습니다.</td></tr>`;
+    : `<div class="empty">${escapeHtml(completion.title)}</div>`;
+}
 
-  els.molitRecentRows.innerHTML = (status.recentRows || []).length
-    ? status.recentRows.map((row) => `
-      <tr>
-        <td>${escapeHtml(targetLabel(row.target_region_id))}</td>
-        <td>${escapeHtml(row.lawd_name)} <span class="muted-code">${escapeHtml(row.lawd_cd)}</span></td>
-        <td>${formatMonth(row.year_month)}</td>
-        <td><span class="status-pill ${escapeHtml(row.status)}">${statusLabel(row.status)}</span></td>
-        <td>${formatInt(row.saved_count)}</td>
-        <td class="error-cell">${escapeHtml(row.error_message || "-")}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="6" class="empty">최근 API 요청 기록이 없습니다.</td></tr>`;
+function molitCompletionSummary(status) {
+  if (!status) {
+    return { title: "실거래가 확인 중", items: [], isComplete: false };
+  }
+
+  const rows = status?.lawdRows || [];
+  const progress = status?.progress || {};
+  const completedTargets = new Set();
+  const targetRows = new Map();
+
+  for (const row of rows) {
+    const target = row.target_region_id || "";
+    const grouped = targetRows.get(target) || [];
+    grouped.push(row);
+    targetRows.set(target, grouped);
+  }
+
+  for (const [target, grouped] of targetRows.entries()) {
+    if (grouped.length && grouped.every(isMolitTargetRowComplete) && molitTargetSavedCount(grouped) > 0) {
+      completedTargets.add(target);
+    }
+  }
+
+  const items = [];
+  if (completedTargets.has("seoul")) {
+    items.push({ title: "서울시 완료", status: "completed" });
+  }
+
+  if (completedTargets.has("gyeonggi")) {
+    items.push({ title: "경기도 완료", status: "completed" });
+  } else {
+    const gyeonggiParts = ["dongtan", "bundang"].filter((target) => completedTargets.has(target));
+    if (gyeonggiParts.length) {
+      items.push({
+        title: `경기도 ${gyeonggiParts.map(targetLabel).join("·")} 완료`,
+        status: "completed"
+      });
+    }
+  }
+
+  for (const target of completedTargets) {
+    if (!["seoul", "gyeonggi", "dongtan", "bundang"].includes(target)) {
+      items.push({ title: `${targetLabel(target)} 완료`, status: "completed" });
+    }
+  }
+
+  const failed = Number(progress.failed || 0);
+  const running = Number(progress.running || 0);
+  if (!items.length) {
+    if (failed) return { title: "실거래가 수집 실패 항목 있음", items, isComplete: false };
+    if (running) return { title: "실거래가 수집 중", items, isComplete: false };
+    return { title: "완료된 실거래가 수집 없음", items, isComplete: false };
+  }
+
+  return {
+    title: items.map((item) => item.title).join(" · "),
+    items,
+    isComplete: !failed && !running
+  };
+}
+
+function isMolitTargetRowComplete(row) {
+  const fetches = Number(row.fetches || 0);
+  const completed = Number(row.completed_fetches || 0);
+  const running = Number(row.running_fetches || 0);
+  const failed = Number(row.failed_fetches || 0);
+  return fetches > 0 && completed >= fetches && running === 0 && failed === 0;
+}
+
+function molitTargetSavedCount(rows) {
+  return rows.reduce((sum, row) => sum + Number(row.saved_count || 0), 0);
 }
 
 async function loadFormulaAnalysis() {

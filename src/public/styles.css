@@ -329,6 +329,26 @@ input {
   padding: 28px 16px;
 }
 
+.completion-list {
+  display: grid;
+  gap: 10px;
+}
+
+.completion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.completion-item strong {
+  font-size: 16px;
+}
+
 .crawl-logs {
   display: grid;
   gap: 4px;
