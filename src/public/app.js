@@ -21,7 +21,6 @@ const state = {
   months: [],
   neighborhoods: [],
   activeTab: tabFromLocation(),
-  crawlStatusFilter: "failed",
   clientConfig: { maps: { provider: "leaflet", naverKeyId: "" } },
   zoomMap: null,
   zoomMapLayer: null,
@@ -66,9 +65,6 @@ const els = {
   collectionSummaryCache: document.querySelector("#collectionSummaryCache"),
   collectionSummaryCacheMeta: document.querySelector("#collectionSummaryCacheMeta"),
   crawlView: document.querySelector("#crawlView"),
-  crawlDetailSummary: document.querySelector("#crawlDetailSummary"),
-  crawlStats: document.querySelector("#crawlStats"),
-  crawlDetailRows: document.querySelector("#crawlDetailRows"),
   formulaView: document.querySelector("#formulaView"),
   formulaTargetSelect: document.querySelector("#formulaTargetSelect"),
   formulaStartInput: document.querySelector("#formulaStartInput"),
@@ -167,13 +163,6 @@ function bindEvents() {
     activateTab(tabFromLocation(), { push: false });
   });
 
-  document.querySelectorAll("[data-crawl-status]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.crawlStatusFilter = button.dataset.crawlStatus;
-      document.querySelectorAll("[data-crawl-status]").forEach((item) => item.classList.toggle("active", item === button));
-      loadCrawlDetails();
-    });
-  });
 }
 
 async function loadFilters() {
@@ -258,7 +247,6 @@ async function loadActiveViewData() {
 
   if (state.activeTab === "crawl") {
     renderMolitStatus(await api("/api/molit/status"));
-    await loadCrawlDetails();
   }
 }
 
@@ -329,7 +317,6 @@ async function refreshStatusOnly() {
     : "아직 저장된 시세 데이터가 없습니다. 수집 작업을 등록하고 worker가 처리할 때까지 기다려주세요.";
   if (state.activeTab === "crawl") {
     renderMolitStatus(await api("/api/molit/status"));
-    await loadCrawlDetails();
   }
 }
 
@@ -681,59 +668,6 @@ function applyFormulaDefaultPeriod() {
   }
 }
 
-async function loadCrawlDetails() {
-  const params = new URLSearchParams();
-  params.set("limit", "200");
-  if (state.crawlStatusFilter) params.set("status", state.crawlStatusFilter);
-  const details = await api(`/api/crawl/details?${params}`);
-  renderCrawlDetails(details);
-}
-
-function renderCrawlDetails(details) {
-  const counts = details.queueCounts || {};
-  const job = details.job;
-  els.crawlDetailSummary.textContent = job
-    ? `#${job.id} ${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치 / ${statusLabel(job.status)}`
-    : "작업 없음";
-
-  const statItems = [
-    ["성공", counts.completed || 0, "completed"],
-    ["실패", counts.failed || 0, "failed"],
-    ["진행 중", counts.running || 0, "running"],
-    ["대기", counts.pending || 0, "pending"]
-  ];
-  els.crawlStats.innerHTML = statItems.map(([label, value, status]) => `
-    <button class="stat-card ${state.crawlStatusFilter === status ? "active" : ""}" data-crawl-status="${status}">
-      <strong>${formatInt(value)}</strong>
-      <span>${label}</span>
-    </button>
-  `).join("");
-  els.crawlStats.querySelectorAll("[data-crawl-status]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.crawlStatusFilter = button.dataset.crawlStatus;
-      document.querySelectorAll("[data-crawl-status]").forEach((item) => {
-        item.classList.toggle("active", item.dataset.crawlStatus === state.crawlStatusFilter);
-      });
-      loadCrawlDetails();
-    });
-  });
-
-  els.crawlDetailRows.innerHTML = details.rows.length
-    ? details.rows.map((row) => `
-      <tr>
-        <td>${row.id}</td>
-        <td><span class="status-pill ${escapeHtml(row.status)}">${statusLabel(row.status)}</span></td>
-        <td>${escapeHtml(row.complexName || `#${row.sourceComplexId}`)}</td>
-        <td>${escapeHtml(row.pyeong || "-")}</td>
-        <td>${escapeHtml(formatMarkerPrice(row))}</td>
-        <td>${formatInt(row.attempts)}</td>
-        <td class="error-cell">${escapeHtml(row.errorMessage || "-")}</td>
-        <td>${formatDateTime(row.updatedAt)}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="8" class="empty">표시할 수집 항목이 없습니다.</td></tr>`;
-}
-
 function statusLabel(status) {
   return {
     requested: "대기",
@@ -764,14 +698,6 @@ function targetLabel(target) {
     bundang: "분당",
     dongtan: "동탄"
   }[target] || target || "-";
-}
-
-function formatMarkerPrice(row) {
-  const parts = [];
-  if (row.markerSaleAvg) parts.push(`매매 ${row.markerSaleAvg}`);
-  if (row.markerPyeongPrice) parts.push(row.markerPyeongPrice);
-  if (row.markerBaseDate) parts.push(row.markerBaseDate);
-  return parts.join(" / ") || "-";
 }
 
 function useNaverMap() {

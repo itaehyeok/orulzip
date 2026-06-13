@@ -414,61 +414,6 @@ input {
   font-size: 12px;
 }
 
-.crawl-detail-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  background: #fbfcfe;
-}
-
-.crawl-detail-tools button,
-.stat-card {
-  min-height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--text);
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.crawl-detail-tools button {
-  padding: 0 12px;
-}
-
-.crawl-detail-tools button.active,
-.stat-card.active {
-  border-color: var(--blue);
-  background: #e8f0ff;
-  color: var(--blue);
-}
-
-.crawl-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--line);
-}
-
-.stat-card {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  text-align: left;
-}
-
-.stat-card strong {
-  font-size: 20px;
-}
-
-.stat-card span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -1101,7 +1046,6 @@ td:nth-child(4) {
   .collection-summary-grid,
   .crawl-grid,
   .crawl-job-progress,
-  .crawl-stats,
   .info-grid {
     grid-template-columns: 1fr;
   }
