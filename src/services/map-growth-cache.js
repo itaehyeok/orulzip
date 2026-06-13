@@ -43,20 +43,49 @@ export async function readCachedZoomMapSummary(filters) {
   const level = zoomAggregationLevel(filters.zoom);
   const params = [snapshot.id, level];
   const boundsClause = boundsWhereClause(filters, params);
-  const limitClause = level === "apartment" ? "limit 2000" : "";
-  const itemsResult = await query(`
-    select *
-    from map_growth_items
-    where snapshot_id = $1
-      and level = $2
-      ${boundsClause}
-    order by
-      has_data desc,
-      growth_rate desc nulls last,
-      apartment_count desc,
-      item_name asc
-    ${limitClause}
-  `, params);
+  const itemsResult = level === "apartment"
+    ? await query(`
+      with ranked as (
+        select
+          mgi.*,
+          row_number() over (
+            partition by coalesce(nullif(a.legal_dong_code, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+            order by
+              mgi.has_data desc,
+              mgi.growth_rate desc nulls last,
+              mgi.item_name asc
+          )::int as dong_rank,
+          count(*) over (
+            partition by coalesce(nullif(a.legal_dong_code, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+          )::int as dong_rank_total
+        from map_growth_items mgi
+        left join apartments a on a.id = mgi.apartment_id
+        where mgi.snapshot_id = $1
+          and mgi.level = $2
+      )
+      select *
+      from ranked
+      where true
+        ${boundsClause}
+      order by
+        has_data desc,
+        growth_rate desc nulls last,
+        apartment_count desc,
+        item_name asc
+      limit 2000
+    `, params)
+    : await query(`
+      select *
+      from map_growth_items
+      where snapshot_id = $1
+        and level = $2
+        ${boundsClause}
+      order by
+        has_data desc,
+        growth_rate desc nulls last,
+        apartment_count desc,
+        item_name asc
+    `, params);
 
   return {
     level,
@@ -371,7 +400,9 @@ function serializeCachedItem(row, level) {
       address: row.address || "",
       areaSummary: row.area_summary || "",
       startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
-      endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price)
+      endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
+      dongRank: row.dong_rank === null || row.dong_rank === undefined ? null : Number(row.dong_rank),
+      dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total)
     };
   }
   return {

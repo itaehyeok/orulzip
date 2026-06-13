@@ -1052,7 +1052,7 @@ function naverCoordLng(coord) {
 }
 
 function renderZoomMapSummary(data) {
-  const items = addApartmentDongRanks(data.items || []);
+  const items = data.items || [];
   state.latestZoomMapData = { ...data, items };
   const levelLabel = zoomLevelLabel(data.level);
   const cacheLabel = formatMapCacheLabel(data.cache);
@@ -1073,32 +1073,6 @@ function renderZoomMapSummary(data) {
       renderZoomGroupMarker(item, data.level);
     }
   }
-}
-
-function addApartmentDongRanks(items) {
-  const ranked = items.map((item) => ({ ...item }));
-  const groups = new Map();
-  for (const item of ranked) {
-    if (item.type !== "apartment" || !item.id) continue;
-    const key = item.neighborhoodName || "미분류";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  }
-
-  for (const group of groups.values()) {
-    group
-      .sort((a, b) => {
-        if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
-        const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
-        if (rateDiff) return rateDiff;
-        return String(a.name || "").localeCompare(String(b.name || ""), "ko");
-      })
-      .forEach((item, index) => {
-        item.dongRank = index + 1;
-        item.dongRankTotal = group.length;
-      });
-  }
-  return ranked;
 }
 
 function scheduleMapSearch(delay = 160) {

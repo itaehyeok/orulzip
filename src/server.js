@@ -190,8 +190,8 @@ function buildZoomMapSummary(dataset, filters) {
       ...row,
       apartment: apartmentById.get(row.apartmentId)
     }))
-    .filter((row) => row.apartment?.legalDongCode && Number.isFinite(row.apartment.lat) && Number.isFinite(row.apartment.lng))
-    .filter((row) => withinBounds(row.apartment, filters));
+    .filter((row) => row.apartment?.legalDongCode && Number.isFinite(row.apartment.lat) && Number.isFinite(row.apartment.lng));
+  const visibleRows = rows.filter((row) => withinBounds(row.apartment, filters));
   const level = zoomAggregationLevel(filters.zoom);
 
   return {
@@ -200,7 +200,7 @@ function buildZoomMapSummary(dataset, filters) {
     period: ranking.period,
     items: level === "apartment"
       ? summarizeZoomApartments({ rows, dataset, filters }).slice(0, 2000)
-      : summarizeZoomGroups(rows, level).map((item) => ({ ...item, type: "group" }))
+      : summarizeZoomGroups(visibleRows, level).map((item) => ({ ...item, type: "group" }))
   };
 }
 
@@ -297,12 +297,12 @@ function summarizeZoomApartments({ rows, dataset, filters }) {
   const includedIds = new Set(summarized.map((item) => item.id));
   const missing = dataset.apartments
     .filter((apartment) => apartment?.legalDongCode && Number.isFinite(apartment.lat) && Number.isFinite(apartment.lng))
-    .filter((apartment) => withinBounds(apartment, filters))
     .filter((apartment) => !includedIds.has(apartment.id))
     .map((apartment) => ({
       id: apartment.id,
       name: apartment.name,
       neighborhoodName: apartment.neighborhoodName,
+      legalDongCode: apartment.legalDongCode,
       address: apartment.address,
       lat: apartment.lat,
       lng: apartment.lng,
@@ -316,8 +316,34 @@ function summarizeZoomApartments({ rows, dataset, filters }) {
       type: "apartment"
     }));
 
-  return [...summarized, ...missing]
-    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || Number(b.growthRate || -Infinity) - Number(a.growthRate || -Infinity));
+  return rankApartmentItemsByDong([...summarized, ...missing])
+    .filter((item) => withinBounds(item, filters))
+    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || sortableRate(b.growthRate) - sortableRate(a.growthRate));
+}
+
+function rankApartmentItemsByDong(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = item.legalDongCode || `${item.address || ""}:${item.neighborhoodName || "미분류"}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+
+  for (const group of groups.values()) {
+    group
+      .sort((a, b) => {
+        if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
+        const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
+        if (rateDiff) return rateDiff;
+        return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+      })
+      .forEach((item, index) => {
+        item.dongRank = index + 1;
+        item.dongRankTotal = group.length;
+      });
+  }
+
+  return items;
 }
 
 function summarizeApartments(rows) {
@@ -346,6 +372,7 @@ function summarizeApartments(rows) {
       id: group.apartment.id,
       name: group.apartment.name,
       neighborhoodName: group.apartment.neighborhoodName,
+      legalDongCode: group.apartment.legalDongCode,
       address: group.apartment.address,
       lat: group.apartment.lat,
       lng: group.apartment.lng,
@@ -396,6 +423,11 @@ function average(values) {
   const clean = values.map(Number).filter(Number.isFinite);
   if (!clean.length) return 0;
   return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function sortableRate(rate) {
+  const value = Number(rate);
+  return Number.isFinite(value) ? value : -Infinity;
 }
 
 function buildApartmentDetail(dataset, apartmentId) {
