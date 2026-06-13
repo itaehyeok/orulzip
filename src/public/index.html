@@ -45,12 +45,19 @@
           </div>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
-            <aside id="mapApartmentRanking" class="map-apartment-ranking" hidden>
-              <div class="map-ranking-head">
-                <strong>현재 지도 랭킹</strong>
-                <span id="mapRankingCount"></span>
+            <aside id="mapApartmentRanking" class="map-apartment-ranking">
+              <div class="map-search-panel">
+                <label for="mapSearchInput">검색</label>
+                <input id="mapSearchInput" type="search" autocomplete="off" placeholder="동 또는 아파트">
+                <div id="mapSearchResults" class="map-search-results" hidden></div>
               </div>
-              <div id="mapRankingRows" class="map-ranking-rows"></div>
+              <div id="mapRankingSection" class="map-ranking-section" hidden>
+                <div class="map-ranking-head">
+                  <strong>현재 지도 랭킹</strong>
+                  <span id="mapRankingCount"></span>
+                </div>
+                <div id="mapRankingRows" class="map-ranking-rows"></div>
+              </div>
             </aside>
             <aside id="mapApartmentPopup" class="map-apartment-popup" hidden>
               <div class="map-popup-head">

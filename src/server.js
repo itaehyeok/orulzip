@@ -14,6 +14,7 @@ import {
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
+import { searchMapTargets } from "./services/map-search.js";
 import { readCachedZoomMapSummary, readMapGrowthCacheOverview } from "./services/map-growth-cache.js";
 import {
   buildApartmentRankings,
@@ -68,6 +69,13 @@ const server = createServer(async (req, res) => {
           naverKeyId
         }
       });
+    }
+
+    if (url.pathname === "/api/map-search") {
+      return json(res, await searchMapTargets({
+        q: url.searchParams.get("q") || "",
+        limit: Number(url.searchParams.get("limit") || 12)
+      }));
     }
 
     if (url.pathname === "/api/crawl/details") {

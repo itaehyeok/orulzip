@@ -470,12 +470,12 @@ input {
 .map-apartment-ranking {
   position: absolute;
   top: 14px;
-  bottom: 14px;
   left: 14px;
   z-index: 610;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto;
   width: 330px;
+  max-height: calc(100% - 28px);
   overflow: hidden;
   border: 1px solid rgba(16, 24, 40, 0.14);
   border-radius: 8px;
@@ -484,7 +484,129 @@ input {
   backdrop-filter: blur(8px);
 }
 
+.map-apartment-ranking.ranking-active {
+  bottom: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .map-apartment-ranking[hidden] {
+  display: none;
+}
+
+.map-search-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.map-search-panel label {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.map-search-panel input {
+  height: 38px;
+  border-color: #cdd5df;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.map-search-panel input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(35, 103, 209, 0.14);
+  outline: 0;
+}
+
+.map-search-results {
+  max-height: 268px;
+  overflow: auto;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.map-search-results[hidden] {
+  display: none;
+}
+
+.map-search-result {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.map-search-result:last-child {
+  border-bottom: 0;
+}
+
+.map-search-result:hover {
+  background: #f3f7ff;
+}
+
+.map-search-type {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 24px;
+  border-radius: 999px;
+  background: #e8f0ff;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.map-search-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.map-search-main strong,
+.map-search-main em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-search-main strong {
+  color: #1d2939;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.map-search-main em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.map-search-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.map-ranking-section {
+  display: grid;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.map-ranking-section[hidden] {
   display: none;
 }
 
@@ -1103,11 +1225,17 @@ td:nth-child(4) {
   }
 
   .map-apartment-ranking {
-    top: auto;
+    top: 10px;
     right: 10px;
-    bottom: 10px;
+    bottom: auto;
     left: 10px;
     width: auto;
+    max-height: calc(100% - 20px);
+  }
+
+  .map-apartment-ranking.ranking-active {
+    top: auto;
+    bottom: 10px;
     max-height: 42%;
   }
 

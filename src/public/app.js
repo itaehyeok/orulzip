@@ -30,6 +30,9 @@ const state = {
   zoomMapTimer: null,
   zoomMapRequestId: 0,
   mapPopupRequestId: 0,
+  mapSearchTimer: null,
+  mapSearchRequestId: 0,
+  mapSearchItems: [],
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
@@ -88,8 +91,11 @@ const els = {
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
   mapApartmentRanking: document.querySelector("#mapApartmentRanking"),
+  mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
   mapRankingRows: document.querySelector("#mapRankingRows"),
+  mapSearchInput: document.querySelector("#mapSearchInput"),
+  mapSearchResults: document.querySelector("#mapSearchResults"),
   mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
   mapPopupTitle: document.querySelector("#mapPopupTitle"),
   mapPopupMeta: document.querySelector("#mapPopupMeta"),
@@ -144,6 +150,11 @@ function bindEvents() {
   els.syncBtn.addEventListener("click", syncCurrentRegion);
   els.formulaRunBtn.addEventListener("click", loadFormulaAnalysis);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
+  els.mapSearchInput.addEventListener("input", () => scheduleMapSearch());
+  els.mapSearchInput.addEventListener("focus", () => {
+    if (els.mapSearchInput.value.trim()) scheduleMapSearch(0);
+  });
+  els.mapSearchInput.addEventListener("keydown", handleMapSearchKeydown);
 
   document.querySelectorAll("[data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -163,6 +174,9 @@ function bindEvents() {
     activateTab(tabFromLocation(), { push: false });
   });
 
+  document.addEventListener("click", (event) => {
+    if (!els.mapApartmentRanking.contains(event.target)) hideMapSearchResults();
+  });
 }
 
 async function loadFilters() {
@@ -969,10 +983,106 @@ function renderZoomMapSummary(data) {
   }
 }
 
+function scheduleMapSearch(delay = 160) {
+  clearTimeout(state.mapSearchTimer);
+  const keyword = els.mapSearchInput.value.trim();
+  if (!keyword) {
+    state.mapSearchRequestId += 1;
+    state.mapSearchItems = [];
+    hideMapSearchResults();
+    return;
+  }
+  state.mapSearchTimer = setTimeout(loadMapSearchResults, delay);
+}
+
+async function loadMapSearchResults() {
+  const keyword = els.mapSearchInput.value.trim();
+  if (!keyword) {
+    hideMapSearchResults();
+    return;
+  }
+
+  const requestId = ++state.mapSearchRequestId;
+  try {
+    const result = await api(`/api/map-search?q=${encodeURIComponent(keyword)}&limit=12`);
+    if (requestId !== state.mapSearchRequestId) return;
+    state.mapSearchItems = result.items || [];
+    renderMapSearchResults(state.mapSearchItems);
+  } catch (error) {
+    if (requestId !== state.mapSearchRequestId) return;
+    state.mapSearchItems = [];
+    els.mapSearchResults.hidden = false;
+    els.mapSearchResults.innerHTML = `<div class="map-search-empty">검색 실패</div>`;
+  }
+}
+
+function renderMapSearchResults(items) {
+  els.mapSearchResults.hidden = false;
+  els.mapSearchResults.innerHTML = items.length
+    ? items.map((item, index) => `
+      <button class="map-search-result" type="button" data-index="${index}">
+        <span class="map-search-type">${item.type === "dong" ? "동" : "APT"}</span>
+        <span class="map-search-main">
+          <strong>${escapeHtml(item.name)}</strong>
+          <em>${escapeHtml(item.meta || item.address || "")}</em>
+        </span>
+      </button>
+    `).join("")
+    : `<div class="map-search-empty">검색 결과가 없습니다.</div>`;
+
+  els.mapSearchResults.querySelectorAll("[data-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = state.mapSearchItems[Number(button.dataset.index)];
+      if (item) selectMapSearchResult(item);
+    });
+  });
+}
+
+function handleMapSearchKeydown(event) {
+  if (event.key === "Escape") {
+    hideMapSearchResults();
+    return;
+  }
+  if (event.key !== "Enter") return;
+
+  const item = state.mapSearchItems[0];
+  if (!item) return;
+  event.preventDefault();
+  selectMapSearchResult(item);
+}
+
+async function selectMapSearchResult(item) {
+  els.mapSearchInput.value = item.name || "";
+  hideMapSearchResults();
+  if (!(await initZoomMap())) return;
+  focusMapTarget(item, Number(item.targetZoom || 16));
+}
+
+function focusMapTarget(item, zoom = 16) {
+  if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
+
+  if (state.zoomNaverMap && window.naver?.maps) {
+    const position = new window.naver.maps.LatLng(item.lat, item.lng);
+    state.zoomNaverMap.setCenter(position);
+    state.zoomNaverMap.setZoom(Math.max(Number(state.zoomNaverMap.getZoom() || 0), zoom));
+    return;
+  }
+
+  if (state.zoomMap) {
+    state.zoomMap.setView([item.lat, item.lng], Math.max(Number(state.zoomMap.getZoom() || 0), zoom), { animate: true });
+  }
+}
+
+function hideMapSearchResults() {
+  els.mapSearchResults.hidden = true;
+  els.mapSearchResults.innerHTML = "";
+}
+
 function renderMapApartmentRanking(level, items) {
-  if (!els.mapApartmentRanking || !els.mapRankingRows || !els.mapRankingCount) return;
+  if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
   if (level !== "apartment") {
-    els.mapApartmentRanking.hidden = true;
+    els.mapApartmentRanking.classList.remove("ranking-active");
+    els.mapRankingSection.hidden = true;
     els.mapRankingRows.innerHTML = "";
     els.mapRankingCount.textContent = "";
     return;
@@ -987,7 +1097,8 @@ function renderMapApartmentRanking(level, items) {
       return String(a.name || "").localeCompare(String(b.name || ""), "ko");
     });
 
-  els.mapApartmentRanking.hidden = false;
+  els.mapApartmentRanking.classList.add("ranking-active");
+  els.mapRankingSection.hidden = false;
   els.mapRankingCount.textContent = `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
     ? rows.map((item, index) => `
