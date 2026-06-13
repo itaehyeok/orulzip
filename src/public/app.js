@@ -38,7 +38,6 @@ const state = {
   mapSearchActiveIndex: -1,
   mapApartmentDetails: new Map(),
   mapPopupDetail: null,
-  mapPopupPeriodYears: 3,
   activeGraphDesignId: null,
   activeMarkerDesignId: null,
   markerLineGapPx: null,
@@ -245,12 +244,6 @@ function bindEvents() {
     button.addEventListener("click", () => {
       setPeriodYears(Number(button.dataset.periodYears));
       refresh();
-    });
-  });
-
-  document.querySelectorAll("[data-map-popup-years]").forEach((button) => {
-    button.addEventListener("click", () => {
-      setMapPopupPeriodYears(Number(button.dataset.mapPopupYears));
     });
   });
 
@@ -1519,7 +1512,6 @@ function apartmentHoverHtml(item) {
 
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
-  syncMapPopupPeriodButtons();
   state.mapPopupDetail = null;
   if (state.mapApartmentDetails.has(apartmentId)) {
     renderMapApartmentDetail(state.mapApartmentDetails.get(apartmentId));
@@ -1544,25 +1536,11 @@ function closeMapApartmentPopup() {
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
 }
 
-function setMapPopupPeriodYears(years) {
-  state.mapPopupPeriodYears = [1, 3, 5].includes(years) ? years : 3;
-  syncMapPopupPeriodButtons();
-  if (state.mapPopupDetail) {
-    renderMapApartmentDetail(state.mapPopupDetail);
-  }
-}
-
-function syncMapPopupPeriodButtons() {
-  document.querySelectorAll("[data-map-popup-years]").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.mapPopupYears) === state.mapPopupPeriodYears);
-  });
-}
-
 function renderMapApartmentLoading(seedItem = null) {
   els.mapApartmentPopup.hidden = false;
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
-  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / ${state.mapPopupPeriodYears}년전 기준`;
+  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 5년 그래프`;
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
   els.mapPopupStats.innerHTML = `
     <div class="map-popup-loading-card"></div>
@@ -1590,7 +1568,6 @@ function renderMapApartmentError(seedItem = null, error = null) {
 function renderMapApartmentDetail(detail) {
   els.mapApartmentPopup.classList.remove("loading");
   state.mapPopupDetail = detail;
-  const years = state.mapPopupPeriodYears || 3;
   if (!detail.apartment) {
     els.mapApartmentPopup.hidden = false;
     els.mapPopupTitle.textContent = "아파트 시세";
@@ -1605,16 +1582,16 @@ function renderMapApartmentDetail(detail) {
 
   const latestMonth = detail.months.at(-1);
   if (!latestMonth) {
-    els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${years}년전 기준`;
+    els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / 시세 정보 없음`;
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
     return;
   }
 
-  const startMonth = periodStartMonth(latestMonth, years);
+  const startMonth = periodStartMonth(latestMonth, 5);
   const months = detail.months.filter((month) => month >= startMonth && month <= latestMonth);
   const graphDesign = activeGraphDesign();
-  els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${formatMonth(startMonth)} - ${formatMonth(latestMonth)} / ${years}년전 기준`;
+  els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${formatMonth(startMonth)} - ${formatMonth(latestMonth)} / 최근 5년 그래프`;
   const series = detail.areaTypes
     .map((areaType, index) => ({
       ...areaType,
@@ -1630,21 +1607,53 @@ function renderMapApartmentDetail(detail) {
     return;
   }
 
-  els.mapPopupStats.innerHTML = series.map((item) => {
-    const first = item.prices[0];
-    const last = item.prices.at(-1);
-    const growthAmount = last.saleMid - first.saleMid;
-    const growthRate = first.saleMid ? growthAmount / first.saleMid : null;
-    return `
-      <div class="map-popup-stat">
-        <strong><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")}</strong>
-        <span>${formatKoreanPrice(first.saleMid)} → ${formatKoreanPrice(last.saleMid)}</span>
-        <em class="${growthAmount >= 0 ? "positive" : "negative"}">${formatPercent(growthRate)}</em>
-      </div>
-    `;
-  }).join("");
+  els.mapPopupStats.innerHTML = series.map((item) => renderMapPopupAreaSummary(item, latestMonth)).join("");
 
   renderMapPopupChart({ months, series });
+}
+
+function renderMapPopupAreaSummary(item, latestMonth) {
+  const latest = latestPriceAtOrBefore(item.prices, latestMonth);
+  const latestLabel = latest ? formatKoreanPrice(latest.saleMid) : "실거래가 없음";
+  return `
+    <div class="map-popup-stat map-popup-stat-wide">
+      <strong><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")}</strong>
+      <span>현재 ${latestLabel}</span>
+      <div class="map-popup-change-list">
+        ${[1, 3, 5].map((years) => renderMapPopupChangeRow(item, latest, latestMonth, years)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderMapPopupChangeRow(item, latest, latestMonth, years) {
+  const startMonth = periodStartMonth(latestMonth, years);
+  const start = item.prices.find((price) => price.yearMonth === startMonth);
+  if (!latest || !start) {
+    return `
+      <div class="map-popup-change-row no-data">
+        <span>${years}년전</span>
+        <strong>실거래가 없음</strong>
+      </div>
+    `;
+  }
+  const growthAmount = latest.saleMid - start.saleMid;
+  const growthRate = start.saleMid ? growthAmount / start.saleMid : null;
+  const directionClass = growthAmount >= 0 ? "positive" : "negative";
+  return `
+    <div class="map-popup-change-row">
+      <span>${years}년전</span>
+      <strong>${formatKoreanPrice(start.saleMid)} → ${formatKoreanPrice(latest.saleMid)}</strong>
+      <em class="${directionClass}">${formatPercent(growthRate)}</em>
+    </div>
+  `;
+}
+
+function latestPriceAtOrBefore(prices, yearMonth) {
+  return [...prices]
+    .filter((price) => price.yearMonth <= yearMonth)
+    .sort((a, b) => String(a.yearMonth).localeCompare(String(b.yearMonth)))
+    .at(-1) || null;
 }
 
 function renderMapPopupChart({ months, series }) {
