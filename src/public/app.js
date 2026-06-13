@@ -1478,6 +1478,19 @@ function zoomGroupTargetZoom(level, currentZoom) {
   return Math.max(Number(currentZoom || 0) + 1, apartmentMapZoom);
 }
 
+function zoomMarkerBaseZIndex(level) {
+  return {
+    sido: 100,
+    sigungu: 200,
+    dong: 300,
+    apartment: 400
+  }[level] || 100;
+}
+
+function setNaverMarkerZIndex(marker, zIndex) {
+  if (typeof marker.setZIndex === "function") marker.setZIndex(zIndex);
+}
+
 function clearZoomMapOverlays() {
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
@@ -1500,7 +1513,9 @@ function renderZoomGroupMarker(item, level) {
     return;
   }
   const [width, height] = zoomMarkerSize(level);
+  const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = L.marker([item.lat, item.lng], {
+    zIndexOffset: baseZIndex,
     icon: L.divIcon({
       className: "zoom-cluster-marker",
       html: `
@@ -1515,6 +1530,8 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
+  marker.on("mouseover", () => marker.setZIndexOffset(10000));
+  marker.on("mouseout", () => marker.setZIndexOffset(baseZIndex));
   marker.on("click", () => {
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
@@ -1526,7 +1543,9 @@ function renderZoomApartmentMarker(item) {
     return;
   }
   const [width, height] = markerIconSize(activeMarkerDesign());
+  const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = L.marker([item.lat, item.lng], {
+    zIndexOffset: baseZIndex,
     icon: L.divIcon({
       className: "apartment-map-marker-shell",
       html: apartmentMarkerHtml(item),
@@ -1540,15 +1559,19 @@ function renderZoomApartmentMarker(item) {
     opacity: 1,
     sticky: true
   });
+  marker.on("mouseover", () => marker.setZIndexOffset(10000));
+  marker.on("mouseout", () => marker.setZIndexOffset(baseZIndex));
   marker.on("click", () => openMapApartmentDetail(item.id, item));
 }
 
 function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const [width, height] = zoomMarkerSize(level);
+  const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
+    zIndex: baseZIndex,
     icon: naverLabelIcon(`
       <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
         <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
@@ -1558,6 +1581,12 @@ function renderNaverZoomGroupMarker(item, level) {
         </div>
       </div>
     `, width, height)
+  });
+  window.naver.maps.Event.addListener(marker, "mouseover", () => {
+    setNaverMarkerZIndex(marker, 10000);
+  });
+  window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    setNaverMarkerZIndex(marker, baseZIndex);
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     openZoomNaverInfoWindow(position, zoomGroupPopup(item));
@@ -1569,15 +1598,19 @@ function renderNaverZoomGroupMarker(item, level) {
 function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const [width, height] = markerIconSize(activeMarkerDesign());
+  const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
+    zIndex: baseZIndex,
     icon: naverLabelIcon(apartmentMarkerHtml(item), width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
+    setNaverMarkerZIndex(marker, 10000);
     openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    setNaverMarkerZIndex(marker, baseZIndex);
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
