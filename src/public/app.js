@@ -1,5 +1,6 @@
 const tabRoutes = {
   map: "/map",
+  molitMap: "/molit-map",
   neighborhood: "/neighborhood",
   apartment: "/apartments",
   formula: "/formula",
@@ -10,6 +11,7 @@ const tabRoutes = {
 const routeTabs = {
   "/": "map",
   "/map": "map",
+  "/molit-map": "molitMap",
   "/neighborhood": "neighborhood",
   "/apartments": "apartment",
   "/formula": "formula",
@@ -447,7 +449,7 @@ async function refresh() {
 async function loadActiveViewData() {
   const params = queryParams();
 
-  if (state.activeTab === "map") {
+  if (isMapTab()) {
     await loadZoomMapSummary();
     return;
   }
@@ -501,7 +503,7 @@ function setActiveTab(tab, { push = false } = {}) {
     }
   });
 
-  document.querySelector("#mapView").classList.toggle("active", nextTab === "map");
+  document.querySelector("#mapView").classList.toggle("active", isMapTab(nextTab));
   document.querySelector("#neighborhoodView").classList.toggle("active", nextTab === "neighborhood");
   document.querySelector("#apartmentView").classList.toggle("active", nextTab === "apartment");
   document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
@@ -516,6 +518,14 @@ function setActiveTab(tab, { push = false } = {}) {
 
 function tabFromLocation() {
   return routeTabs[normalizeRoute(window.location.pathname)] || "map";
+}
+
+function isMapTab(tab = state.activeTab) {
+  return tab === "map" || tab === "molitMap";
+}
+
+function currentMapSource() {
+  return state.activeTab === "molitMap" ? "molit" : "kb";
 }
 
 function normalizeRoute(pathname) {
@@ -951,7 +961,7 @@ function watchNaverAuthFailure(container = els.zoomMap) {
       state.naverAuthFailureWatch = null;
       if (!failed || !watchedMap || state.zoomNaverMap !== watchedMap) return;
       fallbackFromNaverZoomMap();
-      if (state.activeTab === "map") loadZoomMapSummary();
+      if (isMapTab()) loadZoomMapSummary();
     })
     .catch(() => {
       state.naverAuthFailureWatch = null;
@@ -1110,7 +1120,7 @@ function initLeafletZoomMap() {
 }
 
 function scheduleZoomMapLoad() {
-  if (state.activeTab !== "map") return;
+  if (!isMapTab()) return;
   clearTimeout(state.zoomMapTimer);
   state.zoomMapTimer = setTimeout(loadZoomMapSummary, 180);
 }
@@ -1130,7 +1140,8 @@ async function loadZoomMapSummary() {
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
 
-  const data = await api(`/api/zoom-map-summary?${params}`);
+  const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
+  const data = await api(`${endpoint}?${params}`);
   if (requestId !== state.zoomMapRequestId) return;
   renderZoomMapSummary(data);
 }
@@ -1205,7 +1216,9 @@ function renderZoomMapSummary(data) {
     : "";
   updateZoomMapLevelLabel(data.level);
   els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
-  els.zoomMapTitle.textContent = `${levelLabel} 상승률 지도`;
+  els.zoomMapTitle.textContent = currentMapSource() === "molit"
+    ? `${levelLabel} 실거래가 상승률 지도`
+    : `${levelLabel} 상승률 지도`;
   renderMapApartmentRanking(data.level, items);
   clearZoomMapOverlays();
 
@@ -1685,18 +1698,21 @@ function apartmentHoverHtml(item) {
 
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
+  const source = currentMapSource();
+  const cacheKey = `${source}:${apartmentId}`;
   state.mapPopupDetail = null;
-  if (state.mapApartmentDetails.has(apartmentId)) {
-    renderMapApartmentDetail(state.mapApartmentDetails.get(apartmentId));
+  if (state.mapApartmentDetails.has(cacheKey)) {
+    renderMapApartmentDetail(state.mapApartmentDetails.get(cacheKey));
     return;
   }
 
   renderMapApartmentLoading(seedItem);
 
   try {
-    const detail = await api(`/api/apartment-detail?apartmentId=${encodeURIComponent(apartmentId)}`);
+    const endpoint = source === "molit" ? "/api/molit-apartment-detail" : "/api/apartment-detail";
+    const detail = await api(`${endpoint}?apartmentId=${encodeURIComponent(apartmentId)}`);
     if (requestId !== state.mapPopupRequestId) return;
-    state.mapApartmentDetails.set(apartmentId, detail);
+    state.mapApartmentDetails.set(cacheKey, detail);
     renderMapApartmentDetail(detail);
   } catch (error) {
     if (requestId !== state.mapPopupRequestId) return;

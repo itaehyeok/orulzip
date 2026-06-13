@@ -10,7 +10,7 @@ import {
   tradeCollectionSummary,
   upsertTradeDeals
 } from "../src/services/molit-trade-store.js";
-import { refreshMapGrowthCacheIfUnlocked } from "../src/services/map-growth-cache.js";
+import { refreshMapGrowthCacheIfUnlocked, refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
 
 const SEOUL_LAWD_CODES = [
   ["11110", "서울 종로구"],
@@ -242,6 +242,19 @@ if (!options.skipMapCacheRefresh) {
     reason: cacheResult.reason || "",
     refreshedAt: cacheResult.refreshedAt,
     snapshots: (cacheResult.snapshots || []).map((snapshot) => ({
+      periodYears: snapshot.periodYears,
+      startMonth: snapshot.startMonth,
+      endMonth: snapshot.endMonth,
+      itemCount: snapshot.itemCount
+    }))
+  }, null, 2));
+
+  console.log("[molit] refreshing MOLIT map growth cache");
+  const molitCacheResult = await refreshMolitMapGrowthCache();
+  console.log(JSON.stringify({
+    message: "MOLIT map growth cache refreshed",
+    refreshedAt: molitCacheResult.refreshedAt,
+    snapshots: (molitCacheResult.snapshots || []).map((snapshot) => ({
       periodYears: snapshot.periodYears,
       startMonth: snapshot.startMonth,
       endMonth: snapshot.endMonth,

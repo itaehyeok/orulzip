@@ -15,7 +15,7 @@ import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
-import { readCachedZoomMapSummary } from "./services/map-growth-cache.js";
+import { buildMolitApartmentDetail, readCachedZoomMapSummary } from "./services/map-growth-cache.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
-const appRoutes = new Set(["/", "/map", "/neighborhood", "/apartments", "/formula", "/design", "/crawl"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/neighborhood", "/apartments", "/formula", "/design", "/crawl"]);
 
 await initDb();
 
@@ -134,6 +134,7 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/zoom-map-summary") {
       const filters = {
+        source: "kb",
         zoom: Number(url.searchParams.get("zoom") || 9),
         start: url.searchParams.get("start") || "",
         end: url.searchParams.get("end") || "",
@@ -152,10 +153,36 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (url.pathname === "/api/molit-zoom-map-summary") {
+      const filters = {
+        source: "molit",
+        zoom: Number(url.searchParams.get("zoom") || 9),
+        start: url.searchParams.get("start") || "",
+        end: url.searchParams.get("end") || "",
+        north: optionalNumber(url.searchParams.get("north")),
+        south: optionalNumber(url.searchParams.get("south")),
+        east: optionalNumber(url.searchParams.get("east")),
+        west: optionalNumber(url.searchParams.get("west"))
+      };
+      const cached = await readCachedZoomMapSummary(filters);
+      return json(res, cached || {
+        level: zoomAggregationLevel(filters.zoom),
+        zoom: filters.zoom,
+        period: { startMonth: filters.start, endMonth: filters.end },
+        cache: { hit: false, source: "molit", updatedAt: null },
+        items: []
+      });
+    }
+
     if (url.pathname === "/api/apartment-detail") {
       const dataset = await readDatasetFromDb();
       const apartmentId = url.searchParams.get("apartmentId") || "";
       return json(res, buildApartmentDetail(dataset, apartmentId));
+    }
+
+    if (url.pathname === "/api/molit-apartment-detail") {
+      const apartmentId = url.searchParams.get("apartmentId") || "";
+      return json(res, await buildMolitApartmentDetail(apartmentId));
     }
 
     return await serveStatic(url.pathname, res);
