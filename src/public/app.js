@@ -39,6 +39,7 @@ const state = {
   mapApartmentDetails: new Map(),
   mapPopupDetail: null,
   activeGraphDesignId: null,
+  activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
   markerLineGapPx: null,
   mapDesignCollapsed: false,
@@ -51,6 +52,8 @@ const state = {
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
 const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
+const defaultPyeongGraphDesignId = "pyeong-soft";
+const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
 const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
 const defaultMarkerLineGapPx = 3;
@@ -70,6 +73,14 @@ const graphDesignVariants = [
   graphDesign("compact-label", "02 컴팩트 라벨", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "none", palette: "market", lineWidth: 2.5, shadow: false })
 ];
 const graphDesignVariantMap = new Map(graphDesignVariants.map((item) => [item.id, item]));
+const pyeongGraphDesignVariants = [
+  pyeongGraphDesign("pyeong-soft", "01 연한 실선", { opacity: 0.26, lineWidth: 1.7, dash: "" }),
+  pyeongGraphDesign("pyeong-dashed", "02 점선", { opacity: 0.34, lineWidth: 1.8, dash: "6 7" }),
+  pyeongGraphDesign("pyeong-hairline", "03 얇은 선", { opacity: 0.22, lineWidth: 1.1, dash: "" }),
+  pyeongGraphDesign("pyeong-dot", "04 도트", { opacity: 0.34, lineWidth: 2, dash: "1 6", linecap: "round" }),
+  pyeongGraphDesign("pyeong-muted", "05 회색 보조", { opacity: 0.3, lineWidth: 1.5, dash: "4 6", monochrome: true })
+];
+const pyeongGraphDesignVariantMap = new Map(pyeongGraphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
   markerDesign("rank-outline", "01 아웃라인", { group: "기본형", showRank: true, shape: "pill", size: "wide", tone: "outline" }),
   markerDesign("rank-number-box", "02 숫자 박스", { group: "기본형", showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
@@ -127,6 +138,8 @@ const els = {
   designView: document.querySelector("#designView"),
   designGraphSelected: document.querySelector("#designGraphSelected"),
   graphDesignGrid: document.querySelector("#graphDesignGrid"),
+  designPyeongGraphSelected: document.querySelector("#designPyeongGraphSelected"),
+  pyeongGraphDesignGrid: document.querySelector("#pyeongGraphDesignGrid"),
   designMarkerSelected: document.querySelector("#designMarkerSelected"),
   markerDesignGrid: document.querySelector("#markerDesignGrid"),
   molitSummary: document.querySelector("#molitSummary"),
@@ -146,6 +159,7 @@ const els = {
   mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
   mapPopupTitle: document.querySelector("#mapPopupTitle"),
   mapPopupMeta: document.querySelector("#mapPopupMeta"),
+  mapPopupPyeongGrowth: document.querySelector("#mapPopupPyeongGrowth"),
   mapPopupCloseBtn: document.querySelector("#mapPopupCloseBtn"),
   mapPopupStats: document.querySelector("#mapPopupStats"),
   mapPopupChart: document.querySelector("#mapPopupChart"),
@@ -155,9 +169,11 @@ const els = {
   mapDesignBody: document.querySelector("#mapDesignBody"),
   mapDesignMarkerSelected: document.querySelector("#mapDesignMarkerSelected"),
   mapDesignGraphSelected: document.querySelector("#mapDesignGraphSelected"),
+  mapDesignPyeongSelected: document.querySelector("#mapDesignPyeongSelected"),
   mapMarkerDesignGrid: document.querySelector("#mapMarkerDesignGrid"),
   mapMarkerLineGapInput: document.querySelector("#mapMarkerLineGapInput"),
   mapGraphDesignGrid: document.querySelector("#mapGraphDesignGrid"),
+  mapPyeongGraphDesignGrid: document.querySelector("#mapPyeongGraphDesignGrid"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
@@ -175,6 +191,7 @@ init();
 
 async function init() {
   state.activeGraphDesignId = readStoredGraphDesignId();
+  state.activePyeongGraphDesignId = readStoredPyeongGraphDesignId();
   state.activeMarkerDesignId = readStoredMarkerDesignId();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   applyMarkerLineGap();
@@ -220,6 +237,11 @@ function bindEvents() {
     if (!card) return;
     setActiveGraphDesign(card.dataset.graphDesignId);
   });
+  els.pyeongGraphDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-pyeong-graph-design-id]");
+    if (!card) return;
+    setActivePyeongGraphDesign(card.dataset.pyeongGraphDesignId);
+  });
   els.markerDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-marker-design-id]");
     if (!card) return;
@@ -229,6 +251,11 @@ function bindEvents() {
     const card = event.target.closest("[data-graph-design-id]");
     if (!card) return;
     setActiveGraphDesign(card.dataset.graphDesignId);
+  });
+  els.mapPyeongGraphDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-pyeong-graph-design-id]");
+    if (!card) return;
+    setActivePyeongGraphDesign(card.dataset.pyeongGraphDesignId);
   });
   els.mapMarkerDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-marker-design-id]");
@@ -1540,6 +1567,7 @@ function renderMapApartmentLoading(seedItem = null) {
   els.mapApartmentPopup.hidden = false;
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
+  if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
   els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 5년 그래프`;
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
   els.mapPopupStats.innerHTML = `
@@ -1560,6 +1588,7 @@ function renderMapApartmentError(seedItem = null, error = null) {
   els.mapApartmentPopup.classList.remove("loading");
   state.mapPopupDetail = null;
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
+  if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
   els.mapPopupMeta.textContent = "불러오기 실패";
   els.mapPopupStats.innerHTML = "";
   els.mapPopupChart.innerHTML = `<div class="empty">시세 데이터를 불러오지 못했습니다.${error?.message ? ` ${escapeHtml(error.message)}` : ""}</div>`;
@@ -1571,6 +1600,7 @@ function renderMapApartmentDetail(detail) {
   if (!detail.apartment) {
     els.mapApartmentPopup.hidden = false;
     els.mapPopupTitle.textContent = "아파트 시세";
+    if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     els.mapPopupMeta.textContent = "정보 없음";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">아파트 정보를 찾지 못했습니다.</div>`;
@@ -1579,9 +1609,11 @@ function renderMapApartmentDetail(detail) {
 
   els.mapApartmentPopup.hidden = false;
   els.mapPopupTitle.textContent = detail.apartment.name;
+  if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
 
   const latestMonth = detail.months.at(-1);
   if (!latestMonth) {
+    if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / 시세 정보 없음`;
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
@@ -1602,14 +1634,47 @@ function renderMapApartmentDetail(detail) {
     .slice(0, 8);
 
   if (!series.length) {
+    if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">선택 기간의 시세 데이터가 없습니다.</div>`;
     return;
   }
 
+  renderMapPopupPyeongGrowth(series, latestMonth);
   els.mapPopupStats.innerHTML = series.map((item) => renderMapPopupAreaSummary(item, latestMonth)).join("");
 
   renderMapPopupChart({ months, series });
+}
+
+function renderMapPopupPyeongGrowth(series, latestMonth) {
+  if (!els.mapPopupPyeongGrowth) return;
+  const latest = averageLatestPyeongAtOrBefore(series, latestMonth);
+  const rows = [1, 3, 5].map((years) => {
+    const start = averagePyeongAtMonth(series, periodStartMonth(latestMonth, years));
+    if (!Number.isFinite(latest) || !Number.isFinite(start) || !start) {
+      return `<em class="no-data">${years}년 없음</em>`;
+    }
+    const growthRate = (latest - start) / start;
+    return `<em class="${growthRate >= 0 ? "positive" : "negative"}">${years}년 ${formatPercent(growthRate)}</em>`;
+  }).join("");
+  els.mapPopupPyeongGrowth.innerHTML = `
+    <span>평당 상승률</span>
+    ${rows}
+  `;
+}
+
+function averagePyeongAtMonth(series, yearMonth) {
+  return average(series.flatMap((item) => {
+    const price = item.prices.find((entry) => entry.yearMonth === yearMonth);
+    return Number.isFinite(Number(price?.pyeongPrice)) ? [Number(price.pyeongPrice)] : [];
+  }));
+}
+
+function averageLatestPyeongAtOrBefore(series, yearMonth) {
+  return average(series.flatMap((item) => {
+    const price = latestPriceAtOrBefore(item.prices, yearMonth);
+    return Number.isFinite(Number(price?.pyeongPrice)) ? [Number(price.pyeongPrice)] : [];
+  }));
 }
 
 function renderMapPopupAreaSummary(item, latestMonth) {
@@ -1691,10 +1756,30 @@ function graphDesign(id, name, overrides = {}) {
   };
 }
 
+function pyeongGraphDesign(id, name, overrides = {}) {
+  return {
+    id,
+    name,
+    opacity: 0.28,
+    lineWidth: 1.5,
+    dash: "",
+    linecap: "round",
+    monochrome: false,
+    labelMode: "axis",
+    ...overrides
+  };
+}
+
 function activeGraphDesign() {
   return graphDesignVariantMap.get(state.activeGraphDesignId)
     || graphDesignVariantMap.get(defaultGraphDesignId)
     || graphDesignVariants[0];
+}
+
+function activePyeongGraphDesign() {
+  return pyeongGraphDesignVariantMap.get(state.activePyeongGraphDesignId)
+    || pyeongGraphDesignVariantMap.get(defaultPyeongGraphDesignId)
+    || pyeongGraphDesignVariants[0];
 }
 
 function readStoredGraphDesignId() {
@@ -1703,6 +1788,15 @@ function readStoredGraphDesignId() {
     return graphDesignVariantMap.has(stored) ? stored : defaultGraphDesignId;
   } catch {
     return defaultGraphDesignId;
+  }
+}
+
+function readStoredPyeongGraphDesignId() {
+  try {
+    const stored = window.localStorage.getItem(pyeongGraphDesignStorageKey);
+    return pyeongGraphDesignVariantMap.has(stored) ? stored : defaultPyeongGraphDesignId;
+  } catch {
+    return defaultPyeongGraphDesignId;
   }
 }
 
@@ -1715,7 +1809,24 @@ function setActiveGraphDesign(id) {
     // localStorage may be disabled in private contexts.
   }
   renderGraphDesignGallery();
+  renderPyeongGraphDesignGallery();
   renderMapDesignPanel();
+  if (state.mapPopupDetail && !els.mapApartmentPopup.hidden) {
+    renderMapApartmentDetail(state.mapPopupDetail);
+  }
+}
+
+function setActivePyeongGraphDesign(id) {
+  if (!pyeongGraphDesignVariantMap.has(id)) return;
+  state.activePyeongGraphDesignId = id;
+  try {
+    window.localStorage.setItem(pyeongGraphDesignStorageKey, id);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  renderPyeongGraphDesignGallery();
+  renderMapDesignPanel();
+  renderGraphDesignGallery();
   if (state.mapPopupDetail && !els.mapApartmentPopup.hidden) {
     renderMapApartmentDetail(state.mapPopupDetail);
   }
@@ -1800,6 +1911,7 @@ function normalizeMarkerLineGapPx(value) {
 
 function renderDesignTab() {
   renderGraphDesignGallery();
+  renderPyeongGraphDesignGallery();
   renderMarkerDesignGallery();
   renderMapDesignPanel();
 }
@@ -1812,6 +1924,7 @@ function toggleMapDesignPanel() {
 function renderMapDesignPanel() {
   if (!els.mapDesignPanel) return;
   const graph = activeGraphDesign();
+  const pyeongGraph = activePyeongGraphDesign();
   const marker = activeMarkerDesign();
   els.mapDesignPanel.classList.toggle("collapsed", state.mapDesignCollapsed);
   if (els.mapDesignToggleBtn) {
@@ -1819,6 +1932,7 @@ function renderMapDesignPanel() {
     els.mapDesignToggleBtn.setAttribute("aria-expanded", String(!state.mapDesignCollapsed));
   }
   if (els.mapDesignGraphSelected) els.mapDesignGraphSelected.textContent = graph.name.replace(/^\d+\s*/, "");
+  if (els.mapDesignPyeongSelected) els.mapDesignPyeongSelected.textContent = pyeongGraph.name.replace(/^\d+\s*/, "");
   if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = marker.name.replace(/^\d+\s*/, "");
   if (els.mapMarkerLineGapInput) {
     els.mapMarkerLineGapInput.value = String(normalizeMarkerLineGapPx(state.markerLineGapPx));
@@ -1828,6 +1942,16 @@ function renderMapDesignPanel() {
       const isActive = item.id === graph.id;
       return `
         <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-graph-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
+          ${escapeHtml(item.name.replace(/^\d+\s*/, ""))}
+        </button>
+      `;
+    }).join("");
+  }
+  if (els.mapPyeongGraphDesignGrid) {
+    els.mapPyeongGraphDesignGrid.innerHTML = pyeongGraphDesignVariants.map((item) => {
+      const isActive = item.id === pyeongGraph.id;
+      return `
+        <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-pyeong-graph-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
           ${escapeHtml(item.name.replace(/^\d+\s*/, ""))}
         </button>
       `;
@@ -1924,6 +2048,36 @@ function renderGraphDesignGallery() {
   }).join("");
 }
 
+function renderPyeongGraphDesignGallery() {
+  if (!els.pyeongGraphDesignGrid) return;
+  const sample = graphDesignSampleData();
+  const active = activePyeongGraphDesign();
+  els.designPyeongGraphSelected.textContent = `${active.name} / ${pyeongGraphDesignVariants.length}개`;
+  els.pyeongGraphDesignGrid.innerHTML = pyeongGraphDesignVariants.map((design, index) => {
+    const result = renderGraphSvg({
+      design: activeGraphDesign(),
+      pyeongDesign: design,
+      interactive: false,
+      mode: "preview",
+      months: sample.months,
+      series: sample.series.map((item, seriesIndex) => ({
+        ...item,
+        color: graphDesignColor(activeGraphDesign(), seriesIndex, item.color)
+      }))
+    });
+    const isActive = design.id === active.id;
+    return `
+      <button class="graph-design-card ${isActive ? "active" : ""}" type="button" data-pyeong-graph-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${pyeongGraphDesignVariants.length}`}</em>
+        </span>
+        <span class="graph-design-preview">${result.html}</span>
+      </button>
+    `;
+  }).join("");
+}
+
 function renderMarkerDesignGallery() {
   if (!els.markerDesignGrid) return;
   const active = activeMarkerDesign();
@@ -1954,27 +2108,31 @@ function graphDesignSampleData() {
     const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
     return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
   });
-  const buildPrices = (base, slope, wave, bump = 0) => months.map((yearMonth, index) => ({
+  const buildPrices = (base, slope, wave, bump = 0, pyeongBase = 3200) => months.map((yearMonth, index) => ({
     yearMonth,
-    saleMid: Math.round(base + slope * index + Math.sin(index / 3.2) * wave + Math.max(0, index - 24) * bump)
+    saleMid: Math.round(base + slope * index + Math.sin(index / 3.2) * wave + Math.max(0, index - 24) * bump),
+    pyeongPrice: Math.round(pyeongBase + slope * 0.08 * index + Math.sin(index / 4) * wave * 0.06 + Math.max(0, index - 24) * bump * 0.08)
   }));
   return {
     months,
     series: [
-      { label: "59A", color: colors[0], prices: buildPrices(72000, 520, 1600, 160) },
-      { label: "84A", color: colors[1], prices: buildPrices(98000, 760, 2100, 220) },
-      { label: "101", color: colors[2], prices: buildPrices(124000, 640, 2500, 120) },
-      { label: "114", color: colors[3], prices: buildPrices(148000, 830, 2800, 260) }
+      { label: "59A", color: colors[0], prices: buildPrices(72000, 520, 1600, 160, 3600) },
+      { label: "84A", color: colors[1], prices: buildPrices(98000, 760, 2100, 220, 4100) },
+      { label: "101", color: colors[2], prices: buildPrices(124000, 640, 2500, 120, 4450) },
+      { label: "114", color: colors[3], prices: buildPrices(148000, 830, 2800, 260, 4700) }
     ]
   };
 }
 
-function renderGraphSvg({ design, interactive, mode, months, series }) {
+function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), interactive, mode, months, series }) {
   const geometry = graphChartGeometry({ mode, months, series });
   const { width, height, padding, chartRight, chartBottom, x, y, yMin, yMax } = geometry;
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
+  const pyeongGeometry = graphPyeongGeometry({ series, padding, chartBottom });
+  const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
+  const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, mode, series, x, y: pyeongGeometry?.y });
   const seriesMarkup = series.map((item, index) => renderGraphSeries({
     chartBottom,
     design,
@@ -2001,14 +2159,65 @@ function renderGraphSvg({ design, interactive, mode, months, series }) {
         <rect x="0" y="0" width="${width}" height="${height}" rx="${mode === "preview" ? 12 : 0}" fill="${design.background}"></rect>
         <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="${design.plotRadius}" style="fill:${design.plotBackground};stroke:${design.gridMode === "none" ? "transparent" : design.gridColor};"></rect>
         ${grid}
+        ${pyeongAxis}
+        ${pyeongSeriesMarkup}
         ${seriesMarkup}
         ${monthLabels}
         <line class="map-popup-axis-line" x1="${padding.left}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
         <line class="map-popup-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
+        ${pyeongGeometry ? `<line class="map-popup-pyeong-axis-line" x1="${chartRight}" y1="${padding.top}" x2="${chartRight}" y2="${chartBottom}"></line>` : ""}
         ${hover}
       </svg>
     `
   };
+}
+
+function graphPyeongGeometry({ series, padding, chartBottom }) {
+  const values = series.flatMap((item) => item.prices.map((price) => Number(price.pyeongPrice)).filter(Number.isFinite));
+  if (!values.length) return null;
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const span = Math.max(rawMax - rawMin, 500);
+  const yMin = Math.max(0, Math.floor((rawMin - span * 0.14) / 500) * 500);
+  const yMax = Math.ceil((rawMax + span * 0.14) / 500) * 500;
+  const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (chartBottom - padding.top);
+  return { y, yMin, yMax };
+}
+
+function renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight }) {
+  if (!pyeongGeometry || pyeongDesign.labelMode === "none") return "";
+  const ratios = [0, 0.5, 1];
+  return ratios.map((ratio) => {
+    const value = Math.round((pyeongGeometry.yMin + (pyeongGeometry.yMax - pyeongGeometry.yMin) * ratio) / 100) * 100;
+    const yPos = pyeongGeometry.y(value).toFixed(1);
+    return `
+      <text class="map-popup-pyeong-axis-label" x="${chartRight + 10}" y="${(Number(yPos) + 4).toFixed(1)}" text-anchor="start">${formatMoney(value)}</text>
+    `;
+  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당</text>`;
+}
+
+function renderPyeongGraphSeries({ design, mode, series, x, y }) {
+  if (!y) return "";
+  const limit = mode === "preview" ? 3 : 8;
+  return series.slice(0, limit).map((item) => {
+    const color = design.monochrome ? "#98a2b3" : item.color;
+    const points = item.prices
+      .filter((price) => Number.isFinite(Number(price.pyeongPrice)))
+      .map((price) => ({
+        x: x(price.yearMonth),
+        y: y(Number(price.pyeongPrice)),
+        price
+      }));
+    if (!points.length) return "";
+    const path = graphLinePath(points, "linear");
+    const style = [
+      `stroke-width:${design.lineWidth}px`,
+      `opacity:${design.opacity}`,
+      `stroke-linecap:${design.linecap}`,
+      design.dash ? `stroke-dasharray:${design.dash}` : ""
+    ].filter(Boolean).join(";");
+    return `<path class="map-popup-pyeong-line" d="${path}" stroke="${color}" style="${style}"></path>`;
+  }).join("");
 }
 
 function graphChartGeometry({ mode, months, series }) {
@@ -2165,7 +2374,8 @@ function bindMapPopupChartHover({ width, months, series, x }) {
     const rows = series.map((item) => {
       const price = item.prices.find((entry) => entry.yearMonth === month);
       if (!price) return "";
-      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`;
+      const pyeong = Number.isFinite(Number(price.pyeongPrice)) ? ` · 평당 ${formatMoney(price.pyeongPrice)}` : "";
+      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}${pyeong}</span>`;
     }).filter(Boolean).join("");
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
@@ -2610,9 +2820,16 @@ function formatMonthRange(start, end) {
   return `${formatMonth(start)} - ${formatMonth(end)}`;
 }
 
+function average(values) {
+  const clean = values.map(Number).filter(Number.isFinite);
+  if (!clean.length) return 0;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
 function formatMoney(value) {
-  if (!Number.isFinite(value)) return "-";
-  return `${formatInt(value)}만`;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return `${formatInt(number)}만`;
 }
 
 function formatKoreanPrice(value) {
