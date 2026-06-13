@@ -826,6 +826,7 @@ function formatRecentLabel(label) {
 function targetLabel(target) {
   return {
     seoul: "서울",
+    gyeonggi: "경기",
     bundang: "분당",
     dongtan: "동탄"
   }[target] || target || "-";
