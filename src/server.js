@@ -4,7 +4,13 @@ import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { initDb } from "./services/db.js";
-import { createCrawlJob, crawlDetails, crawlStatus, readDatasetFromDb } from "./services/db-store.js";
+import {
+  createCrawlJob,
+  crawlDetails,
+  readDatasetFromDb,
+  readFilterOptions,
+  readStatusOverview
+} from "./services/db-store.js";
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
@@ -12,8 +18,7 @@ import { readCachedZoomMapSummary } from "./services/map-growth-cache.js";
 import {
   buildApartmentRankings,
   buildNeighborhoodChart,
-  buildNeighborhoodRankings,
-  getAvailableMonths
+  buildNeighborhoodRankings
 } from "./services/price-calculator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -28,27 +33,24 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
     if (url.pathname === "/api/filters") {
-      const dataset = await readDatasetFromDb();
+      const filters = await readFilterOptions({
+        regionId: url.searchParams.get("regionId") || ""
+      });
       return json(res, {
         regions,
-        regionStats: buildRegionStats(dataset),
-        months: getAvailableMonths(dataset),
-        neighborhoods: listNeighborhoods(dataset, url.searchParams.get("regionId"))
+        regionStats: filters.regionStats,
+        months: filters.months,
+        neighborhoods: filters.neighborhoods
       });
     }
 
     if (url.pathname === "/api/status") {
-      const dataset = await readDatasetFromDb();
-      const crawl = await crawlStatus();
+      const status = await readStatusOverview();
       return json(res, {
-        meta: dataset.meta,
-        counts: {
-          apartments: dataset.apartments.length,
-          areaTypes: dataset.areaTypes.length,
-          monthlyPrices: dataset.monthlyPrices.length
-        },
-        months: getAvailableMonths(dataset),
-        crawl: serializeCrawlStatus(crawl)
+        meta: status.meta,
+        counts: status.counts,
+        months: status.months,
+        crawl: serializeCrawlStatus(status.crawl)
       });
     }
 
@@ -162,46 +164,6 @@ function queryFilters(url) {
     start: url.searchParams.get("start") || "",
     end: url.searchParams.get("end") || ""
   };
-}
-
-function listNeighborhoods(dataset, regionId) {
-  const items = dataset.apartments
-    .filter((apartment) => !regionId || apartment.regionId === regionId)
-    .map((apartment) => ({
-      name: apartment.neighborhoodName || "미분류",
-      legalDongCode: apartment.legalDongCode || ""
-    }));
-
-  return [...new Map(items.map((item) => [`${item.legalDongCode}:${item.name}`, item])).values()]
-    .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-}
-
-function buildRegionStats(dataset) {
-  const apartmentIdsByRegion = new Map();
-  for (const apartment of dataset.apartments) {
-    if (!apartmentIdsByRegion.has(apartment.regionId)) apartmentIdsByRegion.set(apartment.regionId, new Set());
-    apartmentIdsByRegion.get(apartment.regionId).add(apartment.id);
-  }
-
-  const areaTypeRegionById = new Map();
-  for (const areaType of dataset.areaTypes) {
-    const apartment = dataset.apartments.find((item) => item.id === areaType.apartmentId);
-    if (apartment) areaTypeRegionById.set(areaType.id, apartment.regionId);
-  }
-
-  return regions.map((region) => {
-    const apartmentIds = apartmentIdsByRegion.get(region.id) || new Set();
-    const areaTypeIds = [...areaTypeRegionById.entries()]
-      .filter(([, regionId]) => regionId === region.id)
-      .map(([areaTypeId]) => areaTypeId);
-    const areaTypeIdSet = new Set(areaTypeIds);
-    return {
-      regionId: region.id,
-      apartments: apartmentIds.size,
-      areaTypes: areaTypeIds.length,
-      monthlyPrices: dataset.monthlyPrices.filter((price) => areaTypeIdSet.has(price.areaTypeId)).length
-    };
-  });
 }
 
 function buildZoomMapSummary(dataset, filters) {

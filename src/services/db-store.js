@@ -50,6 +50,103 @@ export async function readDatasetFromDb() {
   };
 }
 
+export async function readFilterOptions({ regionId = "" } = {}) {
+  const params = [regionId];
+  const [months, regionStats, neighborhoods] = await Promise.all([
+    query(`
+      select distinct year_month
+      from monthly_prices
+      where year_month is not null
+      order by year_month
+    `),
+    query(`
+      with apartment_counts as (
+        select region_id, count(*)::int as apartments
+        from apartments
+        group by region_id
+      ),
+      area_counts as (
+        select a.region_id, count(at.id)::int as area_types
+        from apartments a
+        left join area_types at on at.apartment_id = a.id
+        group by a.region_id
+      ),
+      price_counts as (
+        select a.region_id, count(mp.id)::int as monthly_prices
+        from monthly_prices mp
+        join area_types at on at.id = mp.area_type_id
+        join apartments a on a.id = at.apartment_id
+        group by a.region_id
+      )
+      select
+        ac.region_id,
+        ac.apartments,
+        coalesce(arc.area_types, 0)::int as area_types,
+        coalesce(pc.monthly_prices, 0)::int as monthly_prices
+      from apartment_counts ac
+      left join area_counts arc on arc.region_id = ac.region_id
+      left join price_counts pc on pc.region_id = ac.region_id
+      order by ac.region_id
+    `),
+    query(`
+      select distinct
+        coalesce(neighborhood_name, '미분류') as name,
+        coalesce(legal_dong_code, '') as legal_dong_code
+      from apartments
+      where ($1 = '' or region_id = $1)
+      order by name
+    `, params)
+  ]);
+
+  return {
+    months: months.rows.map((row) => row.year_month),
+    regionStats: regionStats.rows.map((row) => ({
+      regionId: row.region_id,
+      apartments: Number(row.apartments || 0),
+      areaTypes: Number(row.area_types || 0),
+      monthlyPrices: Number(row.monthly_prices || 0)
+    })),
+    neighborhoods: neighborhoods.rows.map((row) => ({
+      name: row.name,
+      legalDongCode: row.legal_dong_code
+    }))
+  };
+}
+
+export async function readStatusOverview() {
+  const [counts, months, updatedAt, crawl] = await Promise.all([
+    query(`
+      select
+        (select count(*)::int from apartments) as apartments,
+        (select count(*)::int from area_types) as area_types,
+        (select count(*)::int from monthly_prices) as monthly_prices
+    `),
+    query(`
+      select distinct year_month
+      from monthly_prices
+      where year_month is not null
+      order by year_month
+    `),
+    query(`select max(updated_at) as updated_at from monthly_prices`),
+    crawlStatus()
+  ]);
+
+  const countRow = counts.rows[0] || {};
+  return {
+    meta: {
+      source: "kb_internal_mvp",
+      syncedAt: updatedAt.rows[0]?.updated_at || null
+    },
+    counts: {
+      apartments: Number(countRow.apartments || 0),
+      areaTypes: Number(countRow.area_types || 0),
+      monthlyPrices: Number(countRow.monthly_prices || 0)
+    },
+    months: months.rows.map((row) => row.year_month),
+    crawl
+  };
+}
+
 export async function upsertCollectedData({ apartments, areaTypes, monthlyPrices }) {
   await withClient(async (client) => {
     await client.query("begin");

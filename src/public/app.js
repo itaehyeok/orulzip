@@ -139,9 +139,8 @@ function bindEvents() {
       document.querySelector("#formulaView").classList.toggle("active", state.activeTab === "formula");
       document.querySelector("#crawlView").classList.toggle("active", state.activeTab === "crawl");
       document.querySelector("#mapView").classList.toggle("active", state.activeTab === "map");
-      if (state.activeTab === "crawl") loadCrawlDetails();
       if (state.activeTab === "formula") loadFormulaAnalysis();
-      if (state.activeTab === "map") loadZoomMapSummary();
+      if (state.activeTab !== "formula") loadActiveViewData();
     });
   });
 
@@ -188,12 +187,8 @@ async function loadFilters() {
 }
 
 async function refresh() {
-  const [status, molitStatus] = await Promise.all([
-    api("/api/status"),
-    api("/api/molit/status")
-  ]);
+  const status = await api("/api/status");
   renderCrawlStatus(status.crawl);
-  renderMolitStatus(molitStatus);
   const months = status.months || [];
   state.months = months;
   els.statusLine.textContent = status.counts.monthlyPrices
@@ -205,18 +200,36 @@ async function refresh() {
     return;
   }
 
-  const params = queryParams();
-  const [neighborhoodRanking, chartData, apartmentRanking] = await Promise.all([
-    api(`/api/neighborhood-rankings?${params}`),
-    api(`/api/neighborhood-chart?${params}`),
-    api(`/api/apartment-rankings?${params}`)
-  ]);
+  await loadActiveViewData();
+}
 
-  renderNeighborhoodTable(neighborhoodRanking);
-  renderChart(chartData);
-  renderApartmentTable(apartmentRanking);
-  if (state.activeTab === "crawl") await loadCrawlDetails();
-  if (state.activeTab === "map") await loadZoomMapSummary();
+async function loadActiveViewData() {
+  const params = queryParams();
+
+  if (state.activeTab === "map") {
+    await loadZoomMapSummary();
+    return;
+  }
+
+  if (state.activeTab === "neighborhood") {
+    const [neighborhoodRanking, chartData] = await Promise.all([
+      api(`/api/neighborhood-rankings?${params}`),
+      api(`/api/neighborhood-chart?${params}`)
+    ]);
+    renderNeighborhoodTable(neighborhoodRanking);
+    renderChart(chartData);
+    return;
+  }
+
+  if (state.activeTab === "apartment") {
+    renderApartmentTable(await api(`/api/apartment-rankings?${params}`));
+    return;
+  }
+
+  if (state.activeTab === "crawl") {
+    renderMolitStatus(await api("/api/molit/status"));
+    await loadCrawlDetails();
+  }
 }
 
 async function syncCurrentRegion() {
@@ -235,16 +248,17 @@ async function syncCurrentRegion() {
 }
 
 async function refreshStatusOnly() {
-  const [status, molitStatus] = await Promise.all([
-    api("/api/status"),
-    api("/api/molit/status")
-  ]);
+  const status = await api("/api/status");
   renderCrawlStatus(status.crawl);
-  renderMolitStatus(molitStatus);
+  const months = status.months || [];
+  if (months.length) state.months = months;
   els.statusLine.textContent = status.counts.monthlyPrices
     ? `아파트 ${formatInt(status.counts.apartments)}개, 면적 ${formatInt(status.counts.areaTypes)}개, 월별 시세 ${formatInt(status.counts.monthlyPrices)}건. 최근 저장: ${status.meta.syncedAt || "-"}`
     : "아직 저장된 시세 데이터가 없습니다. 수집 작업을 등록하고 worker가 처리할 때까지 기다려주세요.";
-  if (state.activeTab === "crawl") await loadCrawlDetails();
+  if (state.activeTab === "crawl") {
+    renderMolitStatus(await api("/api/molit/status"));
+    await loadCrawlDetails();
+  }
 }
 
 function renderCrawlStatus(crawl) {

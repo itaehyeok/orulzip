@@ -63,6 +63,7 @@ export async function initDb() {
     );
 
     create index if not exists monthly_prices_area_month_idx on monthly_prices(area_type_id, year_month);
+    create index if not exists monthly_prices_month_idx on monthly_prices(year_month);
     create index if not exists apartments_region_idx on apartments(region_id);
     create index if not exists apartments_neighborhood_idx on apartments(neighborhood_name);
 
