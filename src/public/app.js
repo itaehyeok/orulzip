@@ -3,6 +3,7 @@ const tabRoutes = {
   neighborhood: "/neighborhood",
   apartment: "/apartments",
   formula: "/formula",
+  design: "/design",
   crawl: "/crawl"
 };
 
@@ -12,6 +13,7 @@ const routeTabs = {
   "/neighborhood": "neighborhood",
   "/apartments": "apartment",
   "/formula": "formula",
+  "/design": "design",
   "/crawl": "crawl"
 };
 
@@ -37,12 +39,58 @@ const state = {
   mapApartmentDetails: new Map(),
   mapPopupDetail: null,
   mapPopupPeriodYears: 3,
+  activeGraphDesignId: null,
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
 };
 
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
+const defaultGraphDesignId = "clean-line";
+const graphDesignStorageKey = "orulzip.graphDesignId";
+const graphPalettes = {
+  market: ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"],
+  naver: ["#03c75a", "#2f80ed", "#f2994a", "#9b51e0", "#eb5757", "#219653", "#56ccf2", "#6b7280"],
+  kb: ["#0b5cab", "#e04f39", "#22a06b", "#f5a623", "#6941c6", "#0086c9", "#c4320a", "#475467"],
+  mono: ["#111827", "#4b5563", "#6b7280", "#9ca3af", "#374151", "#1f2937", "#52525b", "#71717a"],
+  forest: ["#087443", "#0e9384", "#4e5ba6", "#dc6803", "#c11574", "#175cd3", "#669f2a", "#667085"],
+  slate: ["#175cd3", "#3538cd", "#155eef", "#0086c9", "#0e9384", "#7a2e0e", "#c01048", "#344054"],
+  warm: ["#c2410c", "#b42318", "#ca8504", "#b54708", "#a15c07", "#9f1f63", "#6941c6", "#475467"],
+  dusk: ["#7c3aed", "#2563eb", "#0891b2", "#16a34a", "#ea580c", "#dc2626", "#9333ea", "#475569"]
+};
+const graphDesignVariants = [
+  graphDesign("clean-line", "01 클린 라인", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
+  graphDesign("soft-line", "02 소프트 라인", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", background: "#ffffff", plotBackground: "#fbfdff", shadow: false }),
+  graphDesign("finance-blue", "03 금융 블루", { curve: "smooth", fillOpacity: 0.035, pointMode: "end", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#f8fbff", shadow: false }),
+  graphDesign("naver-fresh", "04 네이버 그린", { curve: "smooth", fillOpacity: 0.035, pointMode: "end", labelMode: "none", palette: "naver", background: "#ffffff", plotBackground: "#fbfefc", shadow: false }),
+  graphDesign("mono-report", "05 리포트 모노", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", background: "#ffffff", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
+  graphDesign("forest-clean", "06 포레스트", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "forest", background: "#ffffff", plotBackground: "#fbfffd", shadow: false }),
+  graphDesign("slate-focus", "07 슬레이트", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "none", palette: "slate", background: "#ffffff", plotBackground: "#f8fafc", shadow: false }),
+  graphDesign("warm-index", "08 웜 인덱스", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "end", palette: "warm", background: "#fffdfb", plotBackground: "#fffaf5", shadow: false }),
+  graphDesign("thin-grid", "09 씬 그리드", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "market", gridMode: "thin", lineWidth: 2.1, shadow: false }),
+  graphDesign("no-grid", "10 노 그리드", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", gridMode: "none", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
+  graphDesign("soft-area", "11 소프트 에어리어", { curve: "smooth", fillOpacity: 0.06, pointMode: "end", labelMode: "end", palette: "market", shadow: false }),
+  graphDesign("paper-area", "12 페이퍼 에어리어", { curve: "smooth", fillOpacity: 0.045, pointMode: "none", labelMode: "end", palette: "kb", background: "#fbfcfe", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
+  graphDesign("bold-end", "13 볼드 엔드", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "slate", lineWidth: 3.4, shadow: true }),
+  graphDesign("compact-label", "14 컴팩트 라벨", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "none", palette: "market", lineWidth: 2.5, shadow: false }),
+  graphDesign("all-points", "15 포인트 라인", { curve: "linear", fillOpacity: 0, pointMode: "all", labelMode: "none", palette: "kb", lineWidth: 2.2, shadow: false }),
+  graphDesign("dotted-line", "16 도트 라인", { curve: "smooth", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "forest", dash: "2 6", lineWidth: 3, shadow: false }),
+  graphDesign("dashed-report", "17 대시 리포트", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", dash: "8 5", gridMode: "solid", shadow: false }),
+  graphDesign("step-market", "18 스텝 마켓", { curve: "step", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "market", lineWidth: 2.8, shadow: false }),
+  graphDesign("step-area", "19 스텝 에어리어", { curve: "step", fillOpacity: 0.04, pointMode: "none", labelMode: "none", palette: "naver", lineWidth: 2.5, shadow: false }),
+  graphDesign("dark-board", "20 다크 보드", { curve: "smooth", fillOpacity: 0.055, pointMode: "end", labelMode: "end", palette: "dusk", background: "#101828", plotBackground: "#111c2f", textColor: "#d0d5dd", axisColor: "#475467", gridColor: "#344054", shadow: false }),
+  graphDesign("midnight", "21 미드나이트", { curve: "linear", fillOpacity: 0, pointMode: "end", labelMode: "end", palette: "naver", background: "#0f172a", plotBackground: "#111827", textColor: "#cbd5e1", axisColor: "#475569", gridColor: "#334155", shadow: false }),
+  graphDesign("ink-card", "22 잉크 카드", { curve: "smooth", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "mono", background: "#f8fafc", plotBackground: "#ffffff", gridMode: "solid", shadow: false }),
+  graphDesign("glass-light", "23 글래스 라이트", { curve: "smooth", fillOpacity: 0.03, pointMode: "end", labelMode: "end", palette: "slate", background: "#f8fbff", plotBackground: "#ffffff", shadow: true }),
+  graphDesign("calm-green", "24 캄 그린", { curve: "smooth", fillOpacity: 0.025, pointMode: "end", labelMode: "none", palette: "forest", background: "#fbfffd", plotBackground: "#ffffff", gridMode: "thin", shadow: false }),
+  graphDesign("executive", "25 임원 보고", { curve: "linear", fillOpacity: 0, pointMode: "none", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#ffffff", gridMode: "solid", lineWidth: 2.4, shadow: false }),
+  graphDesign("signal", "26 시그널", { curve: "smooth", fillOpacity: 0, pointMode: "all", labelMode: "end", palette: "dusk", background: "#ffffff", plotBackground: "#fbfbff", lineWidth: 2.6, shadow: false }),
+  graphDesign("minimal-axis", "27 미니멀 축", { curve: "smooth", fillOpacity: 0, pointMode: "none", labelMode: "none", palette: "market", gridMode: "minimal", background: "#ffffff", plotBackground: "#ffffff", shadow: false }),
+  graphDesign("soft-shadow", "28 소프트 섀도", { curve: "smooth", fillOpacity: 0.02, pointMode: "end", labelMode: "end", palette: "kb", background: "#ffffff", plotBackground: "#fbfdff", shadow: true }),
+  graphDesign("warm-paper", "29 웜 페이퍼", { curve: "linear", fillOpacity: 0.02, pointMode: "end", labelMode: "end", palette: "warm", background: "#fffaf5", plotBackground: "#fffefd", gridMode: "thin", shadow: false }),
+  graphDesign("presentation", "30 프레젠테이션", { curve: "smooth", fillOpacity: 0.04, pointMode: "end", labelMode: "end", palette: "dusk", background: "#ffffff", plotBackground: "#ffffff", gridMode: "none", lineWidth: 3.2, shadow: true })
+];
+const graphDesignVariantMap = new Map(graphDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
   center: [37.48, 127.18],
   zoom: 12
@@ -88,6 +136,9 @@ const els = {
   formulaPeriod: document.querySelector("#formulaPeriod"),
   formulaRows: document.querySelector("#formulaRows"),
   formulaExampleRows: document.querySelector("#formulaExampleRows"),
+  designView: document.querySelector("#designView"),
+  designGraphSelected: document.querySelector("#designGraphSelected"),
+  graphDesignGrid: document.querySelector("#graphDesignGrid"),
   molitSummary: document.querySelector("#molitSummary"),
   molitCompletionList: document.querySelector("#molitCompletionList"),
   mapView: document.querySelector("#mapView"),
@@ -125,6 +176,7 @@ const els = {
 init();
 
 async function init() {
+  state.activeGraphDesignId = readStoredGraphDesignId();
   setActiveTab(tabFromLocation());
   bindEvents();
   await loadClientConfig();
@@ -161,6 +213,11 @@ function bindEvents() {
     if (els.mapSearchInput.value.trim()) scheduleMapSearch(0);
   });
   els.mapSearchInput.addEventListener("keydown", handleMapSearchKeydown);
+  els.graphDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-graph-design-id]");
+    if (!card) return;
+    setActiveGraphDesign(card.dataset.graphDesignId);
+  });
 
   document.querySelectorAll("[data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -235,6 +292,11 @@ async function refresh() {
     ? `아파트 ${formatInt(status.counts.apartments)}개, 면적 ${formatInt(status.counts.areaTypes)}개, 월별 시세 ${formatInt(status.counts.monthlyPrices)}건. 최근 동기화: ${status.meta.syncedAt || "-"}`
     : "아직 수집된 데이터가 없습니다. 상단의 샘플 동기화 버튼을 눌러 시작하세요.";
 
+  if (state.activeTab === "design") {
+    renderGraphDesignGallery();
+    return;
+  }
+
   if (!status.counts.monthlyPrices) {
     renderEmpty();
     return;
@@ -271,6 +333,11 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "design") {
+    renderGraphDesignGallery();
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     renderMolitStatus(await api("/api/molit/status"));
   }
@@ -299,6 +366,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#neighborhoodView").classList.toggle("active", nextTab === "neighborhood");
   document.querySelector("#apartmentView").classList.toggle("active", nextTab === "apartment");
   document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
+  document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
 
   const nextRoute = tabRoutes[nextTab];
@@ -1474,11 +1542,12 @@ function renderMapApartmentDetail(detail) {
 
   const startMonth = periodStartMonth(latestMonth, years);
   const months = detail.months.filter((month) => month >= startMonth && month <= latestMonth);
+  const graphDesign = activeGraphDesign();
   els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${formatMonth(startMonth)} - ${formatMonth(latestMonth)} / ${years}년전 기준`;
   const series = detail.areaTypes
     .map((areaType, index) => ({
       ...areaType,
-      color: colors[index % colors.length],
+      color: graphDesignColor(graphDesign, index, colors[index % colors.length]),
       prices: areaType.prices.filter((price) => price.yearMonth >= startMonth && price.yearMonth <= latestMonth)
     }))
     .filter((areaType) => areaType.prices.length)
@@ -1508,77 +1577,283 @@ function renderMapApartmentDetail(detail) {
 }
 
 function renderMapPopupChart({ months, series }) {
-  const width = 680;
-  const height = 300;
-  const padding = { top: 26, right: 92, bottom: 42, left: 72 };
+  const result = renderGraphSvg({
+    design: activeGraphDesign(),
+    interactive: true,
+    mode: "popup",
+    months,
+    series
+  });
+  els.mapPopupChart.innerHTML = result.html;
+  bindMapPopupChartHover({ width: result.geometry.width, months, series, x: result.geometry.x });
+}
+
+function graphDesign(id, name, overrides = {}) {
+  return {
+    id,
+    name,
+    palette: "market",
+    curve: "smooth",
+    fillOpacity: 0,
+    pointMode: "end",
+    labelMode: "end",
+    gridMode: "soft",
+    background: "#ffffff",
+    plotBackground: "#fbfdff",
+    textColor: "#667085",
+    axisColor: "#cfd7e3",
+    gridColor: "#e7edf5",
+    lineWidth: 2.7,
+    dash: "",
+    shadow: false,
+    plotRadius: 8,
+    ...overrides
+  };
+}
+
+function activeGraphDesign() {
+  return graphDesignVariantMap.get(state.activeGraphDesignId)
+    || graphDesignVariantMap.get(defaultGraphDesignId)
+    || graphDesignVariants[0];
+}
+
+function readStoredGraphDesignId() {
+  try {
+    const stored = window.localStorage.getItem(graphDesignStorageKey);
+    return graphDesignVariantMap.has(stored) ? stored : defaultGraphDesignId;
+  } catch {
+    return defaultGraphDesignId;
+  }
+}
+
+function setActiveGraphDesign(id) {
+  if (!graphDesignVariantMap.has(id)) return;
+  state.activeGraphDesignId = id;
+  try {
+    window.localStorage.setItem(graphDesignStorageKey, id);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  renderGraphDesignGallery();
+  if (state.mapPopupDetail && !els.mapApartmentPopup.hidden) {
+    renderMapApartmentDetail(state.mapPopupDetail);
+  }
+}
+
+function renderGraphDesignGallery() {
+  if (!els.graphDesignGrid) return;
+  const sample = graphDesignSampleData();
+  const active = activeGraphDesign();
+  els.designGraphSelected.textContent = `${active.name} / ${graphDesignVariants.length}개`;
+  els.graphDesignGrid.innerHTML = graphDesignVariants.map((design, index) => {
+    const previewSeries = sample.series.map((item, seriesIndex) => ({
+      ...item,
+      color: graphDesignColor(design, seriesIndex, item.color)
+    }));
+    const result = renderGraphSvg({
+      design,
+      interactive: false,
+      mode: "preview",
+      months: sample.months,
+      series: previewSeries
+    });
+    const isActive = design.id === active.id;
+    return `
+      <button class="graph-design-card ${isActive ? "active" : ""}" type="button" data-graph-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/30`}</em>
+        </span>
+        <span class="graph-design-preview">${result.html}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function graphDesignSampleData() {
+  const start = new Date(2023, 5, 1);
+  const months = Array.from({ length: 38 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
+    return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const buildPrices = (base, slope, wave, bump = 0) => months.map((yearMonth, index) => ({
+    yearMonth,
+    saleMid: Math.round(base + slope * index + Math.sin(index / 3.2) * wave + Math.max(0, index - 24) * bump)
+  }));
+  return {
+    months,
+    series: [
+      { label: "59A", color: colors[0], prices: buildPrices(72000, 520, 1600, 160) },
+      { label: "84A", color: colors[1], prices: buildPrices(98000, 760, 2100, 220) },
+      { label: "101", color: colors[2], prices: buildPrices(124000, 640, 2500, 120) },
+      { label: "114", color: colors[3], prices: buildPrices(148000, 830, 2800, 260) }
+    ]
+  };
+}
+
+function renderGraphSvg({ design, interactive, mode, months, series }) {
+  const geometry = graphChartGeometry({ mode, months, series });
+  const { width, height, padding, chartRight, chartBottom, x, y, yMin, yMax } = geometry;
+  const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+  const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
+  const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
+  const seriesMarkup = series.map((item, index) => renderGraphSeries({
+    chartBottom,
+    design,
+    index,
+    item,
+    mode,
+    svgId,
+    x,
+    y
+  })).join("");
+  const defs = series.map((item, index) => renderGraphGradient({ design, item, index, svgId })).join("");
+  const hover = interactive
+    ? `
+      <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" style="stroke:${design.textColor};" hidden></line>
+      <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" fill="transparent"></rect>
+    `
+    : "";
+
+  return {
+    geometry,
+    html: `
+      <svg class="map-popup-chart-svg graph-design-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="평형별 시세 그래프">
+        <defs>${defs}</defs>
+        <rect x="0" y="0" width="${width}" height="${height}" rx="${mode === "preview" ? 12 : 0}" fill="${design.background}"></rect>
+        <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="${design.plotRadius}" style="fill:${design.plotBackground};stroke:${design.gridMode === "none" ? "transparent" : design.gridColor};"></rect>
+        ${grid}
+        ${seriesMarkup}
+        ${monthLabels}
+        <line class="map-popup-axis-line" x1="${padding.left}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
+        <line class="map-popup-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
+        ${hover}
+      </svg>
+    `
+  };
+}
+
+function graphChartGeometry({ mode, months, series }) {
+  const width = mode === "preview" ? 360 : 680;
+  const height = mode === "preview" ? 190 : 300;
+  const padding = mode === "preview"
+    ? { top: 18, right: 68, bottom: 30, left: 54 }
+    : { top: 26, right: 92, bottom: 42, left: 72 };
+  const chartBottom = height - padding.bottom;
+  const chartRight = width - padding.right;
   const values = series.flatMap((item) => item.prices.map((price) => price.saleMid).filter(Number.isFinite));
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const valueSpan = Math.max(rawMax - rawMin, 10000);
   const yMin = Math.max(0, Math.floor((rawMin - valueSpan * 0.12) / 5000) * 5000);
   const yMax = Math.ceil((rawMax + valueSpan * 0.12) / 5000) * 5000;
-  const chartBottom = height - padding.bottom;
-  const chartRight = width - padding.right;
-
   const x = (month) => {
     const index = months.indexOf(month);
     if (months.length <= 1) return padding.left;
     return padding.left + (index / (months.length - 1)) * (chartRight - padding.left);
   };
   const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (chartBottom - padding.top);
+  return { width, height, padding, chartBottom, chartRight, x, y, yMin, yMax };
+}
 
-  const gridValues = [0, 0.33, 0.66, 1].map((ratio) => Math.round((yMin + (yMax - yMin) * ratio) / 1000) * 1000);
-  const grid = gridValues.map((value) => `
-    <line class="map-popup-grid-line" x1="${padding.left}" y1="${y(value).toFixed(1)}" x2="${chartRight}" y2="${y(value).toFixed(1)}"></line>
-    <text class="map-popup-axis-label" x="${padding.left - 10}" y="${(y(value) + 4).toFixed(1)}" text-anchor="end">${formatKoreanPrice(value)}</text>
-  `).join("");
-  const paths = series.map((item, index) => {
-    const points = item.prices.map((price) => ({
-      x: x(price.yearMonth),
-      y: y(price.saleMid),
-      price
-    }));
-    const linePath = smoothSvgPath(points);
-    const areaPath = `${linePath} L ${points.at(-1).x.toFixed(1)} ${chartBottom} L ${points[0].x.toFixed(1)} ${chartBottom} Z`;
-    const last = points.at(-1);
-    const first = points[0];
-    const labelY = Math.max(padding.top + 12, Math.min(chartBottom - 10, last.y));
-    const endLabel = index < 5
-      ? `<text class="map-popup-end-label" x="${(last.x + 10).toFixed(1)}" y="${(labelY + 4).toFixed(1)}" fill="${item.color}">${escapeHtml(item.label || "-")} ${formatKoreanPrice(last.price.saleMid)}</text>`
-      : "";
+function renderGraphGrid({ design, y, yMin, yMax, padding, chartRight }) {
+  if (design.gridMode === "none") return "";
+  const ratios = design.gridMode === "minimal" ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1];
+  const dash = design.gridMode === "solid" ? "" : design.gridMode === "thin" ? "2 8" : "3 5";
+  return ratios.map((ratio) => {
+    const value = Math.round((yMin + (yMax - yMin) * ratio) / 1000) * 1000;
+    const yPos = y(value).toFixed(1);
     return `
-      <path class="map-popup-area" d="${areaPath}" fill="url(#mapPopupArea${index})"></path>
-      <path class="map-popup-line" d="${linePath}" stroke="${item.color}"></path>
-      <circle class="map-popup-point start" cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="3.5" fill="#fff" stroke="${item.color}"></circle>
-      <circle class="map-popup-point end" cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.5" fill="#fff" stroke="${item.color}"></circle>
-      ${endLabel}
+      <line class="map-popup-grid-line" x1="${padding.left}" y1="${yPos}" x2="${chartRight}" y2="${yPos}" style="stroke:${design.gridColor};stroke-dasharray:${dash};"></line>
+      <text class="map-popup-axis-label" x="${padding.left - 10}" y="${(Number(yPos) + 4).toFixed(1)}" text-anchor="end" style="fill:${design.textColor};">${formatKoreanPrice(value)}</text>
     `;
   }).join("");
-  const labels = months.filter((_, index) => index === 0 || index === months.length - 1 || index % Math.ceil(months.length / 4) === 0)
-    .map((month) => `<text class="map-popup-axis-label" x="${x(month).toFixed(1)}" y="${height - 12}" text-anchor="middle">${formatMonth(month)}</text>`)
+}
+
+function renderGraphMonthLabels({ design, mode, months, x, height }) {
+  const step = Math.ceil(months.length / (mode === "preview" ? 3 : 4));
+  return months
+    .filter((_, index) => index === 0 || index === months.length - 1 || index % step === 0)
+    .map((month) => `<text class="map-popup-axis-label" x="${x(month).toFixed(1)}" y="${height - 12}" text-anchor="middle" style="fill:${design.textColor};">${formatMonth(month)}</text>`)
     .join("");
-  const defs = series.map((item, index) => `
-    <linearGradient id="mapPopupArea${index}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${item.color}" stop-opacity="0.18"></stop>
-      <stop offset="72%" stop-color="${item.color}" stop-opacity="0.045"></stop>
+}
+
+function renderGraphSeries({ chartBottom, design, index, item, mode, svgId, x, y }) {
+  const points = item.prices.map((price) => ({
+    x: x(price.yearMonth),
+    y: y(price.saleMid),
+    price
+  }));
+  if (!points.length) return "";
+  const linePath = graphLinePath(points, design.curve);
+  const first = points[0];
+  const last = points.at(-1);
+  const areaPath = `${linePath} L ${last.x.toFixed(1)} ${chartBottom} L ${first.x.toFixed(1)} ${chartBottom} Z`;
+  const labelLimit = mode === "preview" ? 2 : design.labelMode === "end" ? 5 : 0;
+  const labelY = Math.max(22, Math.min(chartBottom - 8, last.y));
+  const endLabel = index < labelLimit
+    ? `<text class="map-popup-end-label" x="${(last.x + 9).toFixed(1)}" y="${(labelY + 4).toFixed(1)}" fill="${item.color}" style="stroke:${design.background};">${escapeHtml(item.label || "-")} ${formatKoreanPrice(last.price.saleMid)}</text>`
+    : "";
+  const area = design.fillOpacity > 0
+    ? `<path class="map-popup-area" d="${areaPath}" fill="url(#${svgId}-area-${index})"></path>`
+    : "";
+  const pointsMarkup = renderGraphPoints({ design, first, item, last, points });
+  const lineStyle = [
+    `stroke-width:${design.lineWidth}px`,
+    `filter:${design.shadow ? "drop-shadow(0 2px 2px rgba(16, 24, 40, 0.18))" : "none"}`,
+    design.dash ? `stroke-dasharray:${design.dash}` : ""
+  ].filter(Boolean).join(";");
+
+  return `
+    ${area}
+    <path class="map-popup-line" d="${linePath}" stroke="${item.color}" style="${lineStyle}"></path>
+    ${pointsMarkup}
+    ${endLabel}
+  `;
+}
+
+function renderGraphPoints({ design, first, item, last, points }) {
+  if (design.pointMode === "none") return "";
+  const fill = design.background === "#ffffff" ? "#ffffff" : design.plotBackground;
+  if (design.pointMode === "all") {
+    return points.map((point) => `<circle class="map-popup-point" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="2.4" fill="${fill}" stroke="${item.color}"></circle>`).join("");
+  }
+  return `
+    <circle class="map-popup-point start" cx="${first.x.toFixed(1)}" cy="${first.y.toFixed(1)}" r="3.2" fill="${fill}" stroke="${item.color}"></circle>
+    <circle class="map-popup-point end" cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.2" fill="${fill}" stroke="${item.color}"></circle>
+  `;
+}
+
+function renderGraphGradient({ design, item, index, svgId }) {
+  if (design.fillOpacity <= 0) return "";
+  return `
+    <linearGradient id="${svgId}-area-${index}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${item.color}" stop-opacity="${design.fillOpacity}"></stop>
+      <stop offset="74%" stop-color="${item.color}" stop-opacity="${Math.max(design.fillOpacity / 4, 0.01)}"></stop>
       <stop offset="100%" stop-color="${item.color}" stop-opacity="0"></stop>
     </linearGradient>
-  `).join("");
-
-  els.mapPopupChart.innerHTML = `
-    <svg class="map-popup-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="평형별 시세 그래프">
-      <defs>${defs}</defs>
-      <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="8"></rect>
-      ${grid}
-      ${paths}
-      ${labels}
-      <line class="map-popup-axis-line" x1="${padding.left}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}"></line>
-      <line class="map-popup-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}"></line>
-      <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" hidden></line>
-      <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" fill="transparent"></rect>
-    </svg>
   `;
-  bindMapPopupChartHover({ width, months, series, x });
+}
+
+function graphLinePath(points, curve) {
+  if (curve === "linear") return straightSvgPath(points);
+  if (curve === "step") return steppedSvgPath(points);
+  return smoothSvgPath(points);
+}
+
+function straightSvgPath(points) {
+  if (!points.length) return "";
+  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+}
+
+function steppedSvgPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  return points.slice(1).reduce((path, point, index) => {
+    const previous = points[index];
+    const midX = (previous.x + point.x) / 2;
+    return `${path} H ${midX.toFixed(1)} V ${point.y.toFixed(1)} H ${point.x.toFixed(1)}`;
+  }, `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`);
 }
 
 function smoothSvgPath(points) {
@@ -1589,6 +1864,11 @@ function smoothSvgPath(points) {
     const midX = (previous.x + point.x) / 2;
     return `${path} C ${midX.toFixed(1)} ${previous.y.toFixed(1)}, ${midX.toFixed(1)} ${point.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
   }, `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`);
+}
+
+function graphDesignColor(design, index, fallback) {
+  const palette = graphPalettes[design.palette] || graphPalettes.market;
+  return palette[index % palette.length] || fallback || colors[index % colors.length];
 }
 
 function bindMapPopupChartHover({ width, months, series, x }) {

@@ -1207,6 +1207,88 @@ input {
   pointer-events: none;
 }
 
+.design-panel {
+  margin-bottom: 16px;
+}
+
+.graph-design-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.graph-design-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.graph-design-card:hover {
+  border-color: #9db7ea;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
+  transform: translateY(-1px);
+}
+
+.graph-design-card.active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(35, 103, 209, 0.12);
+}
+
+.graph-design-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.graph-design-card-head strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-design-card-head em {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.graph-design-card.active .graph-design-card-head em {
+  background: #e8f0ff;
+  color: var(--blue);
+}
+
+.graph-design-preview {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.graph-design-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -1293,6 +1375,7 @@ td:nth-child(4) {
   .collection-summary-grid,
   .crawl-grid,
   .crawl-job-progress,
+  .graph-design-grid,
   .info-grid {
     grid-template-columns: 1fr;
   }
