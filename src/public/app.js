@@ -33,6 +33,8 @@ const state = {
   mapSearchTimer: null,
   mapSearchRequestId: 0,
   mapSearchItems: [],
+  mapSearchActiveIndex: -1,
+  mapApartmentDetails: new Map(),
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
@@ -985,13 +987,15 @@ function renderZoomMapSummary(data) {
 
 function scheduleMapSearch(delay = 160) {
   clearTimeout(state.mapSearchTimer);
+  state.mapSearchRequestId += 1;
+  state.mapSearchItems = [];
+  state.mapSearchActiveIndex = -1;
   const keyword = els.mapSearchInput.value.trim();
   if (!keyword) {
-    state.mapSearchRequestId += 1;
-    state.mapSearchItems = [];
     hideMapSearchResults();
     return;
   }
+  hideMapSearchResults();
   state.mapSearchTimer = setTimeout(loadMapSearchResults, delay);
 }
 
@@ -1007,10 +1011,14 @@ async function loadMapSearchResults() {
     const result = await api(`/api/map-search?q=${encodeURIComponent(keyword)}&limit=12`);
     if (requestId !== state.mapSearchRequestId) return;
     state.mapSearchItems = result.items || [];
+    state.mapSearchActiveIndex = state.mapSearchItems.length ? 0 : -1;
     renderMapSearchResults(state.mapSearchItems);
   } catch (error) {
     if (requestId !== state.mapSearchRequestId) return;
     state.mapSearchItems = [];
+    state.mapSearchActiveIndex = -1;
+    els.mapSearchInput.setAttribute("aria-expanded", "true");
+    els.mapSearchInput.removeAttribute("aria-activedescendant");
     els.mapSearchResults.hidden = false;
     els.mapSearchResults.innerHTML = `<div class="map-search-empty">검색 실패</div>`;
   }
@@ -1018,9 +1026,10 @@ async function loadMapSearchResults() {
 
 function renderMapSearchResults(items) {
   els.mapSearchResults.hidden = false;
+  els.mapSearchInput.setAttribute("aria-expanded", "true");
   els.mapSearchResults.innerHTML = items.length
     ? items.map((item, index) => `
-      <button class="map-search-result" type="button" data-index="${index}">
+      <button id="map-search-result-${index}" class="map-search-result ${index === state.mapSearchActiveIndex ? "active" : ""}" type="button" role="option" data-index="${index}" aria-selected="${index === state.mapSearchActiveIndex}">
         <span class="map-search-type">${item.type === "dong" ? "동" : "APT"}</span>
         <span class="map-search-main">
           <strong>${escapeHtml(item.name)}</strong>
@@ -1031,24 +1040,64 @@ function renderMapSearchResults(items) {
     : `<div class="map-search-empty">검색 결과가 없습니다.</div>`;
 
   els.mapSearchResults.querySelectorAll("[data-index]").forEach((button) => {
+    button.addEventListener("mouseenter", () => {
+      setMapSearchActiveIndex(Number(button.dataset.index), { scroll: false });
+    });
     button.addEventListener("click", () => {
       const item = state.mapSearchItems[Number(button.dataset.index)];
       if (item) selectMapSearchResult(item);
     });
   });
+  updateMapSearchActiveDescendant();
 }
 
-function handleMapSearchKeydown(event) {
+async function handleMapSearchKeydown(event) {
   if (event.key === "Escape") {
     hideMapSearchResults();
     return;
   }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveMapSearchActiveIndex(1);
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveMapSearchActiveIndex(-1);
+    return;
+  }
   if (event.key !== "Enter") return;
 
-  const item = state.mapSearchItems[0];
-  if (!item) return;
   event.preventDefault();
+  if (!state.mapSearchItems.length && els.mapSearchInput.value.trim()) {
+    clearTimeout(state.mapSearchTimer);
+    await loadMapSearchResults();
+  }
+  const item = state.mapSearchItems[state.mapSearchActiveIndex] || state.mapSearchItems[0];
+  if (!item) return;
   selectMapSearchResult(item);
+}
+
+function moveMapSearchActiveIndex(delta) {
+  if (!state.mapSearchItems.length) return;
+  if (els.mapSearchResults.hidden) renderMapSearchResults(state.mapSearchItems);
+  const current = state.mapSearchActiveIndex < 0 ? (delta > 0 ? -1 : 0) : state.mapSearchActiveIndex;
+  const next = (current + delta + state.mapSearchItems.length) % state.mapSearchItems.length;
+  setMapSearchActiveIndex(next);
+}
+
+function setMapSearchActiveIndex(index, { scroll = true } = {}) {
+  if (!state.mapSearchItems.length) return;
+  state.mapSearchActiveIndex = Math.max(0, Math.min(index, state.mapSearchItems.length - 1));
+  els.mapSearchResults.querySelectorAll("[data-index]").forEach((button) => {
+    const isActive = Number(button.dataset.index) === state.mapSearchActiveIndex;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    if (isActive && scroll) {
+      button.scrollIntoView({ block: "nearest" });
+    }
+  });
+  updateMapSearchActiveDescendant();
 }
 
 async function selectMapSearchResult(item) {
@@ -1076,6 +1125,17 @@ function focusMapTarget(item, zoom = 16) {
 function hideMapSearchResults() {
   els.mapSearchResults.hidden = true;
   els.mapSearchResults.innerHTML = "";
+  state.mapSearchActiveIndex = -1;
+  els.mapSearchInput.setAttribute("aria-expanded", "false");
+  els.mapSearchInput.removeAttribute("aria-activedescendant");
+}
+
+function updateMapSearchActiveDescendant() {
+  if (state.mapSearchActiveIndex < 0) {
+    els.mapSearchInput.removeAttribute("aria-activedescendant");
+    return;
+  }
+  els.mapSearchInput.setAttribute("aria-activedescendant", `map-search-result-${state.mapSearchActiveIndex}`);
 }
 
 function renderMapApartmentRanking(level, items) {
@@ -1119,7 +1179,7 @@ function renderMapApartmentRanking(level, items) {
       const item = itemById.get(button.dataset.apartmentId);
       if (!item) return;
       focusMapApartment(item);
-      openMapApartmentDetail(item.id);
+      openMapApartmentDetail(item.id, item);
     });
   });
 }
@@ -1198,7 +1258,7 @@ function renderZoomApartmentMarker(item) {
     opacity: 1,
     sticky: true
   });
-  marker.on("click", () => openMapApartmentDetail(item.id));
+  marker.on("click", () => openMapApartmentDetail(item.id, item));
 }
 
 function renderNaverZoomGroupMarker(item, level) {
@@ -1240,7 +1300,7 @@ function renderNaverZoomApartmentMarker(item) {
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
-    openMapApartmentDetail(item.id);
+    openMapApartmentDetail(item.id, item);
   });
   state.zoomNaverOverlays.push(marker);
 }
@@ -1263,11 +1323,24 @@ function apartmentHoverHtml(item) {
   `;
 }
 
-async function openMapApartmentDetail(apartmentId) {
+async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
-  const detail = await api(`/api/apartment-detail?apartmentId=${encodeURIComponent(apartmentId)}`);
-  if (requestId !== state.mapPopupRequestId) return;
-  renderMapApartmentDetail(detail);
+  if (state.mapApartmentDetails.has(apartmentId)) {
+    renderMapApartmentDetail(state.mapApartmentDetails.get(apartmentId));
+    return;
+  }
+
+  renderMapApartmentLoading(seedItem);
+
+  try {
+    const detail = await api(`/api/apartment-detail?apartmentId=${encodeURIComponent(apartmentId)}`);
+    if (requestId !== state.mapPopupRequestId) return;
+    state.mapApartmentDetails.set(apartmentId, detail);
+    renderMapApartmentDetail(detail);
+  } catch (error) {
+    if (requestId !== state.mapPopupRequestId) return;
+    renderMapApartmentError(seedItem, error);
+  }
 }
 
 function closeMapApartmentPopup() {
@@ -1275,8 +1348,44 @@ function closeMapApartmentPopup() {
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
 }
 
+function renderMapApartmentLoading(seedItem = null) {
+  els.mapApartmentPopup.hidden = false;
+  els.mapApartmentPopup.classList.add("loading");
+  els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
+  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 3년`;
+  if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
+  els.mapPopupStats.innerHTML = `
+    <div class="map-popup-loading-card"></div>
+    <div class="map-popup-loading-card"></div>
+  `;
+  els.mapPopupChart.innerHTML = `
+    <div class="map-popup-loading">
+      <span class="map-popup-spinner" aria-hidden="true"></span>
+      <strong>시세 그래프를 불러오는 중</strong>
+      <em>평형별 월별 데이터를 준비하고 있습니다.</em>
+    </div>
+  `;
+}
+
+function renderMapApartmentError(seedItem = null, error = null) {
+  els.mapApartmentPopup.hidden = false;
+  els.mapApartmentPopup.classList.remove("loading");
+  els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
+  els.mapPopupMeta.textContent = "불러오기 실패";
+  els.mapPopupStats.innerHTML = "";
+  els.mapPopupChart.innerHTML = `<div class="empty">시세 데이터를 불러오지 못했습니다.${error?.message ? ` ${escapeHtml(error.message)}` : ""}</div>`;
+}
+
 function renderMapApartmentDetail(detail) {
-  if (!detail.apartment) return;
+  els.mapApartmentPopup.classList.remove("loading");
+  if (!detail.apartment) {
+    els.mapApartmentPopup.hidden = false;
+    els.mapPopupTitle.textContent = "아파트 시세";
+    els.mapPopupMeta.textContent = "정보 없음";
+    els.mapPopupStats.innerHTML = "";
+    els.mapPopupChart.innerHTML = `<div class="empty">아파트 정보를 찾지 못했습니다.</div>`;
+    return;
+  }
 
   els.mapApartmentPopup.hidden = false;
   els.mapPopupTitle.textContent = detail.apartment.name;
