@@ -1,9 +1,26 @@
+const tabRoutes = {
+  map: "/map",
+  neighborhood: "/neighborhood",
+  apartment: "/apartments",
+  formula: "/formula",
+  crawl: "/crawl"
+};
+
+const routeTabs = {
+  "/": "map",
+  "/map": "map",
+  "/neighborhood": "neighborhood",
+  "/apartments": "apartment",
+  "/formula": "formula",
+  "/crawl": "crawl"
+};
+
 const state = {
   regions: [],
   regionStats: [],
   months: [],
   neighborhoods: [],
-  activeTab: "map",
+  activeTab: tabFromLocation(),
   crawlStatusFilter: "failed",
   clientConfig: { maps: { provider: "leaflet", naverKeyId: "" } },
   zoomMap: null,
@@ -106,6 +123,7 @@ const els = {
 init();
 
 async function init() {
+  setActiveTab(tabFromLocation());
   bindEvents();
   await loadClientConfig();
   await loadFilters();
@@ -144,18 +162,15 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll(".tabs button").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.activeTab = button.dataset.tab;
-      document.querySelectorAll(".tabs button").forEach((item) => item.classList.toggle("active", item === button));
-      document.querySelector("#neighborhoodView").classList.toggle("active", state.activeTab === "neighborhood");
-      document.querySelector("#apartmentView").classList.toggle("active", state.activeTab === "apartment");
-      document.querySelector("#formulaView").classList.toggle("active", state.activeTab === "formula");
-      document.querySelector("#crawlView").classList.toggle("active", state.activeTab === "crawl");
-      document.querySelector("#mapView").classList.toggle("active", state.activeTab === "map");
-      if (state.activeTab === "formula") loadFormulaAnalysis();
-      if (state.activeTab !== "formula") loadActiveViewData();
+  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      activateTab(item.dataset.tab, { push: true });
     });
+  });
+
+  window.addEventListener("popstate", () => {
+    activateTab(tabFromLocation(), { push: false });
   });
 
   document.querySelectorAll("[data-crawl-status]").forEach((button) => {
@@ -242,10 +257,55 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "formula") {
+    await loadFormulaAnalysis();
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     renderMolitStatus(await api("/api/molit/status"));
     await loadCrawlDetails();
   }
+}
+
+async function activateTab(tab, { push = false } = {}) {
+  setActiveTab(tab, { push });
+  await loadActiveViewData();
+}
+
+function setActiveTab(tab, { push = false } = {}) {
+  const nextTab = tabRoutes[tab] ? tab : "map";
+  state.activeTab = nextTab;
+
+  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+    const isActive = item.dataset.tab === nextTab;
+    item.classList.toggle("active", isActive);
+    if (isActive) {
+      item.setAttribute("aria-current", "page");
+    } else {
+      item.removeAttribute("aria-current");
+    }
+  });
+
+  document.querySelector("#mapView").classList.toggle("active", nextTab === "map");
+  document.querySelector("#neighborhoodView").classList.toggle("active", nextTab === "neighborhood");
+  document.querySelector("#apartmentView").classList.toggle("active", nextTab === "apartment");
+  document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
+  document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
+
+  const nextRoute = tabRoutes[nextTab];
+  if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
+    window.history.pushState({ tab: nextTab }, "", nextRoute);
+  }
+}
+
+function tabFromLocation() {
+  return routeTabs[normalizeRoute(window.location.pathname)] || "map";
+}
+
+function normalizeRoute(pathname) {
+  const normalized = String(pathname || "/").replace(/\/+$/, "");
+  return normalized || "/";
 }
 
 async function syncCurrentRegion() {

@@ -25,6 +25,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
+const appRoutes = new Set(["/", "/map", "/neighborhood", "/apartments", "/formula", "/crawl"]);
 
 await initDb();
 
@@ -520,11 +521,17 @@ async function serveStatic(pathname, res) {
     return;
   }
 
-  const filePath = pathname === "/" ? "/index.html" : pathname;
+  const normalizedPath = normalizeRoute(pathname);
+  const filePath = appRoutes.has(normalizedPath) ? "/index.html" : pathname;
   const absolutePath = join(publicDir, filePath);
   const content = await readFile(absolutePath);
   res.writeHead(200, { "Content-Type": contentType(filePath) });
   res.end(content);
+}
+
+function normalizeRoute(pathname) {
+  const normalized = String(pathname || "/").replace(/\/+$/, "");
+  return normalized || "/";
 }
 
 function contentType(filePath) {

@@ -50,7 +50,11 @@ h2 {
 
 .primary-btn,
 .toolbar button,
+.tabs a,
 .tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 36px;
   border: 1px solid var(--line);
   background: #fff;
@@ -59,6 +63,7 @@ h2 {
   padding: 0 12px;
   cursor: pointer;
   font-weight: 600;
+  text-decoration: none;
 }
 
 .primary-btn {
@@ -121,6 +126,7 @@ input {
 
 .quick-buttons button.active,
 .period-buttons button.active,
+.tabs a.active,
 .tabs button.active {
   border-color: var(--blue);
   background: #e8f0ff;
