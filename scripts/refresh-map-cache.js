@@ -1,6 +1,7 @@
 import { closeDb, initDb } from "../src/services/db.js";
 import { refreshApartmentRankCache } from "../src/services/apartment-rank-cache.js";
 import { DEFAULT_MAP_CACHE_PERIOD_YEARS, refreshMapGrowthCache } from "../src/services/map-growth-cache.js";
+import { refreshPriceBandRankCache } from "../src/services/price-band-rank-cache.js";
 
 const options = parseArgs(process.argv.slice(2));
 
@@ -10,7 +11,8 @@ try {
     periodYears: options.years.length ? options.years : DEFAULT_MAP_CACHE_PERIOD_YEARS
   });
   const apartmentRankCache = await refreshApartmentRankCache();
-  console.log(JSON.stringify({ ...result, apartmentRankCache }, null, 2));
+  const priceBandRankCache = await refreshPriceBandRankCache();
+  console.log(JSON.stringify({ ...result, apartmentRankCache, priceBandRankCache }, null, 2));
 } finally {
   await closeDb();
 }

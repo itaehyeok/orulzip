@@ -25,6 +25,7 @@ import {
   APARTMENT_RANK_METRICS,
   readApartmentRankPage
 } from "./services/apartment-rank-cache.js";
+import { readPriceBandRankPage } from "./services/price-band-rank-cache.js";
 import {
   buildApartmentAveragePyeongRankings,
   buildApartmentRankings,
@@ -172,14 +173,32 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/price-band-rankings") {
+      const filters = queryFilters(url);
+      const basis = url.searchParams.get("basis") || "start";
+      const bandKey = url.searchParams.get("bandKey") || "";
+      const page = Number(url.searchParams.get("page") || 1);
+      const pageSize = Number(url.searchParams.get("pageSize") || 50);
+      const cached = await readPriceBandRankPage({
+        source: "kb",
+        basis,
+        startMonth: filters.start,
+        endMonth: filters.end,
+        bandKey,
+        page,
+        pageSize
+      });
+      if (cached.cache.hit) return json(res, cached);
       const dataset = await readDatasetFromDb();
-      return json(res, buildPriceBandRankings(dataset, {
-        ...queryFilters(url),
-        basis: url.searchParams.get("basis") || "start",
-        bandKey: url.searchParams.get("bandKey") || "",
-        page: Number(url.searchParams.get("page") || 1),
-        pageSize: Number(url.searchParams.get("pageSize") || 50)
-      }));
+      return json(res, {
+        ...buildPriceBandRankings(dataset, {
+          ...filters,
+          basis,
+          bandKey,
+          page,
+          pageSize
+        }),
+        cache: cached.cache
+      });
     }
 
     if (url.pathname === "/api/zoom-map-summary") {

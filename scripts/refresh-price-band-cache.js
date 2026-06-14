@@ -1,0 +1,23 @@
+import { DEFAULT_PRICE_BAND_PERIOD_MONTHS, refreshPriceBandRankCache } from "../src/services/price-band-rank-cache.js";
+import { closeDb, initDb } from "../src/services/db.js";
+
+const options = parseArgs(process.argv.slice(2));
+
+await initDb();
+try {
+  const result = await refreshPriceBandRankCache({
+    periodMonths: options.months.length ? options.months : DEFAULT_PRICE_BAND_PERIOD_MONTHS
+  });
+  console.log(JSON.stringify(result, null, 2));
+} finally {
+  await closeDb();
+}
+
+function parseArgs(args) {
+  const monthsArg = args.find((arg) => arg.startsWith("--months="));
+  return {
+    months: monthsArg
+      ? monthsArg.slice("--months=".length).split(",").map(Number).filter(Number.isFinite)
+      : []
+  };
+}

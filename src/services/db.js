@@ -337,6 +337,49 @@ export async function initDb() {
     create index if not exists apartment_rank_items_apartment_idx
       on apartment_rank_items(snapshot_id, apartment_id);
 
+    create table if not exists price_band_rank_snapshots (
+      id bigserial primary key,
+      source text not null default 'kb',
+      basis text not null,
+      period_months integer not null,
+      start_month text not null,
+      end_month text not null,
+      band_count integer not null default 0,
+      item_count integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique(source, basis, start_month, end_month)
+    );
+
+    create table if not exists price_band_rank_items (
+      snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
+      band_key integer not null,
+      band_label text not null,
+      rank integer not null,
+      apartment_id text not null,
+      apartment_name text not null,
+      neighborhood_name text,
+      legal_dong_code text,
+      area_type_count integer not null default 0,
+      area_label text,
+      start_sale_price integer,
+      end_sale_price integer,
+      start_pyeong_price integer,
+      end_pyeong_price integer,
+      growth_amount integer,
+      growth_rate double precision,
+      updated_at timestamptz not null default now(),
+      primary key(snapshot_id, band_key, rank),
+      unique(snapshot_id, band_key, apartment_id)
+    );
+
+    create index if not exists price_band_rank_snapshots_lookup_idx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
+    create index if not exists price_band_rank_items_band_idx
+      on price_band_rank_items(snapshot_id, band_key, rank);
+    create index if not exists price_band_rank_items_apartment_idx
+      on price_band_rank_items(snapshot_id, apartment_id);
+
     create table if not exists app_cache_entries (
       cache_key text primary key,
       payload jsonb not null,

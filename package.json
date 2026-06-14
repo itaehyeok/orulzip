@@ -12,6 +12,8 @@
     "refresh:app-cache": "node scripts/refresh-app-cache.js",
     "refresh:map-cache": "node scripts/refresh-map-cache.js",
     "refresh:apartment-rank-cache": "node scripts/refresh-apartment-rank-cache.js",
+    "refresh:price-band-cache": "node scripts/refresh-price-band-cache.js",
+    "refresh:price-band-cache:loop": "node scripts/refresh-price-band-cache-loop.js",
     "refresh:molit-map-cache": "node scripts/refresh-molit-map-cache.js",
     "check": "node scripts/check.js"
   },

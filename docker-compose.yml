@@ -60,3 +60,15 @@ services:
       WORKER_IDLE_DELAY_MS: 5000
       WORKER_REGION_IDS: gyeonggi
       MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+
+  price-band-cache:
+    build: .
+    container_name: orulzip-price-band-cache
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npm", "run", "refresh:price-band-cache:loop"]
+    environment:
+      DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
+      PRICE_BAND_CACHE_REFRESH_INTERVAL_MS: ${PRICE_BAND_CACHE_REFRESH_INTERVAL_MS:-86400000}

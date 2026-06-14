@@ -270,6 +270,10 @@ export function buildPriceBandRankings(dataset, filters = {}) {
   const selectedGroup = groups.get(selectedBand.bandKey);
   const rankedRows = [...selectedGroup.apartments].sort(compareApartmentGrowth)
     .map((row, index) => ({ ...row, rank: index + 1 }));
+  const allRows = filters.includeAllRows
+    ? bands.flatMap((band) => [...(groups.get(band.bandKey)?.apartments || [])].sort(compareApartmentGrowth)
+      .map((row, index) => ({ ...row, rank: index + 1 })))
+    : null;
   const pagination = paginateRows(rankedRows, {
     page: filters.page,
     pageSize: filters.pageSize
@@ -282,7 +286,8 @@ export function buildPriceBandRankings(dataset, filters = {}) {
     selectedBandKey: selectedBand.bandKey,
     selectedBand,
     pagination: pagination.pagination,
-    rows: pagination.rows
+    rows: pagination.rows,
+    ...(allRows ? { allRows } : {})
   };
 }
 

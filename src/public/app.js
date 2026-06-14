@@ -3060,9 +3060,6 @@ function syncApartmentRankModeButtons() {
 }
 
 function syncPriceBandBasisButtons() {
-  document.querySelectorAll("[data-price-band-basis]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.priceBandBasis === state.priceBandBasis);
-  });
   if (els.priceBandPageSizeSelect && Number(els.priceBandPageSizeSelect.value) !== state.priceBandPageSize) {
     els.priceBandPageSizeSelect.value = String(state.priceBandPageSize);
   }
@@ -3253,7 +3250,8 @@ function renderPriceBandTable(result, basisBands = null) {
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
-  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}`;
+  const cacheLabel = formatPriceBandCacheLabel(result.cache);
+  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
   renderPriceBandSummary(summaryBands, state.priceBandBasis, state.priceBandKey);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
@@ -3727,6 +3725,23 @@ function formatMapCacheLabel(cache) {
   });
   if (sameDay) return `오늘 ${time} 업데이트 기준`;
   return `${formatDateTime(cache.updatedAt)} 업데이트 기준`;
+}
+
+function formatPriceBandCacheLabel(cache) {
+  if (!cache) return "";
+  if (cache.hit === false) return "실시간 계산";
+  if (!cache.updatedAt) return "";
+  const updatedAt = new Date(cache.updatedAt);
+  const today = new Date();
+  const sameDay = updatedAt.getFullYear() === today.getFullYear()
+    && updatedAt.getMonth() === today.getMonth()
+    && updatedAt.getDate() === today.getDate();
+  const date = `${String(updatedAt.getMonth() + 1).padStart(2, "0")}월 ${String(updatedAt.getDate()).padStart(2, "0")}일`;
+  const time = updatedAt.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  return `${sameDay ? "오늘" : ""}(${date}) ${time} 기준`;
 }
 
 function escapeHtml(value) {
