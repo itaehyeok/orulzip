@@ -644,12 +644,38 @@ function buildMolitCacheItems(rows, { startMonth, endMonth }) {
     endPyeongPrice: item.endPyeongPrice,
     hasData: true
   }));
+  const includedIds = new Set(apartmentItems.map((item) => item.apartmentId));
+  const noDataApartmentItems = [...apartments.values()]
+    .filter((apartmentGroup) => {
+      const apartment = apartmentGroup.apartment;
+      return apartment?.legalDongCode && Number.isFinite(apartment.lat) && Number.isFinite(apartment.lng);
+    })
+    .filter((apartmentGroup) => !includedIds.has(apartmentGroup.apartment.id))
+    .map((apartmentGroup) => ({
+      level: "apartment",
+      itemKey: apartmentGroup.apartment.id,
+      itemName: apartmentGroup.apartment.name,
+      apartmentId: apartmentGroup.apartment.id,
+      neighborhoodName: apartmentGroup.apartment.neighborhoodName,
+      address: apartmentGroup.apartment.address,
+      ...hierarchyFromApartment(apartmentGroup.apartment),
+      lat: apartmentGroup.apartment.lat,
+      lng: apartmentGroup.apartment.lng,
+      apartmentCount: 1,
+      areaCount: apartmentGroup.types.size,
+      areaSummary: "데이터없음",
+      growthRate: null,
+      growthAmount: null,
+      startPyeongPrice: null,
+      endPyeongPrice: null,
+      hasData: false
+    }));
   const groupItems = ["sido", "sigungu", "dong"].flatMap((level) => summarizeGroups(rankingRows, level));
 
   return {
     apartmentCount: apartmentItems.length,
     areaCount: rankingRows.reduce((sum, row) => sum + Number(row.areaTypeCount || 1), 0),
-    rows: [...groupItems, ...apartmentItems]
+    rows: [...groupItems, ...apartmentItems, ...noDataApartmentItems]
   };
 }
 
