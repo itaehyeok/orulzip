@@ -22,16 +22,22 @@ import {
 } from "./services/map-growth-cache.js";
 import { readMolitCoordinateAudit } from "./services/molit-complex-store.js";
 import {
+  APARTMENT_RANK_METRICS,
+  readApartmentRankPage
+} from "./services/apartment-rank-cache.js";
+import {
+  buildApartmentAveragePyeongRankings,
   buildApartmentRankings,
   buildNeighborhoodChart,
-  buildNeighborhoodRankings
+  buildNeighborhoodRankings,
+  buildPriceBandRankings
 } from "./services/price-calculator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
 
 await initDb();
 
@@ -136,11 +142,41 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/apartment-rankings") {
+      const filters = queryFilters(url);
+      const rankMode = url.searchParams.get("rankMode") || "growth";
+      const page = Number(url.searchParams.get("page") || 1);
+      const pageSize = Number(url.searchParams.get("pageSize") || 50);
+      if (rankMode === "averagePyeong") {
+        const cached = await readApartmentRankPage({
+          source: "kb",
+          metric: APARTMENT_RANK_METRICS.averagePyeong,
+          startMonth: filters.start,
+          endMonth: filters.end,
+          page,
+          pageSize
+        });
+        if (cached.cache.hit) return json(res, { ...cached, rankMode });
+        const dataset = await readDatasetFromDb();
+        return json(res, {
+          ...paginateRows(buildApartmentAveragePyeongRankings(dataset, filters), { page, pageSize }),
+          rankMode,
+          cache: cached.cache
+        });
+      }
       const dataset = await readDatasetFromDb();
-      const limit = Number(url.searchParams.get("limit") || 300);
-      const result = buildApartmentRankings(dataset, queryFilters(url));
-      result.rows = result.rows.slice(0, limit);
-      return json(res, result);
+      return json(res, {
+        ...paginateRows(buildApartmentRankings(dataset, filters), { page, pageSize }),
+        rankMode,
+        cache: { hit: false, source: "kb", metric: "growth", updatedAt: null }
+      });
+    }
+
+    if (url.pathname === "/api/price-band-rankings") {
+      const dataset = await readDatasetFromDb();
+      return json(res, buildPriceBandRankings(dataset, {
+        ...queryFilters(url),
+        basis: url.searchParams.get("basis") || "start"
+      }));
     }
 
     if (url.pathname === "/api/zoom-map-summary") {
@@ -222,6 +258,24 @@ function queryFilters(url) {
     neighborhood: url.searchParams.get("neighborhood") || "",
     start: url.searchParams.get("start") || "",
     end: url.searchParams.get("end") || ""
+  };
+}
+
+function paginateRows(result, { page = 1, pageSize = 50 } = {}) {
+  const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
+  const totalRows = result.rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / normalizedPageSize));
+  const safePage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const offset = (safePage - 1) * normalizedPageSize;
+  return {
+    ...result,
+    pagination: {
+      page: safePage,
+      pageSize: normalizedPageSize,
+      totalRows,
+      totalPages
+    },
+    rows: result.rows.slice(offset, offset + normalizedPageSize)
   };
 }
 

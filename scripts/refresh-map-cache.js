@@ -1,4 +1,5 @@
 import { closeDb, initDb } from "../src/services/db.js";
+import { refreshApartmentRankCache } from "../src/services/apartment-rank-cache.js";
 import { DEFAULT_MAP_CACHE_PERIOD_YEARS, refreshMapGrowthCache } from "../src/services/map-growth-cache.js";
 
 const options = parseArgs(process.argv.slice(2));
@@ -8,7 +9,8 @@ try {
   const result = await refreshMapGrowthCache({
     periodYears: options.years.length ? options.years : DEFAULT_MAP_CACHE_PERIOD_YEARS
   });
-  console.log(JSON.stringify(result, null, 2));
+  const apartmentRankCache = await refreshApartmentRankCache();
+  console.log(JSON.stringify({ ...result, apartmentRankCache }, null, 2));
 } finally {
   await closeDb();
 }

@@ -73,6 +73,172 @@ export function buildApartmentRankings(dataset, filters = {}) {
   return { period: areaRows.period, rows };
 }
 
+export function buildApartmentAveragePyeongRankings(dataset, filters = {}) {
+  const period = resolvePeriod(dataset, filters.start, filters.end);
+  if (!period.startMonth || !period.endMonth) return { period, rows: [] };
+
+  const context = buildContext(dataset, filters);
+  const groups = new Map();
+
+  for (const areaType of context.areaTypes) {
+    const apartment = context.apartmentById.get(areaType.apartmentId);
+    if (!apartment) continue;
+
+    const prices = (context.pricesByAreaType.get(areaType.id) || [])
+      .filter((price) => price.yearMonth >= period.startMonth && price.yearMonth <= period.endMonth)
+      .filter((price) => Number.isFinite(price.pyeongPrice));
+    if (!prices.length) continue;
+
+    const start = nearestStart(prices, period.startMonth);
+    const end = nearestEnd(prices, period.endMonth);
+    if (!start || !end || start.yearMonth > end.yearMonth) continue;
+
+    if (!groups.has(apartment.id)) {
+      groups.set(apartment.id, {
+        apartmentId: apartment.id,
+        apartmentName: apartment.name,
+        neighborhoodName: apartment.neighborhoodName || "미분류",
+        legalDongCode: apartment.legalDongCode,
+        areaAverages: [],
+        startPyeongPrices: [],
+        endPyeongPrices: [],
+        monthKeys: new Set(),
+        areaLabels: []
+      });
+    }
+
+    const group = groups.get(apartment.id);
+    group.areaAverages.push(average(prices.map((price) => price.pyeongPrice)));
+    group.startPyeongPrices.push(start.pyeongPrice);
+    group.endPyeongPrices.push(end.pyeongPrice);
+    group.areaLabels.push(areaType.label);
+    prices.forEach((price) => group.monthKeys.add(price.yearMonth));
+  }
+
+  const rows = [...groups.values()].map((group) => {
+    const startPyeongPrice = average(group.startPyeongPrices);
+    const endPyeongPrice = average(group.endPyeongPrices);
+    const growthAmount = endPyeongPrice - startPyeongPrice;
+    const growthRate = startPyeongPrice ? growthAmount / startPyeongPrice : 0;
+    return {
+      apartmentId: group.apartmentId,
+      apartmentName: group.apartmentName,
+      neighborhoodName: group.neighborhoodName,
+      legalDongCode: group.legalDongCode,
+      areaTypeCount: group.areaAverages.length,
+      areaLabel: summarizeAreaLabels(group.areaLabels),
+      observedMonthCount: group.monthKeys.size,
+      startMonth: period.startMonth,
+      endMonth: period.endMonth,
+      averagePyeongPrice: Math.round(average(group.areaAverages)),
+      startPyeongPrice: Math.round(startPyeongPrice),
+      endPyeongPrice: Math.round(endPyeongPrice),
+      growthAmount: Math.round(growthAmount),
+      growthRate
+    };
+  });
+
+  rows.sort((a, b) =>
+    b.averagePyeongPrice - a.averagePyeongPrice
+    || b.endPyeongPrice - a.endPyeongPrice
+    || String(a.apartmentName || "").localeCompare(String(b.apartmentName || ""), "ko")
+  );
+  rows.forEach((row, index) => {
+    row.rank = index + 1;
+  });
+
+  return { period, rows };
+}
+
+export function buildPriceBandRankings(dataset, filters = {}) {
+  const period = resolvePeriod(dataset, filters.start, filters.end);
+  if (!period.startMonth || !period.endMonth) return { period, basis: filters.basis || "start", rows: [] };
+
+  const basis = filters.basis === "end" ? "end" : "start";
+  const context = buildContext(dataset, filters);
+  const apartments = new Map();
+
+  for (const areaType of context.areaTypes) {
+    const apartment = context.apartmentById.get(areaType.apartmentId);
+    if (!apartment) continue;
+
+    const prices = context.pricesByAreaType.get(areaType.id) || [];
+    const start = nearestStart(prices, period.startMonth);
+    const end = nearestEnd(prices, period.endMonth);
+    if (!start || !end || start.yearMonth > end.yearMonth) continue;
+
+    if (!apartments.has(apartment.id)) {
+      apartments.set(apartment.id, {
+        apartmentId: apartment.id,
+        apartmentName: apartment.name,
+        neighborhoodName: apartment.neighborhoodName || "미분류",
+        startSalePrices: [],
+        endSalePrices: [],
+        startPyeongPrices: [],
+        endPyeongPrices: []
+      });
+    }
+
+    const item = apartments.get(apartment.id);
+    item.startSalePrices.push(start.saleMid);
+    item.endSalePrices.push(end.saleMid);
+    item.startPyeongPrices.push(start.pyeongPrice);
+    item.endPyeongPrices.push(end.pyeongPrice);
+  }
+
+  const groups = new Map();
+  for (const apartment of apartments.values()) {
+    const startSalePrice = average(apartment.startSalePrices);
+    const endSalePrice = average(apartment.endSalePrices);
+    if (!startSalePrice || !endSalePrice) continue;
+
+    const band = priceBand(basis === "end" ? endSalePrice : startSalePrice);
+    if (!groups.has(band.key)) {
+      groups.set(band.key, {
+        ...band,
+        apartments: [],
+        startSalePrices: [],
+        endSalePrices: [],
+        startPyeongPrices: [],
+        endPyeongPrices: []
+      });
+    }
+
+    const group = groups.get(band.key);
+    group.apartments.push(apartment);
+    group.startSalePrices.push(startSalePrice);
+    group.endSalePrices.push(endSalePrice);
+    group.startPyeongPrices.push(average(apartment.startPyeongPrices));
+    group.endPyeongPrices.push(average(apartment.endPyeongPrices));
+  }
+
+  const rows = [...groups.values()].map((group) => {
+    const startSalePrice = average(group.startSalePrices);
+    const endSalePrice = average(group.endSalePrices);
+    const growthAmount = endSalePrice - startSalePrice;
+    const growthRate = startSalePrice ? growthAmount / startSalePrice : 0;
+    return {
+      bandKey: group.key,
+      bandLabel: group.label,
+      basis,
+      apartmentCount: group.apartments.length,
+      startSalePrice: Math.round(startSalePrice),
+      endSalePrice: Math.round(endSalePrice),
+      startPyeongPrice: Math.round(average(group.startPyeongPrices)),
+      endPyeongPrice: Math.round(average(group.endPyeongPrices)),
+      growthAmount: Math.round(growthAmount),
+      growthRate
+    };
+  });
+
+  rows.sort((a, b) => b.growthRate - a.growthRate || b.growthAmount - a.growthAmount || a.bandKey - b.bandKey);
+  rows.forEach((row, index) => {
+    row.rank = index + 1;
+  });
+
+  return { period, basis, rows };
+}
+
 function buildApartmentAreaRankings(dataset, filters = {}) {
   const period = resolvePeriod(dataset, filters.start, filters.end);
   if (!period.startMonth || !period.endMonth) return { period, rows: [] };
@@ -256,4 +422,17 @@ function summarizeAreaLabels(labels) {
   if (!unique.length) return "-";
   if (unique.length === 1) return unique[0];
   return `${unique.length}개 면적`;
+}
+
+function priceBand(price) {
+  const eok = Number(price) / 10000;
+  if (!Number.isFinite(eok) || eok < 1) {
+    return { key: 0, label: "1억 미만" };
+  }
+  if (eok < 10) {
+    const floor = Math.floor(eok);
+    return { key: floor, label: `${floor}억대` };
+  }
+  const floor = Math.floor(eok / 10) * 10;
+  return { key: floor, label: `${floor}억대` };
 }

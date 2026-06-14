@@ -14,6 +14,7 @@
         <a data-tab="molitMap" href="/molit-map">지도(실거래가)</a>
         <a data-tab="neighborhood" href="/neighborhood">동네별</a>
         <a data-tab="apartment" href="/apartments">아파트별</a>
+        <a data-tab="priceBands" href="/price-bands">가격대별</a>
         <a data-tab="formula" href="/formula">시세식</a>
         <a data-tab="terms" href="/terms">용어</a>
         <a data-tab="design" href="/design">디자인</a>
@@ -155,10 +156,31 @@
             <h2>아파트별 통합 랭킹</h2>
             <span id="apartmentCount"></span>
           </div>
+          <div class="ranking-controls">
+            <div class="segmented-buttons" aria-label="아파트 랭킹 기준">
+              <button class="active" type="button" data-apartment-rank-mode="averagePyeong">평균평당가</button>
+              <button type="button" data-apartment-rank-mode="growth">상승률</button>
+            </div>
+            <div class="period-buttons" aria-label="아파트 랭킹 기준 기간">
+              <button data-period-months="3">3개월전 기준</button>
+              <button data-period-months="6">6개월전 기준</button>
+              <button class="active" data-period-months="12">1년전 기준</button>
+              <button data-period-months="36">3년전 기준</button>
+              <button data-period-months="60">5년전 기준</button>
+            </div>
+            <label class="page-size-control" for="apartmentPageSizeSelect">
+              <span>페이지당</span>
+              <select id="apartmentPageSizeSelect">
+                <option value="25">25개</option>
+                <option value="50" selected>50개</option>
+                <option value="100">100개</option>
+              </select>
+            </label>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr>
+                <tr id="apartmentHeadRow">
                   <th>순위</th>
                   <th>아파트</th>
                   <th>동</th>
@@ -172,6 +194,7 @@
               <tbody id="apartmentRows"></tbody>
             </table>
           </div>
+          <div id="apartmentPagination" class="pagination"></div>
         </section>
 
         <section id="apartmentDetailPanel" class="panel detail-panel" hidden>
@@ -182,6 +205,45 @@
           <div class="detail-body">
             <div id="detailChart" class="detail-chart"></div>
             <div id="detailTooltip" class="chart-tooltip" hidden></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="priceBandView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>가격대별 상승 랭킹</h2>
+            <span id="priceBandCount"></span>
+          </div>
+          <div class="ranking-controls">
+            <div class="segmented-buttons" aria-label="가격대 분류 기준">
+              <button class="active" type="button" data-price-band-basis="start">기준시점 가격대</button>
+              <button type="button" data-price-band-basis="end">현재시점 가격대</button>
+            </div>
+            <div class="period-buttons" aria-label="가격대 랭킹 기준 기간">
+              <button data-period-months="3">3개월전 기준</button>
+              <button data-period-months="6">6개월전 기준</button>
+              <button class="active" data-period-months="12">1년전 기준</button>
+              <button data-period-months="36">3년전 기준</button>
+              <button data-period-months="60">5년전 기준</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>가격대</th>
+                  <th>아파트 수</th>
+                  <th>기준 평균가</th>
+                  <th>현재 평균가</th>
+                  <th>평균 상승액</th>
+                  <th>평균 상승률</th>
+                  <th>평균 평당가</th>
+                </tr>
+              </thead>
+              <tbody id="priceBandRows"></tbody>
+            </table>
           </div>
         </section>
       </section>
