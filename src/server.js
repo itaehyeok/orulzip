@@ -175,7 +175,10 @@ const server = createServer(async (req, res) => {
       const dataset = await readDatasetFromDb();
       return json(res, buildPriceBandRankings(dataset, {
         ...queryFilters(url),
-        basis: url.searchParams.get("basis") || "start"
+        basis: url.searchParams.get("basis") || "start",
+        bandKey: url.searchParams.get("bandKey") || "",
+        page: Number(url.searchParams.get("page") || 1),
+        pageSize: Number(url.searchParams.get("pageSize") || 50)
       }));
     }
 

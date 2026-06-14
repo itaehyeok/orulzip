@@ -53,6 +53,9 @@ const state = {
   apartmentRankPage: 1,
   apartmentRankPageSize: 50,
   priceBandBasis: "start",
+  priceBandKey: "",
+  priceBandPage: 1,
+  priceBandPageSize: 50,
   markerLineGapPx: null,
   mapDesignCollapsed: true,
   latestZoomMapData: null,
@@ -299,7 +302,10 @@ const els = {
   detailTooltip: document.querySelector("#detailTooltip"),
   priceBandView: document.querySelector("#priceBandView"),
   priceBandRows: document.querySelector("#priceBandRows"),
-  priceBandCount: document.querySelector("#priceBandCount")
+  priceBandCount: document.querySelector("#priceBandCount"),
+  priceBandSummary: document.querySelector("#priceBandSummary"),
+  priceBandPagination: document.querySelector("#priceBandPagination"),
+  priceBandPageSizeSelect: document.querySelector("#priceBandPageSizeSelect")
 };
 
 init();
@@ -393,6 +399,8 @@ function bindEvents() {
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
       state.apartmentRankPage = 1;
+      state.priceBandKey = "";
+      state.priceBandPage = 1;
       setPeriodMonths(periodButtonMonths(button));
       refresh();
     });
@@ -419,9 +427,29 @@ function bindEvents() {
   document.querySelectorAll("[data-price-band-basis]").forEach((button) => {
     button.addEventListener("click", () => {
       state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
+      state.priceBandKey = "";
+      state.priceBandPage = 1;
       syncPriceBandBasisButtons();
       refresh();
     });
+  });
+  els.priceBandSummary?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-price-band-key]");
+    if (!button) return;
+    state.priceBandKey = button.dataset.priceBandKey || "";
+    state.priceBandPage = 1;
+    refresh();
+  });
+  els.priceBandPageSizeSelect?.addEventListener("change", () => {
+    state.priceBandPageSize = Number(els.priceBandPageSizeSelect.value) || 50;
+    state.priceBandPage = 1;
+    refresh();
+  });
+  els.priceBandPagination?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-price-band-page]");
+    if (!button) return;
+    state.priceBandPage = Number(button.dataset.priceBandPage) || 1;
+    refresh();
   });
 
   document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
@@ -531,6 +559,9 @@ async function loadActiveViewData() {
   if (state.activeTab === "priceBands") {
     const priceBandParams = new URLSearchParams(params);
     priceBandParams.set("basis", state.priceBandBasis);
+    if (state.priceBandKey !== "") priceBandParams.set("bandKey", state.priceBandKey);
+    priceBandParams.set("page", String(state.priceBandPage));
+    priceBandParams.set("pageSize", String(state.priceBandPageSize));
     renderPriceBandTable(await api(`/api/price-band-rankings?${priceBandParams}`));
     return;
   }
@@ -3028,6 +3059,9 @@ function syncPriceBandBasisButtons() {
   document.querySelectorAll("[data-price-band-basis]").forEach((button) => {
     button.classList.toggle("active", button.dataset.priceBandBasis === state.priceBandBasis);
   });
+  if (els.priceBandPageSizeSelect && Number(els.priceBandPageSizeSelect.value) !== state.priceBandPageSize) {
+    els.priceBandPageSizeSelect.value = String(state.priceBandPageSize);
+  }
 }
 
 function currentPeriodMonths() {
@@ -3190,25 +3224,87 @@ function renderApartmentPagination(pagination) {
 
 function renderPriceBandTable(result) {
   syncPriceBandBasisButtons();
+  if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
+  state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
+    ? ""
+    : String(result.selectedBandKey);
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const bands = Array.isArray(result.bands) ? result.bands : [];
+  const pagination = result.pagination || {
+    page: 1,
+    pageSize: rows.length || state.priceBandPageSize,
+    totalRows: rows.length,
+    totalPages: 1
+  };
+  state.priceBandPage = pagination.page;
+  const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
+  const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
   const basisLabel = result.basis === "end" ? "현재시점 가격대" : "기준시점 가격대";
+  const selectedBand = result.selectedBand || bands.find((band) => String(band.bandKey) === state.priceBandKey) || null;
+  const selectedBandLabel = selectedBand?.bandLabel || "가격대";
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
-  els.priceBandCount.textContent = `${basisLabel}${periodLabel ? ` · ${periodLabel}` : ""}`;
-  els.priceBandRows.innerHTML = result.rows.length
-    ? result.rows.map((row) => `
+  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}`;
+  renderPriceBandSummary(bands, state.priceBandKey);
+  els.priceBandRows.innerHTML = rows.length
+    ? rows.map((row) => `
       <tr>
         <td>${row.rank}</td>
+        <td>
+          <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
+          <span class="muted-cell">${escapeHtml(row.areaLabel)} · ${formatInt(row.areaTypeCount)}개 면적</span>
+        </td>
+        <td>${escapeHtml(row.neighborhoodName)}</td>
         <td>${escapeHtml(row.bandLabel)}</td>
-        <td>${formatInt(row.apartmentCount)}</td>
         <td>${formatKoreanPrice(row.startSalePrice)}</td>
         <td>${formatKoreanPrice(row.endSalePrice)}</td>
-        <td class="${row.growthAmount >= 0 ? "positive" : "negative"}">${formatSignedKoreanPrice(row.growthAmount)}</td>
-        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
+        <td>${formatMoney(row.startPyeongPrice)}</td>
         <td>${formatMoney(row.endPyeongPrice)}</td>
+        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8" class="empty">표시할 가격대 데이터가 없습니다.</td></tr>`;
+    : `<tr><td colspan="9" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
+  renderPriceBandPagination(pagination);
+}
+
+function renderPriceBandSummary(bands, selectedBandKey) {
+  if (!els.priceBandSummary) return;
+  if (!bands.length) {
+    els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
+    return;
+  }
+  els.priceBandSummary.innerHTML = bands.map((band) => {
+    const isActive = String(band.bandKey) === String(selectedBandKey);
+    return `
+      <button type="button" class="price-band-chip ${isActive ? "active" : ""}" data-price-band-key="${escapeHtml(band.bandKey)}">
+        <strong>${escapeHtml(band.bandLabel)}</strong>
+        <span>${formatInt(band.apartmentCount)}개</span>
+        <em>최고 ${formatPercent(band.topGrowthRate)}</em>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderPriceBandPagination(pagination) {
+  if (!els.priceBandPagination) return;
+  if (!pagination || pagination.totalPages <= 1) {
+    els.priceBandPagination.innerHTML = "";
+    return;
+  }
+  const page = Number(pagination.page || 1);
+  const totalPages = Number(pagination.totalPages || 1);
+  const pageNumbers = visiblePageNumbers(page, totalPages);
+  els.priceBandPagination.innerHTML = `
+    <button type="button" data-price-band-page="1" ${page <= 1 ? "disabled" : ""}>처음</button>
+    <button type="button" data-price-band-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>이전</button>
+    ${pageNumbers.map((item) => item === "..."
+      ? `<span>...</span>`
+      : `<button type="button" data-price-band-page="${item}" class="${item === page ? "active" : ""}">${item}</button>`
+    ).join("")}
+    <button type="button" data-price-band-page="${page + 1}" ${page >= totalPages ? "disabled" : ""}>다음</button>
+    <button type="button" data-price-band-page="${totalPages}" ${page >= totalPages ? "disabled" : ""}>마지막</button>
+  `;
 }
 
 async function loadApartmentDetail(apartmentId) {
@@ -3609,7 +3705,7 @@ function formatMapCacheLabel(cache) {
 }
 
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

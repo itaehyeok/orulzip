@@ -152,9 +152,11 @@ export function buildApartmentAveragePyeongRankings(dataset, filters = {}) {
 
 export function buildPriceBandRankings(dataset, filters = {}) {
   const period = resolvePeriod(dataset, filters.start, filters.end);
-  if (!period.startMonth || !period.endMonth) return { period, basis: filters.basis || "start", rows: [] };
-
   const basis = filters.basis === "end" ? "end" : "start";
+  if (!period.startMonth || !period.endMonth) {
+    return emptyPriceBandResult({ period, basis, page: filters.page, pageSize: filters.pageSize });
+  }
+
   const context = buildContext(dataset, filters);
   const apartments = new Map();
 
@@ -172,6 +174,8 @@ export function buildPriceBandRankings(dataset, filters = {}) {
         apartmentId: apartment.id,
         apartmentName: apartment.name,
         neighborhoodName: apartment.neighborhoodName || "미분류",
+        legalDongCode: apartment.legalDongCode,
+        areaLabels: [],
         startSalePrices: [],
         endSalePrices: [],
         startPyeongPrices: [],
@@ -180,6 +184,7 @@ export function buildPriceBandRankings(dataset, filters = {}) {
     }
 
     const item = apartments.get(apartment.id);
+    item.areaLabels.push(areaType.label);
     item.startSalePrices.push(start.saleMid);
     item.endSalePrices.push(end.saleMid);
     item.startPyeongPrices.push(start.pyeongPrice);
@@ -190,7 +195,9 @@ export function buildPriceBandRankings(dataset, filters = {}) {
   for (const apartment of apartments.values()) {
     const startSalePrice = average(apartment.startSalePrices);
     const endSalePrice = average(apartment.endSalePrices);
-    if (!startSalePrice || !endSalePrice) continue;
+    const startPyeongPrice = average(apartment.startPyeongPrices);
+    const endPyeongPrice = average(apartment.endPyeongPrices);
+    if (!startSalePrice || !endSalePrice || !startPyeongPrice || !endPyeongPrice) continue;
 
     const band = priceBand(basis === "end" ? endSalePrice : startSalePrice);
     if (!groups.has(band.key)) {
@@ -205,18 +212,40 @@ export function buildPriceBandRankings(dataset, filters = {}) {
     }
 
     const group = groups.get(band.key);
-    group.apartments.push(apartment);
+    const growthAmount = endPyeongPrice - startPyeongPrice;
+    const growthRate = startPyeongPrice ? growthAmount / startPyeongPrice : 0;
+    group.apartments.push({
+      apartmentId: apartment.apartmentId,
+      apartmentName: apartment.apartmentName,
+      neighborhoodName: apartment.neighborhoodName,
+      legalDongCode: apartment.legalDongCode,
+      areaTypeCount: apartment.startPyeongPrices.length,
+      areaLabel: summarizeAreaLabels(apartment.areaLabels),
+      bandKey: band.key,
+      bandLabel: band.label,
+      basis,
+      startSalePrice: Math.round(startSalePrice),
+      endSalePrice: Math.round(endSalePrice),
+      startPyeongPrice: Math.round(startPyeongPrice),
+      endPyeongPrice: Math.round(endPyeongPrice),
+      growthAmount: Math.round(growthAmount),
+      growthRate
+    });
     group.startSalePrices.push(startSalePrice);
     group.endSalePrices.push(endSalePrice);
-    group.startPyeongPrices.push(average(apartment.startPyeongPrices));
-    group.endPyeongPrices.push(average(apartment.endPyeongPrices));
+    group.startPyeongPrices.push(startPyeongPrice);
+    group.endPyeongPrices.push(endPyeongPrice);
   }
 
-  const rows = [...groups.values()].map((group) => {
+  const bands = [...groups.values()].map((group) => {
     const startSalePrice = average(group.startSalePrices);
     const endSalePrice = average(group.endSalePrices);
-    const growthAmount = endSalePrice - startSalePrice;
-    const growthRate = startSalePrice ? growthAmount / startSalePrice : 0;
+    const averageStartPyeongPrice = average(group.startPyeongPrices);
+    const averageEndPyeongPrice = average(group.endPyeongPrices);
+    const averageGrowthAmount = averageEndPyeongPrice - averageStartPyeongPrice;
+    const averageGrowthRate = averageStartPyeongPrice ? averageGrowthAmount / averageStartPyeongPrice : 0;
+    const rankedApartments = [...group.apartments].sort(compareApartmentGrowth);
+    const topApartment = rankedApartments[0] || null;
     return {
       bandKey: group.key,
       bandLabel: group.label,
@@ -224,19 +253,80 @@ export function buildPriceBandRankings(dataset, filters = {}) {
       apartmentCount: group.apartments.length,
       startSalePrice: Math.round(startSalePrice),
       endSalePrice: Math.round(endSalePrice),
-      startPyeongPrice: Math.round(average(group.startPyeongPrices)),
-      endPyeongPrice: Math.round(average(group.endPyeongPrices)),
-      growthAmount: Math.round(growthAmount),
-      growthRate
+      startPyeongPrice: Math.round(averageStartPyeongPrice),
+      endPyeongPrice: Math.round(averageEndPyeongPrice),
+      averageGrowthAmount: Math.round(averageGrowthAmount),
+      averageGrowthRate,
+      topGrowthRate: topApartment?.growthRate ?? null,
+      topApartmentName: topApartment?.apartmentName || ""
     };
+  }).sort((a, b) => a.bandKey - b.bandKey);
+
+  if (!bands.length) return emptyPriceBandResult({ period, basis, page: filters.page, pageSize: filters.pageSize });
+
+  const requestedBandKey = normalizeBandKey(filters.bandKey);
+  const selectedBand = bands.find((band) => band.bandKey === requestedBandKey)
+    || [...bands].sort((a, b) => b.apartmentCount - a.apartmentCount || a.bandKey - b.bandKey)[0];
+  const selectedGroup = groups.get(selectedBand.bandKey);
+  const rankedRows = [...selectedGroup.apartments].sort(compareApartmentGrowth)
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+  const pagination = paginateRows(rankedRows, {
+    page: filters.page,
+    pageSize: filters.pageSize
   });
 
-  rows.sort((a, b) => b.growthRate - a.growthRate || b.growthAmount - a.growthAmount || a.bandKey - b.bandKey);
-  rows.forEach((row, index) => {
-    row.rank = index + 1;
-  });
+  return {
+    period,
+    basis,
+    bands,
+    selectedBandKey: selectedBand.bandKey,
+    selectedBand,
+    pagination: pagination.pagination,
+    rows: pagination.rows
+  };
+}
 
-  return { period, basis, rows };
+function emptyPriceBandResult({ period, basis, page, pageSize }) {
+  const pagination = paginateRows([], { page, pageSize }).pagination;
+  return {
+    period,
+    basis,
+    bands: [],
+    selectedBandKey: null,
+    selectedBand: null,
+    pagination,
+    rows: []
+  };
+}
+
+function compareApartmentGrowth(a, b) {
+  return b.growthRate - a.growthRate
+    || b.growthAmount - a.growthAmount
+    || b.endPyeongPrice - a.endPyeongPrice
+    || String(a.apartmentName || "").localeCompare(String(b.apartmentName || ""), "ko");
+}
+
+function paginateRows(rows, { page = 1, pageSize = 50 } = {}) {
+  const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / normalizedPageSize));
+  const safePage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const offset = (safePage - 1) * normalizedPageSize;
+  return {
+    pagination: {
+      page: safePage,
+      pageSize: normalizedPageSize,
+      totalRows,
+      totalPages
+    },
+    rows: rows.slice(offset, offset + normalizedPageSize)
+  };
+}
+
+function normalizeBandKey(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function buildApartmentAreaRankings(dataset, filters = {}) {

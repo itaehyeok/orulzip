@@ -227,24 +227,35 @@
               <button data-period-months="36">3년전 기준</button>
               <button data-period-months="60">5년전 기준</button>
             </div>
+            <label class="page-size-control" for="priceBandPageSizeSelect">
+              <span>페이지당</span>
+              <select id="priceBandPageSizeSelect">
+                <option value="25">25개</option>
+                <option value="50" selected>50개</option>
+                <option value="100">100개</option>
+              </select>
+            </label>
           </div>
+          <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>순위</th>
+                  <th>아파트</th>
+                  <th>동</th>
                   <th>가격대</th>
-                  <th>아파트 수</th>
-                  <th>기준 평균가</th>
-                  <th>현재 평균가</th>
-                  <th>평균 상승액</th>
-                  <th>평균 상승률</th>
-                  <th>평균 평당가</th>
+                  <th>기준 가격</th>
+                  <th>현재 가격</th>
+                  <th>기준 평당가</th>
+                  <th>현재 평당가</th>
+                  <th>평당 상승률</th>
                 </tr>
               </thead>
               <tbody id="priceBandRows"></tbody>
             </table>
           </div>
+          <div id="priceBandPagination" class="pagination"></div>
         </section>
       </section>
 
