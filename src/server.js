@@ -15,7 +15,11 @@ import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
-import { buildMolitApartmentDetail, readCachedZoomMapSummary } from "./services/map-growth-cache.js";
+import {
+  buildMolitApartmentDetail,
+  readApartmentMapRankSummary,
+  readCachedZoomMapSummary
+} from "./services/map-growth-cache.js";
 import { readMolitCoordinateAudit } from "./services/molit-complex-store.js";
 import {
   buildApartmentRankings,
@@ -184,12 +188,22 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/apartment-detail") {
       const dataset = await readDatasetFromDb();
       const apartmentId = url.searchParams.get("apartmentId") || "";
-      return json(res, buildApartmentDetail(dataset, apartmentId));
+      return json(res, await buildApartmentDetail(dataset, apartmentId, {
+        source: "kb",
+        startMonth: url.searchParams.get("start") || "",
+        endMonth: url.searchParams.get("end") || ""
+      }));
     }
 
     if (url.pathname === "/api/molit-apartment-detail") {
       const apartmentId = url.searchParams.get("apartmentId") || "";
-      return json(res, await buildMolitApartmentDetail(apartmentId));
+      const detail = await buildMolitApartmentDetail(apartmentId);
+      return json(res, await attachApartmentRankSummary(detail, {
+        source: "molit",
+        apartmentId,
+        startMonth: url.searchParams.get("start") || "",
+        endMonth: url.searchParams.get("end") || ""
+      }));
     }
 
     return await serveStatic(url.pathname, res);
@@ -499,7 +513,7 @@ function sortableRate(rate) {
   return Number.isFinite(value) ? value : -Infinity;
 }
 
-function buildApartmentDetail(dataset, apartmentId) {
+async function buildApartmentDetail(dataset, apartmentId, rankOptions = {}) {
   const apartment = dataset.apartments.find((item) => item.id === apartmentId);
   if (!apartment) {
     return {
@@ -530,10 +544,27 @@ function buildApartmentDetail(dataset, apartmentId) {
       };
     });
 
-  return {
+  return attachApartmentRankSummary({
     apartment,
     areaTypes,
     months: [...new Set(areaTypes.flatMap((item) => item.prices.map((price) => price.yearMonth)))].sort()
+  }, { ...rankOptions, apartmentId });
+}
+
+async function attachApartmentRankSummary(detail, {
+  source = "kb",
+  apartmentId = "",
+  startMonth = "",
+  endMonth = ""
+} = {}) {
+  return {
+    ...detail,
+    rankSummary: await readApartmentMapRankSummary({
+      source,
+      apartmentId,
+      startMonth,
+      endMonth
+    })
   };
 }
 

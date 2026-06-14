@@ -261,6 +261,7 @@ const els = {
   mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
   mapPopupTitle: document.querySelector("#mapPopupTitle"),
   mapPopupMeta: document.querySelector("#mapPopupMeta"),
+  mapPopupRanks: document.querySelector("#mapPopupRanks"),
   mapPopupPyeongGrowth: document.querySelector("#mapPopupPyeongGrowth"),
   mapPopupCloseBtn: document.querySelector("#mapPopupCloseBtn"),
   mapPopupStats: document.querySelector("#mapPopupStats"),
@@ -377,9 +378,9 @@ function bindEvents() {
   });
   els.mapDesignToggleBtn?.addEventListener("click", toggleMapDesignPanel);
 
-  document.querySelectorAll("[data-period-years]").forEach((button) => {
+  document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
-      setPeriodYears(Number(button.dataset.periodYears));
+      setPeriodMonths(periodButtonMonths(button));
       refresh();
     });
   });
@@ -1775,7 +1776,8 @@ function apartmentHoverHtml(item) {
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
   const source = currentMapSource();
-  const cacheKey = `${source}:${apartmentId}`;
+  const period = currentMapPeriodParams();
+  const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}`;
   state.mapPopupDetail = null;
   state.mapPopupSelectedAreaTypeId = null;
   if (state.mapApartmentDetails.has(cacheKey)) {
@@ -1787,7 +1789,12 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
 
   try {
     const endpoint = source === "molit" ? "/api/molit-apartment-detail" : "/api/apartment-detail";
-    const detail = await api(`${endpoint}?apartmentId=${encodeURIComponent(apartmentId)}`);
+    const params = new URLSearchParams({
+      apartmentId,
+      start: period.start,
+      end: period.end
+    });
+    const detail = await api(`${endpoint}?${params}`);
     if (requestId !== state.mapPopupRequestId) return;
     state.mapApartmentDetails.set(cacheKey, detail);
     renderMapApartmentDetail(detail);
@@ -1807,6 +1814,7 @@ function renderMapApartmentLoading(seedItem = null) {
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
+  if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
   els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 5년 그래프`;
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
   els.mapPopupStats.innerHTML = `
@@ -1828,6 +1836,7 @@ function renderMapApartmentError(seedItem = null, error = null) {
   state.mapPopupDetail = null;
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
+  if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
   els.mapPopupMeta.textContent = "불러오기 실패";
   els.mapPopupStats.innerHTML = "";
   els.mapPopupChart.innerHTML = `<div class="empty">시세 데이터를 불러오지 못했습니다.${error?.message ? ` ${escapeHtml(error.message)}` : ""}</div>`;
@@ -1840,6 +1849,7 @@ function renderMapApartmentDetail(detail) {
     els.mapApartmentPopup.hidden = false;
     els.mapPopupTitle.textContent = "아파트 시세";
     if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
+    if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
     els.mapPopupMeta.textContent = "정보 없음";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">아파트 정보를 찾지 못했습니다.</div>`;
@@ -1849,6 +1859,7 @@ function renderMapApartmentDetail(detail) {
   els.mapApartmentPopup.hidden = false;
   els.mapPopupTitle.textContent = detail.apartment.name;
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
+  renderMapPopupRanks(detail.rankSummary);
 
   const latestMonth = detail.months.at(-1);
   if (!latestMonth) {
@@ -1941,6 +1952,44 @@ function renderMapPopupPyeongGrowth(series, latestMonth) {
     <span>평당 상승률</span>
     ${rows}
   `;
+}
+
+function renderMapPopupRanks(rankSummary) {
+  if (!els.mapPopupRanks) return;
+  if (!rankSummary) {
+    els.mapPopupRanks.innerHTML = "";
+    return;
+  }
+  const rows = [
+    {
+      label: rankSummary.dongName || "동네",
+      rank: rankSummary.dongRank,
+      total: rankSummary.dongRankTotal
+    },
+    {
+      label: rankSummary.sigunguName || "구",
+      rank: rankSummary.sigunguRank,
+      total: rankSummary.sigunguRankTotal
+    },
+    {
+      label: rankSummary.sidoName || "시",
+      rank: rankSummary.sidoRank,
+      total: rankSummary.sidoRankTotal
+    },
+    {
+      label: "전국",
+      rank: rankSummary.countryRank,
+      total: rankSummary.countryRankTotal
+    }
+  ].filter((item) => Number.isFinite(Number(item.rank)));
+  els.mapPopupRanks.innerHTML = rows.length
+    ? rows.map((item) => `
+      <span>
+        <b>${escapeHtml(item.label)}</b>
+        ${formatRankText(item.rank, item.total)}
+      </span>
+    `).join("")
+    : "";
 }
 
 function averagePyeongAtMonth(series, yearMonth) {
@@ -2497,13 +2546,19 @@ function graphPyeongGeometry({ pyeongSeries, padding, chartBottom }) {
 function renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight }) {
   if (!pyeongGeometry || pyeongDesign.labelMode === "none") return "";
   const ratios = [0, 0.5, 1];
+  const titleText = "계산식: 모든 평형의 해당 월 평당 거래가를 평균낸 값입니다.";
   return ratios.map((ratio) => {
     const value = Math.round((pyeongGeometry.yMin + (pyeongGeometry.yMax - pyeongGeometry.yMin) * ratio) / 100) * 100;
     const yPos = pyeongGeometry.y(value).toFixed(1);
     return `
       <text class="map-popup-pyeong-axis-label" x="${chartRight + 10}" y="${(Number(yPos) + 4).toFixed(1)}" text-anchor="start">${formatMoney(value)}</text>
     `;
-  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당가격</text>`;
+  }).join("") + `
+    <g class="map-popup-pyeong-axis-help">
+      <title>${escapeHtml(titleText)}</title>
+      <text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당가격</text>
+    </g>
+  `;
 }
 
 function renderPyeongGraphSeries({ design, pyeongSeries, x, y }) {
@@ -2713,11 +2768,11 @@ function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = se
       `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`
     ).join("");
     const pyeongMarkup = Number.isFinite(pyeongAverage)
-      ? `<span class="map-popup-tooltip-secondary">평당가격 ${formatMoney(pyeongAverage)}</span><span class="map-popup-tooltip-secondary">계산: 모든 평형의 해당 월 평당 거래가 평균</span>`
+      ? `<span class="map-popup-tooltip-secondary">평당가격 ${formatMoney(pyeongAverage)}</span>`
       : "";
     const rows = isPyeongPrimary
-      ? `${pyeongMarkup}${priceMarkup}`
-      : `${priceMarkup || "<span>데이터 없음</span>"}${pyeongMarkup}`;
+      ? `${pyeongMarkup || "<span>데이터 없음</span>"}`
+      : `${priceMarkup || "<span>데이터 없음</span>"}`;
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
       <strong>${formatMonth(month)}</strong>
@@ -2881,34 +2936,58 @@ function rateClass(rate) {
 }
 
 function applyQuickPeriod(years) {
+  applyQuickPeriodMonths(Math.max(1, Math.round(Number(years || 1) * 12)));
+}
+
+function applyQuickPeriodMonths(months) {
   if (!state.months.length) return;
   const end = state.months.at(-1);
   const endDate = parseMonth(end);
   const target = new Date(endDate);
-  target.setFullYear(target.getFullYear() - years);
+  target.setMonth(target.getMonth() - Math.max(1, Number(months) || 12));
   els.endInput.value = toMonthInput(end);
   els.startInput.value = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function setPeriodYears(years) {
-  applyQuickPeriod(years);
-  syncPeriodButtons(years);
+  setPeriodMonths(Math.max(1, Math.round(Number(years || 1) * 12)));
 }
 
-function syncPeriodButtons(activeYears = currentPeriodYears()) {
-  document.querySelectorAll("[data-period-years]").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.periodYears) === activeYears);
+function setPeriodMonths(months) {
+  applyQuickPeriodMonths(months);
+  syncPeriodButtons(months);
+}
+
+function syncPeriodButtons(activeMonths = currentPeriodMonths()) {
+  document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
+    button.classList.toggle("active", periodButtonMonths(button) === activeMonths);
   });
 }
 
-function currentPeriodYears() {
-  if (!els.startInput.value || !els.endInput.value) return 1;
+function currentPeriodMonths() {
+  if (!els.startInput.value || !els.endInput.value) return 12;
   const start = new Date(`${els.startInput.value}-01`);
   const end = new Date(`${els.endInput.value}-01`);
   const monthDiff = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
-  if (monthDiff >= 54) return 5;
-  if (monthDiff >= 30) return 3;
-  return 1;
+  if (monthDiff >= 54) return 60;
+  if (monthDiff >= 30) return 36;
+  if (monthDiff >= 9) return 12;
+  if (monthDiff >= 5) return 6;
+  return 3;
+}
+
+function periodButtonMonths(button) {
+  const months = Number(button.dataset.periodMonths);
+  if (Number.isFinite(months) && months > 0) return Math.round(months);
+  const years = Number(button.dataset.periodYears);
+  return Math.max(1, Math.round((Number.isFinite(years) && years > 0 ? years : 1) * 12));
+}
+
+function currentMapPeriodParams() {
+  return {
+    start: els.startInput.value ? els.startInput.value.replace("-", "") : "",
+    end: els.endInput.value ? els.endInput.value.replace("-", "") : ""
+  };
 }
 
 function periodStartMonth(endMonth, years) {

@@ -3,7 +3,7 @@ import { refreshAppOverviewCache } from "./app-overview-cache.js";
 import { readDatasetFromDb } from "./db-store.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 
-export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
 
 export async function readMapGrowthCacheOverview() {
@@ -207,12 +207,12 @@ export async function refreshMolitMapGrowthCache({ periodYears = DEFAULT_MAP_CAC
   }
 
   const snapshots = [];
-  for (const years of normalizedYears(periodYears)) {
-    const startMonth = addYears(endMonth, -years);
+  for (const period of normalizedPeriods(periodYears)) {
+    const startMonth = addMonths(endMonth, -period.months);
     const items = buildMolitCacheItems(rows, { startMonth, endMonth });
     const snapshot = await saveSnapshot({
       source: "molit",
-      periodYears: years,
+      periodYears: period.storageYears,
       startMonth,
       endMonth,
       apartmentCount: items.apartmentCount,
@@ -225,6 +225,94 @@ export async function refreshMolitMapGrowthCache({ periodYears = DEFAULT_MAP_CAC
   return {
     refreshedAt: new Date().toISOString(),
     snapshots
+  };
+}
+
+export async function readApartmentMapRankSummary({
+  source = "kb",
+  apartmentId,
+  startMonth = "",
+  endMonth = ""
+} = {}) {
+  if (!apartmentId || !startMonth || !endMonth) return null;
+  const result = await query(`
+    with snapshot as (
+      select id
+      from map_growth_snapshots
+      where source = $1
+        and start_month = $2
+        and end_month = $3
+      order by updated_at desc
+      limit 1
+    ),
+    ranked as (
+      select
+        mgi.*,
+        row_number() over (
+          partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as dong_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+        )::int as dong_rank_total,
+        row_number() over (
+          partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as sigungu_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
+        )::int as sigungu_rank_total,
+        row_number() over (
+          partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as sido_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
+        )::int as sido_rank_total,
+        row_number() over (
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as country_rank,
+        count(*) over ()::int as country_rank_total
+      from map_growth_items mgi
+      join snapshot s on s.id = mgi.snapshot_id
+      where mgi.level = 'apartment'
+    )
+    select *
+    from ranked
+    where apartment_id = $4
+    limit 1
+  `, [source, startMonth, endMonth, apartmentId]);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    source,
+    startMonth,
+    endMonth,
+    hasData: row.has_data,
+    growthRate: row.growth_rate === null ? null : Number(row.growth_rate),
+    dongName: row.dong_name || row.neighborhood_name || "",
+    sigunguName: row.sigungu_name || "",
+    sidoName: row.sido_name || "",
+    dongRank: row.dong_rank === null ? null : Number(row.dong_rank),
+    dongRankTotal: row.dong_rank_total === null ? null : Number(row.dong_rank_total),
+    sigunguRank: row.sigungu_rank === null ? null : Number(row.sigungu_rank),
+    sigunguRankTotal: row.sigungu_rank_total === null ? null : Number(row.sigungu_rank_total),
+    sidoRank: row.sido_rank === null ? null : Number(row.sido_rank),
+    sidoRankTotal: row.sido_rank_total === null ? null : Number(row.sido_rank_total),
+    countryRank: row.country_rank === null ? null : Number(row.country_rank),
+    countryRankTotal: row.country_rank_total === null ? null : Number(row.country_rank_total)
   };
 }
 
@@ -366,8 +454,8 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
   }
 
   const snapshots = [];
-  for (const years of normalizedYears(periodYears)) {
-    const requestedStart = addYears(endMonth, -years);
+  for (const period of normalizedPeriods(periodYears)) {
+    const requestedStart = addMonths(endMonth, -period.months);
     const ranking = buildApartmentRankings(dataset, {
       start: requestedStart,
       end: endMonth
@@ -375,7 +463,7 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
     if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
     const items = buildCacheItems(dataset, ranking.rows);
     const snapshot = await saveSnapshot({
-      periodYears: years,
+      periodYears: period.storageYears,
       startMonth: ranking.period.startMonth,
       endMonth: ranking.period.endMonth,
       apartmentCount: items.apartmentCount,
@@ -1042,14 +1130,28 @@ function zoomAggregationLevel(zoom) {
   return "sido";
 }
 
-function normalizedYears(values) {
-  return [...new Set(values.map(Number).filter((value) => Number.isInteger(value) && value > 0))]
-    .sort((a, b) => a - b);
+function normalizedPeriods(values) {
+  const periods = values
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((years) => {
+      const months = Math.max(1, Math.round(years * 12));
+      return {
+        months,
+        storageYears: months < 12 ? 0 : Math.round(months / 12)
+      };
+    });
+  return [...new Map(periods.map((period) => [period.months, period])).values()]
+    .sort((a, b) => a.months - b.months);
 }
 
 function addYears(month, delta) {
+  return addMonths(month, delta * 12);
+}
+
+function addMonths(month, delta) {
   const date = new Date(Number(month.slice(0, 4)), Number(month.slice(4, 6)) - 1, 1);
-  date.setFullYear(date.getFullYear() + delta);
+  date.setMonth(date.getMonth() + delta);
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 

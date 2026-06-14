@@ -1,5 +1,5 @@
 import { closeDb, initDb } from "../src/services/db.js";
-import { refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
+import { DEFAULT_MAP_CACHE_PERIOD_YEARS, refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
 
 const options = parseArgs(process.argv.slice(2));
@@ -20,6 +20,6 @@ function parseArgs(args) {
   return {
     years: yearsArg
       ? yearsArg.slice("--years=".length).split(",").map(Number).filter(Number.isFinite)
-      : [1, 2, 3, 4, 5]
+      : DEFAULT_MAP_CACHE_PERIOD_YEARS
   };
 }

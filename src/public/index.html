@@ -37,9 +37,11 @@
             <h2 id="zoomMapTitle">지도</h2>
             <div class="map-head-meta">
               <div class="period-buttons" aria-label="지도 기준 기간">
-                <button class="active" data-period-years="1">1년전 기준</button>
-                <button data-period-years="3">3년전 기준</button>
-                <button data-period-years="5">5년전 기준</button>
+                <button data-period-months="3">3개월전 기준</button>
+                <button data-period-months="6">6개월전 기준</button>
+                <button class="active" data-period-months="12">1년전 기준</button>
+                <button data-period-months="36">3년전 기준</button>
+                <button data-period-months="60">5년전 기준</button>
               </div>
               <span id="zoomMapLevel">확대 단계 확인 중</span>
               <span id="zoomMapCount"></span>
@@ -70,6 +72,7 @@
                     <div id="mapPopupPyeongGrowth" class="map-popup-pyeong-growth"></div>
                   </div>
                   <span id="mapPopupMeta"></span>
+                  <div id="mapPopupRanks" class="map-popup-ranks"></div>
                 </div>
                 <button id="mapPopupCloseBtn" type="button" aria-label="닫기">×</button>
               </div>
