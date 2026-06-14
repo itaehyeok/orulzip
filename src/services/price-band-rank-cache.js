@@ -157,11 +157,11 @@ async function savePriceBandRankSnapshot({ source, basis, periodMonths, startMon
         await client.query(`
           insert into price_band_rank_items (
             snapshot_id, band_key, band_label, rank, apartment_id, apartment_name,
-            neighborhood_name, legal_dong_code, area_type_count, area_label,
+            neighborhood_name, legal_dong_code, address, area_type_count, area_label,
             start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
             growth_amount, growth_rate, updated_at
           ) values (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now()
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now()
           )
         `, [
           snapshot.id,
@@ -172,6 +172,7 @@ async function savePriceBandRankSnapshot({ source, basis, periodMonths, startMon
           row.apartmentName,
           row.neighborhoodName || "",
           row.legalDongCode || "",
+          row.address || "",
           row.areaTypeCount || 0,
           row.areaLabel || "",
           row.startSalePrice ?? null,
@@ -260,6 +261,7 @@ function serializePriceBandItem(row, basis) {
     apartmentName: row.apartment_name || "",
     neighborhoodName: row.neighborhood_name || "",
     legalDongCode: row.legal_dong_code || "",
+    address: row.address || "",
     areaTypeCount: Number(row.area_type_count || 0),
     areaLabel: row.area_label || "",
     bandKey: Number(row.band_key),

@@ -319,6 +319,7 @@ export async function initDb() {
       apartment_name text not null,
       neighborhood_name text,
       legal_dong_code text,
+      address text,
       area_type_count integer not null default 0,
       area_label text,
       observed_month_count integer not null default 0,
@@ -375,6 +376,8 @@ export async function initDb() {
 
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
+    alter table price_band_rank_items
+      add column if not exists address text;
     create index if not exists price_band_rank_items_band_idx
       on price_band_rank_items(snapshot_id, band_key, rank);
     create index if not exists price_band_rank_items_apartment_idx

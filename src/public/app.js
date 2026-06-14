@@ -1051,7 +1051,7 @@ function renderFormulaAnalysis(result) {
     ? result.examples.map((row) => `
       <tr>
         <td>${escapeHtml(row.apartmentName)}</td>
-        <td>${escapeHtml(row.neighborhoodName)}</td>
+        <td>${escapeHtml(formatPriceBandLocation(row))}</td>
         <td>${escapeHtml(row.areaLabel || "-")}</td>
         <td>${formatMonth(row.yearMonth)}</td>
         <td>${formatMoney(row.kbPyeongPrice)}</td>
@@ -3307,6 +3307,16 @@ function renderPriceBandChip(band, group, selectedBasis, selectedBandKey) {
       <em>최고 ${formatPercent(band.topGrowthRate)}</em>
     </button>
   `;
+}
+
+function formatPriceBandLocation(row) {
+  const address = String(row.address || "").trim();
+  const parts = address.split(/\s+/).filter(Boolean);
+  if (parts.length >= 4 && /도$/.test(parts[0]) && /시$/.test(parts[1]) && /구$/.test(parts[2])) {
+    return parts.slice(0, 4).join(" ");
+  }
+  if (parts.length >= 3) return parts.slice(0, 3).join(" ");
+  return row.neighborhoodName || "-";
 }
 
 function renderPriceBandPagination(pagination) {
