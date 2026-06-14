@@ -107,6 +107,19 @@ const GYEONGGI_LAWD_CODES = [
   ["41830", "양평군"]
 ];
 
+const INCHEON_LAWD_CODES = [
+  ["28110", "인천 중구"],
+  ["28140", "인천 동구"],
+  ["28177", "인천 미추홀구"],
+  ["28185", "인천 연수구"],
+  ["28200", "인천 남동구"],
+  ["28237", "인천 부평구"],
+  ["28245", "인천 계양구"],
+  ["28260", "인천 서구"],
+  ["28710", "인천 강화군"],
+  ["28720", "인천 옹진군"]
+];
+
 const TARGETS = {
   seoul: {
     id: "seoul",
@@ -115,6 +128,10 @@ const TARGETS = {
   gyeonggi: {
     id: "gyeonggi",
     lawdCodes: GYEONGGI_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  incheon: {
+    id: "incheon",
+    lawdCodes: INCHEON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   bundang: {
     id: "bundang",

@@ -1921,7 +1921,7 @@ function renderMapPopupAreaPicker(series, selected) {
           `).join("")}
         </select>
       </label>
-      <em>선택 평형 실거래가 + 통합 평당가</em>
+      <em>선택 평형 실거래가 + 평당가격</em>
     </div>
   `;
 }
@@ -2011,7 +2011,15 @@ function renderMapPopupChart({ months, series, pyeongSeriesSource = series }) {
     pyeongSeriesSource
   });
   els.mapPopupChart.innerHTML = result.html;
-  bindMapPopupChartHover({ width: result.geometry.width, months, series, pyeongSeriesSource, x: result.geometry.x });
+  bindMapPopupChartHover({
+    width: result.geometry.width,
+    months,
+    series,
+    pyeongSeriesSource,
+    x: result.geometry.x,
+    y: result.geometry.y,
+    pyeongY: result.geometry.pyeongY
+  });
 }
 
 function graphDesign(id, name, overrides = {}) {
@@ -2435,7 +2443,11 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
     : "";
 
   return {
-    geometry,
+    geometry: {
+      ...geometry,
+      pyeongY: pyeongGeometry?.y,
+      pyeongSeries
+    },
     html: `
       <svg class="map-popup-chart-svg graph-design-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="평형별 시세 그래프">
         <defs>${defs}</defs>
@@ -2474,7 +2486,11 @@ function graphPyeongGeometry({ pyeongSeries, padding, chartBottom }) {
   const span = Math.max(rawMax - rawMin, 500);
   const yMin = Math.max(0, Math.floor((rawMin - span * 0.14) / 500) * 500);
   const yMax = Math.ceil((rawMax + span * 0.14) / 500) * 500;
-  const y = (value) => padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (chartBottom - padding.top);
+  const separationOffset = 10;
+  const y = (value) => Math.min(
+    chartBottom - 2,
+    padding.top + separationOffset + (1 - (value - yMin) / (yMax - yMin || 1)) * (chartBottom - padding.top - separationOffset)
+  );
   return { y, yMin, yMax };
 }
 
@@ -2487,7 +2503,7 @@ function renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, 
     return `
       <text class="map-popup-pyeong-axis-label" x="${chartRight + 10}" y="${(Number(yPos) + 4).toFixed(1)}" text-anchor="start">${formatMoney(value)}</text>
     `;
-  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">통합 평당</text>`;
+  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당가격</text>`;
 }
 
 function renderPyeongGraphSeries({ design, pyeongSeries, x, y }) {
@@ -2532,8 +2548,8 @@ function graphChartGeometry({ mode, months, series }) {
   const width = mode === "preview" ? 360 : 680;
   const height = mode === "preview" ? 190 : 300;
   const padding = mode === "preview"
-    ? { top: 18, right: 68, bottom: 30, left: 54 }
-    : { top: 26, right: 92, bottom: 42, left: 72 };
+    ? { top: 18, right: 68, bottom: 30, left: 60 }
+    : { top: 26, right: 92, bottom: 42, left: 96 };
   const chartBottom = height - padding.bottom;
   const chartRight = width - padding.right;
   const values = series.flatMap((item) => item.prices.map((price) => price.saleMid).filter(Number.isFinite));
@@ -2666,33 +2682,46 @@ function graphDesignColor(design, index, fallback) {
   return palette[index % palette.length] || fallback || colors[index % colors.length];
 }
 
-function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = series, x }) {
+function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = series, x, y, pyeongY }) {
   const svg = els.mapPopupChart.querySelector("svg");
   const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
   const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
   if (!svg || !hit || !line || !els.mapPopupTooltip || !months.length) return;
 
   hit.addEventListener("mousemove", (event) => {
-    const month = nearestMonthFromEvent(event, svg, width, months, x);
+    const svgPoint = svgPointFromEvent(event, svg, width);
+    const month = nearestMonthFromSvgX(svgPoint.x, months, x);
     const xPos = x(month);
     line.setAttribute("x1", xPos);
     line.setAttribute("x2", xPos);
     line.hidden = false;
 
-    const rows = series.map((item) => {
+    const priceRows = series.map((item) => {
       const price = item.prices.find((entry) => entry.yearMonth === month);
-      if (!price) return "";
-      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`;
-    }).filter(Boolean).join("");
+      if (!price) return null;
+      return { item, price, y: y(Number(price.saleMid)) };
+    }).filter(Boolean);
     const pyeongAverage = averagePyeongAtMonth(pyeongSeriesSource, month);
-    const pyeongRow = Number.isFinite(pyeongAverage)
-      ? `<span class="map-popup-tooltip-secondary">통합 평당가 ${formatMoney(pyeongAverage)}</span>`
+    const priceRow = priceRows[0];
+    const priceDistance = priceRow
+      ? Math.abs(priceRow.y - svgPoint.y)
+      : Infinity;
+    const pyeongYValue = Number.isFinite(pyeongAverage) && pyeongY ? pyeongY(Number(pyeongAverage)) : NaN;
+    const pyeongDistance = Number.isFinite(pyeongYValue) ? Math.abs(pyeongYValue - svgPoint.y) : Infinity;
+    const isPyeongPrimary = pyeongDistance < priceDistance;
+    const priceMarkup = priceRows.map(({ item, price }) =>
+      `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`
+    ).join("");
+    const pyeongMarkup = Number.isFinite(pyeongAverage)
+      ? `<span class="map-popup-tooltip-secondary">평당가격 ${formatMoney(pyeongAverage)}</span><span class="map-popup-tooltip-secondary">계산: 모든 평형의 해당 월 평당 거래가 평균</span>`
       : "";
+    const rows = isPyeongPrimary
+      ? `${pyeongMarkup}${priceMarkup}`
+      : `${priceMarkup || "<span>데이터 없음</span>"}${pyeongMarkup}`;
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
       <strong>${formatMonth(month)}</strong>
       ${rows || "<span>데이터 없음</span>"}
-      ${pyeongRow}
     `);
   });
 
@@ -3161,8 +3190,18 @@ function bindDetailChartHover({ width, padding, months, series, x }) {
 }
 
 function nearestMonthFromEvent(event, svg, width, months, x) {
+  return nearestMonthFromSvgX(svgPointFromEvent(event, svg, width).x, months, x);
+}
+
+function svgPointFromEvent(event, svg, width) {
   const rect = svg.getBoundingClientRect();
   const svgX = ((event.clientX - rect.left) / rect.width) * width;
+  const viewBoxHeight = Number(svg.getAttribute("viewBox")?.split(/\s+/)[3]) || rect.height;
+  const svgY = ((event.clientY - rect.top) / rect.height) * viewBoxHeight;
+  return { x: svgX, y: svgY };
+}
+
+function nearestMonthFromSvgX(svgX, months, x) {
   return months.reduce((nearest, month) => (
     Math.abs(x(month) - svgX) < Math.abs(x(nearest) - svgX) ? month : nearest
   ), months[0]);
