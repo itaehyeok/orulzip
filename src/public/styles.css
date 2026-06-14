@@ -1655,9 +1655,9 @@ input {
 }
 
 .map-popup-period-marker line {
-  stroke: rgba(102, 112, 133, 0.24);
-  stroke-dasharray: 2 7;
-  stroke-width: 1;
+  stroke: rgba(71, 84, 103, 0.5);
+  stroke-dasharray: 3 6;
+  stroke-width: 1.4;
 }
 
 .map-popup-period-marker text {
@@ -1667,6 +1667,11 @@ input {
   paint-order: stroke;
   stroke: rgba(255, 255, 255, 0.82);
   stroke-width: 3;
+}
+
+.map-popup-period-dot {
+  stroke-width: 2;
+  filter: drop-shadow(0 1px 3px rgba(16, 24, 40, 0.28));
 }
 
 .map-popup-pyeong-axis-line {

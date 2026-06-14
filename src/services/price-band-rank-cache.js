@@ -102,11 +102,13 @@ export async function readPriceBandRankPage({
   const safePage = totalRows ? Math.min(normalizedPage, totalPages) : 1;
   const offset = (safePage - 1) * normalizedPageSize;
   const rowsResult = selectedBand ? await query(`
-    select *
-    from price_band_rank_items
-    where snapshot_id = $1
-      and band_key = $2
-    order by rank asc
+    select pbi.*, a.household_count
+    from price_band_rank_items pbi
+    left join apartments a
+      on a.id = pbi.apartment_id
+    where pbi.snapshot_id = $1
+      and pbi.band_key = $2
+    order by pbi.rank asc
     limit $3 offset $4
   `, [snapshot.id, selectedBand.bandKey, normalizedPageSize, offset]) : { rows: [] };
 
@@ -262,6 +264,7 @@ function serializePriceBandItem(row, basis) {
     neighborhoodName: row.neighborhood_name || "",
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
+    householdCount: Number(row.household_count || 0),
     areaTypeCount: Number(row.area_type_count || 0),
     areaLabel: row.area_label || "",
     bandKey: Number(row.band_key),

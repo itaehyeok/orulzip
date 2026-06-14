@@ -47,6 +47,7 @@ const state = {
   mapApartmentDetails: new Map(),
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
+  mapPopupCloseSuppressedUntil: 0,
   activeGraphDesignId: null,
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
@@ -1246,6 +1247,7 @@ async function initNaverZoomMap() {
     updateZoomMapLevelLabel();
     scheduleZoomMapLoad();
   });
+  window.naver.maps.Event.addListener(state.zoomNaverMap, "click", closeMapApartmentPopupFromMap);
   setTimeout(() => window.naver.maps.Event.trigger(state.zoomNaverMap, "resize"), 0);
   updateZoomMapLevelLabel();
   watchNaverAuthFailure();
@@ -1286,6 +1288,7 @@ function initLeafletZoomMap() {
     updateZoomMapLevelLabel();
     scheduleZoomMapLoad();
   });
+  state.zoomMap.on("click", closeMapApartmentPopupFromMap);
   updateZoomMapLevelLabel();
   return true;
 }
@@ -1722,7 +1725,10 @@ function renderZoomGroupMarker(item, level) {
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
   marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
-  marker.on("click", () => {
+  marker.on("click", (event) => {
+    suppressMapPopupClose();
+    stopLeafletClick(event);
+    closeMapApartmentPopup();
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
 }
@@ -1750,7 +1756,11 @@ function renderZoomApartmentMarker(item) {
     sticky: true
   });
   marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
-  marker.on("click", () => openMapApartmentDetail(item.id, item));
+  marker.on("click", (event) => {
+    suppressMapPopupClose();
+    stopLeafletClick(event);
+    openMapApartmentDetail(item.id, item);
+  });
 }
 
 function renderNaverZoomGroupMarker(item, level) {
@@ -1775,6 +1785,8 @@ function renderNaverZoomGroupMarker(item, level) {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
+    suppressMapPopupClose();
+    closeMapApartmentPopup();
     openZoomNaverInfoWindow(position, zoomGroupPopup(item));
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomNaverMap.getZoom()), { exactZoom: true });
   });
@@ -1799,9 +1811,25 @@ function renderNaverZoomApartmentMarker(item) {
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
+    suppressMapPopupClose();
     openMapApartmentDetail(item.id, item);
   });
   state.zoomNaverOverlays.push(marker);
+}
+
+function suppressMapPopupClose() {
+  state.mapPopupCloseSuppressedUntil = Date.now() + 160;
+}
+
+function closeMapApartmentPopupFromMap() {
+  if (Date.now() < state.mapPopupCloseSuppressedUntil) return;
+  closeMapApartmentPopup();
+}
+
+function stopLeafletClick(event) {
+  if (event?.originalEvent && window.L?.DomEvent) {
+    L.DomEvent.stopPropagation(event.originalEvent);
+  }
 }
 
 function apartmentMarkerHtml(item) {
@@ -2562,7 +2590,7 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
-  const periodMarkers = renderGraphPeriodMarkers({ months, x, padding, chartBottom });
+  const periodMarkers = renderGraphPeriodMarkers({ months, series, x, y, padding, chartBottom });
   const pyeongSeries = averagePyeongGraphSeries({ months, series: pyeongSeriesSource });
   const pyeongGeometry = graphPyeongGeometry({ pyeongSeries, padding, chartBottom });
   const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
@@ -2597,10 +2625,10 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
         <rect x="0" y="0" width="${width}" height="${height}" rx="${mode === "preview" ? 12 : 0}" fill="${design.background}"></rect>
         <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="${design.plotRadius}" style="fill:${design.plotBackground};stroke:${design.gridMode === "none" ? "transparent" : design.gridColor};"></rect>
         ${grid}
-        ${periodMarkers}
         ${pyeongAxis}
         ${pyeongSeriesMarkup}
         ${seriesMarkup}
+        ${periodMarkers}
         ${monthLabels}
         <line class="map-popup-axis-line" x1="${padding.left}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
         <line class="map-popup-axis-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" style="stroke:${design.axisColor};"></line>
@@ -2676,7 +2704,7 @@ function renderPyeongGraphSeries({ design, pyeongSeries, x, y }) {
   return `<path class="map-popup-pyeong-line" d="${path}" stroke="${color}" style="${style}"></path>`;
 }
 
-function renderGraphPeriodMarkers({ months, x, padding, chartBottom }) {
+function renderGraphPeriodMarkers({ months, series, x, y, padding, chartBottom }) {
   if (!months.length) return "";
   const latestMonth = months.at(-1);
   return [1, 3, 5].map((years) => {
@@ -2684,13 +2712,46 @@ function renderGraphPeriodMarkers({ months, x, padding, chartBottom }) {
     if (!months.includes(yearMonth)) return "";
     const xPos = x(yearMonth);
     const labelX = Math.min(xPos + 7, x(months.at(-1)) - 16);
+    const dots = series.map((item) => {
+      const yPos = interpolatedSeriesYAtMonth(item, yearMonth, x, y);
+      if (!Number.isFinite(yPos)) return "";
+      return `<circle class="map-popup-period-dot" cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="4" fill="${item.color}" stroke="#ffffff"></circle>`;
+    }).join("");
     return `
       <g class="map-popup-period-marker">
         <line x1="${xPos.toFixed(1)}" y1="${padding.top}" x2="${xPos.toFixed(1)}" y2="${chartBottom}"></line>
+        ${dots}
         <text x="${labelX.toFixed(1)}" y="${padding.top + 14}" text-anchor="start">${years}년</text>
       </g>
     `;
   }).join("");
+}
+
+function interpolatedSeriesYAtMonth(item, yearMonth, x, y) {
+  const points = (item.prices || [])
+    .filter((price) => Number.isFinite(Number(price.saleMid)) && String(price.yearMonth || "") <= yearMonth)
+    .map((price) => ({
+      x: x(price.yearMonth),
+      y: y(Number(price.saleMid)),
+      yearMonth: price.yearMonth
+    }))
+    .sort((a, b) => a.x - b.x);
+  const after = (item.prices || [])
+    .filter((price) => Number.isFinite(Number(price.saleMid)) && String(price.yearMonth || "") >= yearMonth)
+    .map((price) => ({
+      x: x(price.yearMonth),
+      y: y(Number(price.saleMid)),
+      yearMonth: price.yearMonth
+    }))
+    .sort((a, b) => a.x - b.x)[0];
+  const before = points.at(-1);
+  if (!before && !after) return NaN;
+  if (!before) return after.y;
+  if (!after) return before.y;
+  const targetX = x(yearMonth);
+  if (Math.abs(after.x - before.x) < 0.001) return before.y;
+  const ratio = (targetX - before.x) / (after.x - before.x);
+  return before.y + (after.y - before.y) * ratio;
 }
 
 function graphChartGeometry({ mode, months, series }) {
@@ -2836,6 +2897,10 @@ function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = se
   const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
   const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
   if (!svg || !hit || !line || !els.mapPopupTooltip || !months.length) return;
+  const hideHover = () => {
+    line.hidden = true;
+    els.mapPopupTooltip.hidden = true;
+  };
 
   hit.addEventListener("mousemove", (event) => {
     const svgPoint = svgPointFromEvent(event, svg, width);
@@ -2874,10 +2939,9 @@ function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = se
     `);
   });
 
-  hit.addEventListener("mouseleave", () => {
-    line.hidden = true;
-    els.mapPopupTooltip.hidden = true;
-  });
+  hit.addEventListener("mouseleave", hideHover);
+  svg.addEventListener("mouseleave", hideHover);
+  els.mapPopupChart.addEventListener("mouseleave", hideHover);
 }
 
 function zoomGroupPopup(item) {
@@ -3267,7 +3331,7 @@ function renderPriceBandTable(result, basisBands = null) {
         <td>${row.rank}</td>
         <td>
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
-          <span class="muted-cell">${escapeHtml(row.areaLabel)} · ${formatInt(row.areaTypeCount)}개 면적</span>
+          <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
             <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
             <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
@@ -3339,6 +3403,18 @@ function naverApartmentLink(row) {
 function hogangnonoApartmentLink(row) {
   const query = compactSearchQuery([row.apartmentName, formatPriceBandLocation(row)]);
   return `https://hogangnono.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function priceBandApartmentMeta(row) {
+  const parts = [
+    row.areaLabel || "-",
+    `${formatInt(row.areaTypeCount)}개 면적`
+  ];
+  const households = Number(row.householdCount);
+  if (Number.isFinite(households) && households > 0) {
+    parts.push(`${formatInt(households)}세대`);
+  }
+  return parts.join(" · ");
 }
 
 function compactSearchQuery(parts) {
