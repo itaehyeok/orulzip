@@ -777,7 +777,10 @@ async function serveStatic(pathname, res) {
     }
     throw error;
   }
-  res.writeHead(200, { "Content-Type": contentType(filePath) });
+  res.writeHead(200, {
+    "Content-Type": contentType(filePath),
+    "Cache-Control": "no-store"
+  });
   res.end(content);
 }
 
