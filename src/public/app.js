@@ -424,18 +424,10 @@ function bindEvents() {
     state.apartmentRankPage = Number(button.dataset.apartmentPage) || 1;
     refresh();
   });
-  document.querySelectorAll("[data-price-band-basis]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
-      state.priceBandKey = "";
-      state.priceBandPage = 1;
-      syncPriceBandBasisButtons();
-      refresh();
-    });
-  });
   els.priceBandSummary?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-key]");
     if (!button) return;
+    state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
     state.priceBandKey = button.dataset.priceBandKey || "";
     state.priceBandPage = 1;
     refresh();
@@ -562,7 +554,19 @@ async function loadActiveViewData() {
     if (state.priceBandKey !== "") priceBandParams.set("bandKey", state.priceBandKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
-    renderPriceBandTable(await api(`/api/price-band-rankings?${priceBandParams}`));
+    const otherBasis = state.priceBandBasis === "end" ? "start" : "end";
+    const otherPriceBandParams = new URLSearchParams(params);
+    otherPriceBandParams.set("basis", otherBasis);
+    otherPriceBandParams.set("page", "1");
+    otherPriceBandParams.set("pageSize", "10");
+    const [result, otherResult] = await Promise.all([
+      api(`/api/price-band-rankings?${priceBandParams}`),
+      api(`/api/price-band-rankings?${otherPriceBandParams}`)
+    ]);
+    renderPriceBandTable(result, {
+      start: result.basis === "start" ? result.bands : otherResult.bands,
+      end: result.basis === "end" ? result.bands : otherResult.bands
+    });
     return;
   }
 
@@ -3222,7 +3226,7 @@ function renderApartmentPagination(pagination) {
   `;
 }
 
-function renderPriceBandTable(result) {
+function renderPriceBandTable(result, basisBands = null) {
   syncPriceBandBasisButtons();
   if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
   state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
@@ -3230,6 +3234,10 @@ function renderPriceBandTable(result) {
     : String(result.selectedBandKey);
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
+  const summaryBands = basisBands || {
+    start: result.basis === "start" ? bands : [],
+    end: result.basis === "end" ? bands : []
+  };
   const pagination = result.pagination || {
     page: 1,
     pageSize: rows.length || state.priceBandPageSize,
@@ -3239,14 +3247,14 @@ function renderPriceBandTable(result) {
   state.priceBandPage = pagination.page;
   const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
   const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
-  const basisLabel = result.basis === "end" ? "현재시점 가격대" : "기준시점 가격대";
+  const basisLabel = result.basis === "end" ? "현재 가격대" : "과거 가격대";
   const selectedBand = result.selectedBand || bands.find((band) => String(band.bandKey) === state.priceBandKey) || null;
   const selectedBandLabel = selectedBand?.bandLabel || "가격대";
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
   els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}`;
-  renderPriceBandSummary(bands, state.priceBandKey);
+  renderPriceBandSummary(summaryBands, state.priceBandBasis, state.priceBandKey);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
       <tr>
@@ -3256,7 +3264,6 @@ function renderPriceBandTable(result) {
           <span class="muted-cell">${escapeHtml(row.areaLabel)} · ${formatInt(row.areaTypeCount)}개 면적</span>
         </td>
         <td>${escapeHtml(row.neighborhoodName)}</td>
-        <td>${escapeHtml(row.bandLabel)}</td>
         <td>${formatKoreanPrice(row.startSalePrice)}</td>
         <td>${formatKoreanPrice(row.endSalePrice)}</td>
         <td>${formatMoney(row.startPyeongPrice)}</td>
@@ -3264,26 +3271,44 @@ function renderPriceBandTable(result) {
         <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="9" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
+    : `<tr><td colspan="8" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
 }
 
-function renderPriceBandSummary(bands, selectedBandKey) {
+function renderPriceBandSummary(basisBands, selectedBasis, selectedBandKey) {
   if (!els.priceBandSummary) return;
-  if (!bands.length) {
+  const groups = [
+    { basis: "start", label: "과거 가격대", prefix: "과거", bands: Array.isArray(basisBands?.start) ? basisBands.start : [] },
+    { basis: "end", label: "현재 가격대", prefix: "현재", bands: Array.isArray(basisBands?.end) ? basisBands.end : [] }
+  ];
+  if (!groups.some((group) => group.bands.length)) {
     els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
     return;
   }
-  els.priceBandSummary.innerHTML = bands.map((band) => {
-    const isActive = String(band.bandKey) === String(selectedBandKey);
-    return `
-      <button type="button" class="price-band-chip ${isActive ? "active" : ""}" data-price-band-key="${escapeHtml(band.bandKey)}">
-        <strong>${escapeHtml(band.bandLabel)}</strong>
-        <span>${formatInt(band.apartmentCount)}개</span>
-        <em>최고 ${formatPercent(band.topGrowthRate)}</em>
-      </button>
-    `;
-  }).join("");
+  els.priceBandSummary.innerHTML = groups.map((group) => `
+    <div class="price-band-row">
+      <div class="price-band-row-label">${group.label}</div>
+      <div class="price-band-chip-row">
+        ${group.bands.length ? group.bands.map((band) => renderPriceBandChip(band, group, selectedBasis, selectedBandKey)).join("") : `<span class="price-band-empty">데이터 없음</span>`}
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderPriceBandChip(band, group, selectedBasis, selectedBandKey) {
+  const isActive = group.basis === selectedBasis && String(band.bandKey) === String(selectedBandKey);
+  return `
+    <button
+      type="button"
+      class="price-band-chip ${isActive ? "active" : ""}"
+      data-price-band-basis="${group.basis}"
+      data-price-band-key="${escapeHtml(band.bandKey)}"
+    >
+      <strong>${group.prefix} ${escapeHtml(band.bandLabel)}</strong>
+      <span>${formatInt(band.apartmentCount)}개</span>
+      <em>최고 ${formatPercent(band.topGrowthRate)}</em>
+    </button>
+  `;
 }
 
 function renderPriceBandPagination(pagination) {

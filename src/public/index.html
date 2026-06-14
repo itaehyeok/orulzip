@@ -216,10 +216,6 @@
             <span id="priceBandCount"></span>
           </div>
           <div class="ranking-controls">
-            <div class="segmented-buttons" aria-label="가격대 분류 기준">
-              <button class="active" type="button" data-price-band-basis="start">기준시점 가격대</button>
-              <button type="button" data-price-band-basis="end">현재시점 가격대</button>
-            </div>
             <div class="period-buttons" aria-label="가격대 랭킹 기준 기간">
               <button data-period-months="3">3개월전 기준</button>
               <button data-period-months="6">6개월전 기준</button>
@@ -238,13 +234,12 @@
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">
-            <table>
+            <table class="price-band-table">
               <thead>
                 <tr>
                   <th>순위</th>
                   <th>아파트</th>
                   <th>동</th>
-                  <th>가격대</th>
                   <th>기준 가격</th>
                   <th>현재 가격</th>
                   <th>기준 평당가</th>

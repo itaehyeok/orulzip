@@ -246,12 +246,32 @@ input {
 }
 
 .price-band-summary {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
+  display: grid;
+  gap: 10px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
   background: #fff;
+}
+
+.price-band-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.price-band-row-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.price-band-chip-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .price-band-chip {
@@ -293,6 +313,12 @@ input {
 .price-band-chip.active span,
 .price-band-chip.active em {
   color: #315ca7;
+}
+
+.price-band-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .status-line {
@@ -2067,6 +2093,11 @@ td:nth-child(3),
 th:nth-child(4),
 td:nth-child(4) {
   text-align: left;
+}
+
+.price-band-table th:nth-child(4),
+.price-band-table td:nth-child(4) {
+  text-align: right;
 }
 
 .clickable-row {
