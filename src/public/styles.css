@@ -51,7 +51,8 @@ h2 {
 .primary-btn,
 .toolbar button,
 .tabs a,
-.tabs button {
+.tabs button,
+.tabs summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -64,6 +65,52 @@ h2 {
   cursor: pointer;
   font-weight: 600;
   text-decoration: none;
+}
+
+.tabs summary {
+  list-style: none;
+}
+
+.tabs summary::-webkit-details-marker {
+  display: none;
+}
+
+.tab-more-menu {
+  position: relative;
+}
+
+.tab-more-menu summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.tab-more-menu[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.tab-more-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 160px;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 14%);
+}
+
+.tab-more-list a {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .primary-btn {
@@ -127,7 +174,8 @@ input {
 .quick-buttons button.active,
 .period-buttons button.active,
 .tabs a.active,
-.tabs button.active {
+.tabs button.active,
+.tab-more-menu.active summary {
   border-color: var(--blue);
   background: #e8f0ff;
   color: var(--blue);
@@ -2117,6 +2165,24 @@ td:nth-child(4) {
 .muted-cell {
   color: var(--muted);
   font-size: 12px;
+}
+
+.table-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.table-links a {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.table-links a:hover {
+  text-decoration: underline;
 }
 
 .positive {

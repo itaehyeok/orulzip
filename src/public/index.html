@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260614-location">
+    <link rel="stylesheet" href="/styles.css?v=20260614-map-menu">
   </head>
   <body>
     <main class="app-shell">
       <nav class="tabs top-tabs" aria-label="보기 전환">
-        <a class="active" data-tab="map" href="/map" aria-current="page">지도</a>
-        <a data-tab="molitMap" href="/molit-map">지도(실거래가)</a>
+        <a class="active" data-tab="molitMap" href="/map" aria-current="page">지도</a>
         <a data-tab="neighborhood" href="/neighborhood">동네별</a>
         <a data-tab="apartment" href="/apartments">아파트별</a>
         <a data-tab="priceBands" href="/price-bands">가격대별</a>
@@ -19,6 +18,12 @@
         <a data-tab="terms" href="/terms">용어</a>
         <a data-tab="design" href="/design">디자인</a>
         <a data-tab="crawl" href="/crawl">수집현황</a>
+        <details class="tab-more-menu">
+          <summary>더보기</summary>
+          <div class="tab-more-list">
+            <a data-tab="map" href="/kb-map">지도(KB시세)</a>
+          </div>
+        </details>
       </nav>
 
       <div class="app-state-controls" hidden>
@@ -559,6 +564,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260614-location"></script>
+    <script src="/app.js?v=20260614-map-menu"></script>
   </body>
 </html>

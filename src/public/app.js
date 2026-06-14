@@ -1,6 +1,6 @@
 const tabRoutes = {
-  map: "/map",
-  molitMap: "/molit-map",
+  map: "/kb-map",
+  molitMap: "/map",
   neighborhood: "/neighborhood",
   apartment: "/apartments",
   priceBands: "/price-bands",
@@ -11,9 +11,10 @@ const tabRoutes = {
 };
 
 const routeTabs = {
-  "/": "map",
-  "/map": "map",
+  "/": "molitMap",
+  "/map": "molitMap",
   "/molit-map": "molitMap",
+  "/kb-map": "map",
   "/neighborhood": "neighborhood",
   "/apartments": "apartment",
   "/price-bands": "priceBands",
@@ -447,7 +448,9 @@ function bindEvents() {
   document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
     item.addEventListener("click", (event) => {
       event.preventDefault();
+      const menu = item.closest(".tab-more-menu");
       activateTab(item.dataset.tab, { push: true });
+      if (menu) menu.open = false;
     });
   });
 
@@ -615,6 +618,11 @@ function setActiveTab(tab, { push = false } = {}) {
     } else {
       item.removeAttribute("aria-current");
     }
+  });
+  document.querySelectorAll(".tab-more-menu").forEach((menu) => {
+    const hasActiveItem = Boolean(menu.querySelector("[data-tab].active"));
+    menu.classList.toggle("active", hasActiveItem);
+    if (!hasActiveItem) menu.open = false;
   });
 
   document.querySelector("#mapView").classList.toggle("active", isMapTab(nextTab));
@@ -3260,8 +3268,12 @@ function renderPriceBandTable(result, basisBands = null) {
         <td>
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
           <span class="muted-cell">${escapeHtml(row.areaLabel)} · ${formatInt(row.areaTypeCount)}개 면적</span>
+          <span class="table-links">
+            <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
+            <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
+          </span>
         </td>
-        <td>${escapeHtml(row.neighborhoodName)}</td>
+        <td>${escapeHtml(formatPriceBandLocation(row))}</td>
         <td>${formatKoreanPrice(row.startSalePrice)}</td>
         <td>${formatKoreanPrice(row.endSalePrice)}</td>
         <td>${formatMoney(row.startPyeongPrice)}</td>
@@ -3317,6 +3329,20 @@ function formatPriceBandLocation(row) {
   }
   if (parts.length >= 3) return parts.slice(0, 3).join(" ");
   return row.neighborhoodName || "-";
+}
+
+function naverApartmentLink(row) {
+  const query = compactSearchQuery([row.address, row.apartmentName]) || row.apartmentName || "";
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
+
+function hogangnonoApartmentLink(row) {
+  const query = compactSearchQuery([row.apartmentName, formatPriceBandLocation(row)]);
+  return `https://hogangnono.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function compactSearchQuery(parts) {
+  return parts.map((part) => String(part || "").trim()).filter(Boolean).join(" ");
 }
 
 function renderPriceBandPagination(pagination) {
