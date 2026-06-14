@@ -1174,6 +1174,26 @@ input {
   background: #fbfcfe;
 }
 
+.map-popup-area-picker {
+  align-items: end;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.map-popup-area-picker label {
+  min-width: 0;
+}
+
+.map-popup-area-picker em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 0 0 8px;
+}
+
 .map-popup-stat {
   display: grid;
   gap: 3px;
@@ -1214,6 +1234,7 @@ input {
 }
 
 .map-popup-stat-wide {
+  grid-column: 1 / -1;
   gap: 7px;
 }
 
@@ -1618,6 +1639,55 @@ input {
   border-bottom: 1px solid var(--line);
 }
 
+.terms-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.term-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.term-card-head {
+  display: grid;
+  gap: 4px;
+}
+
+.term-card-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.term-card-head strong {
+  font-size: 20px;
+}
+
+.term-card p {
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.term-card ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 0;
+  padding-left: 20px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .chart {
   position: relative;
   min-height: 360px;
@@ -1863,7 +1933,10 @@ td:nth-child(4) {
   .crawl-job-progress,
   .graph-design-grid,
   .marker-design-grid,
-  .info-grid {
+  .info-grid,
+  .terms-grid,
+  .term-card ol,
+  .map-popup-area-picker {
     grid-template-columns: 1fr;
   }
 

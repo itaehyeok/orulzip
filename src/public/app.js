@@ -4,6 +4,7 @@ const tabRoutes = {
   neighborhood: "/neighborhood",
   apartment: "/apartments",
   formula: "/formula",
+  terms: "/terms",
   design: "/design",
   crawl: "/crawl"
 };
@@ -15,6 +16,7 @@ const routeTabs = {
   "/neighborhood": "neighborhood",
   "/apartments": "apartment",
   "/formula": "formula",
+  "/terms": "terms",
   "/design": "design",
   "/crawl": "crawl"
 };
@@ -41,6 +43,7 @@ const state = {
   mapSearchActiveIndex: -1,
   mapApartmentDetails: new Map(),
   mapPopupDetail: null,
+  mapPopupSelectedAreaTypeId: null,
   activeGraphDesignId: null,
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
@@ -328,6 +331,12 @@ function bindEvents() {
   els.syncBtn.addEventListener("click", syncCurrentRegion);
   els.formulaRunBtn.addEventListener("click", loadFormulaAnalysis);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
+  els.mapPopupStats.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-map-popup-area-select]");
+    if (!select || !state.mapPopupDetail) return;
+    state.mapPopupSelectedAreaTypeId = select.value;
+    renderMapApartmentDetail(state.mapPopupDetail);
+  });
   els.mapSearchInput.addEventListener("input", () => scheduleMapSearch());
   els.mapSearchInput.addEventListener("focus", () => {
     if (els.mapSearchInput.value.trim()) scheduleMapSearch(0);
@@ -440,6 +449,10 @@ async function refresh() {
     return;
   }
 
+  if (state.activeTab === "terms") {
+    return;
+  }
+
   if (!status.counts.monthlyPrices) {
     renderEmpty();
     return;
@@ -481,6 +494,10 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "terms") {
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     await loadCrawlTabData();
   }
@@ -518,6 +535,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#neighborhoodView").classList.toggle("active", nextTab === "neighborhood");
   document.querySelector("#apartmentView").classList.toggle("active", nextTab === "apartment");
   document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
+  document.querySelector("#termsView").classList.toggle("active", nextTab === "terms");
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
 
@@ -1759,6 +1777,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const source = currentMapSource();
   const cacheKey = `${source}:${apartmentId}`;
   state.mapPopupDetail = null;
+  state.mapPopupSelectedAreaTypeId = null;
   if (state.mapApartmentDetails.has(cacheKey)) {
     renderMapApartmentDetail(state.mapApartmentDetails.get(cacheKey));
     return;
@@ -1844,33 +1863,74 @@ function renderMapApartmentDetail(detail) {
   const months = detail.months.filter((month) => month >= startMonth && month <= latestMonth);
   const graphDesign = activeGraphDesign();
   els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${formatMonth(startMonth)} - ${formatMonth(latestMonth)} / 최근 5년 그래프`;
-  const series = detail.areaTypes
+  const allSeries = detail.areaTypes
     .map((areaType, index) => ({
       ...areaType,
       color: graphDesignColor(graphDesign, index, colors[index % colors.length]),
       prices: areaType.prices.filter((price) => price.yearMonth >= startMonth && price.yearMonth <= latestMonth)
     }))
-    .filter((areaType) => areaType.prices.length)
-    .slice(0, 8);
+    .filter((areaType) => areaType.prices.length);
 
-  if (!series.length) {
+  if (!allSeries.length) {
     if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">선택 기간의 시세 데이터가 없습니다.</div>`;
     return;
   }
 
-  renderMapPopupPyeongGrowth(series, latestMonth);
-  els.mapPopupStats.innerHTML = series.map((item) => renderMapPopupAreaSummary(item, latestMonth)).join("");
+  const selected = selectedMapPopupSeries(allSeries);
+  const selectedSeries = selected ? [selected] : [];
+  renderMapPopupPyeongGrowth(allSeries, latestMonth);
+  els.mapPopupStats.innerHTML = `
+    ${renderMapPopupAreaPicker(allSeries, selected)}
+    ${selected ? renderMapPopupAreaSummary(selected, latestMonth) : ""}
+  `;
 
-  renderMapPopupChart({ months, series });
+  renderMapPopupChart({ months, series: selectedSeries, pyeongSeriesSource: allSeries });
+}
+
+function selectedMapPopupSeries(series) {
+  if (!series.length) return null;
+  const selected = series.find((item) => item.id === state.mapPopupSelectedAreaTypeId);
+  if (selected) return selected;
+  const fallback = [...series].sort((a, b) =>
+    areaTypeDealCount(b) - areaTypeDealCount(a)
+    || Number(b.exclusiveAreaPyeong || 0) - Number(a.exclusiveAreaPyeong || 0)
+  )[0];
+  state.mapPopupSelectedAreaTypeId = fallback?.id || null;
+  return fallback || null;
+}
+
+function areaTypeDealCount(areaType) {
+  const explicit = Number(areaType?.totalDealCount);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  return (areaType?.prices || []).reduce((sum, price) => sum + Number(price.dealCount || 0), 0);
+}
+
+function renderMapPopupAreaPicker(series, selected) {
+  if (!series.length) return "";
+  return `
+    <div class="map-popup-area-picker">
+      <label for="mapPopupAreaSelect">
+        <span>평형 선택</span>
+        <select id="mapPopupAreaSelect" data-map-popup-area-select>
+          ${series.map((item) => `
+            <option value="${escapeHtml(item.id)}" ${item.id === selected?.id ? "selected" : ""}>
+              ${escapeHtml(item.label || "-")} · 거래 ${formatInt(areaTypeDealCount(item))}건
+            </option>
+          `).join("")}
+        </select>
+      </label>
+      <em>선택 평형 실거래가 + 통합 평당가</em>
+    </div>
+  `;
 }
 
 function renderMapPopupPyeongGrowth(series, latestMonth) {
   if (!els.mapPopupPyeongGrowth) return;
   const latest = averageLatestPyeongAtOrBefore(series, latestMonth);
   const rows = [1, 3, 5].map((years) => {
-    const start = averagePyeongAtMonth(series, periodStartMonth(latestMonth, years));
+    const start = averageLatestPyeongAtOrBefore(series, periodStartMonth(latestMonth, years));
     if (!Number.isFinite(latest) || !Number.isFinite(start) || !start) {
       return `<em class="no-data">${years}년 없음</em>`;
     }
@@ -1913,7 +1973,7 @@ function renderMapPopupAreaSummary(item, latestMonth) {
 
 function renderMapPopupChangeRow(item, latest, latestMonth, years) {
   const startMonth = periodStartMonth(latestMonth, years);
-  const start = item.prices.find((price) => price.yearMonth === startMonth);
+  const start = latestPriceAtOrBefore(item.prices, startMonth);
   if (!latest || !start) {
     return `
       <div class="map-popup-change-row no-data">
@@ -1941,16 +2001,17 @@ function latestPriceAtOrBefore(prices, yearMonth) {
     .at(-1) || null;
 }
 
-function renderMapPopupChart({ months, series }) {
+function renderMapPopupChart({ months, series, pyeongSeriesSource = series }) {
   const result = renderGraphSvg({
     design: activeGraphDesign(),
     interactive: true,
     mode: "popup",
     months,
-    series
+    series,
+    pyeongSeriesSource
   });
   els.mapPopupChart.innerHTML = result.html;
-  bindMapPopupChartHover({ width: result.geometry.width, months, series, x: result.geometry.x });
+  bindMapPopupChartHover({ width: result.geometry.width, months, series, pyeongSeriesSource, x: result.geometry.x });
 }
 
 function graphDesign(id, name, overrides = {}) {
@@ -2344,14 +2405,14 @@ function graphDesignSampleData() {
   };
 }
 
-function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), interactive, mode, months, series }) {
+function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), interactive, mode, months, series, pyeongSeriesSource = series }) {
   const geometry = graphChartGeometry({ mode, months, series });
   const { width, height, padding, chartRight, chartBottom, x, y, yMin, yMax } = geometry;
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
   const periodMarkers = renderGraphPeriodMarkers({ months, x, padding, chartBottom });
-  const pyeongSeries = averagePyeongGraphSeries({ months, series });
+  const pyeongSeries = averagePyeongGraphSeries({ months, series: pyeongSeriesSource });
   const pyeongGeometry = graphPyeongGeometry({ pyeongSeries, padding, chartBottom });
   const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
   const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, pyeongSeries, x, y: pyeongGeometry?.y });
@@ -2426,7 +2487,7 @@ function renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, 
     return `
       <text class="map-popup-pyeong-axis-label" x="${chartRight + 10}" y="${(Number(yPos) + 4).toFixed(1)}" text-anchor="start">${formatMoney(value)}</text>
     `;
-  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">평당</text>`;
+  }).join("") + `<text class="map-popup-pyeong-axis-title" x="${chartRight + 10}" y="${Math.max(13, padding.top - 9)}" text-anchor="start">통합 평당</text>`;
 }
 
 function renderPyeongGraphSeries({ design, pyeongSeries, x, y }) {
@@ -2605,7 +2666,7 @@ function graphDesignColor(design, index, fallback) {
   return palette[index % palette.length] || fallback || colors[index % colors.length];
 }
 
-function bindMapPopupChartHover({ width, months, series, x }) {
+function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = series, x }) {
   const svg = els.mapPopupChart.querySelector("svg");
   const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
   const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
@@ -2623,9 +2684,9 @@ function bindMapPopupChartHover({ width, months, series, x }) {
       if (!price) return "";
       return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`;
     }).filter(Boolean).join("");
-    const pyeongAverage = averagePyeongAtMonth(series, month);
+    const pyeongAverage = averagePyeongAtMonth(pyeongSeriesSource, month);
     const pyeongRow = Number.isFinite(pyeongAverage)
-      ? `<span class="map-popup-tooltip-secondary">평당 평균 ${formatMoney(pyeongAverage)}</span>`
+      ? `<span class="map-popup-tooltip-secondary">통합 평당가 ${formatMoney(pyeongAverage)}</span>`
       : "";
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `

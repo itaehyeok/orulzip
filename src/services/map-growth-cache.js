@@ -310,10 +310,13 @@ export async function buildMolitApartmentDetail(apartmentId) {
         label: `전용 ${exclusiveAreaM2.toFixed(2)}㎡`,
         supplyAreaPyeong: exclusiveAreaM2 / 3.305785,
         exclusiveAreaPyeong: exclusiveAreaM2 / 3.305785,
+        totalDealCount: 0,
         monthly: new Map()
       });
     }
-    types.get(typeKey).monthly.set(row.deal_year_month, serializeMolitPrice(row));
+    const type = types.get(typeKey);
+    type.totalDealCount += Number(row.deal_count || 0);
+    type.monthly.set(row.deal_year_month, serializeMolitPrice(row));
   }
 
   const areaTypes = [...types.entries()].map(([typeKey, type]) => {
@@ -338,6 +341,7 @@ export async function buildMolitApartmentDetail(apartmentId) {
       label: type.label,
       supplyAreaPyeong: type.supplyAreaPyeong,
       exclusiveAreaPyeong: type.exclusiveAreaPyeong,
+      totalDealCount: type.totalDealCount,
       prices
     };
   }).filter((type) => type.prices.length);

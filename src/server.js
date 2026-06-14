@@ -27,7 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/neighborhood", "/apartments", "/formula", "/design", "/crawl"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl"]);
 
 await initDb();
 
