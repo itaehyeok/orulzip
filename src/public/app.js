@@ -45,7 +45,7 @@ const state = {
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
   markerLineGapPx: null,
-  mapDesignCollapsed: false,
+  mapDesignCollapsed: true,
   latestZoomMapData: null,
   naverSdkPromise: null,
   latestStatus: null,
