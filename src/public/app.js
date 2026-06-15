@@ -2094,14 +2094,14 @@ function apartmentRankRow(label, shortLabel, rank, total, design = activeMarkerD
 function markerIconSize(design) {
   const lineCount = apartmentMarkerLineCount(design);
   const width = {
-    small: 62,
-    wide: 82,
-    medium: 96,
-    tall: 104,
-    full: 124,
-    dense: 108,
-    sentence: 132,
-    large: 104
+    small: 70,
+    wide: 92,
+    medium: 108,
+    tall: 122,
+    full: 148,
+    dense: 124,
+    sentence: 162,
+    large: 116
   }[design.size] || 88;
   const height = Math.max(38, 30 + lineCount * 15);
   return [width, height];
@@ -3727,7 +3727,8 @@ function zoomRankRow(label, shortLabel, rank, total, design = activeMarkerDesign
 
 function compactRankLabel(label, shortLabel, design = activeMarkerDesign()) {
   if (design.rankLabelMode === "abbr") return shortLabel;
-  return label || shortLabel || "";
+  if (design.rankLabelMode === "named" || design.rankLabelMode === "phrase") return label || shortLabel || "";
+  return shortLabel || label || "";
 }
 
 function zoomRankSigunguLabel(item) {

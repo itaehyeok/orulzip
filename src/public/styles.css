@@ -1266,14 +1266,17 @@ input {
 
 .apartment-map-marker .marker-rank-label,
 .apartment-map-marker .marker-dong {
-  overflow: hidden;
-  max-width: 42px;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .apartment-map-marker .marker-rank-label-named .marker-rank-label,
 .apartment-map-marker .marker-rank-label-phrase .marker-rank-label {
-  max-width: 62px;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .apartment-map-marker .marker-rank-line b {
@@ -1292,31 +1295,33 @@ input {
 }
 
 .apartment-map-marker.marker-size-sentence {
-  min-width: 108px;
+  min-width: 138px;
   padding: 6px 8px;
 }
 
 .apartment-map-marker.marker-size-sentence .marker-dong {
-  max-width: 38px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .apartment-map-marker.marker-size-medium {
-  min-width: 92px;
+  min-width: 104px;
   padding: 6px 8px;
 }
 
 .apartment-map-marker.marker-size-tall {
-  min-width: 100px;
+  min-width: 116px;
   padding: 6px 8px;
 }
 
 .apartment-map-marker.marker-size-full {
-  min-width: 116px;
+  min-width: 140px;
   padding: 7px 8px;
 }
 
 .apartment-map-marker.marker-size-dense {
-  min-width: 100px;
+  min-width: 116px;
   padding: 6px 7px;
 }
 
@@ -1329,7 +1334,12 @@ input {
 }
 
 .apartment-map-marker.marker-size-full .marker-rank-label {
-  max-width: 54px;
+  max-width: none;
+}
+
+.apartment-map-marker.marker-size-full .marker-rank-label-named .marker-rank-label,
+.apartment-map-marker.marker-size-full .marker-rank-label-phrase .marker-rank-label {
+  max-width: 104px;
 }
 
 .apartment-map-marker.marker-shape-card {
