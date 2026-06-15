@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260615-marker-verbosity">
+    <link rel="stylesheet" href="/styles.css?v=20260615-marker-level-verbosity">
   </head>
   <body>
     <main class="app-shell">
@@ -385,6 +385,14 @@
       <section id="designView" class="view">
         <section class="panel design-panel">
           <div class="panel-head">
+            <h2>마커 정보량</h2>
+            <span id="designMarkerSelected">-</span>
+          </div>
+          <div id="markerDesignGrid" class="marker-design-grid"></div>
+        </section>
+
+        <section class="panel design-panel">
+          <div class="panel-head">
             <h2>상단 검색 시안</h2>
             <span id="designMapHeaderSelected">-</span>
           </div>
@@ -413,14 +421,6 @@
             <span id="designPyeongGraphSelected">-</span>
           </div>
           <div id="pyeongGraphDesignGrid" class="graph-design-grid"></div>
-        </section>
-
-        <section class="panel design-panel">
-          <div class="panel-head">
-            <h2>마커 시안</h2>
-            <span id="designMarkerSelected">-</span>
-          </div>
-          <div id="markerDesignGrid" class="marker-design-grid"></div>
         </section>
       </section>
 
@@ -600,6 +600,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260615-marker-verbosity"></script>
+    <script src="/app.js?v=20260615-marker-level-verbosity"></script>
   </body>
 </html>

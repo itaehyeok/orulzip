@@ -1576,6 +1576,129 @@ input {
   pointer-events: none;
 }
 
+.marker-info-level {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.marker-info-level-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.marker-info-level-head h3 {
+  margin: 0;
+  color: #1d2939;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.marker-info-level-head p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.marker-info-level-head span {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.marker-info-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.marker-info-option {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 10px;
+  text-align: left;
+}
+
+.marker-info-option.active {
+  border-color: var(--blue);
+  background: #f5f8ff;
+  box-shadow: inset 0 0 0 1px rgba(35, 103, 209, 0.18);
+}
+
+.marker-info-option-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.marker-info-option-head strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker-info-option-head em,
+.marker-info-option small {
+  color: #667085;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.marker-info-option .marker-design-map-preview {
+  height: 168px;
+}
+
+.marker-info-compact {
+  gap: 7px;
+}
+
+.marker-info-compact .marker-info-level-head {
+  align-items: center;
+}
+
+.marker-info-compact .marker-info-level-head h3 {
+  font-size: 12px;
+}
+
+.marker-info-compact .marker-info-level-head span {
+  overflow: hidden;
+  max-width: 76px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker-info-compact .marker-info-option-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.marker-info-compact .marker-info-option {
+  min-height: 32px;
+  padding: 7px 8px;
+}
+
+.marker-info-compact .marker-info-option-head strong {
+  font-size: 11px;
+}
+
 .map-apartment-popup {
   position: absolute;
   top: 14px;

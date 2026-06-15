@@ -55,6 +55,7 @@ const state = {
   activeGraphDesignId: null,
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
+  markerVerbosityByLevel: null,
   activeLogoDesignId: null,
   activeMapHeaderDesignId: null,
   apartmentRankMode: "averagePyeong",
@@ -79,6 +80,14 @@ const defaultPyeongGraphDesignId = "pyeong-soft";
 const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
 const defaultMarkerDesignId = "verbosity-dong";
 const markerDesignStorageKey = "orulzip.markerDesignId";
+const markerVerbosityStorageKey = "orulzip.markerVerbosityByLevel";
+const markerLevelConfigs = [
+  { id: "sido", name: "도시", fullName: "도시 마커", description: "서울, 경기처럼 가장 넓은 단위" },
+  { id: "sigungu", name: "시군구", fullName: "시군구 마커", description: "구, 시, 군 단위" },
+  { id: "dong", name: "동", fullName: "동 마커", description: "동네 단위" },
+  { id: "apartment", name: "아파트", fullName: "아파트 마커", description: "개별 아파트 단위" }
+];
+const defaultMarkerVerbosityByLevel = Object.fromEntries(markerLevelConfigs.map((level) => [level.id, defaultMarkerDesignId]));
 const defaultLogoDesignId = "roof-up-open";
 const logoDesignStorageKey = "orulzip.logoDesignId";
 const defaultMapHeaderDesignId = "musinsa-black";
@@ -109,14 +118,14 @@ const pyeongGraphDesignVariants = [
 ];
 const pyeongGraphDesignVariantMap = new Map(pyeongGraphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
-  markerDesign("verbosity-rate", "01 최소", { group: "정보량 낮음", showRank: false, shape: "pill", size: "small", tone: "solid", groupRankMode: "none", apartmentRankMode: "none", note: "상승률만 표시" }),
-  markerDesign("verbosity-dong", "02 기본", { group: "정보량 낮음", showRank: true, shape: "pill", size: "wide", tone: "solid", groupRankMode: "parent", apartmentRankMode: "dong", rankLabelMode: "short", note: "아파트는 동 순위까지" }),
-  markerDesign("verbosity-local", "03 동+구", { group: "정보량 중간", showRank: true, shape: "card", size: "medium", tone: "outline", groupRankMode: "regional", apartmentRankMode: "local", rankLabelMode: "short", rankStyle: "box", note: "가까운 상위 지역까지" }),
-  markerDesign("verbosity-region", "04 동+구+시", { group: "정보량 중간", showRank: true, shape: "card", size: "tall", tone: "white", groupRankMode: "regional", apartmentRankMode: "regional", rankLabelMode: "short", rankStyle: "plain", note: "시도 순위까지 압축 표시" }),
-  markerDesign("verbosity-full", "05 전체 순위", { group: "정보량 높음", showRank: true, shape: "card", size: "full", tone: "solid", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "short", rankStyle: "plain", note: "동/구/시/전국 순위" }),
-  markerDesign("verbosity-named", "06 이름 포함", { group: "정보량 높음", showRank: true, shape: "card", size: "full", tone: "outline", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "named", rankStyle: "plain", note: "지역명을 넣은 전체 순위" }),
-  markerDesign("verbosity-phrase", "07 문장형", { group: "정보량 높음", showRank: true, shape: "card", size: "sentence", tone: "white", groupRankMode: "full", apartmentRankMode: "full", rankLabelMode: "phrase", rankStyle: "box", note: "목동 상승률 1/14등 형태" }),
-  markerDesign("verbosity-compact-full", "08 압축 전체", { group: "정보량 높음", showRank: true, shape: "pill", size: "dense", tone: "soft", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", rankStyle: "circle", note: "작게 줄인 전체 순위" })
+  markerDesign("verbosity-rate", "01 최소", { group: "정보량 낮음", showRank: false, size: "small", groupRankMode: "none", apartmentRankMode: "none", note: "상승률만 표시" }),
+  markerDesign("verbosity-dong", "02 기본", { group: "정보량 낮음", showRank: true, size: "wide", groupRankMode: "parent", apartmentRankMode: "dong", rankLabelMode: "short", note: "바로 위 지역 순위까지" }),
+  markerDesign("verbosity-local", "03 지역 2줄", { group: "정보량 중간", showRank: true, size: "medium", groupRankMode: "regional", apartmentRankMode: "local", rankLabelMode: "short", note: "가까운 상위 지역 2개까지" }),
+  markerDesign("verbosity-region", "04 지역 3줄", { group: "정보량 중간", showRank: true, size: "tall", groupRankMode: "regional", apartmentRankMode: "regional", rankLabelMode: "short", note: "시도 순위까지 압축 표시" }),
+  markerDesign("verbosity-full", "05 전체 순위", { group: "정보량 높음", showRank: true, size: "full", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "short", note: "동/구/시/전국 순위" }),
+  markerDesign("verbosity-named", "06 지역명 포함", { group: "정보량 높음", showRank: true, size: "full", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "named", note: "지역명을 넣은 전체 순위" }),
+  markerDesign("verbosity-phrase", "07 문장형", { group: "정보량 높음", showRank: true, size: "sentence", groupRankMode: "full", apartmentRankMode: "full", rankLabelMode: "phrase", note: "목동 상승률 1/14등 형태" }),
+  markerDesign("verbosity-compact-full", "08 압축 전체", { group: "정보량 높음", showRank: true, size: "dense", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", note: "짧은 라벨로 전체 순위" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const logoDesignVariants = [
@@ -353,6 +362,7 @@ async function init() {
   state.activeGraphDesignId = readStoredGraphDesignId();
   state.activePyeongGraphDesignId = readStoredPyeongGraphDesignId();
   state.activeMarkerDesignId = readStoredMarkerDesignId();
+  state.markerVerbosityByLevel = readStoredMarkerVerbosityByLevel(state.activeMarkerDesignId);
   state.activeLogoDesignId = readStoredLogoDesignId();
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
@@ -426,7 +436,7 @@ function bindEvents() {
   els.markerDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-marker-design-id]");
     if (!card) return;
-    setActiveMarkerDesign(card.dataset.markerDesignId);
+    setActiveMarkerDesign(card.dataset.markerDesignId, card.dataset.markerLevel || "all");
   });
   els.mapGraphDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-graph-design-id]");
@@ -441,7 +451,7 @@ function bindEvents() {
   els.mapMarkerDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-marker-design-id]");
     if (!card) return;
-    setActiveMarkerDesign(card.dataset.markerDesignId);
+    setActiveMarkerDesign(card.dataset.markerDesignId, card.dataset.markerLevel || "all");
   });
   els.mapMarkerLineGapInput?.addEventListener("input", () => {
     setMarkerLineGapPx(els.mapMarkerLineGapInput.value);
@@ -1879,7 +1889,7 @@ function renderZoomGroupMarker(item, level) {
     renderNaverZoomGroupMarker(item, level);
     return;
   }
-  const design = activeMarkerDesign();
+  const design = activeMarkerDesign(level);
   const [width, height] = zoomMarkerSize(level, design);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = L.marker([item.lat, item.lng], {
@@ -1906,7 +1916,7 @@ function renderZoomApartmentMarker(item) {
     renderNaverZoomApartmentMarker(item);
     return;
   }
-  const [width, height] = markerIconSize(activeMarkerDesign());
+  const [width, height] = markerIconSize(activeMarkerDesign("apartment"));
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: baseZIndex,
@@ -1933,7 +1943,7 @@ function renderZoomApartmentMarker(item) {
 
 function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
-  const design = activeMarkerDesign();
+  const design = activeMarkerDesign(level);
   const [width, height] = zoomMarkerSize(level, design);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
@@ -1960,7 +1970,7 @@ function renderNaverZoomGroupMarker(item, level) {
 
 function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
-  const [width, height] = markerIconSize(activeMarkerDesign());
+  const [width, height] = markerIconSize(activeMarkerDesign("apartment"));
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = new window.naver.maps.Marker({
     position,
@@ -1997,9 +2007,8 @@ function stopLeafletClick(event) {
   }
 }
 
-function apartmentMarkerHtml(item) {
+function apartmentMarkerHtml(item, design = activeMarkerDesign("apartment")) {
   const hasData = item.hasData !== false;
-  const design = activeMarkerDesign();
   const rankLines = design.showRank ? apartmentMarkerRankLines(item, design) : [];
   return `
     <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
@@ -2018,7 +2027,7 @@ function apartmentMarkerHtml(item) {
   `;
 }
 
-function apartmentMarkerRankLines(item, design = activeMarkerDesign()) {
+function apartmentMarkerRankLines(item, design = activeMarkerDesign("apartment")) {
   const allRows = apartmentMarkerAllRankRows(item, design).filter((row) => row.rank !== "-");
   const mode = design.apartmentRankMode || "dong";
   if (mode === "none") return [];
@@ -2028,7 +2037,7 @@ function apartmentMarkerRankLines(item, design = activeMarkerDesign()) {
   return allRows;
 }
 
-function apartmentMarkerAllRankRows(item, design = activeMarkerDesign()) {
+function apartmentMarkerAllRankRows(item, design = activeMarkerDesign("apartment")) {
   const dongLabel = shortDongLabel(item.dongName || item.neighborhoodName || "동");
   const sigunguLabel = shortZoomLabel(item.sigunguName || "", "sigungu") || "구";
   const sidoLabel = zoomRankSidoLabel(item);
@@ -2045,7 +2054,7 @@ function apartmentMarkerAllRankRows(item, design = activeMarkerDesign()) {
   }));
 }
 
-function apartmentRankRow(label, shortLabel, rank, total, design = activeMarkerDesign()) {
+function apartmentRankRow(label, shortLabel, rank, total, design = activeMarkerDesign("apartment")) {
   return {
     label: compactRankLabel(label, shortLabel, design),
     rank: formatRankText(rank, total)
@@ -2481,7 +2490,7 @@ function markerDesign(id, name, overrides = {}) {
     name,
     group: "기본형",
     showRank: true,
-    shape: "pill",
+    shape: "card",
     size: "wide",
     rankStyle: "plain",
     rankFormat: "compact",
@@ -2528,8 +2537,11 @@ function mapHeaderDesign(id, name, overrides = {}) {
   };
 }
 
-function activeMarkerDesign() {
-  return markerDesignVariantMap.get(state.activeMarkerDesignId)
+function activeMarkerDesign(level = "apartment") {
+  const normalizedLevel = normalizeMarkerLevel(level);
+  const levelDesignId = state.markerVerbosityByLevel?.[normalizedLevel];
+  return markerDesignVariantMap.get(levelDesignId)
+    || markerDesignVariantMap.get(state.activeMarkerDesignId)
     || markerDesignVariantMap.get(defaultMarkerDesignId)
     || markerDesignVariants[0];
 }
@@ -2543,19 +2555,60 @@ function readStoredMarkerDesignId() {
   }
 }
 
-function setActiveMarkerDesign(id) {
-  if (!markerDesignVariantMap.has(id)) return;
-  state.activeMarkerDesignId = id;
+function readStoredMarkerVerbosityByLevel(fallbackId = defaultMarkerDesignId) {
+  const result = { ...defaultMarkerVerbosityByLevel };
+  let hasStoredLevelValue = false;
   try {
-    window.localStorage.setItem(markerDesignStorageKey, id);
+    const stored = JSON.parse(window.localStorage.getItem(markerVerbosityStorageKey) || "{}");
+    for (const level of markerLevelConfigs) {
+      if (markerDesignVariantMap.has(stored?.[level.id])) {
+        result[level.id] = stored[level.id];
+        hasStoredLevelValue = true;
+      }
+    }
+  } catch {
+    // Ignore malformed localStorage and use defaults.
+  }
+  if (!hasStoredLevelValue && markerDesignVariantMap.has(fallbackId)) {
+    for (const level of markerLevelConfigs) {
+      result[level.id] = fallbackId;
+    }
+  }
+  return result;
+}
+
+function writeStoredMarkerVerbosityByLevel() {
+  try {
+    window.localStorage.setItem(markerVerbosityStorageKey, JSON.stringify(state.markerVerbosityByLevel || defaultMarkerVerbosityByLevel));
+    window.localStorage.setItem(markerDesignStorageKey, state.markerVerbosityByLevel?.apartment || defaultMarkerDesignId);
   } catch {
     // localStorage may be disabled in private contexts.
   }
+}
+
+function setActiveMarkerDesign(id, level = "all") {
+  if (!markerDesignVariantMap.has(id)) return;
+  const targetLevel = normalizeMarkerLevel(level);
+  if (!state.markerVerbosityByLevel) state.markerVerbosityByLevel = { ...defaultMarkerVerbosityByLevel };
+  if (level === "all") {
+    for (const item of markerLevelConfigs) {
+      state.markerVerbosityByLevel[item.id] = id;
+    }
+    state.activeMarkerDesignId = id;
+  } else {
+    state.markerVerbosityByLevel[targetLevel] = id;
+    if (targetLevel === "apartment") state.activeMarkerDesignId = id;
+  }
+  writeStoredMarkerVerbosityByLevel();
   renderMarkerDesignGallery();
   renderMapDesignPanel();
-  if (state.latestZoomMapData?.level === "apartment") {
+  if (state.latestZoomMapData) {
     renderZoomMapSummary(state.latestZoomMapData);
   }
+}
+
+function normalizeMarkerLevel(level = "apartment") {
+  return markerLevelConfigs.some((item) => item.id === level) ? level : "apartment";
 }
 
 function activeLogoDesign() {
@@ -2677,7 +2730,6 @@ function renderMapDesignPanel() {
   if (!els.mapDesignPanel) return;
   const graph = activeGraphDesign();
   const pyeongGraph = activePyeongGraphDesign();
-  const marker = activeMarkerDesign();
   els.mapDesignPanel.classList.toggle("collapsed", state.mapDesignCollapsed);
   if (els.mapDesignToggleBtn) {
     els.mapDesignToggleBtn.textContent = state.mapDesignCollapsed ? "디자인 펼치기" : "디자인 접기";
@@ -2685,7 +2737,7 @@ function renderMapDesignPanel() {
   }
   if (els.mapDesignGraphSelected) els.mapDesignGraphSelected.textContent = graph.name.replace(/^\d+\s*/, "");
   if (els.mapDesignPyeongSelected) els.mapDesignPyeongSelected.textContent = pyeongGraph.name.replace(/^\d+\s*/, "");
-  if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = marker.name.replace(/^\d+\s*/, "");
+  if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = markerSelectionSummary();
   if (els.mapMarkerLineGapInput) {
     els.mapMarkerLineGapInput.value = String(normalizeMarkerLineGapPx(state.markerLineGapPx));
   }
@@ -2710,23 +2762,7 @@ function renderMapDesignPanel() {
     }).join("");
   }
   if (els.mapMarkerDesignGrid) {
-    const sample = markerDesignSampleItems()[0];
-    els.mapMarkerDesignGrid.innerHTML = groupedMarkerDesignVariants().map((group) => `
-      <div class="map-marker-design-group">
-        <strong>${escapeHtml(group.name)}</strong>
-        <div class="map-marker-design-group-grid">
-          ${group.items.map((item) => {
-            const isActive = item.id === marker.id;
-            return `
-              <button class="map-marker-design-option ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
-                <span>${escapeHtml(item.name.replace(/^\d+\s*/, ""))}</span>
-                <em>${markerPreviewHtml(sample, item)}</em>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </div>
-    `).join("");
+    els.mapMarkerDesignGrid.innerHTML = renderMarkerVerbosityControls({ mode: "compact" });
   }
 }
 
@@ -2745,32 +2781,37 @@ function groupedMarkerDesignVariants() {
   return groups;
 }
 
-function renderMarkerDesignOptionGroups({ active, sampleItems, mode }) {
-  return groupedMarkerDesignVariants().map((group) => `
-    <section class="marker-design-group">
-      <h3>${escapeHtml(group.name)}</h3>
-      <div class="marker-design-grid">
-        ${group.items.map((design) => {
-          const index = markerDesignVariants.indexOf(design);
-          const isActive = design.id === active.id;
-          const previewItems = mode === "map" ? [sampleItems[0]] : sampleItems;
-          const markers = mode === "map"
-            ? previewItems.map((item) => markerPreviewHtml(item, design)).join("")
-            : markerDesignMapPreviewHtml(design);
-          return `
-            <button class="marker-design-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
-              <span class="graph-design-card-head">
-                <strong>${escapeHtml(design.name)}</strong>
-                <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
-              </span>
-              ${design.note ? `<span class="marker-design-note">${escapeHtml(design.note)}</span>` : ""}
-              <span class="marker-design-preview">${markers}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `).join("");
+function renderMarkerVerbosityControls({ mode = "full" } = {}) {
+  return markerLevelConfigs.map((level) => {
+    const active = activeMarkerDesign(level.id);
+    return `
+      <section class="marker-info-level marker-info-${escapeHtml(mode)}">
+        <div class="marker-info-level-head">
+          <div>
+            <h3>${escapeHtml(level.fullName)}</h3>
+            ${mode === "full" ? `<p>${escapeHtml(level.description)}</p>` : ""}
+          </div>
+          <span>${escapeHtml(active.name.replace(/^\d+\s*/, ""))}</span>
+        </div>
+        <div class="marker-info-option-grid">
+          ${markerDesignVariants.map((design) => {
+            const index = markerDesignVariants.indexOf(design);
+            const isActive = design.id === active.id;
+            return `
+              <button class="marker-info-option ${isActive ? "active" : ""}" type="button" data-marker-level="${escapeHtml(level.id)}" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+                <span class="marker-info-option-head">
+                  <strong>${escapeHtml(design.name.replace(/^\d+\s*/, ""))}</strong>
+                  ${mode === "full" ? `<em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>` : ""}
+                </span>
+                ${mode === "full" && design.note ? `<small>${escapeHtml(design.note)}</small>` : ""}
+                ${mode === "full" ? markerInfoPreviewHtml(level.id, design) : ""}
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+  }).join("");
 }
 
 function renderGraphDesignGallery() {
@@ -2835,10 +2876,8 @@ function renderPyeongGraphDesignGallery() {
 
 function renderMarkerDesignGallery() {
   if (!els.markerDesignGrid) return;
-  const active = activeMarkerDesign();
-  const sampleItems = markerDesignSampleItems();
-  els.designMarkerSelected.textContent = `${active.name} / ${markerDesignVariants.length}개`;
-  els.markerDesignGrid.innerHTML = renderMarkerDesignOptionGroups({ active, sampleItems });
+  els.designMarkerSelected.textContent = markerSelectionSummary();
+  els.markerDesignGrid.innerHTML = renderMarkerVerbosityControls({ mode: "full" });
 }
 
 function renderMapHeaderDesignGallery() {
@@ -3031,31 +3070,36 @@ function markerDesignSampleItems() {
 }
 
 function markerPreviewHtml(item, design) {
-  const previous = state.activeMarkerDesignId;
-  state.activeMarkerDesignId = design.id;
-  const html = apartmentMarkerHtml(item);
-  state.activeMarkerDesignId = previous;
-  return html;
+  return apartmentMarkerHtml(item, design);
 }
 
-function markerDesignMapPreviewHtml(design) {
-  const apartment = markerDesignSampleItems()[0];
-  const groups = markerDesignSampleGroups();
+function markerSelectionSummary() {
+  return markerLevelConfigs
+    .map((level) => `${level.name} ${activeMarkerDesign(level.id).name.replace(/^\d+\s*/, "")}`)
+    .join(" · ");
+}
+
+function markerInfoPreviewHtml(level, design) {
+  const sample = level === "apartment"
+    ? markerDesignSampleItems()[0]
+    : markerDesignSampleGroups()[level] || markerDesignSampleGroups().dong;
+  const markerHtml = level === "apartment"
+    ? markerPreviewHtml(sample, design)
+    : zoomGroupMarkerContentHtml(sample, level, design);
+  const size = level === "apartment" ? markerIconSize(design) : zoomMarkerSize(level, design);
   return `
-    <span class="marker-design-map-preview">
+    <span class="marker-design-map-preview marker-info-preview-${escapeHtml(level)}">
       <span class="preview-road preview-road-a"></span>
       <span class="preview-road preview-road-b"></span>
       <span class="preview-water"></span>
-      <span class="preview-map-label label-sido">시도</span>
-      <span class="preview-map-label label-sigungu">시군구</span>
-      <span class="preview-map-label label-dong">동</span>
-      <span class="preview-map-label label-apartment">아파트</span>
-      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.sido, "sido", design), "sido", zoomMarkerSize("sido", design))}
-      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.sigungu, "sigungu", design), "sigungu", zoomMarkerSize("sigungu", design))}
-      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.dong, "dong", design), "dong", zoomMarkerSize("dong", design))}
-      ${markerDesignPreviewNode(markerPreviewHtml(apartment, design), "apartment", markerIconSize(design))}
+      <span class="preview-map-label label-${escapeHtml(level)}">${escapeHtml(markerLevelLabel(level))}</span>
+      ${markerDesignPreviewNode(markerHtml, level, size)}
     </span>
   `;
+}
+
+function markerLevelLabel(level) {
+  return markerLevelConfigs.find((item) => item.id === level)?.name || "마커";
 }
 
 function markerDesignPreviewNode(html, level, size) {
@@ -3545,7 +3589,7 @@ function isJibunLike(value = "") {
   return /^\d+(?:-\d+)?$/.test(String(value));
 }
 
-function zoomGroupMarkerContentHtml(item, level, design = activeMarkerDesign()) {
+function zoomGroupMarkerContentHtml(item, level, design = activeMarkerDesign(level)) {
   const countHtml = design.groupRankMode === "full"
     ? `<small class="zoom-cluster-count">아파트 ${formatInt(item.apartmentCount)}개</small>`
     : "";
@@ -3559,7 +3603,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeMarkerDesign()) 
   `;
 }
 
-function zoomGroupMarkerRankHtml(item, level, design = activeMarkerDesign()) {
+function zoomGroupMarkerRankHtml(item, level, design = activeMarkerDesign(level)) {
   const rows = zoomGroupMarkerRankRows(item, level, design);
   return rows.length
     ? `
@@ -3570,7 +3614,7 @@ function zoomGroupMarkerRankHtml(item, level, design = activeMarkerDesign()) {
     : "";
 }
 
-function zoomGroupMarkerRankRows(item, level, design = activeMarkerDesign()) {
+function zoomGroupMarkerRankRows(item, level, design = activeMarkerDesign(level)) {
   const mode = design.groupRankMode || "parent";
   if (mode === "none") return [];
   const rows = zoomGroupAllRankRows(item, level, design).filter((row) => row.rank !== "-");
@@ -3579,7 +3623,7 @@ function zoomGroupMarkerRankRows(item, level, design = activeMarkerDesign()) {
   return rows;
 }
 
-function zoomGroupAllRankRows(item, level, design = activeMarkerDesign()) {
+function zoomGroupAllRankRows(item, level, design = activeMarkerDesign(level)) {
   if (level === "dong") {
     return [
       zoomRankRow(zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design),
@@ -3656,7 +3700,7 @@ function formatRankText(rank, total) {
   return `${formatInt(rankNumber)}등`;
 }
 
-function zoomMarkerSize(level = "", design = activeMarkerDesign()) {
+function zoomMarkerSize(level = "", design = activeMarkerDesign(level)) {
   const mode = design.groupRankMode || "parent";
   const scale = {
     none: 0,
@@ -3688,7 +3732,7 @@ function zoomMarkerSize(level = "", design = activeMarkerDesign()) {
   ][scale];
 }
 
-function zoomMarkerAnchor(level = "", design = activeMarkerDesign()) {
+function zoomMarkerAnchor(level = "", design = activeMarkerDesign(level)) {
   const [width, height] = zoomMarkerSize(level, design);
   return [width / 2, height / 2];
 }
