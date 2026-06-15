@@ -77,7 +77,7 @@ const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
 const defaultPyeongGraphDesignId = "pyeong-soft";
 const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
-const defaultMarkerDesignId = "rank-outline";
+const defaultMarkerDesignId = "verbosity-dong";
 const markerDesignStorageKey = "orulzip.markerDesignId";
 const defaultLogoDesignId = "roof-up-open";
 const logoDesignStorageKey = "orulzip.logoDesignId";
@@ -109,12 +109,14 @@ const pyeongGraphDesignVariants = [
 ];
 const pyeongGraphDesignVariantMap = new Map(pyeongGraphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
-  markerDesign("rank-outline", "01 아웃라인", { group: "기본형", showRank: true, shape: "pill", size: "wide", tone: "outline" }),
-  markerDesign("rank-number-box", "02 숫자 박스", { group: "기본형", showRank: true, shape: "card", size: "wide", tone: "white", rankStyle: "box" }),
-  markerDesign("rank-number-circle", "03 숫자 원형", { group: "기본형", showRank: true, shape: "card", size: "wide", tone: "soft", rankStyle: "circle" }),
-  markerDesign("phrase-outline", "04 문장 아웃라인", { group: "문장형", showRank: true, shape: "pill", size: "sentence", tone: "outline", rankFormat: "phrase" }),
-  markerDesign("phrase-box", "05 문장 박스", { group: "문장형", showRank: true, shape: "card", size: "sentence", tone: "white", rankStyle: "box", rankFormat: "phrase" }),
-  markerDesign("phrase-circle", "06 문장 원형", { group: "문장형", showRank: true, shape: "card", size: "sentence", tone: "soft", rankStyle: "circle", rankFormat: "phrase" })
+  markerDesign("verbosity-rate", "01 최소", { group: "정보량 낮음", showRank: false, shape: "pill", size: "small", tone: "solid", groupRankMode: "none", apartmentRankMode: "none", note: "상승률만 표시" }),
+  markerDesign("verbosity-dong", "02 기본", { group: "정보량 낮음", showRank: true, shape: "pill", size: "wide", tone: "solid", groupRankMode: "parent", apartmentRankMode: "dong", rankLabelMode: "short", note: "아파트는 동 순위까지" }),
+  markerDesign("verbosity-local", "03 동+구", { group: "정보량 중간", showRank: true, shape: "card", size: "medium", tone: "outline", groupRankMode: "regional", apartmentRankMode: "local", rankLabelMode: "short", rankStyle: "box", note: "가까운 상위 지역까지" }),
+  markerDesign("verbosity-region", "04 동+구+시", { group: "정보량 중간", showRank: true, shape: "card", size: "tall", tone: "white", groupRankMode: "regional", apartmentRankMode: "regional", rankLabelMode: "short", rankStyle: "plain", note: "시도 순위까지 압축 표시" }),
+  markerDesign("verbosity-full", "05 전체 순위", { group: "정보량 높음", showRank: true, shape: "card", size: "full", tone: "solid", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "short", rankStyle: "plain", note: "동/구/시/전국 순위" }),
+  markerDesign("verbosity-named", "06 이름 포함", { group: "정보량 높음", showRank: true, shape: "card", size: "full", tone: "outline", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "named", rankStyle: "plain", note: "지역명을 넣은 전체 순위" }),
+  markerDesign("verbosity-phrase", "07 문장형", { group: "정보량 높음", showRank: true, shape: "card", size: "sentence", tone: "white", groupRankMode: "full", apartmentRankMode: "full", rankLabelMode: "phrase", rankStyle: "box", note: "목동 상승률 1/14등 형태" }),
+  markerDesign("verbosity-compact-full", "08 압축 전체", { group: "정보량 높음", showRank: true, shape: "pill", size: "dense", tone: "soft", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", rankStyle: "circle", note: "작게 줄인 전체 순위" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const logoDesignVariants = [
@@ -1877,21 +1879,16 @@ function renderZoomGroupMarker(item, level) {
     renderNaverZoomGroupMarker(item, level);
     return;
   }
-  const [width, height] = zoomMarkerSize(level);
+  const design = activeMarkerDesign();
+  const [width, height] = zoomMarkerSize(level, design);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: baseZIndex,
     icon: L.divIcon({
       className: "zoom-cluster-marker",
-      html: `
-        <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
-          <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
-          <span>${formatPercent(item.growthRate)}</span>
-          ${zoomGroupMarkerRankHtml(item, level)}
-        </div>
-      `,
+      html: zoomGroupMarkerContentHtml(item, level, design),
       iconSize: [width, height],
-      iconAnchor: zoomMarkerAnchor(level)
+      iconAnchor: zoomMarkerAnchor(level, design)
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
@@ -1936,7 +1933,8 @@ function renderZoomApartmentMarker(item) {
 
 function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
-  const [width, height] = zoomMarkerSize(level);
+  const design = activeMarkerDesign();
+  const [width, height] = zoomMarkerSize(level, design);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
     position,
@@ -1944,11 +1942,7 @@ function renderNaverZoomGroupMarker(item, level) {
     zIndex: baseZIndex,
     icon: naverLabelIcon(`
       <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
-        <div class="zoom-cluster-content level-${escapeHtml(level)}" style="--zoom-color: ${growthColor(item.growthRate)}">
-          <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
-          <span>${formatPercent(item.growthRate)}</span>
-          ${zoomGroupMarkerRankHtml(item, level)}
-        </div>
+        ${zoomGroupMarkerContentHtml(item, level, design)}
       </div>
     `, width, height)
   });
@@ -2006,47 +2000,65 @@ function stopLeafletClick(event) {
 function apartmentMarkerHtml(item) {
   const hasData = item.hasData !== false;
   const design = activeMarkerDesign();
-  const rank = apartmentMarkerRankParts(item);
-  const rankLine = design.rankFormat === "phrase"
-    ? `
-        <small class="marker-rank-line marker-rank-phrase">
-          <span class="marker-dong">${escapeHtml(rank.dong)}</span>
-          <span>상승률</span>
-          <b>${escapeHtml(rank.rank)}</b>
-        </small>
-      `
-    : `
-        <small class="marker-rank-line">
-          <span class="marker-dong">${escapeHtml(rank.dong)}</span>
-          <b>${escapeHtml(rank.rank)}</b>
-        </small>
-      `;
+  const rankLines = design.showRank ? apartmentMarkerRankLines(item, design) : [];
   return `
     <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
       <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
-      ${design.showRank ? rankLine : ""}
+      ${rankLines.length ? `
+        <small class="marker-rank-list marker-rank-label-${escapeHtml(design.rankLabelMode)}">
+          ${rankLines.map((line) => `
+            <span class="marker-rank-line">
+              <span class="marker-rank-label">${escapeHtml(line.label)}</span>
+              <b>${escapeHtml(line.rank)}</b>
+            </span>
+          `).join("")}
+        </small>
+      ` : ""}
     </div>
   `;
 }
 
-function apartmentMarkerRankParts(item) {
-  const dong = shortDongLabel(item.dongName || item.neighborhoodName || "-");
-  const rank = Number(item.dongRank);
-  const total = Number(item.dongRankTotal);
-  const rankText = Number.isFinite(rank)
-    ? Number.isFinite(total) && total > 0
-      ? `${formatInt(rank)}/${formatInt(total)}등`
-      : `${formatInt(rank)}등`
-    : "-";
+function apartmentMarkerRankLines(item, design = activeMarkerDesign()) {
+  const allRows = apartmentMarkerAllRankRows(item, design).filter((row) => row.rank !== "-");
+  const mode = design.apartmentRankMode || "dong";
+  if (mode === "none") return [];
+  if (mode === "dong") return allRows.slice(0, 1);
+  if (mode === "local") return allRows.slice(0, 2);
+  if (mode === "regional") return allRows.slice(0, 3);
+  return allRows;
+}
+
+function apartmentMarkerAllRankRows(item, design = activeMarkerDesign()) {
+  const dongLabel = shortDongLabel(item.dongName || item.neighborhoodName || "동");
+  const sigunguLabel = shortZoomLabel(item.sigunguName || "", "sigungu") || "구";
+  const sidoLabel = zoomRankSidoLabel(item);
+  const rows = [
+    apartmentRankRow(dongLabel, "동", item.dongRank, item.dongRankTotal, design),
+    apartmentRankRow(sigunguLabel, "구", item.sigunguRank, item.sigunguRankTotal, design),
+    apartmentRankRow(sidoLabel, "시", item.sidoRank, item.sidoRankTotal, design),
+    apartmentRankRow("전국", "전국", item.countryRank, item.countryRankTotal, design)
+  ];
+  if (design.rankLabelMode !== "phrase") return rows;
+  return rows.map((row, index) => ({
+    ...row,
+    label: index === 0 ? `${row.label} 상승률` : row.label
+  }));
+}
+
+function apartmentRankRow(label, shortLabel, rank, total, design = activeMarkerDesign()) {
   return {
-    dong,
-    rank: rankText
+    label: compactRankLabel(label, shortLabel, design),
+    rank: formatRankText(rank, total)
   };
 }
 
 function markerIconSize(design) {
   if (!design.showRank) return [54, 34];
   if (design.size === "sentence") return [116, 48];
+  if (design.size === "dense") return [94, 76];
+  if (design.size === "medium") return [96, 64];
+  if (design.size === "tall") return [104, 78];
+  if (design.size === "full") return [116, 92];
   if (design.size === "small") return [70, 42];
   if (design.size === "large") return [92, 58];
   return [82, 48];
@@ -2473,7 +2485,11 @@ function markerDesign(id, name, overrides = {}) {
     size: "wide",
     rankStyle: "plain",
     rankFormat: "compact",
+    rankLabelMode: "short",
+    groupRankMode: "parent",
+    apartmentRankMode: "dong",
     tone: "solid",
+    note: "",
     ...overrides
   };
 }
@@ -2738,13 +2754,16 @@ function renderMarkerDesignOptionGroups({ active, sampleItems, mode }) {
           const index = markerDesignVariants.indexOf(design);
           const isActive = design.id === active.id;
           const previewItems = mode === "map" ? [sampleItems[0]] : sampleItems;
-          const markers = previewItems.map((item) => markerPreviewHtml(item, design)).join("");
+          const markers = mode === "map"
+            ? previewItems.map((item) => markerPreviewHtml(item, design)).join("")
+            : markerDesignMapPreviewHtml(design);
           return `
             <button class="marker-design-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
               <span class="graph-design-card-head">
                 <strong>${escapeHtml(design.name)}</strong>
                 <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
               </span>
+              ${design.note ? `<span class="marker-design-note">${escapeHtml(design.note)}</span>` : ""}
               <span class="marker-design-preview">${markers}</span>
             </button>
           `;
@@ -3005,9 +3024,9 @@ function logoSymbolSvg(symbol) {
 
 function markerDesignSampleItems() {
   return [
-    { id: "sample-1", name: "래미안", neighborhoodName: "목동", growthRate: 0.158, dongRank: 1, dongRankTotal: 14, hasData: true },
-    { id: "sample-2", name: "자이", neighborhoodName: "반포동", growthRate: 0.083, dongRank: 3, dongRankTotal: 21, hasData: true },
-    { id: "sample-3", name: "힐스테이트", neighborhoodName: "도곡동", growthRate: -0.012, dongRank: 8, dongRankTotal: 18, hasData: true }
+    { id: "sample-1", name: "래미안", neighborhoodName: "목동", dongName: "목동", sigunguName: "양천구", sidoName: "서울시", sidoCode: "11", growthRate: 0.158, dongRank: 1, dongRankTotal: 14, sigunguRank: 4, sigunguRankTotal: 52, sidoRank: 18, sidoRankTotal: 214, countryRank: 71, countryRankTotal: 1051, hasData: true },
+    { id: "sample-2", name: "자이", neighborhoodName: "반포동", dongName: "반포동", sigunguName: "서초구", sidoName: "서울시", sidoCode: "11", growthRate: 0.083, dongRank: 3, dongRankTotal: 21, sigunguRank: 7, sigunguRankTotal: 44, sidoRank: 42, sidoRankTotal: 214, countryRank: 163, countryRankTotal: 1051, hasData: true },
+    { id: "sample-3", name: "힐스테이트", neighborhoodName: "도곡동", dongName: "도곡동", sigunguName: "강남구", sidoName: "서울시", sidoCode: "11", growthRate: -0.012, dongRank: 8, dongRankTotal: 18, sigunguRank: 21, sigunguRankTotal: 61, sidoRank: 138, sidoRankTotal: 214, countryRank: 642, countryRankTotal: 1051, hasData: true }
   ];
 }
 
@@ -3017,6 +3036,82 @@ function markerPreviewHtml(item, design) {
   const html = apartmentMarkerHtml(item);
   state.activeMarkerDesignId = previous;
   return html;
+}
+
+function markerDesignMapPreviewHtml(design) {
+  const apartment = markerDesignSampleItems()[0];
+  const groups = markerDesignSampleGroups();
+  return `
+    <span class="marker-design-map-preview">
+      <span class="preview-road preview-road-a"></span>
+      <span class="preview-road preview-road-b"></span>
+      <span class="preview-water"></span>
+      <span class="preview-map-label label-sido">시도</span>
+      <span class="preview-map-label label-sigungu">시군구</span>
+      <span class="preview-map-label label-dong">동</span>
+      <span class="preview-map-label label-apartment">아파트</span>
+      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.sido, "sido", design), "sido", zoomMarkerSize("sido", design))}
+      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.sigungu, "sigungu", design), "sigungu", zoomMarkerSize("sigungu", design))}
+      ${markerDesignPreviewNode(zoomGroupMarkerContentHtml(groups.dong, "dong", design), "dong", zoomMarkerSize("dong", design))}
+      ${markerDesignPreviewNode(markerPreviewHtml(apartment, design), "apartment", markerIconSize(design))}
+    </span>
+  `;
+}
+
+function markerDesignPreviewNode(html, level, size) {
+  const [width, height] = size;
+  const wrapperClass = level === "apartment" ? "preview-marker-node preview-apartment-marker" : "preview-marker-node zoom-cluster-marker";
+  return `
+    <span class="${wrapperClass} preview-${escapeHtml(level)}" style="width:${width}px;height:${height}px">
+      ${html}
+    </span>
+  `;
+}
+
+function markerDesignSampleGroups() {
+  return {
+    sido: {
+      name: "서울시",
+      growthRate: 0.126,
+      apartmentCount: 214,
+      areaCount: 980,
+      countryRank: 2,
+      countryRankTotal: 17,
+      sidoName: "서울시",
+      sidoCode: "11"
+    },
+    sigungu: {
+      name: "서울시 양천구",
+      growthRate: 0.152,
+      apartmentCount: 52,
+      areaCount: 213,
+      sidoRank: 4,
+      sidoRankTotal: 25,
+      countryRank: 19,
+      countryRankTotal: 228,
+      sidoName: "서울시",
+      sidoCode: "11",
+      sigunguName: "양천구",
+      sigunguCode: "11470"
+    },
+    dong: {
+      name: "서울시 양천구 목동",
+      growthRate: 0.184,
+      apartmentCount: 14,
+      areaCount: 57,
+      sigunguRank: 1,
+      sigunguRankTotal: 18,
+      sidoRank: 11,
+      sidoRankTotal: 214,
+      countryRank: 64,
+      countryRankTotal: 1051,
+      sidoName: "서울시",
+      sidoCode: "11",
+      sigunguName: "양천구",
+      sigunguCode: "11470",
+      dongName: "목동"
+    }
+  };
 }
 
 function graphDesignSampleData() {
@@ -3450,29 +3545,69 @@ function isJibunLike(value = "") {
   return /^\d+(?:-\d+)?$/.test(String(value));
 }
 
-function zoomGroupMarkerRankHtml(item, level) {
-  const sidoLabel = zoomRankSidoLabel(item);
-  if (level === "dong") {
-    const sigunguLabel = zoomRankSigunguLabel(item);
-    return `
+function zoomGroupMarkerContentHtml(item, level, design = activeMarkerDesign()) {
+  const countHtml = design.groupRankMode === "full"
+    ? `<small class="zoom-cluster-count">아파트 ${formatInt(item.apartmentCount)}개</small>`
+    : "";
+  return `
+    <div class="zoom-cluster-content level-${escapeHtml(level)} marker-${escapeHtml(design.id)} zoom-rank-${escapeHtml(design.groupRankMode)} zoom-label-${escapeHtml(design.rankLabelMode)}" style="--zoom-color: ${growthColor(item.growthRate)}">
+      <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
+      <span>${formatPercent(item.growthRate)}</span>
+      ${countHtml}
+      ${zoomGroupMarkerRankHtml(item, level, design)}
+    </div>
+  `;
+}
+
+function zoomGroupMarkerRankHtml(item, level, design = activeMarkerDesign()) {
+  const rows = zoomGroupMarkerRankRows(item, level, design);
+  return rows.length
+    ? `
       <small class="zoom-cluster-rank">
-        <b>${escapeHtml(sigunguLabel)} ${formatRankText(item.sigunguRank, item.sigunguRankTotal)}</b>
-        <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
-        <b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b>
+        ${rows.map((row) => `<b>${escapeHtml(row.label)} ${escapeHtml(row.rank)}</b>`).join("")}
       </small>
-    `;
+    `
+    : "";
+}
+
+function zoomGroupMarkerRankRows(item, level, design = activeMarkerDesign()) {
+  const mode = design.groupRankMode || "parent";
+  if (mode === "none") return [];
+  const rows = zoomGroupAllRankRows(item, level, design).filter((row) => row.rank !== "-");
+  if (mode === "parent") return rows.slice(0, 1);
+  if (mode === "regional") return level === "sido" ? rows.slice(0, 1) : rows.slice(0, 2);
+  return rows;
+}
+
+function zoomGroupAllRankRows(item, level, design = activeMarkerDesign()) {
+  if (level === "dong") {
+    return [
+      zoomRankRow(zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design),
+      zoomRankRow(zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design),
+      zoomRankRow("전국", "전국", item.countryRank, item.countryRankTotal, design)
+    ];
   }
   if (level === "sigungu") {
-    return `
-      <small class="zoom-cluster-rank">
-        <b>${escapeHtml(sidoLabel)} ${formatRankText(item.sidoRank, item.sidoRankTotal)}</b>
-        <b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b>
-      </small>
-    `;
+    return [
+      zoomRankRow(zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design),
+      zoomRankRow("전국", "전국", item.countryRank, item.countryRankTotal, design)
+    ];
   }
-  return `
-    ${level === "sido" && Number.isFinite(Number(item.countryRank)) ? `<small class="zoom-cluster-rank"><b>전국 ${formatRankText(item.countryRank, item.countryRankTotal)}</b></small>` : ""}
-  `;
+  return [
+    zoomRankRow("전국", "전국", item.countryRank, item.countryRankTotal, design)
+  ];
+}
+
+function zoomRankRow(label, shortLabel, rank, total, design = activeMarkerDesign()) {
+  return {
+    label: compactRankLabel(label, shortLabel, design),
+    rank: formatRankText(rank, total)
+  };
+}
+
+function compactRankLabel(label, shortLabel, design = activeMarkerDesign()) {
+  if (design.rankLabelMode === "abbr") return shortLabel;
+  return label || shortLabel || "";
 }
 
 function zoomRankSigunguLabel(item) {
@@ -3521,14 +3656,40 @@ function formatRankText(rank, total) {
   return `${formatInt(rankNumber)}등`;
 }
 
-function zoomMarkerSize(level = "") {
-  if (level === "dong") return [104, 86];
-  if (level === "sigungu") return [96, 78];
-  return [72, 72];
+function zoomMarkerSize(level = "", design = activeMarkerDesign()) {
+  const mode = design.groupRankMode || "parent";
+  const scale = {
+    none: 0,
+    parent: 1,
+    regional: 2,
+    all: 3,
+    full: 4
+  }[mode] ?? 1;
+  if (level === "dong") return [
+    [86, 66],
+    [104, 82],
+    [112, 92],
+    [124, 104],
+    [132, 112]
+  ][scale];
+  if (level === "sigungu") return [
+    [82, 62],
+    [96, 76],
+    [104, 84],
+    [112, 92],
+    [120, 100]
+  ][scale];
+  return [
+    [68, 58],
+    [76, 68],
+    [80, 72],
+    [84, 76],
+    [92, 84]
+  ][scale];
 }
 
-function zoomMarkerAnchor(level = "") {
-  const [width, height] = zoomMarkerSize(level);
+function zoomMarkerAnchor(level = "", design = activeMarkerDesign()) {
+  const [width, height] = zoomMarkerSize(level, design);
   return [width / 2, height / 2];
 }
 

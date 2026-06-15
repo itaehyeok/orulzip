@@ -1240,21 +1240,35 @@ input {
   line-height: 1;
 }
 
+.apartment-map-marker .marker-rank-list {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
 .apartment-map-marker .marker-rank-line {
   align-items: center;
   display: inline-flex;
   gap: 3px;
   justify-content: center;
+  min-width: 0;
 }
 
 .apartment-map-marker .marker-rank-phrase {
   gap: 2px;
 }
 
+.apartment-map-marker .marker-rank-label,
 .apartment-map-marker .marker-dong {
   overflow: hidden;
   max-width: 42px;
   text-overflow: ellipsis;
+}
+
+.apartment-map-marker .marker-rank-label-named .marker-rank-label,
+.apartment-map-marker .marker-rank-label-phrase .marker-rank-label {
+  max-width: 62px;
 }
 
 .apartment-map-marker .marker-rank-line b {
@@ -1273,12 +1287,44 @@ input {
 }
 
 .apartment-map-marker.marker-size-sentence {
-  min-width: 96px;
-  padding: 5px 8px;
+  min-width: 108px;
+  padding: 6px 8px;
 }
 
 .apartment-map-marker.marker-size-sentence .marker-dong {
   max-width: 38px;
+}
+
+.apartment-map-marker.marker-size-medium {
+  min-width: 84px;
+  padding: 6px 8px;
+}
+
+.apartment-map-marker.marker-size-tall {
+  min-width: 92px;
+  padding: 6px 8px;
+}
+
+.apartment-map-marker.marker-size-full {
+  min-width: 106px;
+  padding: 7px 8px;
+}
+
+.apartment-map-marker.marker-size-dense {
+  min-width: 84px;
+  padding: 6px 7px;
+}
+
+.apartment-map-marker.marker-size-dense .marker-rate {
+  font-size: 11px;
+}
+
+.apartment-map-marker.marker-size-dense small {
+  font-size: 8px;
+}
+
+.apartment-map-marker.marker-size-full .marker-rank-label {
+  max-width: 54px;
 }
 
 .apartment-map-marker.marker-shape-card {
@@ -1320,10 +1366,10 @@ input {
   border-radius: 999px;
   color: #ffffff;
   display: inline-flex;
-  height: 18px;
+  height: 17px;
   justify-content: center;
-  min-width: 18px;
-  padding: 0 4px;
+  min-width: 17px;
+  padding: 0 3px;
 }
 
 .apartment-hover-tooltip {
@@ -1491,7 +1537,7 @@ input {
 .map-marker-design-option {
   display: grid;
   gap: 6px;
-  min-height: 78px;
+  min-height: 126px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #ffffff;
@@ -1521,7 +1567,7 @@ input {
   align-items: center;
   display: flex;
   justify-content: center;
-  min-height: 40px;
+  min-height: 86px;
   overflow: visible;
   font-style: normal;
 }
@@ -2005,6 +2051,13 @@ input {
   font-size: 15px;
 }
 
+.zoom-cluster-count {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .zoom-cluster-rank {
   display: grid;
   gap: 1px;
@@ -2026,6 +2079,30 @@ input {
 
 .level-sigungu .zoom-cluster-rank {
   max-width: 84px;
+}
+
+.zoom-rank-none strong {
+  max-width: 68px;
+}
+
+.zoom-rank-all strong,
+.zoom-rank-full strong {
+  max-width: 86px;
+}
+
+.zoom-rank-all span,
+.zoom-rank-full span {
+  font-size: 14px;
+}
+
+.zoom-rank-all .zoom-cluster-rank,
+.zoom-rank-full .zoom-cluster-rank {
+  max-width: 108px;
+}
+
+.zoom-label-named .zoom-cluster-rank b,
+.zoom-label-phrase .zoom-cluster-rank b {
+  font-size: 7.5px;
 }
 
 .view {
@@ -2252,6 +2329,7 @@ input {
 }
 
 .marker-design-group > .marker-design-grid {
+  grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
   padding: 0;
 }
 
@@ -2296,6 +2374,13 @@ input {
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
+}
+
+.marker-design-note {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .graph-design-card-head strong {
@@ -2691,11 +2776,8 @@ input {
 }
 
 .marker-design-preview {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-height: 78px;
+  display: block;
+  min-height: 260px;
   overflow: hidden;
   border: 1px solid #edf1f7;
   border-radius: 8px;
@@ -2704,10 +2786,120 @@ input {
     linear-gradient(180deg, rgba(152, 162, 179, 0.16) 1px, transparent 1px),
     #f8fafc;
   background-size: 24px 24px;
-  padding: 14px;
+  padding: 0;
 }
 
-.marker-design-preview .apartment-map-marker {
+.marker-design-map-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 260px;
+  overflow: hidden;
+  background:
+    linear-gradient(120deg, transparent 0 18%, rgba(255, 255, 255, 0.78) 18% 20%, transparent 20% 100%),
+    linear-gradient(35deg, transparent 0 47%, rgba(255, 255, 255, 0.78) 47% 49%, transparent 49% 100%),
+    radial-gradient(circle at 18% 78%, rgba(88, 150, 214, 0.28) 0 18%, transparent 18.5%),
+    radial-gradient(circle at 82% 16%, rgba(104, 181, 126, 0.22) 0 20%, transparent 20.5%),
+    #eef3eb;
+}
+
+.marker-design-map-preview .preview-road {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: rgba(226, 158, 62, 0.55);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.72);
+}
+
+.marker-design-map-preview .preview-road-a {
+  left: 10%;
+  top: 48%;
+  width: 78%;
+  height: 8px;
+  transform: rotate(-18deg);
+}
+
+.marker-design-map-preview .preview-road-b {
+  left: 45%;
+  top: 10%;
+  width: 8px;
+  height: 78%;
+  transform: rotate(24deg);
+}
+
+.marker-design-map-preview .preview-water {
+  position: absolute;
+  right: -8%;
+  bottom: -18%;
+  display: block;
+  width: 48%;
+  height: 44%;
+  border-radius: 999px 0 0 0;
+  background: rgba(116, 181, 219, 0.42);
+}
+
+.preview-map-label {
+  position: absolute;
+  z-index: 1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 7px;
+}
+
+.preview-map-label.label-sido {
+  left: 9%;
+  top: 9%;
+}
+
+.preview-map-label.label-sigungu {
+  right: 13%;
+  top: 14%;
+}
+
+.preview-map-label.label-dong {
+  left: 18%;
+  bottom: 15%;
+}
+
+.preview-map-label.label-apartment {
+  right: 17%;
+  bottom: 17%;
+}
+
+.preview-marker-node {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+}
+
+.preview-marker-node.preview-sido {
+  left: 24%;
+  top: 32%;
+}
+
+.preview-marker-node.preview-sigungu {
+  left: 70%;
+  top: 36%;
+}
+
+.preview-marker-node.preview-dong {
+  left: 36%;
+  top: 72%;
+}
+
+.preview-marker-node.preview-apartment {
+  left: 73%;
+  top: 72%;
+}
+
+.marker-design-preview .apartment-map-marker,
+.marker-design-preview .zoom-cluster-marker {
   pointer-events: none;
 }
 
@@ -2973,6 +3165,14 @@ td:nth-child(4) {
   .term-card ol,
   .map-popup-area-picker {
     grid-template-columns: 1fr;
+  }
+
+  .marker-design-group > .marker-design-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .marker-design-map-preview {
+    height: 230px;
   }
 
   th,

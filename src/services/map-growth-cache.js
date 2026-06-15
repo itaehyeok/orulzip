@@ -66,7 +66,34 @@ export async function readCachedZoomMapSummary(filters) {
               nullif(mgi.dong_key, ''),
               concat(mgi.address, ':', mgi.neighborhood_name)
             )
-          )::int as dong_rank_total
+          )::int as dong_rank_total,
+          row_number() over (
+            partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
+            order by
+              mgi.has_data desc,
+              mgi.growth_rate desc nulls last,
+              mgi.item_name asc
+          )::int as sigungu_rank,
+          count(*) over (
+            partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
+          )::int as sigungu_rank_total,
+          row_number() over (
+            partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
+            order by
+              mgi.has_data desc,
+              mgi.growth_rate desc nulls last,
+              mgi.item_name asc
+          )::int as sido_rank,
+          count(*) over (
+            partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
+          )::int as sido_rank_total,
+          row_number() over (
+            order by
+              mgi.has_data desc,
+              mgi.growth_rate desc nulls last,
+              mgi.item_name asc
+          )::int as country_rank,
+          count(*) over ()::int as country_rank_total
         from map_growth_items mgi
         where mgi.snapshot_id = $1
           and mgi.level = $2
@@ -1095,7 +1122,13 @@ function serializeCachedItem(row, level) {
       startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
       endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
       dongRank: row.dong_rank === null || row.dong_rank === undefined ? null : Number(row.dong_rank),
-      dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total)
+      dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total),
+      sigunguRank: row.sigungu_rank === null || row.sigungu_rank === undefined ? null : Number(row.sigungu_rank),
+      sigunguRankTotal: row.sigungu_rank_total === null || row.sigungu_rank_total === undefined ? null : Number(row.sigungu_rank_total),
+      sidoRank: row.sido_rank === null || row.sido_rank === undefined ? null : Number(row.sido_rank),
+      sidoRankTotal: row.sido_rank_total === null || row.sido_rank_total === undefined ? null : Number(row.sido_rank_total),
+      countryRank: row.country_rank === null || row.country_rank === undefined ? null : Number(row.country_rank),
+      countryRankTotal: row.country_rank_total === null || row.country_rank_total === undefined ? null : Number(row.country_rank_total)
     };
   }
   return {
