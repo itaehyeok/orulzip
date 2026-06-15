@@ -52,6 +52,7 @@ const state = {
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
   mapPopupCloseSuppressedUntil: 0,
+  focusedMapApartmentId: null,
   activeGraphDesignId: null,
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
@@ -335,6 +336,7 @@ const els = {
   zoomMapLevel: document.querySelector("#zoomMapLevel"),
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
+  mapCanvasWrap: document.querySelector(".map-canvas-wrap"),
   mapApartmentRanking: document.querySelector("#mapApartmentRanking"),
   mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
@@ -1667,30 +1669,66 @@ function renderMapApartmentRanking(level, items) {
   els.mapRankingCount.textContent = `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
     ? rows.map((item, index) => `
-      <button class="map-ranking-row" type="button" data-apartment-id="${escapeHtml(item.id)}">
+      <div class="map-ranking-row ${item.id === state.focusedMapApartmentId ? "selected" : ""}" role="button" tabindex="0" data-apartment-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 위치로 이동">
         <span class="map-ranking-rank">${index + 1}</span>
         <span class="map-ranking-main">
           <strong>${escapeHtml(item.name)}</strong>
           <em>${escapeHtml(item.neighborhoodName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
         </span>
-        <span class="map-ranking-rate ${rateClass(item.growthRate)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
-      </button>
+        <span class="map-ranking-actions">
+          <span class="map-ranking-rate ${rateClass(item.growthRate)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+          <button class="map-ranking-detail-btn" type="button" data-apartment-detail-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 상세 보기">상세</button>
+        </span>
+      </div>
     `).join("")
     : `<div class="map-ranking-empty">현재 지도에 표시할 아파트가 없습니다.</div>`;
 
   const itemById = new Map(rows.map((item) => [item.id, item]));
   els.mapRankingRows.querySelectorAll("[data-apartment-id]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      if (event.target.closest("[data-apartment-detail-id]")) return;
       const item = itemById.get(button.dataset.apartmentId);
       if (!item) return;
+      focusMapApartmentFromRanking(item);
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      const item = itemById.get(button.dataset.apartmentId);
+      if (!item) return;
+      focusMapApartmentFromRanking(item);
+    });
+  });
+  els.mapRankingRows.querySelectorAll("[data-apartment-detail-id]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const item = itemById.get(button.dataset.apartmentDetailId);
+      if (!item) return;
+      setFocusedMapApartment(item);
       focusMapApartment(item);
       openMapApartmentDetail(item.id, item);
     });
   });
 }
 
+function focusMapApartmentFromRanking(item) {
+  setFocusedMapApartment(item);
+  closeMapApartmentPopup();
+  focusMapApartment(item);
+}
+
 function focusMapApartment(item) {
   moveZoomMapTo(item, apartmentMapZoom);
+}
+
+function setFocusedMapApartment(item) {
+  state.focusedMapApartmentId = item?.id || null;
+  els.mapRankingRows?.querySelectorAll("[data-apartment-id]").forEach((row) => {
+    row.classList.toggle("selected", row.dataset.apartmentId === state.focusedMapApartmentId);
+  });
+  document.querySelectorAll("[data-map-apartment-marker-id]").forEach((marker) => {
+    marker.classList.toggle("selected", marker.dataset.mapApartmentMarkerId === state.focusedMapApartmentId);
+  });
 }
 
 function moveZoomMapTo(item, zoom, { exactZoom = false } = {}) {
@@ -1948,7 +1986,7 @@ function renderZoomApartmentMarker(item) {
   const [width, height] = markerIconSize(design);
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = L.marker([item.lat, item.lng], {
-    zIndexOffset: baseZIndex,
+    zIndexOffset: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
     icon: L.divIcon({
       className: "apartment-map-marker-shell",
       html: apartmentMarkerHtml(item, design),
@@ -2005,7 +2043,7 @@ function renderNaverZoomApartmentMarker(item) {
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
-    zIndex: baseZIndex,
+    zIndex: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
     icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
@@ -2040,8 +2078,9 @@ function stopLeafletClick(event) {
 function apartmentMarkerHtml(item, design = activeMarkerDesign("apartment")) {
   const hasData = item.hasData !== false;
   const rankLines = design.showRank ? apartmentMarkerRankLines(item, design) : [];
+  const isSelected = item.id && item.id === state.focusedMapApartmentId;
   return `
-    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"}" style="--marker-color:${growthColor(item.growthRate)}">
+    <div class="apartment-map-marker marker-${escapeHtml(design.id)} marker-shape-${escapeHtml(design.shape)} marker-tone-${escapeHtml(design.tone)} marker-size-${escapeHtml(design.size)} marker-rank-${escapeHtml(design.rankStyle || "plain")} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" style="--marker-color:${growthColor(item.growthRate)}">
       <span class="marker-rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</span>
       ${rankLines.length ? `
         <small class="marker-rank-list marker-rank-label-${escapeHtml(design.rankLabelMode)}">
@@ -2164,12 +2203,22 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
 }
 
 function closeMapApartmentPopup() {
-  els.mapApartmentPopup.hidden = true;
+  setMapApartmentPopupVisible(false);
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
 }
 
+function setMapApartmentPopupVisible(visible) {
+  if (!els.mapApartmentPopup) return;
+  els.mapApartmentPopup.hidden = !visible;
+  els.mapCanvasWrap?.classList.toggle("popup-active", visible);
+  if (els.mapLocateBtn) {
+    els.mapLocateBtn.hidden = visible;
+    els.mapLocateBtn.setAttribute("aria-hidden", visible ? "true" : "false");
+  }
+}
+
 function renderMapApartmentLoading(seedItem = null) {
-  els.mapApartmentPopup.hidden = false;
+  setMapApartmentPopupVisible(true);
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
@@ -2190,7 +2239,7 @@ function renderMapApartmentLoading(seedItem = null) {
 }
 
 function renderMapApartmentError(seedItem = null, error = null) {
-  els.mapApartmentPopup.hidden = false;
+  setMapApartmentPopupVisible(true);
   els.mapApartmentPopup.classList.remove("loading");
   state.mapPopupDetail = null;
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
@@ -2205,7 +2254,7 @@ function renderMapApartmentDetail(detail) {
   els.mapApartmentPopup.classList.remove("loading");
   state.mapPopupDetail = detail;
   if (!detail.apartment) {
-    els.mapApartmentPopup.hidden = false;
+    setMapApartmentPopupVisible(true);
     els.mapPopupTitle.textContent = "아파트 시세";
     if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
@@ -2215,7 +2264,7 @@ function renderMapApartmentDetail(detail) {
     return;
   }
 
-  els.mapApartmentPopup.hidden = false;
+  setMapApartmentPopupVisible(true);
   els.mapPopupTitle.textContent = detail.apartment.name;
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
   renderMapPopupRanks(detail.rankSummary);

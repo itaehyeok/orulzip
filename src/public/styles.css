@@ -865,6 +865,10 @@ input {
   backdrop-filter: blur(8px);
 }
 
+.map-location-control[hidden] {
+  display: none;
+}
+
 .map-location-control:hover {
   border-color: #9db7ea;
   color: var(--blue);
@@ -1111,7 +1115,7 @@ input {
 
 .map-ranking-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 72px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   width: 100%;
@@ -1125,8 +1129,15 @@ input {
   text-align: left;
 }
 
-.map-ranking-row:hover {
+.map-ranking-row:hover,
+.map-ranking-row:focus-visible {
   background: #f3f7ff;
+  outline: 0;
+}
+
+.map-ranking-row.selected {
+  background: #eef6f3;
+  box-shadow: inset 3px 0 0 #16805f;
 }
 
 .map-ranking-rank {
@@ -1172,6 +1183,32 @@ input {
   font-weight: 900;
   padding: 5px 8px;
   white-space: nowrap;
+}
+
+.map-ranking-actions {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.map-ranking-detail-btn {
+  min-height: 24px;
+  border: 1px solid rgba(29, 41, 57, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #344054;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 9px;
+}
+
+.map-ranking-detail-btn:hover,
+.map-ranking-detail-btn:focus-visible {
+  border-color: rgba(35, 103, 209, 0.45);
+  color: var(--blue);
+  outline: 0;
 }
 
 .map-ranking-rate.positive {
@@ -1229,6 +1266,11 @@ input {
   pointer-events: auto;
   text-align: center;
   white-space: nowrap;
+}
+
+.apartment-map-marker.selected {
+  box-shadow: 0 0 0 4px rgba(35, 103, 209, 0.26), 0 14px 28px rgba(16, 24, 40, 0.28);
+  transform: scale(1.08);
 }
 
 .apartment-map-marker .marker-rate {
@@ -1718,7 +1760,7 @@ input {
   position: absolute;
   top: 14px;
   right: 14px;
-  z-index: 600;
+  z-index: 650;
   display: flex;
   flex-direction: column;
   width: min(720px, calc(100% - 28px));
@@ -1739,12 +1781,20 @@ input {
 
 .map-popup-head {
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.map-popup-head > div {
+  min-width: 0;
 }
 
 .map-popup-head h3 {
@@ -1831,6 +1881,7 @@ input {
 }
 
 .map-popup-head button {
+  flex: 0 0 auto;
   width: 30px;
   height: 30px;
   border: 1px solid var(--line);
@@ -3408,7 +3459,12 @@ td:nth-child(4) {
   }
 
   .map-ranking-row {
-    grid-template-columns: 30px minmax(0, 1fr) 68px;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+
+  .map-ranking-detail-btn {
+    min-height: 22px;
+    padding: 0 8px;
   }
 
   .map-popup-stats {
