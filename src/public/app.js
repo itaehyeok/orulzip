@@ -128,6 +128,34 @@ const markerDesignVariants = [
   markerDesign("verbosity-compact-full", "08 압축 전체", { group: "정보량 높음", showRank: true, size: "dense", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", note: "짧은 라벨로 전체 순위" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
+const markerVerbosityOptionsByLevel = {
+  sido: [
+    markerVerbosityOption("verbosity-rate", "상승률만", "도시명과 상승률만 표시"),
+    markerVerbosityOption("verbosity-dong", "전국 순위", "전국 도시 중 순위 표시"),
+    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 전국 순위까지 표시")
+  ],
+  sigungu: [
+    markerVerbosityOption("verbosity-rate", "상승률만", "시군구명과 상승률만 표시"),
+    markerVerbosityOption("verbosity-dong", "시도 순위", "해당 시도 안 순위 표시"),
+    markerVerbosityOption("verbosity-local", "시도+전국", "시도 순위와 전국 순위 표시"),
+    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 시도/전국 순위 표시")
+  ],
+  dong: [
+    markerVerbosityOption("verbosity-rate", "상승률만", "동 이름과 상승률만 표시"),
+    markerVerbosityOption("verbosity-dong", "구 순위", "해당 구 안 순위 표시"),
+    markerVerbosityOption("verbosity-local", "구+시도", "구 순위와 시도 순위 표시"),
+    markerVerbosityOption("verbosity-full", "구+시도+전국", "상위 지역 순위를 모두 표시"),
+    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 전체 순위 표시")
+  ],
+  apartment: [
+    markerVerbosityOption("verbosity-rate", "상승률만", "상승률만 표시"),
+    markerVerbosityOption("verbosity-dong", "동 순위", "해당 동 안 순위 표시"),
+    markerVerbosityOption("verbosity-local", "동+구", "동 순위와 구 순위 표시"),
+    markerVerbosityOption("verbosity-region", "동+구+시도", "시도 순위까지 표시"),
+    markerVerbosityOption("verbosity-full", "동+구+시도+전국", "전체 순위 표시"),
+    markerVerbosityOption("verbosity-named", "지역명 포함", "양천구, 서울시처럼 지역명까지 표시")
+  ]
+};
 const logoDesignVariants = [
   logoDesign("minimal-roof", "01 미니멀 루프", { symbol: "minimal-roof", tone: "black", style: "line", tagline: "12번 원안. 상단 헤더에 넣기 좋은 절제된 워드마크" }),
   logoDesign("minimal-roof-blue", "02 블루 포인트", { symbol: "minimal-roof", tone: "blue", style: "line", tagline: "원안 구조에 브랜드 블루 상승선만 더 강조" }),
@@ -2503,6 +2531,10 @@ function markerDesign(id, name, overrides = {}) {
   };
 }
 
+function markerVerbosityOption(id, label, note = "") {
+  return { id, label, note };
+}
+
 function logoDesign(id, name, overrides = {}) {
   return {
     id,
@@ -2539,7 +2571,7 @@ function mapHeaderDesign(id, name, overrides = {}) {
 
 function activeMarkerDesign(level = "apartment") {
   const normalizedLevel = normalizeMarkerLevel(level);
-  const levelDesignId = state.markerVerbosityByLevel?.[normalizedLevel];
+  const levelDesignId = normalizeMarkerDesignIdForLevel(state.markerVerbosityByLevel?.[normalizedLevel], normalizedLevel);
   return markerDesignVariantMap.get(levelDesignId)
     || markerDesignVariantMap.get(state.activeMarkerDesignId)
     || markerDesignVariantMap.get(defaultMarkerDesignId)
@@ -2562,7 +2594,7 @@ function readStoredMarkerVerbosityByLevel(fallbackId = defaultMarkerDesignId) {
     const stored = JSON.parse(window.localStorage.getItem(markerVerbosityStorageKey) || "{}");
     for (const level of markerLevelConfigs) {
       if (markerDesignVariantMap.has(stored?.[level.id])) {
-        result[level.id] = stored[level.id];
+        result[level.id] = normalizeMarkerDesignIdForLevel(stored[level.id], level.id);
         hasStoredLevelValue = true;
       }
     }
@@ -2592,10 +2624,11 @@ function setActiveMarkerDesign(id, level = "all") {
   if (!state.markerVerbosityByLevel) state.markerVerbosityByLevel = { ...defaultMarkerVerbosityByLevel };
   if (level === "all") {
     for (const item of markerLevelConfigs) {
-      state.markerVerbosityByLevel[item.id] = id;
+      state.markerVerbosityByLevel[item.id] = normalizeMarkerDesignIdForLevel(id, item.id);
     }
     state.activeMarkerDesignId = id;
   } else {
+    if (!isMarkerDesignAllowedForLevel(id, targetLevel)) return;
     state.markerVerbosityByLevel[targetLevel] = id;
     if (targetLevel === "apartment") state.activeMarkerDesignId = id;
   }
@@ -2609,6 +2642,26 @@ function setActiveMarkerDesign(id, level = "all") {
 
 function normalizeMarkerLevel(level = "apartment") {
   return markerLevelConfigs.some((item) => item.id === level) ? level : "apartment";
+}
+
+function markerVerbosityOptionsForLevel(level = "apartment") {
+  return markerVerbosityOptionsByLevel[normalizeMarkerLevel(level)] || markerVerbosityOptionsByLevel.apartment;
+}
+
+function isMarkerDesignAllowedForLevel(id, level = "apartment") {
+  return markerVerbosityOptionsForLevel(level).some((item) => item.id === id);
+}
+
+function normalizeMarkerDesignIdForLevel(id, level = "apartment") {
+  if (isMarkerDesignAllowedForLevel(id, level)) return id;
+  const fallback = markerVerbosityOptionsForLevel(level)[0]?.id || defaultMarkerDesignId;
+  return markerDesignVariantMap.has(fallback) ? fallback : defaultMarkerDesignId;
+}
+
+function markerVerbosityOptionForLevel(level, id) {
+  return markerVerbosityOptionsForLevel(level).find((item) => item.id === id)
+    || markerVerbosityOptionsForLevel(level)[0]
+    || { id: defaultMarkerDesignId, label: "기본", note: "" };
 }
 
 function activeLogoDesign() {
@@ -2784,6 +2837,8 @@ function groupedMarkerDesignVariants() {
 function renderMarkerVerbosityControls({ mode = "full" } = {}) {
   return markerLevelConfigs.map((level) => {
     const active = activeMarkerDesign(level.id);
+    const options = markerVerbosityOptionsForLevel(level.id);
+    const activeOption = markerVerbosityOptionForLevel(level.id, active.id);
     return `
       <section class="marker-info-level marker-info-${escapeHtml(mode)}">
         <div class="marker-info-level-head">
@@ -2791,19 +2846,20 @@ function renderMarkerVerbosityControls({ mode = "full" } = {}) {
             <h3>${escapeHtml(level.fullName)}</h3>
             ${mode === "full" ? `<p>${escapeHtml(level.description)}</p>` : ""}
           </div>
-          <span>${escapeHtml(active.name.replace(/^\d+\s*/, ""))}</span>
+          <span>${escapeHtml(activeOption.label)}</span>
         </div>
         <div class="marker-info-option-grid">
-          ${markerDesignVariants.map((design) => {
-            const index = markerDesignVariants.indexOf(design);
+          ${options.map((option, index) => {
+            const design = markerDesignVariantMap.get(option.id);
+            if (!design) return "";
             const isActive = design.id === active.id;
             return `
               <button class="marker-info-option ${isActive ? "active" : ""}" type="button" data-marker-level="${escapeHtml(level.id)}" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
                 <span class="marker-info-option-head">
-                  <strong>${escapeHtml(design.name.replace(/^\d+\s*/, ""))}</strong>
-                  ${mode === "full" ? `<em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>` : ""}
+                  <strong>${escapeHtml(option.label)}</strong>
+                  ${mode === "full" ? `<em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${options.length}`}</em>` : ""}
                 </span>
-                ${mode === "full" && design.note ? `<small>${escapeHtml(design.note)}</small>` : ""}
+                ${mode === "full" && option.note ? `<small>${escapeHtml(option.note)}</small>` : ""}
                 ${mode === "full" ? markerInfoPreviewHtml(level.id, design) : ""}
               </button>
             `;
@@ -3075,7 +3131,10 @@ function markerPreviewHtml(item, design) {
 
 function markerSelectionSummary() {
   return markerLevelConfigs
-    .map((level) => `${level.name} ${activeMarkerDesign(level.id).name.replace(/^\d+\s*/, "")}`)
+    .map((level) => {
+      const active = activeMarkerDesign(level.id);
+      return `${level.name} ${markerVerbosityOptionForLevel(level.id, active.id).label}`;
+    })
     .join(" · ");
 }
 
