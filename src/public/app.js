@@ -56,6 +56,7 @@ const state = {
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
   activeLogoDesignId: null,
+  activeMapHeaderDesignId: null,
   apartmentRankMode: "averagePyeong",
   apartmentRankPage: 1,
   apartmentRankPageSize: 50,
@@ -80,6 +81,8 @@ const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
 const defaultLogoDesignId = "roof-up-open";
 const logoDesignStorageKey = "orulzip.logoDesignId";
+const defaultMapHeaderDesignId = "paper-blue";
+const mapHeaderDesignStorageKey = "orulzip.mapHeaderDesignId";
 const defaultMarkerLineGapPx = 3;
 const markerLineGapStorageKey = "orulzip.markerLineGapPx";
 const graphPalettes = {
@@ -129,6 +132,21 @@ const logoDesignVariants = [
   logoDesign("roof-up-bold", "12 볼드 루프", { symbol: "roof-up-bold", tone: "black", style: "line", tagline: "작은 헤더에서도 잘 보이도록 획을 살짝 굵힌 버전" })
 ];
 const logoDesignVariantMap = new Map(logoDesignVariants.map((item) => [item.id, item]));
+const mapHeaderDesignVariants = [
+  mapHeaderDesign("paper-blue", "01 페이퍼 블루", { headerBg: "#f8fafc", headerText: "#1f2937", searchBg: "#ffffff", searchText: "#111827", searchPlaceholder: "#667085", searchIcon: "#2367d1", chipBg: "#ffffff", chipActiveBg: "#e8f0ff", chipActiveBorder: "#2367d1", chipActiveText: "#2367d1", periodBg: "#ffffff", mapWater: "#cfe9fb", mapLand: "#edf5e8", mapRoad: "#f6cf8b" }),
+  mapHeaderDesign("naver-mint", "02 네이버 민트", { headerBg: "#03c75a", headerText: "#ffffff", searchBg: "rgba(255,255,255,0.18)", searchText: "#ffffff", searchPlaceholder: "rgba(255,255,255,0.8)", searchIcon: "#ffffff", chipBg: "#ffffff", chipActiveBg: "#e6f8ef", chipActiveBorder: "#03a64a", chipActiveText: "#087443", periodBg: "#ffffff", mapWater: "#bee7f8", mapLand: "#dff2dd", mapRoad: "#f3d185" }),
+  mapHeaderDesign("deep-navy", "03 딥 네이비", { headerBg: "#172033", headerText: "#ffffff", searchBg: "rgba(255,255,255,0.13)", searchText: "#ffffff", searchPlaceholder: "rgba(255,255,255,0.72)", searchIcon: "#b9d4ff", chipBg: "#ffffff", chipActiveBg: "#e7eefc", chipActiveBorder: "#315ca7", chipActiveText: "#244987", periodBg: "#fbfcff", mapWater: "#c7def4", mapLand: "#e6f0dd", mapRoad: "#ecc06f" }),
+  mapHeaderDesign("calm-teal", "04 차분한 틸", { headerBg: "#0f766e", headerText: "#ffffff", searchBg: "rgba(255,255,255,0.16)", searchText: "#ffffff", searchPlaceholder: "rgba(255,255,255,0.76)", searchIcon: "#d7fffb", chipBg: "#ffffff", chipActiveBg: "#e2f7f3", chipActiveBorder: "#0f766e", chipActiveText: "#0f766e", periodBg: "#ffffff", mapWater: "#c6e8f2", mapLand: "#dfeedd", mapRoad: "#f2c98c" }),
+  mapHeaderDesign("warm-ivory", "05 웜 아이보리", { headerBg: "#fff7ed", headerText: "#7c2d12", searchBg: "#ffffff", searchText: "#1f2937", searchPlaceholder: "#9a6746", searchIcon: "#d97706", chipBg: "#ffffff", chipActiveBg: "#fff1dc", chipActiveBorder: "#d97706", chipActiveText: "#9a3412", periodBg: "#fffaf3", mapWater: "#d4ecf7", mapLand: "#edf0d8", mapRoad: "#efbd73" }),
+  mapHeaderDesign("charcoal", "06 차콜", { headerBg: "#222831", headerText: "#ffffff", searchBg: "rgba(255,255,255,0.12)", searchText: "#ffffff", searchPlaceholder: "rgba(255,255,255,0.68)", searchIcon: "#f2c94c", chipBg: "#ffffff", chipActiveBg: "#f3f4f6", chipActiveBorder: "#111827", chipActiveText: "#111827", periodBg: "#ffffff", mapWater: "#c9ddec", mapLand: "#e3eadc", mapRoad: "#e8bd77" }),
+  mapHeaderDesign("sky", "07 스카이", { headerBg: "#eaf6ff", headerText: "#164e7a", searchBg: "#ffffff", searchText: "#123047", searchPlaceholder: "#5f7f96", searchIcon: "#0ea5e9", chipBg: "#ffffff", chipActiveBg: "#e0f2fe", chipActiveBorder: "#0ea5e9", chipActiveText: "#0369a1", periodBg: "#ffffff", mapWater: "#bfe6fb", mapLand: "#e4f2df", mapRoad: "#f2c989" }),
+  mapHeaderDesign("olive", "08 올리브", { headerBg: "#ecfdf3", headerText: "#365314", searchBg: "#ffffff", searchText: "#1f2937", searchPlaceholder: "#64748b", searchIcon: "#65a30d", chipBg: "#ffffff", chipActiveBg: "#eef8d8", chipActiveBorder: "#65a30d", chipActiveText: "#4d7c0f", periodBg: "#ffffff", mapWater: "#d2eaf2", mapLand: "#dbeecb", mapRoad: "#e4c37d" }),
+  mapHeaderDesign("coral", "09 코랄", { headerBg: "#fff1f2", headerText: "#9f1239", searchBg: "#ffffff", searchText: "#1f2937", searchPlaceholder: "#9f6b75", searchIcon: "#e11d48", chipBg: "#ffffff", chipActiveBg: "#ffe4e6", chipActiveBorder: "#e11d48", chipActiveText: "#be123c", periodBg: "#fffafa", mapWater: "#cce6f4", mapLand: "#e9f0de", mapRoad: "#ecc07b" }),
+  mapHeaderDesign("indigo-soft", "10 인디고 소프트", { headerBg: "#eef2ff", headerText: "#3730a3", searchBg: "#ffffff", searchText: "#1f2937", searchPlaceholder: "#667085", searchIcon: "#4f46e5", chipBg: "#ffffff", chipActiveBg: "#e0e7ff", chipActiveBorder: "#4f46e5", chipActiveText: "#4338ca", periodBg: "#ffffff", mapWater: "#c9e4f5", mapLand: "#e5f0dd", mapRoad: "#edc77d" }),
+  mapHeaderDesign("mono-clean", "11 모노 클린", { headerBg: "#ffffff", headerText: "#111827", searchBg: "#f3f4f6", searchText: "#111827", searchPlaceholder: "#6b7280", searchIcon: "#374151", chipBg: "#ffffff", chipActiveBg: "#f3f4f6", chipActiveBorder: "#374151", chipActiveText: "#111827", periodBg: "#ffffff", mapWater: "#d7e6ef", mapLand: "#e8eee2", mapRoad: "#e7c88c" }),
+  mapHeaderDesign("blue-steel", "12 블루 스틸", { headerBg: "#1e3a5f", headerText: "#ffffff", searchBg: "rgba(255,255,255,0.14)", searchText: "#ffffff", searchPlaceholder: "rgba(255,255,255,0.72)", searchIcon: "#cce7ff", chipBg: "#ffffff", chipActiveBg: "#e3effb", chipActiveBorder: "#1e5b92", chipActiveText: "#164e7a", periodBg: "#f8fbff", mapWater: "#c7e2f6", mapLand: "#e6efdf", mapRoad: "#e9bd76" })
+];
+const mapHeaderDesignVariantMap = new Map(mapHeaderDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
   center: [37.48, 127.18],
   zoom: 12
@@ -269,6 +287,8 @@ const els = {
   formulaRows: document.querySelector("#formulaRows"),
   formulaExampleRows: document.querySelector("#formulaExampleRows"),
   designView: document.querySelector("#designView"),
+  designMapHeaderSelected: document.querySelector("#designMapHeaderSelected"),
+  mapHeaderDesignGrid: document.querySelector("#mapHeaderDesignGrid"),
   designLogoSelected: document.querySelector("#designLogoSelected"),
   logoDesignGrid: document.querySelector("#logoDesignGrid"),
   designGraphSelected: document.querySelector("#designGraphSelected"),
@@ -343,8 +363,10 @@ async function init() {
   state.activePyeongGraphDesignId = readStoredPyeongGraphDesignId();
   state.activeMarkerDesignId = readStoredMarkerDesignId();
   state.activeLogoDesignId = readStoredLogoDesignId();
+  state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   applyMarkerLineGap();
+  applyMapHeaderDesign();
   setActiveTab(tabFromLocation());
   bindEvents();
   renderMapDesignPanel();
@@ -390,6 +412,11 @@ function bindEvents() {
     if (els.mapSearchInput.value.trim()) scheduleMapSearch(0);
   });
   els.mapSearchInput.addEventListener("keydown", handleMapSearchKeydown);
+  els.mapHeaderDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-map-header-design-id]");
+    if (!card) return;
+    setActiveMapHeaderDesign(card.dataset.mapHeaderDesignId);
+  });
   els.logoDesignGrid?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-logo-design-id]");
     if (!card) return;
@@ -2474,6 +2501,28 @@ function logoDesign(id, name, overrides = {}) {
   };
 }
 
+function mapHeaderDesign(id, name, overrides = {}) {
+  return {
+    id,
+    name,
+    headerBg: "#ffffff",
+    headerText: "#111827",
+    searchBg: "#f3f4f6",
+    searchText: "#111827",
+    searchPlaceholder: "#667085",
+    searchIcon: "#374151",
+    chipBg: "#ffffff",
+    chipActiveBg: "#e8f0ff",
+    chipActiveBorder: "#2367d1",
+    chipActiveText: "#2367d1",
+    periodBg: "#ffffff",
+    mapWater: "#d7e6ef",
+    mapLand: "#e8eee2",
+    mapRoad: "#e7c88c",
+    ...overrides
+  };
+}
+
 function activeMarkerDesign() {
   return markerDesignVariantMap.get(state.activeMarkerDesignId)
     || markerDesignVariantMap.get(defaultMarkerDesignId)
@@ -2530,6 +2579,49 @@ function setActiveLogoDesign(id) {
   renderLogoDesignGallery();
 }
 
+function activeMapHeaderDesign() {
+  return mapHeaderDesignVariantMap.get(state.activeMapHeaderDesignId)
+    || mapHeaderDesignVariantMap.get(defaultMapHeaderDesignId)
+    || mapHeaderDesignVariants[0];
+}
+
+function readStoredMapHeaderDesignId() {
+  try {
+    const stored = window.localStorage.getItem(mapHeaderDesignStorageKey);
+    return mapHeaderDesignVariantMap.has(stored) ? stored : defaultMapHeaderDesignId;
+  } catch {
+    return defaultMapHeaderDesignId;
+  }
+}
+
+function setActiveMapHeaderDesign(id) {
+  if (!mapHeaderDesignVariantMap.has(id)) return;
+  state.activeMapHeaderDesignId = id;
+  try {
+    window.localStorage.setItem(mapHeaderDesignStorageKey, id);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  applyMapHeaderDesign();
+  renderMapHeaderDesignGallery();
+}
+
+function applyMapHeaderDesign() {
+  const design = activeMapHeaderDesign();
+  const root = document.documentElement;
+  root.style.setProperty("--map-header-bg", design.headerBg);
+  root.style.setProperty("--map-header-text", design.headerText);
+  root.style.setProperty("--map-header-search-bg", design.searchBg);
+  root.style.setProperty("--map-header-search-text", design.searchText);
+  root.style.setProperty("--map-header-search-placeholder", design.searchPlaceholder);
+  root.style.setProperty("--map-header-search-icon", design.searchIcon);
+  root.style.setProperty("--map-header-chip-bg", design.chipBg);
+  root.style.setProperty("--map-header-chip-active-bg", design.chipActiveBg);
+  root.style.setProperty("--map-header-chip-active-border", design.chipActiveBorder);
+  root.style.setProperty("--map-header-chip-active-text", design.chipActiveText);
+  root.style.setProperty("--map-header-period-bg", design.periodBg);
+}
+
 function readStoredMarkerLineGapPx() {
   try {
     return normalizeMarkerLineGapPx(window.localStorage.getItem(markerLineGapStorageKey));
@@ -2563,6 +2655,7 @@ function normalizeMarkerLineGapPx(value) {
 }
 
 function renderDesignTab() {
+  renderMapHeaderDesignGallery();
   renderLogoDesignGallery();
   renderGraphDesignGallery();
   renderPyeongGraphDesignGallery();
@@ -2738,6 +2831,69 @@ function renderMarkerDesignGallery() {
   const sampleItems = markerDesignSampleItems();
   els.designMarkerSelected.textContent = `${active.name} / ${markerDesignVariants.length}개`;
   els.markerDesignGrid.innerHTML = renderMarkerDesignOptionGroups({ active, sampleItems });
+}
+
+function renderMapHeaderDesignGallery() {
+  if (!els.mapHeaderDesignGrid) return;
+  const active = activeMapHeaderDesign();
+  if (els.designMapHeaderSelected) {
+    els.designMapHeaderSelected.textContent = `${active.name} / ${mapHeaderDesignVariants.length}개`;
+  }
+  els.mapHeaderDesignGrid.innerHTML = mapHeaderDesignVariants.map((design, index) => {
+    const isActive = design.id === active.id;
+    return `
+      <button class="map-header-design-card ${isActive ? "active" : ""}" type="button" data-map-header-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${mapHeaderDesignVariants.length}`}</em>
+        </span>
+        <span class="map-header-design-preview" style="${mapHeaderPreviewStyle(design)}">
+          <span class="map-header-preview-top">
+            <span class="map-header-preview-logo">${logoSymbolSvg("roof-up-open")}</span>
+            <span class="map-header-preview-search">동 또는 아파트</span>
+          </span>
+          <span class="map-header-preview-tabs">
+            <span class="active">지도</span>
+            <span>가격대별</span>
+            <span>디자인</span>
+            <span>더보기</span>
+          </span>
+          <span class="map-header-preview-periods">
+            <span>3개월전</span>
+            <span>6개월전</span>
+            <span class="active">1년전</span>
+            <span>3년전</span>
+          </span>
+          <span class="map-header-preview-map">
+            <span class="preview-road road-a"></span>
+            <span class="preview-road road-b"></span>
+            <span class="preview-water"></span>
+            <span class="preview-marker marker-a">12.4%</span>
+            <span class="preview-marker marker-b">8.7%</span>
+          </span>
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function mapHeaderPreviewStyle(design) {
+  return [
+    `--preview-header-bg:${design.headerBg}`,
+    `--preview-header-text:${design.headerText}`,
+    `--preview-search-bg:${design.searchBg}`,
+    `--preview-search-text:${design.searchText}`,
+    `--preview-search-placeholder:${design.searchPlaceholder}`,
+    `--preview-search-icon:${design.searchIcon}`,
+    `--preview-chip-bg:${design.chipBg}`,
+    `--preview-chip-active-bg:${design.chipActiveBg}`,
+    `--preview-chip-active-border:${design.chipActiveBorder}`,
+    `--preview-chip-active-text:${design.chipActiveText}`,
+    `--preview-period-bg:${design.periodBg}`,
+    `--preview-map-water:${design.mapWater}`,
+    `--preview-map-land:${design.mapLand}`,
+    `--preview-map-road:${design.mapRoad}`
+  ].join(";");
 }
 
 function renderLogoDesignGallery() {
