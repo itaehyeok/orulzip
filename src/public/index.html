@@ -5,10 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260615-minimal-logo-designs">
+    <link rel="stylesheet" href="/styles.css?v=20260615-map-top-search">
   </head>
   <body>
     <main class="app-shell">
+      <header class="map-top-header" aria-label="지도 검색">
+        <a class="map-top-logo" href="/map" aria-label="오를집 지도">
+          <span class="orulzip-logo tone-black style-line">
+            <span class="orulzip-logo-mark">
+              <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+                <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+                <path class="logo-stroke" d="M15 42V29"/>
+                <path class="logo-stroke" d="M33 42V29"/>
+                <path class="logo-accent" d="M18 34l6-7 4 4 7-11"/>
+              </svg>
+            </span>
+            <span class="orulzip-logo-word">오를집</span>
+          </span>
+        </a>
+        <div class="map-search-panel map-top-search-panel">
+          <label class="sr-only" for="mapSearchInput">검색</label>
+          <input id="mapSearchInput" type="search" autocomplete="off" placeholder="동 또는 아파트" role="combobox" aria-expanded="false" aria-controls="mapSearchResults">
+          <div id="mapSearchResults" class="map-search-results" role="listbox" hidden></div>
+        </div>
+      </header>
+
       <nav class="tabs top-tabs" aria-label="보기 전환">
         <a class="active" data-tab="molitMap" href="/map" aria-current="page">지도</a>
         <a data-tab="priceBands" href="/price-bands">가격대별</a>
@@ -38,30 +59,25 @@
       </div>
 
       <section id="mapView" class="view active map-view">
-        <section class="panel map-panel">
-          <div class="panel-head map-head">
-            <h2 id="zoomMapTitle">지도</h2>
-            <div class="map-head-meta">
-              <div class="period-buttons" aria-label="지도 기준 기간">
-                <button data-period-months="3">3개월전 기준</button>
-                <button data-period-months="6">6개월전 기준</button>
-                <button class="active" data-period-months="12">1년전 기준</button>
-                <button data-period-months="36">3년전 기준</button>
-                <button data-period-months="60">5년전 기준</button>
-              </div>
-              <span id="zoomMapLevel">확대 단계 확인 중</span>
-              <span id="zoomMapCount"></span>
-              <span id="zoomMapPeriod"></span>
-            </div>
+        <div class="map-period-bar">
+          <div class="period-buttons" aria-label="지도 기준 기간">
+            <button data-period-months="3">3개월전 기준</button>
+            <button data-period-months="6">6개월전 기준</button>
+            <button class="active" data-period-months="12">1년전 기준</button>
+            <button data-period-months="36">3년전 기준</button>
+            <button data-period-months="60">5년전 기준</button>
           </div>
+          <div class="map-period-meta">
+            <span id="zoomMapLevel">확대 단계 확인 중</span>
+            <span id="zoomMapCount"></span>
+            <span id="zoomMapPeriod"></span>
+          </div>
+        </div>
+        <section class="panel map-panel">
+          <h2 id="zoomMapTitle" class="sr-only">지도</h2>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
-              <div class="map-search-panel">
-                <label for="mapSearchInput">검색</label>
-                <input id="mapSearchInput" type="search" autocomplete="off" placeholder="동 또는 아파트" role="combobox" aria-expanded="false" aria-controls="mapSearchResults">
-                <div id="mapSearchResults" class="map-search-results" role="listbox" hidden></div>
-              </div>
               <div id="mapRankingSection" class="map-ranking-section" hidden>
                 <div class="map-ranking-head">
                   <strong>현재 지도 랭킹</strong>
@@ -576,6 +592,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260615-minimal-logo-designs"></script>
+    <script src="/app.js?v=20260615-map-top-search"></script>
   </body>
 </html>

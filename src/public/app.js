@@ -78,7 +78,7 @@ const defaultPyeongGraphDesignId = "pyeong-soft";
 const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
 const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
-const defaultLogoDesignId = "minimal-roof";
+const defaultLogoDesignId = "roof-up-open";
 const logoDesignStorageKey = "orulzip.logoDesignId";
 const defaultMarkerLineGapPx = 3;
 const markerLineGapStorageKey = "orulzip.markerLineGapPx";
@@ -291,6 +291,7 @@ const els = {
   mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
   mapRankingRows: document.querySelector("#mapRankingRows"),
+  mapSearchPanel: document.querySelector(".map-search-panel"),
   mapSearchInput: document.querySelector("#mapSearchInput"),
   mapSearchResults: document.querySelector("#mapSearchResults"),
   mapLocateBtn: document.querySelector("#mapLocateBtn"),
@@ -492,7 +493,9 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
-    if (!els.mapApartmentRanking.contains(event.target)) hideMapSearchResults();
+    const isSearchClick = els.mapSearchPanel?.contains(event.target);
+    const isRankingClick = els.mapApartmentRanking?.contains(event.target);
+    if (!isSearchClick && !isRankingClick) hideMapSearchResults();
   });
 }
 
@@ -666,6 +669,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#termsView").classList.toggle("active", nextTab === "terms");
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
+  document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
 
   const nextRoute = tabRoutes[nextTab];
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
@@ -1585,6 +1589,7 @@ function renderMapApartmentRanking(level, items) {
   if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
   if (level !== "apartment") {
     els.mapApartmentRanking.classList.remove("ranking-active");
+    els.mapApartmentRanking.hidden = true;
     els.mapRankingSection.hidden = true;
     els.mapRankingRows.innerHTML = "";
     els.mapRankingCount.textContent = "";
@@ -1601,6 +1606,7 @@ function renderMapApartmentRanking(level, items) {
     });
 
   els.mapApartmentRanking.classList.add("ranking-active");
+  els.mapApartmentRanking.hidden = false;
   els.mapRankingSection.hidden = false;
   els.mapRankingCount.textContent = `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length

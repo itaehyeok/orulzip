@@ -20,6 +20,16 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .app-shell {
   max-width: none;
   min-height: 100vh;
@@ -123,6 +133,86 @@ h2 {
   color: #fff;
 }
 
+.map-top-header {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 0;
+}
+
+.map-shell-mode .map-top-header {
+  display: flex;
+}
+
+.map-top-logo {
+  flex: 0 0 auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.map-top-header .orulzip-logo {
+  gap: 8px;
+}
+
+.map-top-header .orulzip-logo-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.map-top-header .orulzip-logo-mark svg {
+  width: 34px;
+  height: 34px;
+}
+
+.map-top-header .orulzip-logo-word {
+  font-size: 24px;
+}
+
+.map-top-search-panel {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.map-top-search-panel input {
+  height: 42px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0 42px 0 14px;
+}
+
+.map-top-search-panel::after {
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: #667085;
+  content: "";
+  pointer-events: none;
+  transform: translateY(-58%);
+}
+
+.map-top-search-panel::before {
+  position: absolute;
+  top: calc(50% + 7px);
+  right: 12px;
+  width: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: #667085;
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+  transform-origin: center;
+  z-index: 1;
+}
+
 .toolbar {
   display: grid;
   grid-template-columns: minmax(120px, 160px) minmax(120px, 160px) minmax(140px, 170px) minmax(140px, 170px) 1fr;
@@ -201,6 +291,27 @@ input {
   font-size: 12px;
   font-weight: 800;
   padding: 0 10px;
+}
+
+.map-period-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.map-period-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .ranking-controls {
@@ -617,6 +728,12 @@ input {
   margin-bottom: 12px;
 }
 
+.map-shell-mode .top-tabs {
+  margin-bottom: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
 .crawl-section-head {
   display: flex;
   align-items: center;
@@ -852,6 +969,11 @@ input {
 }
 
 .map-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 780;
   max-height: 268px;
   overflow: auto;
   border: 1px solid #e4e9f1;
@@ -1905,13 +2027,18 @@ input {
 }
 
 .map-view.active {
-  display: block;
-  height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: calc(100dvh - 124px);
+  min-height: 520px;
 }
 
 .map-panel {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   height: 100%;
 }
 
@@ -2500,8 +2627,76 @@ td:nth-child(4) {
     padding: 10px;
   }
 
+  .map-shell-mode .app-shell {
+    padding: 0;
+  }
+
+  .map-top-header {
+    gap: 8px;
+    margin-bottom: 0;
+    padding: 10px 12px;
+    background: #5b45e9;
+  }
+
+  .map-top-header .orulzip-logo {
+    color: #ffffff;
+  }
+
+  .map-top-header .orulzip-logo-mark {
+    width: 36px;
+    height: 36px;
+    background: transparent;
+  }
+
+  .map-top-header .orulzip-logo-mark svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .map-top-header .orulzip-logo-word {
+    display: none;
+  }
+
+  .map-top-header .logo-accent {
+    stroke: #ffffff;
+  }
+
+  .map-top-search-panel input {
+    height: 42px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    font-size: 16px;
+  }
+
+  .map-top-search-panel input::placeholder {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .map-top-search-panel::after {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .map-top-search-panel::before {
+    background: rgba(255, 255, 255, 0.88);
+  }
+
   .top-tabs {
     gap: 6px;
+  }
+
+  .map-shell-mode .top-tabs {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 0;
+    padding: 10px 12px;
+    background: #ffffff;
+    scrollbar-width: none;
+  }
+
+  .map-shell-mode .top-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .top-tabs a,
@@ -2509,6 +2704,43 @@ td:nth-child(4) {
     height: 34px;
     padding: 0 8px;
     font-size: 15px;
+  }
+
+  .map-shell-mode .top-tabs a,
+  .map-shell-mode .top-tabs summary {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 1px 5px rgba(16, 24, 40, 0.08);
+  }
+
+  .map-period-bar {
+    display: grid;
+    gap: 8px;
+    padding: 9px 12px 10px;
+  }
+
+  .map-period-bar .period-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .map-period-bar .period-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .map-period-bar .period-buttons button {
+    flex: 0 0 auto;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  .map-period-meta {
+    display: none;
   }
 
   .toolbar {
@@ -2560,16 +2792,18 @@ td:nth-child(4) {
   }
 
   .map-view.active {
-    height: calc(100vh - 58px);
+    height: calc(100dvh - 114px);
+    min-height: 0;
   }
 
-  .map-head {
-    align-items: flex-start;
-    flex-direction: column;
+  .map-panel {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
   }
 
-  .map-head-meta {
-    justify-content: flex-start;
+  .map-panel .growth-map {
+    min-height: 0;
   }
 
   .map-apartment-popup {
@@ -2596,8 +2830,8 @@ td:nth-child(4) {
   }
 
   .map-location-control {
-    top: 112px;
-    right: 16px;
+    top: 12px;
+    right: 12px;
     height: 42px;
     min-width: 42px;
     padding: 0 12px;
