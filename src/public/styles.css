@@ -2836,6 +2836,9 @@ td:nth-child(4) {
   }
 
   .map-top-header .orulzip-logo {
+    --logo-accent: var(--map-header-text);
+    --logo-main: var(--map-header-text);
+    --logo-text: var(--map-header-text);
     color: var(--map-header-text);
   }
 
@@ -2856,6 +2859,10 @@ td:nth-child(4) {
 
   .map-top-header .logo-accent {
     stroke: var(--map-header-text);
+  }
+
+  .map-top-header .logo-accent-fill {
+    fill: var(--map-header-text);
   }
 
   .map-top-search-panel input {
