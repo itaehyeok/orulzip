@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260615-ranking-focus">
+    <link rel="stylesheet" href="/styles.css?v=20260615-molit-duplicate-filter">
   </head>
   <body>
     <main class="app-shell">
@@ -577,6 +577,31 @@
           </div>
         </section>
 
+        <section class="panel crawl-panel">
+          <div class="panel-head">
+            <h2>실거래가 겹침 점검</h2>
+            <span id="molitDuplicateSummary">대기 중</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>그룹</th>
+                  <th>표시 상태</th>
+                  <th>실거래가 단지</th>
+                  <th>주소</th>
+                  <th>거래기간</th>
+                  <th>거래수</th>
+                  <th>처리 사유</th>
+                </tr>
+              </thead>
+              <tbody id="molitDuplicateRows">
+                <tr><td colspan="7" class="empty">겹침 점검 정보를 불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="panel info-panel">
           <div class="panel-head">
             <h2>KB시세 수집 범위</h2>
@@ -600,6 +625,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260615-ranking-focus"></script>
+    <script src="/app.js?v=20260615-molit-duplicate-filter"></script>
   </body>
 </html>

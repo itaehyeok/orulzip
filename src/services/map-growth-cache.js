@@ -1,6 +1,7 @@
 import { query, withClient } from "./db.js";
 import { refreshAppOverviewCache } from "./app-overview-cache.js";
 import { readDatasetFromDb } from "./db-store.js";
+import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -610,6 +611,10 @@ async function readMolitMatchedMonthlyRows(today) {
           c.sigungu_name,
           c.dong_key,
           c.dong_name,
+          c.build_year,
+          c.deal_count,
+          c.first_month,
+          c.last_month,
           c.lat,
           c.lng,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
@@ -641,6 +646,10 @@ async function readMolitMatchedMonthlyRows(today) {
         sigungu_name,
         dong_key,
         dong_name,
+        build_year,
+        deal_count,
+        first_month,
+        last_month,
         lat,
         lng,
         exclusive_area_m2,
@@ -653,7 +662,7 @@ async function readMolitMatchedMonthlyRows(today) {
       from matched
       group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
                sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
-               lat, lng, exclusive_area_m2, deal_year_month
+               build_year, deal_count, first_month, last_month, lat, lng, exclusive_area_m2, deal_year_month
       order by apartment_id, exclusive_area_m2, deal_year_month
     `),
     query(`
@@ -704,6 +713,10 @@ async function readMolitMatchedMonthlyRows(today) {
       sigunguName: row.sigungu_name || "",
       dongKey: row.dong_key || "",
       dongName: row.dong_name || "",
+      buildYear: row.build_year === null ? null : Number(row.build_year),
+      dealCount: Number(row.deal_count || 0),
+      firstMonth: row.first_month || "",
+      lastMonth: row.last_month || "",
       lat: Number(row.lat),
       lng: Number(row.lng)
     },
@@ -717,9 +730,12 @@ async function readMolitMatchedMonthlyRows(today) {
 
 function buildMolitCacheItems(rows, { startMonth, endMonth }) {
   const apartments = groupMolitRows(rows);
+  const duplicateResolution = resolveMolitDuplicateGroups([...apartments.values()].map((group) => group.apartment));
+  const hiddenDuplicateIds = duplicateResolution.hiddenIds;
   const rankingRows = [];
 
   for (const apartmentGroup of apartments.values()) {
+    if (hiddenDuplicateIds.has(apartmentGroup.apartment.id)) continue;
     const typeSummaries = [...apartmentGroup.types.values()].map((type) => {
       const start = carriedMolitPriceAtOrBefore(type.monthly, startMonth);
       const end = type.recentPrice || carriedMolitPriceAtOrBefore(type.monthly, endMonth);
@@ -769,6 +785,7 @@ function buildMolitCacheItems(rows, { startMonth, endMonth }) {
       const apartment = apartmentGroup.apartment;
       return apartment?.legalDongCode && Number.isFinite(apartment.lat) && Number.isFinite(apartment.lng);
     })
+    .filter((apartmentGroup) => !hiddenDuplicateIds.has(apartmentGroup.apartment.id))
     .filter((apartmentGroup) => !includedIds.has(apartmentGroup.apartment.id))
     .map((apartmentGroup) => ({
       level: "apartment",

@@ -20,7 +20,10 @@ import {
   readApartmentMapRankSummary,
   readCachedZoomMapSummary
 } from "./services/map-growth-cache.js";
-import { readMolitCoordinateAudit } from "./services/molit-complex-store.js";
+import {
+  readMolitCoordinateAudit,
+  readMolitDuplicateAudit
+} from "./services/molit-complex-store.js";
 import {
   APARTMENT_RANK_METRICS,
   readApartmentRankPage
@@ -104,6 +107,12 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/molit/coordinate-audit") {
       return json(res, await readMolitCoordinateAudit({
+        limit: Number(url.searchParams.get("limit") || 50)
+      }));
+    }
+
+    if (url.pathname === "/api/molit/duplicate-audit") {
+      return json(res, await readMolitDuplicateAudit({
         limit: Number(url.searchParams.get("limit") || 50)
       }));
     }

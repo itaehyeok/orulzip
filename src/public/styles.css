@@ -795,6 +795,14 @@ input {
   color: var(--muted);
 }
 
+.duplicate-hidden-row {
+  background: #fff7f6;
+}
+
+.duplicate-hidden-row td {
+  color: #475467;
+}
+
 .error-cell {
   max-width: 280px;
   overflow: hidden;

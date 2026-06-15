@@ -1,4 +1,8 @@
 import { query } from "./db.js";
+import {
+  MOLIT_DUPLICATE_DISTANCE_METERS,
+  resolveMolitDuplicateGroups
+} from "./molit-duplicate-resolver.js";
 
 const REVIEW_DISTANCE_METERS = 250;
 
@@ -121,6 +125,90 @@ export async function readMolitCoordinateAudit({ limit = 50 } = {}) {
       dealCount: Number(row.deal_count || 0),
       firstMonth: row.first_month || "",
       lastMonth: row.last_month || ""
+    }))
+  };
+}
+
+export async function readMolitDuplicateAudit({ limit = 50 } = {}) {
+  const result = await query(`
+    select
+      id,
+      apt_name,
+      lawd_cd,
+      lawd_name,
+      legal_dong,
+      jibun,
+      address,
+      sido_code,
+      sigungu_code,
+      dong_key,
+      build_year,
+      deal_count,
+      first_month,
+      last_month,
+      coord_source,
+      coord_status,
+      lat,
+      lng
+    from molit_complexes
+    where lat is not null
+      and lng is not null
+      and coord_status = 'ready'
+  `);
+  const resolution = resolveMolitDuplicateGroups(result.rows.map((row) => ({
+    id: row.id,
+    name: row.apt_name || "",
+    aptName: row.apt_name || "",
+    lawdCd: row.lawd_cd || "",
+    lawdName: row.lawd_name || "",
+    legalDong: row.legal_dong || "",
+    jibun: row.jibun || "",
+    address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sigunguCode: row.sigungu_code || "",
+    dongKey: row.dong_key || "",
+    buildYear: row.build_year === null ? null : Number(row.build_year),
+    dealCount: Number(row.deal_count || 0),
+    firstMonth: row.first_month || "",
+    lastMonth: row.last_month || "",
+    coordSource: row.coord_source || "",
+    coordStatus: row.coord_status || "",
+    lat: row.lat === null ? null : Number(row.lat),
+    lng: row.lng === null ? null : Number(row.lng)
+  })));
+  const groups = resolution.groups
+    .filter((group) => group.hiddenCount > 0)
+    .slice(0, Math.max(1, Math.min(Number(limit) || 50, 500)));
+
+  return {
+    overview: {
+      distanceMeters: MOLIT_DUPLICATE_DISTANCE_METERS,
+      groupCount: resolution.groups.length,
+      hiddenGroupCount: resolution.groups.filter((group) => group.hiddenCount > 0).length,
+      hiddenComplexCount: resolution.hiddenIds.size
+    },
+    groups: groups.map((group) => ({
+      id: group.id,
+      label: group.label,
+      activeId: group.activeId,
+      hiddenCount: group.hiddenCount,
+      distanceMeters: group.distanceMeters,
+      items: group.items.map((item) => ({
+        id: item.id,
+        aptName: item.name,
+        legalDong: item.legalDong,
+        jibun: item.jibun,
+        address: item.address,
+        buildYear: item.buildYear,
+        dealCount: item.dealCount,
+        firstMonth: item.firstMonth,
+        lastMonth: item.lastMonth,
+        lat: item.lat,
+        lng: item.lng,
+        coordSource: item.coordSource,
+        action: item.action,
+        reason: item.reason
+      }))
     }))
   };
 }

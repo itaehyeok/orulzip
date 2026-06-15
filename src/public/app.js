@@ -330,6 +330,8 @@ const els = {
   molitCompletionList: document.querySelector("#molitCompletionList"),
   molitCoordinateSummary: document.querySelector("#molitCoordinateSummary"),
   molitCoordinateRows: document.querySelector("#molitCoordinateRows"),
+  molitDuplicateSummary: document.querySelector("#molitDuplicateSummary"),
+  molitDuplicateRows: document.querySelector("#molitDuplicateRows"),
   mapView: document.querySelector("#mapView"),
   zoomMapTitle: document.querySelector("#zoomMapTitle"),
   zoomMapPeriod: document.querySelector("#zoomMapPeriod"),
@@ -687,12 +689,14 @@ async function loadActiveViewData() {
 }
 
 async function loadCrawlTabData() {
-  const [molitStatus, coordinateAudit] = await Promise.all([
+  const [molitStatus, coordinateAudit, duplicateAudit] = await Promise.all([
     api("/api/molit/status"),
-    api("/api/molit/coordinate-audit?limit=80")
+    api("/api/molit/coordinate-audit?limit=80"),
+    api("/api/molit/duplicate-audit?limit=80")
   ]);
   renderMolitStatus(molitStatus);
   renderMolitCoordinateAudit(coordinateAudit);
+  renderMolitDuplicateAudit(duplicateAudit);
 }
 
 async function activateTab(tab, { push = false } = {}) {
@@ -1006,6 +1010,57 @@ function renderMolitCoordinateAudit(audit) {
       </tr>
     `).join("")
     : `<tr><td colspan="7" class="empty">점검할 좌표 차이 항목이 없습니다.</td></tr>`;
+}
+
+function renderMolitDuplicateAudit(audit) {
+  if (!els.molitDuplicateSummary || !els.molitDuplicateRows) return;
+  const overview = audit?.overview || {};
+  const groups = audit?.groups || [];
+  const hiddenGroups = Number(overview.hiddenGroupCount || 0);
+  const hiddenComplexes = Number(overview.hiddenComplexCount || 0);
+  const distance = Number(overview.distanceMeters || 0);
+  els.molitDuplicateSummary.textContent = hiddenGroups
+    ? `${formatInt(hiddenGroups)}개 그룹 · ${formatInt(hiddenComplexes)}개 숨김 · ${formatInt(distance)}m 이내`
+    : "숨길 겹침 단지 없음";
+
+  els.molitDuplicateRows.innerHTML = groups.length
+    ? groups.map((group, groupIndex) => {
+      const sortedItems = [...(group.items || [])].sort((a, b) =>
+        duplicateActionOrder(a.action) - duplicateActionOrder(b.action)
+        || String(b.lastMonth || "").localeCompare(String(a.lastMonth || ""))
+        || String(a.aptName || "").localeCompare(String(b.aptName || ""), "ko")
+      );
+      return sortedItems.map((item, itemIndex) => `
+        <tr class="${item.action === "hidden" ? "duplicate-hidden-row" : ""}">
+          ${itemIndex === 0 ? `
+            <td rowspan="${sortedItems.length}">
+              <strong>${formatInt(groupIndex + 1)}</strong><br>
+              <span class="muted-cell">${escapeHtml(group.label || "-")}</span><br>
+              <span class="muted-cell">최대 ${formatInt(group.distanceMeters || 0)}m</span>
+            </td>
+          ` : ""}
+          <td>${duplicateActionPill(item.action)}</td>
+          <td>
+            <strong>${escapeHtml(item.aptName || "-")}</strong><br>
+            <span class="muted-cell">${item.buildYear ? `${formatInt(item.buildYear)}년 준공` : "준공년 없음"}</span>
+          </td>
+          <td>${escapeHtml(item.address || "-")}</td>
+          <td>${formatMonthRange(item.firstMonth, item.lastMonth)}</td>
+          <td>${formatInt(item.dealCount || 0)}</td>
+          <td>${escapeHtml(item.reason || "-")}</td>
+        </tr>
+      `).join("");
+    }).join("")
+    : `<tr><td colspan="7" class="empty">숨김 처리된 겹침 단지가 없습니다.</td></tr>`;
+}
+
+function duplicateActionOrder(action) {
+  return action === "active" ? 0 : 1;
+}
+
+function duplicateActionPill(action) {
+  if (action === "hidden") return `<span class="status-pill failed">숨김</span>`;
+  return `<span class="status-pill completed">표시</span>`;
 }
 
 function coordinateStatusPill(row) {
