@@ -36,9 +36,13 @@ const state = {
   zoomNaverMap: null,
   zoomNaverOverlays: [],
   zoomNaverInfoWindow: null,
+  userLocationMarker: null,
+  userLocationNaverMarker: null,
   zoomMarkerTopZIndex: 10000,
   zoomMapTimer: null,
   zoomMapRequestId: 0,
+  mapLocateInProgress: false,
+  mapLocateResetTimer: null,
   mapPopupRequestId: 0,
   mapSearchTimer: null,
   mapSearchRequestId: 0,
@@ -269,6 +273,7 @@ const els = {
   mapRankingRows: document.querySelector("#mapRankingRows"),
   mapSearchInput: document.querySelector("#mapSearchInput"),
   mapSearchResults: document.querySelector("#mapSearchResults"),
+  mapLocateBtn: document.querySelector("#mapLocateBtn"),
   mapApartmentPopup: document.querySelector("#mapApartmentPopup"),
   mapPopupTitle: document.querySelector("#mapPopupTitle"),
   mapPopupMeta: document.querySelector("#mapPopupMeta"),
@@ -397,6 +402,7 @@ function bindEvents() {
     setMarkerLineGapPx(els.mapMarkerLineGapInput.value);
   });
   els.mapDesignToggleBtn?.addEventListener("click", toggleMapDesignPanel);
+  els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
 
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1256,6 +1262,7 @@ async function initNaverZoomMap() {
 
 function fallbackFromNaverZoomMap() {
   clearZoomNaverOverlays();
+  clearNaverUserLocationMarker();
   state.zoomNaverMap = null;
   state.clientConfig.maps.provider = "leaflet";
   els.zoomMap.innerHTML = "";
@@ -1657,6 +1664,122 @@ function moveNaverZoomMapTo(item, zoom, { exactZoom = false } = {}) {
 
   map.setCenter(position);
   if (typeof map.setZoom === "function") map.setZoom(targetZoom);
+}
+
+async function goToCurrentLocation() {
+  if (state.mapLocateInProgress) return;
+  if (!navigator.geolocation) {
+    setMapLocateStatus("error", "위치 불가");
+    return;
+  }
+
+  if (!window.isSecureContext && !["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+    setMapLocateStatus("error", "HTTPS 필요");
+    return;
+  }
+
+  state.mapLocateInProgress = true;
+  setMapLocateStatus("loading", "찾는 중");
+
+  try {
+    if (!(await initZoomMap())) throw new Error("map-unavailable");
+    const position = await getCurrentPosition({
+      enableHighAccuracy: true,
+      maximumAge: 60000,
+      timeout: 10000
+    });
+    const lat = Number(position.coords.latitude);
+    const lng = Number(position.coords.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("invalid-position");
+
+    const currentLocation = { lat, lng };
+    renderUserLocationMarker(currentLocation);
+    moveZoomMapTo(currentLocation, apartmentMapZoom, { exactZoom: false });
+    setMapLocateStatus("active", "현재위치");
+  } catch (error) {
+    setMapLocateStatus("error", mapLocateErrorLabel(error));
+  } finally {
+    state.mapLocateInProgress = false;
+  }
+}
+
+function getCurrentPosition(options) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
+function mapLocateErrorLabel(error) {
+  if (error?.code === 1) return "권한 필요";
+  if (error?.code === 2) return "위치 실패";
+  if (error?.code === 3) return "시간 초과";
+  return "위치 실패";
+}
+
+function setMapLocateStatus(status, label) {
+  if (!els.mapLocateBtn) return;
+  clearTimeout(state.mapLocateResetTimer);
+  els.mapLocateBtn.dataset.status = status;
+  els.mapLocateBtn.disabled = status === "loading";
+  els.mapLocateBtn.setAttribute("aria-busy", status === "loading" ? "true" : "false");
+  const labelEl = els.mapLocateBtn.querySelector(".map-location-text");
+  if (labelEl) labelEl.textContent = label || "현재위치";
+
+  if (status === "active" || status === "error") {
+    state.mapLocateResetTimer = setTimeout(() => {
+      if (!els.mapLocateBtn) return;
+      els.mapLocateBtn.dataset.status = "idle";
+      els.mapLocateBtn.disabled = false;
+      els.mapLocateBtn.setAttribute("aria-busy", "false");
+      if (labelEl) labelEl.textContent = "현재위치";
+    }, 2400);
+  }
+}
+
+function renderUserLocationMarker(item) {
+  if (state.zoomNaverMap && window.naver?.maps) {
+    renderNaverUserLocationMarker(item);
+    return;
+  }
+  if (!state.zoomMap || !window.L) return;
+
+  const position = [item.lat, item.lng];
+  if (state.userLocationMarker) {
+    state.userLocationMarker.setLatLng(position);
+    return;
+  }
+
+  state.userLocationMarker = L.marker(position, {
+    zIndexOffset: 50000,
+    icon: L.divIcon({
+      className: "map-user-location-marker",
+      html: `<span class="map-user-location-dot" aria-hidden="true"></span>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    })
+  }).addTo(state.zoomMap);
+}
+
+function renderNaverUserLocationMarker(item) {
+  const position = new window.naver.maps.LatLng(item.lat, item.lng);
+  if (state.userLocationNaverMarker) {
+    state.userLocationNaverMarker.setPosition(position);
+    state.userLocationNaverMarker.setMap(state.zoomNaverMap);
+    return;
+  }
+
+  state.userLocationNaverMarker = new window.naver.maps.Marker({
+    position,
+    map: state.zoomNaverMap,
+    zIndex: 50000,
+    icon: naverLabelIcon(`<span class="map-user-location-dot" aria-hidden="true"></span>`, 34, 34)
+  });
+}
+
+function clearNaverUserLocationMarker() {
+  if (!state.userLocationNaverMarker) return;
+  state.userLocationNaverMarker.setMap(null);
+  state.userLocationNaverMarker = null;
 }
 
 function zoomGroupTargetZoom(level, currentZoom) {

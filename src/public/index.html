@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260614-mobile-tabs">
+    <link rel="stylesheet" href="/styles.css?v=20260615-location-button">
   </head>
   <body>
     <main class="app-shell">
@@ -70,6 +70,10 @@
                 <div id="mapRankingRows" class="map-ranking-rows"></div>
               </div>
             </aside>
+            <button id="mapLocateBtn" class="map-location-control" type="button" aria-label="현재 위치로 이동" title="현재 위치로 이동">
+              <span class="map-location-icon" aria-hidden="true"></span>
+              <span class="map-location-text">현재위치</span>
+            </button>
             <aside id="mapApartmentPopup" class="map-apartment-popup" hidden>
               <div class="map-popup-head">
                 <div>
@@ -564,6 +568,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260614-mobile-tabs"></script>
+    <script src="/app.js?v=20260615-location-button"></script>
   </body>
 </html>
