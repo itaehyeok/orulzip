@@ -1203,6 +1203,7 @@ input {
 .apartment-map-marker-shell {
   background: transparent;
   border: 0;
+  overflow: visible;
 }
 
 .apartment-map-marker {
@@ -1215,8 +1216,11 @@ input {
   display: flex;
   flex-direction: column;
   gap: var(--marker-line-gap, 3px);
+  height: 100%;
   min-height: 30px;
   min-width: 44px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 5px 9px;
   font-size: 12px;
   font-weight: 800;
@@ -1237,7 +1241,7 @@ input {
   color: rgba(255, 255, 255, 0.9);
   font-size: 9px;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.12;
 }
 
 .apartment-map-marker .marker-rank-list {
@@ -1252,6 +1256,7 @@ input {
   display: inline-flex;
   gap: 3px;
   justify-content: center;
+  min-height: 10px;
   min-width: 0;
 }
 
@@ -1296,22 +1301,22 @@ input {
 }
 
 .apartment-map-marker.marker-size-medium {
-  min-width: 84px;
-  padding: 6px 8px;
-}
-
-.apartment-map-marker.marker-size-tall {
   min-width: 92px;
   padding: 6px 8px;
 }
 
+.apartment-map-marker.marker-size-tall {
+  min-width: 100px;
+  padding: 6px 8px;
+}
+
 .apartment-map-marker.marker-size-full {
-  min-width: 106px;
+  min-width: 116px;
   padding: 7px 8px;
 }
 
 .apartment-map-marker.marker-size-dense {
-  min-width: 84px;
+  min-width: 100px;
   padding: 6px 7px;
 }
 

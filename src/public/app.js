@@ -1944,13 +1944,14 @@ function renderZoomApartmentMarker(item) {
     renderNaverZoomApartmentMarker(item);
     return;
   }
-  const [width, height] = markerIconSize(activeMarkerDesign("apartment"));
+  const design = activeMarkerDesign("apartment");
+  const [width, height] = markerIconSize(design);
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: baseZIndex,
     icon: L.divIcon({
       className: "apartment-map-marker-shell",
-      html: apartmentMarkerHtml(item),
+      html: apartmentMarkerHtml(item, design),
       iconSize: [width, height],
       iconAnchor: [width / 2, height / 2]
     })
@@ -1998,13 +1999,14 @@ function renderNaverZoomGroupMarker(item, level) {
 
 function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
-  const [width, height] = markerIconSize(activeMarkerDesign("apartment"));
+  const design = activeMarkerDesign("apartment");
+  const [width, height] = markerIconSize(design);
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
     zIndex: baseZIndex,
-    icon: naverLabelIcon(apartmentMarkerHtml(item), width, height)
+    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
@@ -2090,15 +2092,30 @@ function apartmentRankRow(label, shortLabel, rank, total, design = activeMarkerD
 }
 
 function markerIconSize(design) {
-  if (!design.showRank) return [54, 34];
-  if (design.size === "sentence") return [116, 48];
-  if (design.size === "dense") return [94, 76];
-  if (design.size === "medium") return [96, 64];
-  if (design.size === "tall") return [104, 78];
-  if (design.size === "full") return [116, 92];
-  if (design.size === "small") return [70, 42];
-  if (design.size === "large") return [92, 58];
-  return [82, 48];
+  const lineCount = apartmentMarkerLineCount(design);
+  const width = {
+    small: 62,
+    wide: 82,
+    medium: 96,
+    tall: 104,
+    full: 124,
+    dense: 108,
+    sentence: 132,
+    large: 104
+  }[design.size] || 88;
+  const height = Math.max(38, 30 + lineCount * 15);
+  return [width, height];
+}
+
+function apartmentMarkerLineCount(design) {
+  if (!design.showRank) return 0;
+  return {
+    none: 0,
+    dong: 1,
+    local: 2,
+    regional: 3,
+    full: 4
+  }[design.apartmentRankMode || "dong"] ?? 1;
 }
 
 function shortDongLabel(value) {
