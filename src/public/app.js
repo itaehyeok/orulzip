@@ -78,7 +78,7 @@ const defaultPyeongGraphDesignId = "pyeong-soft";
 const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
 const defaultMarkerDesignId = "rank-outline";
 const markerDesignStorageKey = "orulzip.markerDesignId";
-const defaultLogoDesignId = "roof-arrow";
+const defaultLogoDesignId = "minimal-roof";
 const logoDesignStorageKey = "orulzip.logoDesignId";
 const defaultMarkerLineGapPx = 3;
 const markerLineGapStorageKey = "orulzip.markerLineGapPx";
@@ -115,18 +115,18 @@ const markerDesignVariants = [
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
 const logoDesignVariants = [
-  logoDesign("roof-arrow", "01 루프 상승", { symbol: "roof-arrow", tone: "blue", style: "line", tagline: "집 지붕과 상승 화살표를 가장 직접적으로 결합" }),
-  logoDesign("pin-roof", "02 핀 하우스", { symbol: "pin-roof", tone: "green", style: "badge", tagline: "지도 서비스 느낌이 강한 위치핀형" }),
-  logoDesign("chart-home", "03 차트 하우스", { symbol: "chart-home", tone: "navy", style: "solid", tagline: "시세 분석 서비스라는 신호가 선명한 타입" }),
-  logoDesign("door-growth", "04 도어 성장", { symbol: "door-growth", tone: "orange", style: "soft", tagline: "집 안에서 가격이 올라가는 느낌" }),
-  logoDesign("stack-rise", "05 단지 상승", { symbol: "stack-rise", tone: "teal", style: "line", tagline: "아파트 단지와 랭킹 서비스를 연상" }),
-  logoDesign("key-up", "06 키 업", { symbol: "key-up", tone: "blue", style: "soft", tagline: "집을 찾는 경험과 상승 지표를 결합" }),
-  logoDesign("roof-bars", "07 루프 바", { symbol: "roof-bars", tone: "green", style: "solid", tagline: "작은 크기에서도 잘 보이는 굵은 심볼" }),
-  logoDesign("map-peak", "08 지도 피크", { symbol: "map-peak", tone: "purple", style: "badge", tagline: "지도 위 상승 포인트를 강조" }),
-  logoDesign("window-line", "09 윈도우 라인", { symbol: "window-line", tone: "navy", style: "line", tagline: "차분하고 서비스형 앱에 맞는 얇은 선형" }),
-  logoDesign("corner-up", "10 코너 업", { symbol: "corner-up", tone: "orange", style: "soft", tagline: "오르는 궤적을 가장 간결하게 표현" }),
-  logoDesign("estate-pulse", "11 시세 펄스", { symbol: "estate-pulse", tone: "teal", style: "badge", tagline: "시세 흐름을 보는 데이터 서비스 느낌" }),
-  logoDesign("minimal-roof", "12 미니멀 루프", { symbol: "minimal-roof", tone: "black", style: "line", tagline: "상단 헤더에 넣기 좋은 절제된 워드마크" })
+  logoDesign("minimal-roof", "01 미니멀 루프", { symbol: "minimal-roof", tone: "black", style: "line", tagline: "12번 원안. 상단 헤더에 넣기 좋은 절제된 워드마크" }),
+  logoDesign("minimal-roof-blue", "02 블루 포인트", { symbol: "minimal-roof", tone: "blue", style: "line", tagline: "원안 구조에 브랜드 블루 상승선만 더 강조" }),
+  logoDesign("roof-up-short", "03 짧은 상승선", { symbol: "roof-up-short", tone: "black", style: "line", tagline: "상승선을 짧게 줄여 더 담백하게 보이는 버전" }),
+  logoDesign("roof-up-long", "04 긴 상승선", { symbol: "roof-up-long", tone: "black", style: "line", tagline: "상승 방향을 조금 더 분명하게 보여주는 버전" }),
+  logoDesign("roof-up-corner", "05 코너 상승", { symbol: "roof-up-corner", tone: "black", style: "line", tagline: "지붕 안쪽에서 우상향 코너가 올라가는 형태" }),
+  logoDesign("roof-up-window", "06 창문 포인트", { symbol: "roof-up-window", tone: "black", style: "line", tagline: "작은 창문을 넣어 집 느낌을 조금 보강" }),
+  logoDesign("roof-up-door", "07 문 포인트", { symbol: "roof-up-door", tone: "black", style: "line", tagline: "아주 작은 문 라인으로 주거 이미지를 보강" }),
+  logoDesign("roof-up-dot", "08 점 포인트", { symbol: "roof-up-dot", tone: "black", style: "line", tagline: "상승선 끝에 점을 둬 데이터 포인트처럼 보이게 한 버전" }),
+  logoDesign("roof-up-peak", "09 피크 라인", { symbol: "roof-up-peak", tone: "black", style: "line", tagline: "차트의 피크를 지붕 아래에 녹인 버전" }),
+  logoDesign("roof-up-open", "10 오픈 루프", { symbol: "roof-up-open", tone: "black", style: "line", tagline: "집 박스를 줄이고 지붕과 상승선만 남긴 가장 가벼운 버전" }),
+  logoDesign("roof-up-rounded", "11 라운드 루프", { symbol: "roof-up-rounded", tone: "black", style: "line", tagline: "획 끝을 둥글게 살려 모바일에서 부드럽게 보이는 버전" }),
+  logoDesign("roof-up-bold", "12 볼드 루프", { symbol: "roof-up-bold", tone: "black", style: "line", tagline: "작은 헤더에서도 잘 보이도록 획을 살짝 굵힌 버전" })
 ];
 const logoDesignVariantMap = new Map(logoDesignVariants.map((item) => [item.id, item]));
 const homeMapView = {
@@ -2460,7 +2460,7 @@ function logoDesign(id, name, overrides = {}) {
   return {
     id,
     name,
-    symbol: "roof-arrow",
+    symbol: "minimal-roof",
     tone: "blue",
     style: "line",
     tagline: "",
@@ -2765,105 +2765,91 @@ function logoPreviewHtml(design) {
 function logoSymbolSvg(symbol) {
   const common = `viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"`;
   const svgs = {
-    "roof-arrow": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M8 24L24 10l16 14v15a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V24Z"/>
-        <path class="logo-stroke" d="M7 24L24 9l17 15M14 42V25h20v17"/>
-        <path class="logo-accent" d="M18 34l6-7 5 4 7-10"/>
-        <path class="logo-accent" d="M31 21h5v5"/>
-      </svg>
-    `,
-    "pin-roof": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M24 44s15-12 15-25C39 10.7 32.3 4 24 4S9 10.7 9 19c0 13 15 25 15 25Z"/>
-        <path class="logo-stroke" d="M24 44s15-12 15-25C39 10.7 32.3 4 24 4S9 10.7 9 19c0 13 15 25 15 25Z"/>
-        <path class="logo-stroke" d="M16 22l8-7 8 7v9H16v-9Z"/>
-        <path class="logo-accent" d="M21 28l4-5 3 3 4-7"/>
-      </svg>
-    `,
-    "chart-home": `
-      <svg ${common}>
-        <path class="logo-fill-strong" d="M7 24 24 9l17 15v17H7V24Z"/>
-        <path class="logo-knockout" d="M15 35V24h4v11h-4Zm7 0V19h4v16h-4Zm7 0V27h4v8h-4Z"/>
-        <path class="logo-knockout" d="M17 19l7-6 7 6"/>
-        <path class="logo-accent-on-dark" d="M17 30l7-7 5 4 5-9"/>
-      </svg>
-    `,
-    "door-growth": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M10 20 24 8l14 12v22H10V20Z"/>
-        <path class="logo-stroke" d="M8 21 24 7l16 14M14 42V24h20v18"/>
-        <path class="logo-stroke" d="M19 42V27h10v15"/>
-        <path class="logo-accent" d="M30 33c5-4 6-11 6-11s-7 1-11 6"/>
-        <path class="logo-accent" d="M36 22v7h-7"/>
-      </svg>
-    `,
-    "stack-rise": `
-      <svg ${common}>
-        <path class="logo-stroke" d="M9 42V18l15-10 15 10v24"/>
-        <path class="logo-fill-soft" d="M13 42V22h22v20H13Z"/>
-        <path class="logo-stroke" d="M16 28h4M16 34h4M28 28h4M28 34h4M24 42V24"/>
-        <path class="logo-accent" d="M14 16h8l-4-4M28 15h8l-4-4"/>
-      </svg>
-    `,
-    "key-up": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M8 26 24 12l16 14v13a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V26Z"/>
-        <path class="logo-stroke" d="M7 26 24 11l17 15M14 42V27h20v15"/>
-        <circle class="logo-stroke" cx="21" cy="31" r="4"/>
-        <path class="logo-stroke" d="M25 31h8m-3 0v4"/>
-        <path class="logo-accent" d="M31 22l4-5 4 5M35 17v12"/>
-      </svg>
-    `,
-    "roof-bars": `
-      <svg ${common}>
-        <path class="logo-fill-strong" d="M6 24 24 8l18 16-4 5-14-12-14 12-4-5Z"/>
-        <path class="logo-fill-soft" d="M12 28h24v14H12V28Z"/>
-        <path class="logo-knockout" d="M17 38V27h4v11h-4Zm6 0V23h4v15h-4Zm6 0V31h4v7h-4Z"/>
-        <path class="logo-accent-on-dark" d="M17 28l6-6 5 4 6-10"/>
-      </svg>
-    `,
-    "map-peak": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M8 12l11-4 10 4 11-4v28l-11 4-10-4-11 4V12Z"/>
-        <path class="logo-stroke" d="M8 12l11-4 10 4 11-4v28l-11 4-10-4-11 4V12Z"/>
-        <path class="logo-stroke" d="M19 8v28M29 12v28"/>
-        <path class="logo-accent" d="M13 31l8-10 6 5 8-12"/>
-        <path class="logo-accent" d="M31 14h4v4"/>
-      </svg>
-    `,
-    "window-line": `
-      <svg ${common}>
-        <path class="logo-stroke" d="M7 23 24 9l17 14M12 42V24h24v18H12Z"/>
-        <path class="logo-stroke" d="M18 30h5v5h-5zM26 30h5v5h-5z"/>
-        <path class="logo-accent" d="M15 20h8l-4-4M25 20h8l-4-4"/>
-      </svg>
-    `,
-    "corner-up": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M10 23 24 11l14 12v19H10V23Z"/>
-        <path class="logo-stroke" d="M8 24 24 10l16 14M15 42V26h18v16"/>
-        <path class="logo-accent" d="M18 35h13c3 0 5-2 5-5V17"/>
-        <path class="logo-accent" d="M31 17h5v5"/>
-      </svg>
-    `,
-    "estate-pulse": `
-      <svg ${common}>
-        <path class="logo-fill-soft" d="M7 24 24 9l17 15v18H7V24Z"/>
-        <path class="logo-stroke" d="M7 24 24 9l17 15M13 42V26h22v16"/>
-        <path class="logo-accent" d="M12 33h6l3-7 5 12 4-9h6"/>
-        <path class="logo-stroke" d="M20 21h8"/>
-      </svg>
-    `,
     "minimal-roof": `
       <svg ${common}>
         <path class="logo-stroke" d="M8 25 24 11l16 14"/>
         <path class="logo-stroke" d="M14 42V25h20v17"/>
         <path class="logo-accent" d="M18 34l6-7 4 4 7-11"/>
       </svg>
+    `,
+    "roof-up-short": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M9 25 24 12l15 13"/>
+        <path class="logo-stroke" d="M15 42V26h18v16"/>
+        <path class="logo-accent" d="M19 34l5-6 4 4 5-8"/>
+      </svg>
+    `,
+    "roof-up-long": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-accent" d="M17 35l6-7 5 4 9-13"/>
+        <path class="logo-accent" d="M33 19h4v4"/>
+      </svg>
+    `,
+    "roof-up-corner": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-accent" d="M18 35h9c4 0 7-3 7-7v-7"/>
+        <path class="logo-accent" d="M30 21h4v4"/>
+      </svg>
+    `,
+    "roof-up-window": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-stroke" d="M18 30h5v5h-5z"/>
+        <path class="logo-accent" d="M25 35l4-5 3 3 4-8"/>
+      </svg>
+    `,
+    "roof-up-door": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-stroke" d="M20 42V31h8v11"/>
+        <path class="logo-accent" d="M29 34l3-4 3 2 3-7"/>
+      </svg>
+    `,
+    "roof-up-dot": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-accent" d="M18 34l6-7 4 4 6-9"/>
+        <circle class="logo-accent-fill" cx="35" cy="21" r="2.6"/>
+      </svg>
+    `,
+    "roof-up-peak": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M14 42V25h20v17"/>
+        <path class="logo-accent" d="M18 35l5-8 5 6 5-12"/>
+      </svg>
+    `,
+    "roof-up-open": `
+      <svg ${common}>
+        <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke" d="M15 42V29"/>
+        <path class="logo-stroke" d="M33 42V29"/>
+        <path class="logo-accent" d="M18 34l6-7 4 4 7-11"/>
+      </svg>
+    `,
+    "roof-up-rounded": `
+      <svg ${common}>
+        <path class="logo-stroke logo-stroke-rounded" d="M8 25C13 21 18 16 24 11c6 5 11 10 16 14"/>
+        <path class="logo-stroke logo-stroke-rounded" d="M14 42V25h20v17"/>
+        <path class="logo-accent logo-stroke-rounded" d="M18 34c2-2 4-5 6-7 2 1 3 3 4 4 3-3 5-7 7-11"/>
+      </svg>
+    `,
+    "roof-up-bold": `
+      <svg ${common}>
+        <path class="logo-stroke logo-stroke-bold" d="M8 25 24 11l16 14"/>
+        <path class="logo-stroke logo-stroke-bold" d="M14 42V25h20v17"/>
+        <path class="logo-accent logo-stroke-bold" d="M18 34l6-7 4 4 7-11"/>
+      </svg>
     `
   };
-  return svgs[symbol] || svgs["roof-arrow"];
+  return svgs[symbol] || svgs["minimal-roof"];
 }
 
 function markerDesignSampleItems() {

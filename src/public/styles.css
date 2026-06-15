@@ -2307,11 +2307,24 @@ input {
   stroke-linejoin: round;
 }
 
+.logo-stroke-bold {
+  stroke-width: 3.8;
+}
+
+.logo-stroke-rounded {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .logo-accent {
   stroke: var(--logo-accent);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.logo-accent-fill {
+  fill: var(--logo-accent);
 }
 
 .logo-fill-soft {
