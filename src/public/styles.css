@@ -2086,6 +2086,7 @@ input {
   margin-bottom: 16px;
 }
 
+.logo-design-grid,
 .graph-design-grid,
 .marker-design-group > .marker-design-grid {
   display: grid;
@@ -2115,6 +2116,7 @@ input {
   padding: 0;
 }
 
+.logo-design-card,
 .graph-design-card,
 .marker-design-card {
   display: grid;
@@ -2131,6 +2133,7 @@ input {
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
+.logo-design-card:hover,
 .graph-design-card:hover,
 .marker-design-card:hover {
   border-color: #9db7ea;
@@ -2138,6 +2141,7 @@ input {
   transform: translateY(-1px);
 }
 
+.logo-design-card.active,
 .graph-design-card.active,
 .marker-design-card.active {
   border-color: var(--blue);
@@ -2170,10 +2174,169 @@ input {
   padding: 4px 8px;
 }
 
+.logo-design-card.active .graph-design-card-head em,
 .graph-design-card.active .graph-design-card-head em,
 .marker-design-card.active .graph-design-card-head em {
   background: #e8f0ff;
   color: var(--blue);
+}
+
+.logo-design-preview {
+  display: grid;
+  min-height: 112px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(152, 162, 179, 0.11) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(152, 162, 179, 0.11) 1px, transparent 1px),
+    #fbfcfe;
+  background-size: 28px 28px;
+  padding: 18px;
+}
+
+.logo-design-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.orulzip-logo {
+  --logo-main: #2367d1;
+  --logo-accent: #16805f;
+  --logo-soft: rgba(35, 103, 209, 0.11);
+  --logo-text: #111827;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  color: var(--logo-text);
+  white-space: nowrap;
+}
+
+.orulzip-logo.tone-green {
+  --logo-main: #16805f;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(22, 128, 95, 0.12);
+}
+
+.orulzip-logo.tone-navy {
+  --logo-main: #1f2937;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(31, 41, 55, 0.1);
+}
+
+.orulzip-logo.tone-orange {
+  --logo-main: #d97706;
+  --logo-accent: #c24132;
+  --logo-soft: rgba(217, 119, 6, 0.13);
+}
+
+.orulzip-logo.tone-teal {
+  --logo-main: #0f766e;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(15, 118, 110, 0.12);
+}
+
+.orulzip-logo.tone-purple {
+  --logo-main: #6941c6;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(105, 65, 198, 0.12);
+}
+
+.orulzip-logo.tone-black {
+  --logo-main: #111827;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(17, 24, 39, 0.08);
+}
+
+.orulzip-logo.style-badge,
+.orulzip-logo.style-soft {
+  padding: 10px 14px 10px 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
+}
+
+.orulzip-logo.style-badge .orulzip-logo-mark,
+.orulzip-logo.style-solid .orulzip-logo-mark {
+  background: var(--logo-main);
+}
+
+.orulzip-logo.style-soft .orulzip-logo-mark,
+.orulzip-logo.style-line .orulzip-logo-mark {
+  background: var(--logo-soft);
+}
+
+.orulzip-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--logo-main);
+}
+
+.orulzip-logo.style-badge .orulzip-logo-mark,
+.orulzip-logo.style-solid .orulzip-logo-mark {
+  color: #ffffff;
+}
+
+.orulzip-logo-mark svg {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.orulzip-logo-word {
+  color: var(--logo-text);
+  font-size: 31px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.logo-stroke {
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-accent {
+  stroke: var(--logo-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-fill-soft {
+  fill: var(--logo-soft);
+}
+
+.logo-fill-strong {
+  fill: currentColor;
+}
+
+.logo-knockout {
+  fill: #ffffff;
+}
+
+.orulzip-logo.style-badge .logo-knockout,
+.orulzip-logo.style-solid .logo-knockout {
+  fill: var(--logo-main);
+}
+
+.logo-accent-on-dark {
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.86;
 }
 
 .graph-design-preview {
@@ -2342,6 +2505,7 @@ td:nth-child(4) {
   .collection-summary-grid,
   .crawl-grid,
   .crawl-job-progress,
+  .logo-design-grid,
   .graph-design-grid,
   .marker-design-grid,
   .info-grid,
