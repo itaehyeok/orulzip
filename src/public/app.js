@@ -41,6 +41,7 @@ const state = {
   regionStats: [],
   months: [],
   neighborhoods: [],
+  isAdmin: false,
   activeTab: tabFromLocation(),
   clientConfig: { maps: { provider: "leaflet", naverKeyId: "" } },
   zoomMap: null,
@@ -414,8 +415,10 @@ async function init() {
   renderMapDesignPanel();
   await Promise.all([
     loadClientConfig(),
-    loadFilters()
+    loadFilters(),
+    loadAdminSession()
   ]);
+  renderAdminNavigation();
   await refresh();
   setInterval(refreshStatusOnly, 5000);
 }
@@ -424,6 +427,17 @@ async function loadClientConfig() {
   state.clientConfig = await api("/api/client-config").catch(() => ({
     maps: { provider: "leaflet", naverKeyId: "" }
   }));
+}
+
+async function loadAdminSession() {
+  const session = await api("/api/admin/session").catch(() => ({ authenticated: false }));
+  state.isAdmin = Boolean(session.authenticated);
+}
+
+function renderAdminNavigation() {
+  document.querySelectorAll("[data-admin-only]").forEach((item) => {
+    item.hidden = !state.isAdmin;
+  });
 }
 
 function bindEvents() {

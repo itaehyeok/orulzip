@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +44,23 @@ const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
+const protectedAppRoutes = new Set(["/kb-map", "/formula", "/terms", "/design", "/crawl"]);
+const protectedApiRoutes = new Set([
+  "/api/crawl/details",
+  "/api/crawl/start",
+  "/api/sync",
+  "/api/formula-analysis",
+  "/api/molit/status",
+  "/api/molit/coordinate-audit",
+  "/api/molit/duplicate-audit"
+]);
+const adminCookieName = "orulzip_admin";
+const adminUser = process.env.ORULZIP_ADMIN_USER || "th";
+const adminPassword = process.env.ORULZIP_ADMIN_PASSWORD || "";
+const adminSessionSecret = process.env.ORULZIP_ADMIN_SESSION_SECRET
+  || crypto.createHash("sha256").update(`orulzip-admin:${adminUser}:${adminPassword}`).digest("hex");
+const adminSessionMaxAgeSeconds = 60 * 60 * 24 * 30;
+const adminCookieSecure = process.env.ORULZIP_ADMIN_COOKIE_SECURE === "1";
 const routeSeo = new Map([
   ["/", {
     title: "오를집 - 아파트 실거래가 상승률 지도",
@@ -111,6 +129,55 @@ await initDb();
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    const normalizedPath = normalizeRoute(url.pathname);
+    const isAdmin = isAdminRequest(req);
+
+    if (url.pathname === "/api/admin/session") {
+      return json(res, { authenticated: isAdmin });
+    }
+
+    if (url.pathname === "/admin-logout") {
+      res.writeHead(302, {
+        "Set-Cookie": clearAdminCookie(),
+        Location: "/map"
+      });
+      res.end();
+      return;
+    }
+
+    if (url.pathname === "/admin-login") {
+      if (req.method === "POST") {
+        const body = await readFormBody(req);
+        const nextPath = safeNextPath(body.next || url.searchParams.get("next") || "/map");
+        if (isValidAdminLogin(body.username, body.password)) {
+          res.writeHead(302, {
+            "Set-Cookie": createAdminCookie(),
+            Location: nextPath
+          });
+          res.end();
+          return;
+        }
+        return html(res, renderAdminLoginPage({ nextPath, error: "아이디 또는 비밀번호가 올바르지 않습니다." }), 401);
+      }
+
+      const nextPath = safeNextPath(url.searchParams.get("next") || "/map");
+      if (isAdmin) {
+        res.writeHead(302, { Location: nextPath });
+        res.end();
+        return;
+      }
+      return html(res, renderAdminLoginPage({ nextPath }));
+    }
+
+    if (protectedApiRoutes.has(url.pathname) && !isAdmin) {
+      return json(res, { error: "Admin login required." }, 401);
+    }
+
+    if (protectedAppRoutes.has(normalizedPath) && !isAdmin) {
+      res.writeHead(302, { Location: `/admin-login?next=${encodeURIComponent(normalizedPath)}` });
+      res.end();
+      return;
+    }
 
     if (url.pathname === "/api/filters") {
       const filters = await readFilterOptions({
@@ -954,9 +1021,141 @@ function escapeAttribute(value) {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
+function isAdminRequest(req) {
+  const token = parseCookies(req.headers.cookie || "")[adminCookieName];
+  if (!token) return false;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return false;
+  const expected = signAdminPayload(payload);
+  if (!timingSafeEqual(signature, expected)) return false;
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    return session.user === adminUser && Number(session.exp || 0) > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function isValidAdminLogin(username, password) {
+  if (!adminPassword) return false;
+  return timingSafeEqual(String(username || ""), adminUser)
+    && timingSafeEqual(String(password || ""), adminPassword);
+}
+
+function createAdminCookie() {
+  const payload = Buffer.from(JSON.stringify({
+    user: adminUser,
+    exp: Date.now() + adminSessionMaxAgeSeconds * 1000
+  })).toString("base64url");
+  const token = `${payload}.${signAdminPayload(payload)}`;
+  return [
+    `${adminCookieName}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${adminSessionMaxAgeSeconds}`,
+    adminCookieSecure ? "Secure" : ""
+  ].filter(Boolean).join("; ");
+}
+
+function clearAdminCookie() {
+  return `${adminCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
+
+function signAdminPayload(payload) {
+  return crypto.createHmac("sha256", adminSessionSecret).update(payload).digest("base64url");
+}
+
+function parseCookies(cookieHeader) {
+  return Object.fromEntries(String(cookieHeader || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const index = part.indexOf("=");
+      if (index < 0) return [part, ""];
+      return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+    }));
+}
+
+function timingSafeEqual(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function safeNextPath(value) {
+  const nextPath = String(value || "/map");
+  if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return "/map";
+  return nextPath;
+}
+
+function renderAdminLoginPage({ nextPath = "/map", error = "" } = {}) {
+  return `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>관리자 로그인 - 오를집</title>
+    <style>
+      :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; color: #111827; }
+      main { width: min(420px, calc(100vw - 32px)); border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(16,24,40,.12); }
+      form { display: grid; gap: 14px; padding: 26px; }
+      h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: 0; }
+      p { margin: 0; color: #667085; font-size: 14px; line-height: 1.45; }
+      label { display: grid; gap: 7px; color: #344054; font-size: 13px; font-weight: 800; }
+      input { height: 44px; border: 1px solid #d0d5dd; border-radius: 9px; padding: 0 12px; font: inherit; font-size: 15px; }
+      button { height: 46px; border: 0; border-radius: 9px; background: #111827; color: #fff; cursor: pointer; font: inherit; font-weight: 900; }
+      .error { border: 1px solid #fecaca; border-radius: 9px; background: #fef2f2; color: #b42318; padding: 10px 12px; font-size: 13px; font-weight: 800; }
+      a { color: #344054; font-size: 13px; font-weight: 800; text-align: center; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <form method="post" action="/admin-login">
+        <div>
+          <h1>관리자 로그인</h1>
+          <p>오를집 내부 관리 화면에 접근하려면 로그인하세요.</p>
+        </div>
+        ${error ? `<div class="error">${escapeHtml(error)}</div>` : ""}
+        <input type="hidden" name="next" value="${escapeAttribute(nextPath)}">
+        <label>아이디
+          <input name="username" autocomplete="username" autofocus>
+        </label>
+        <label>비밀번호
+          <input name="password" type="password" autocomplete="current-password">
+        </label>
+        <button type="submit">로그인</button>
+        <a href="/map">지도로 돌아가기</a>
+      </form>
+    </main>
+  </body>
+</html>`;
+}
+
+function html(res, body, status = 200) {
+  res.writeHead(status, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(body);
+}
+
 function json(res, payload, status = 200) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+async function readFormBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString("utf8")));
 }
 
 async function readJsonBody(req) {
