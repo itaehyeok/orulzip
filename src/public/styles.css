@@ -826,6 +826,78 @@ input {
   position: relative;
 }
 
+.map-transition-status {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 760;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.9);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 8px 13px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.22);
+}
+
+.map-transition-status[hidden] {
+  display: none;
+}
+
+.map-transition-dim .apartment-map-marker,
+.map-transition-dim .zoom-cluster-marker,
+.map-transition-badge .apartment-map-marker,
+.map-transition-badge .zoom-cluster-marker {
+  opacity: 0.34;
+  filter: grayscale(0.28);
+  transform: scale(0.96);
+  transition: opacity 180ms ease, filter 180ms ease, transform 180ms ease;
+}
+
+.map-transition-fade .apartment-map-marker,
+.map-transition-fade .zoom-cluster-marker {
+  opacity: 0;
+  transform: scale(0.88);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.map-transition-entering .apartment-map-marker,
+.map-transition-entering .zoom-cluster-marker {
+  animation: map-marker-fade-in 240ms ease both;
+}
+
+.map-transition-arrived .apartment-map-marker,
+.map-transition-arrived .zoom-cluster-marker {
+  animation: map-marker-arrive 260ms ease both;
+}
+
+@keyframes map-marker-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes map-marker-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .map-apartment-ranking {
   position: absolute;
   top: 14px;
@@ -2845,6 +2917,14 @@ input {
   transform: translate(-50%, -50%) scale(0.82);
 }
 
+.transition-preview-map.is-playing.transition-mode-current .transition-old {
+  animation: transition-current-old 1.2s steps(1, end) both;
+}
+
+.transition-preview-map.is-playing.transition-mode-current .transition-new {
+  animation: transition-current-new 1.2s steps(1, end) both;
+}
+
 .transition-preview-map.is-playing.transition-mode-dim .transition-old {
   animation: transition-dim-old 2.8s ease both;
 }
@@ -2902,6 +2982,16 @@ input {
   background: #e8f0ff;
   border-color: #2367d1;
   color: #2367d1;
+}
+
+@keyframes transition-current-old {
+  0%, 42% { opacity: 1; }
+  43%, 100% { opacity: 0; }
+}
+
+@keyframes transition-current-new {
+  0%, 42% { opacity: 0; transform: translate(-50%, -50%) scale(0.98); }
+  43%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes transition-dim-old {

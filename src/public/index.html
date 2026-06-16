@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260616-tab-more-overlay">
+    <link rel="stylesheet" href="/styles.css?v=20260616-map-transition-linked">
   </head>
   <body>
     <main class="app-shell">
@@ -78,6 +78,7 @@
           <h2 id="zoomMapTitle" class="sr-only">지도</h2>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
+            <div id="mapTransitionStatus" class="map-transition-status" hidden>마커 전환 중...</div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
               <div id="mapRankingSection" class="map-ranking-section" hidden>
                 <div class="map-ranking-head">
@@ -386,6 +387,29 @@
             <span id="transitionDesignSelected">선택 대기</span>
           </div>
           <div id="transitionDesignGrid" class="transition-design-grid">
+            <article class="transition-design-card" data-transition-card="current">
+              <div class="transition-design-head">
+                <strong>01 현재모드</strong>
+                <span>기존처럼 바로 비우고 새 마커를 즉시 그림</span>
+              </div>
+              <div class="transition-preview-map transition-mode-current" data-transition-preview>
+                <span class="transition-map-water"></span>
+                <span class="transition-map-road road-a"></span>
+                <span class="transition-map-road road-b"></span>
+                <span class="transition-marker transition-old marker-a">분당구<br>9.9%</span>
+                <span class="transition-marker transition-old marker-b">수정구<br>5.1%</span>
+                <span class="transition-marker transition-old marker-c">하남시<br>7.4%</span>
+                <span class="transition-marker transition-new marker-d">정자동<br>18.9%</span>
+                <span class="transition-marker transition-new marker-e">수내동<br>15.6%</span>
+                <span class="transition-marker transition-new marker-f">서현동<br>22.6%</span>
+              </div>
+              <p>가장 빠르지만, 단위가 바뀌는 순간이 시각적으로 덜 드러납니다.</p>
+              <div class="transition-card-actions">
+                <button type="button" data-transition-replay="current">다시 보기</button>
+                <button type="button" data-transition-select="current">선택</button>
+              </div>
+            </article>
+
             <article class="transition-design-card" data-transition-card="dim">
               <div class="transition-design-head">
                 <strong>02 반투명 유지</strong>
@@ -660,6 +684,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260616-tab-more-overlay"></script>
+    <script src="/app.js?v=20260616-map-transition-linked"></script>
   </body>
 </html>

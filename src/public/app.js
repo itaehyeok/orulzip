@@ -38,6 +38,7 @@ const state = {
   zoomNaverMap: null,
   zoomNaverOverlays: [],
   zoomNaverInfoWindow: null,
+  mapTransitionTimer: null,
   userLocationMarker: null,
   userLocationNaverMarker: null,
   zoomMarkerTopZIndex: 10000,
@@ -69,7 +70,7 @@ const state = {
   priceBandPage: 1,
   priceBandPageSize: 50,
   markerLineGapPx: null,
-  activeTransitionDesignId: "dim",
+  activeTransitionDesignId: "current",
   mapDesignCollapsed: true,
   latestZoomMapData: null,
   naverSdkPromise: null,
@@ -100,6 +101,7 @@ const defaultMarkerLineGapPx = 3;
 const markerLineGapStorageKey = "orulzip.markerLineGapPx";
 const transitionDesignStorageKey = "orulzip.transitionDesignId";
 const transitionDesignLabels = {
+  current: "01 현재모드",
   dim: "02 반투명 유지",
   badge: "03 상태 배지",
   fade: "04 페이드 교체"
@@ -337,6 +339,7 @@ const els = {
   zoomMapCount: document.querySelector("#zoomMapCount"),
   zoomMap: document.querySelector("#zoomMap"),
   mapCanvasWrap: document.querySelector(".map-canvas-wrap"),
+  mapTransitionStatus: document.querySelector("#mapTransitionStatus"),
   mapApartmentRanking: document.querySelector("#mapApartmentRanking"),
   mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
@@ -1597,16 +1600,85 @@ function renderZoomMapSummary(data) {
     ? `${levelLabel} 실거래가 상승률 지도`
     : `${levelLabel} 상승률 지도`;
   renderMapApartmentRanking(data.level, items);
+  renderZoomMapItemsWithTransition(items, data.level);
+}
+
+function renderZoomMapItemsWithTransition(items, level) {
+  const mode = activeMapTransitionDesignId();
+  clearTimeout(state.mapTransitionTimer);
+  if (mode === "current" || !hasZoomMapOverlays()) {
+    resetMapTransitionState();
+    replaceZoomMapItems(items, level, "");
+    return;
+  }
+
+  const delay = mode === "fade" ? 180 : 260;
+  beginMapTransition(mode, level);
+  state.mapTransitionTimer = setTimeout(() => {
+    replaceZoomMapItems(items, level, mode);
+  }, delay);
+}
+
+function replaceZoomMapItems(items, level, mode = "") {
   clearZoomMapOverlays();
+  if (mode === "fade") {
+    setMapTransitionClass("map-transition-entering");
+  } else if (mode === "dim" || mode === "badge") {
+    setMapTransitionClass("map-transition-arrived");
+  }
 
   for (const item of items) {
     if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) continue;
-    if (data.level === "apartment") {
+    if (level === "apartment") {
       renderZoomApartmentMarker(item);
     } else {
-      renderZoomGroupMarker(item, data.level);
+      renderZoomGroupMarker(item, level);
     }
   }
+
+  if (mode) {
+    clearTimeout(state.mapTransitionTimer);
+    state.mapTransitionTimer = setTimeout(resetMapTransitionState, 360);
+  }
+}
+
+function beginMapTransition(mode, level) {
+  setMapTransitionClass(`map-transition-${mode}`);
+  if (mode === "badge" && els.mapTransitionStatus) {
+    els.mapTransitionStatus.textContent = `${zoomLevelLabel(level)} 단위로 전환 중...`;
+    els.mapTransitionStatus.hidden = false;
+  }
+}
+
+function resetMapTransitionState() {
+  clearTimeout(state.mapTransitionTimer);
+  setMapTransitionClass("");
+  if (els.mapTransitionStatus) {
+    els.mapTransitionStatus.hidden = true;
+  }
+}
+
+function setMapTransitionClass(className) {
+  if (!els.mapCanvasWrap) return;
+  els.mapCanvasWrap.classList.remove(
+    "map-transition-dim",
+    "map-transition-badge",
+    "map-transition-fade",
+    "map-transition-entering",
+    "map-transition-arrived"
+  );
+  if (className) els.mapCanvasWrap.classList.add(className);
+}
+
+function activeMapTransitionDesignId() {
+  return transitionDesignLabels[state.activeTransitionDesignId] ? state.activeTransitionDesignId : "current";
+}
+
+function hasZoomMapOverlays() {
+  if (state.zoomNaverMap) return state.zoomNaverOverlays.length > 0;
+  if (!state.zoomMapLayer) return false;
+  if (typeof state.zoomMapLayer.getLayers === "function") return state.zoomMapLayer.getLayers().length > 0;
+  return false;
 }
 
 function scheduleMapSearch(delay = 160) {
@@ -2997,9 +3069,9 @@ function normalizeMarkerLineGapPx(value) {
 function readStoredTransitionDesignId() {
   try {
     const stored = window.localStorage.getItem(transitionDesignStorageKey);
-    return transitionDesignLabels[stored] ? stored : "dim";
+    return transitionDesignLabels[stored] ? stored : "current";
   } catch {
-    return "dim";
+    return "current";
   }
 }
 
@@ -3022,7 +3094,7 @@ function renderDesignTab() {
 function renderTransitionDesignTab() {
   if (!els.transitionDesignGrid) return;
   if (els.transitionDesignSelected) {
-    els.transitionDesignSelected.textContent = `${transitionDesignLabels[state.activeTransitionDesignId] || transitionDesignLabels.dim} 선택됨`;
+    els.transitionDesignSelected.textContent = `${transitionDesignLabels[state.activeTransitionDesignId] || transitionDesignLabels.current} 선택됨`;
   }
   els.transitionDesignGrid.querySelectorAll("[data-transition-card]").forEach((card) => {
     const isActive = card.dataset.transitionCard === state.activeTransitionDesignId;
