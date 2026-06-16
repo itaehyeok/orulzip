@@ -3697,6 +3697,16 @@ td:nth-child(4) {
     scrollbar-width: none;
   }
 
+  .map-shell-mode .tab-more-menu[open] .tab-more-list {
+    position: fixed;
+    top: var(--tab-more-top, 112px);
+    left: var(--tab-more-left, auto);
+    right: auto;
+    z-index: 2000;
+    min-width: 170px;
+    max-width: calc(100vw - 16px);
+  }
+
   .map-shell-mode .top-tabs::-webkit-scrollbar {
     display: none;
   }

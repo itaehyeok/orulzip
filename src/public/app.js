@@ -432,6 +432,11 @@ function bindEvents() {
   });
   els.syncBtn.addEventListener("click", syncCurrentRegion);
   els.formulaRunBtn.addEventListener("click", loadFormulaAnalysis);
+  document.querySelectorAll(".tab-more-menu").forEach((menu) => {
+    menu.addEventListener("toggle", () => positionTabMoreMenu(menu));
+  });
+  window.addEventListener("resize", positionOpenTabMoreMenus);
+  window.addEventListener("scroll", positionOpenTabMoreMenus, { passive: true });
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -565,7 +570,34 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const isSearchClick = els.mapSearchPanel?.contains(event.target);
     const isRankingClick = els.mapApartmentRanking?.contains(event.target);
+    const isTabMoreClick = event.target.closest(".tab-more-menu");
     if (!isSearchClick && !isRankingClick) hideMapSearchResults();
+    if (!isTabMoreClick) closeTabMoreMenus();
+  });
+}
+
+function closeTabMoreMenus() {
+  document.querySelectorAll(".tab-more-menu[open]").forEach((menu) => {
+    menu.open = false;
+  });
+}
+
+function positionOpenTabMoreMenus() {
+  document.querySelectorAll(".tab-more-menu[open]").forEach(positionTabMoreMenu);
+}
+
+function positionTabMoreMenu(menu) {
+  if (!menu?.open) return;
+  const summary = menu.querySelector("summary");
+  const list = menu.querySelector(".tab-more-list");
+  if (!summary || !list) return;
+  requestAnimationFrame(() => {
+    const rect = summary.getBoundingClientRect();
+    const width = Math.max(170, list.offsetWidth || 170);
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const left = Math.max(8, Math.min(rect.right - width, viewportWidth - width - 8));
+    menu.style.setProperty("--tab-more-left", `${Math.round(left)}px`);
+    menu.style.setProperty("--tab-more-top", `${Math.round(rect.bottom + 6)}px`);
   });
 }
 
