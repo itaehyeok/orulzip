@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /crawl
+Disallow: /design
+Disallow: /formula
+Disallow: /terms
+Disallow: /kb-map
+
+Sitemap: https://orulzip.com/sitemap.xml

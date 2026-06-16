@@ -41,7 +41,70 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
+const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
+const routeSeo = new Map([
+  ["/", {
+    title: "오를집 - 아파트 실거래가 상승률 지도",
+    description: "오를집은 아파트 실거래가를 기준으로 지역별·가격대별 상승률과 랭킹을 지도에서 확인하는 부동산 데이터 서비스입니다.",
+    canonicalPath: "/map"
+  }],
+  ["/map", {
+    title: "오를집 - 아파트 실거래가 상승률 지도",
+    description: "서울·경기 아파트 실거래가 상승률을 지도에서 시도, 시군구, 동, 아파트 단위로 확인하세요.",
+    canonicalPath: "/map"
+  }],
+  ["/molit-map", {
+    title: "오를집 - 아파트 실거래가 상승률 지도",
+    description: "국토부 실거래가 기반 아파트 상승률 지도를 확인하세요.",
+    canonicalPath: "/map"
+  }],
+  ["/price-bands", {
+    title: "가격대별 아파트 상승률 랭킹 - 오를집",
+    description: "3개월, 6개월, 1년, 3년, 5년 기준으로 가격대별 아파트 평균 평당가 상승률 랭킹을 확인하세요.",
+    canonicalPath: "/price-bands"
+  }],
+  ["/apartments", {
+    title: "아파트별 평균 평당가 랭킹 - 오를집",
+    description: "수집된 아파트의 평균 평당가와 상승률 랭킹을 기간별로 비교하세요.",
+    canonicalPath: "/apartments"
+  }],
+  ["/neighborhood", {
+    title: "동네별 아파트 상승률 랭킹 - 오를집",
+    description: "동네별 아파트 상승률과 평당가격 변화를 그래프와 랭킹으로 확인하세요.",
+    canonicalPath: "/neighborhood"
+  }],
+  ["/kb-map", {
+    title: "KB시세 지도 - 오를집",
+    description: "내부 검토용 KB시세 지도입니다.",
+    canonicalPath: "/kb-map",
+    robots: "noindex,nofollow"
+  }],
+  ["/formula", {
+    title: "시세식 분석 - 오를집",
+    description: "내부 검토용 시세식 분석 화면입니다.",
+    canonicalPath: "/formula",
+    robots: "noindex,nofollow"
+  }],
+  ["/terms", {
+    title: "용어 - 오를집",
+    description: "오를집 내부 용어 정리 화면입니다.",
+    canonicalPath: "/terms",
+    robots: "noindex,nofollow"
+  }],
+  ["/design", {
+    title: "디자인 - 오를집",
+    description: "오를집 내부 디자인 설정 화면입니다.",
+    canonicalPath: "/design",
+    robots: "noindex,nofollow"
+  }],
+  ["/crawl", {
+    title: "수집현황 - 오를집",
+    description: "오를집 내부 수집 현황 화면입니다.",
+    canonicalPath: "/crawl",
+    robots: "noindex,nofollow"
+  }]
+]);
 
 await initDb();
 
@@ -830,6 +893,10 @@ async function serveStatic(pathname, res) {
     }
     throw error;
   }
+  if (filePath === "/index.html") {
+    content = injectRouteSeo(content.toString("utf8"), normalizedPath);
+  }
+
   res.writeHead(200, {
     "Content-Type": contentType(filePath),
     "Cache-Control": "no-store"
@@ -847,8 +914,44 @@ function contentType(filePath) {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
-    ".svg": "image/svg+xml"
+    ".svg": "image/svg+xml; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
+    ".xml": "application/xml; charset=utf-8"
   }[extname(filePath)] || "application/octet-stream";
+}
+
+function injectRouteSeo(html, routePath) {
+  const seo = routeSeo.get(routePath) || routeSeo.get("/map");
+  const canonicalUrl = absoluteUrl(seo.canonicalPath || routePath);
+  const title = seo.title;
+  const description = seo.description;
+  const robots = seo.robots || "index,follow";
+
+  return html
+    .replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(title)}</title>`)
+    .replace(/<meta name="description" content="[^"]*">/s, `<meta name="description" content="${escapeAttribute(description)}">`)
+    .replace(/<meta name="robots" content="[^"]*">/s, `<meta name="robots" content="${escapeAttribute(robots)}">`)
+    .replace(/<link rel="canonical" href="[^"]*">/s, `<link rel="canonical" href="${escapeAttribute(canonicalUrl)}">`)
+    .replace(/<meta property="og:title" content="[^"]*">/s, `<meta property="og:title" content="${escapeAttribute(title)}">`)
+    .replace(/<meta property="og:description" content="[^"]*">/s, `<meta property="og:description" content="${escapeAttribute(description)}">`)
+    .replace(/<meta property="og:url" content="[^"]*">/s, `<meta property="og:url" content="${escapeAttribute(canonicalUrl)}">`)
+    .replace(/<meta name="twitter:title" content="[^"]*">/s, `<meta name="twitter:title" content="${escapeAttribute(title)}">`)
+    .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
+}
+
+function absoluteUrl(pathname) {
+  return `${siteOrigin}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
 function json(res, payload, status = 200) {

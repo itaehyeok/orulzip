@@ -24,6 +24,18 @@ const routeTabs = {
   "/crawl": "crawl"
 };
 
+const tabTitles = {
+  molitMap: "오를집 - 아파트 실거래가 상승률 지도",
+  map: "KB시세 지도 - 오를집",
+  priceBands: "가격대별 아파트 상승률 랭킹 - 오를집",
+  apartment: "아파트별 평균 평당가 랭킹 - 오를집",
+  neighborhood: "동네별 아파트 상승률 랭킹 - 오를집",
+  formula: "시세식 분석 - 오를집",
+  terms: "용어 - 오를집",
+  design: "디자인 - 오를집",
+  crawl: "수집현황 - 오를집"
+};
+
 const state = {
   regions: [],
   regionStats: [],
@@ -761,6 +773,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
+  document.title = tabTitles[nextTab] || tabTitles.molitMap;
 
   const nextRoute = tabRoutes[nextTab];
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
