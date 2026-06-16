@@ -193,14 +193,17 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/status") {
       const status = await readStatusOverview();
-      return json(res, {
+      const payload = {
         meta: status.meta,
         counts: status.counts,
-        months: status.months,
-        crawl: serializeCrawlStatus(status.crawl),
-        mapCache: status.mapCache,
-        overviewCache: status.overviewCache
-      });
+        months: status.months
+      };
+      if (isAdmin) {
+        payload.crawl = serializeCrawlStatus(status.crawl);
+        payload.mapCache = status.mapCache;
+        payload.overviewCache = status.overviewCache;
+      }
+      return json(res, payload);
     }
 
     if (url.pathname === "/api/client-config") {
