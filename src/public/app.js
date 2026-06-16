@@ -84,6 +84,7 @@ const state = {
   activeTransitionDesignId: "current",
   mapDesignCollapsed: true,
   latestZoomMapData: null,
+  lastZoomMapRenderZoom: null,
   naverSdkPromise: null,
   latestStatus: null,
   latestMolitStatus: null
@@ -1600,13 +1601,21 @@ function renderZoomMapSummary(data) {
     ? `${levelLabel} 실거래가 상승률 지도`
     : `${levelLabel} 상승률 지도`;
   renderMapApartmentRanking(data.level, items);
-  renderZoomMapItemsWithTransition(items, data.level);
+  const renderZoom = Number(currentZoomMapView()?.zoom);
+  const shouldAnimate = shouldAnimateZoomMapTransition(renderZoom);
+  renderZoomMapItemsWithTransition(items, data.level, { animate: shouldAnimate });
+  state.lastZoomMapRenderZoom = Number.isFinite(renderZoom) ? renderZoom : null;
 }
 
-function renderZoomMapItemsWithTransition(items, level) {
+function shouldAnimateZoomMapTransition(renderZoom) {
+  if (!Number.isFinite(renderZoom) || state.lastZoomMapRenderZoom === null) return false;
+  return Math.abs(renderZoom - state.lastZoomMapRenderZoom) >= 0.01;
+}
+
+function renderZoomMapItemsWithTransition(items, level, { animate = true } = {}) {
   const mode = activeMapTransitionDesignId();
   clearTimeout(state.mapTransitionTimer);
-  if (mode === "current" || !hasZoomMapOverlays()) {
+  if (!animate || mode === "current" || !hasZoomMapOverlays()) {
     resetMapTransitionState();
     replaceZoomMapItems(items, level, "");
     return;
