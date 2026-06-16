@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260615-molit-duplicate-filter">
+    <link rel="stylesheet" href="/styles.css?v=20260616-marker-theme-candidates">
   </head>
   <body>
     <main class="app-shell">
-      <header class="map-top-header" aria-label="지도 검색">
-        <a class="map-top-logo" href="/map" aria-label="오를집 지도">
+      <header class="map-top-header" aria-label="상단 브랜드">
+        <a class="map-top-logo" href="/map" aria-label="오를집">
           <span class="orulzip-logo tone-black style-line">
             <span class="orulzip-logo-mark">
               <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
@@ -113,7 +113,7 @@
               <div id="mapDesignBody" class="map-design-body">
                 <div class="map-design-section">
                   <div class="map-design-section-head">
-                    <strong>마커</strong>
+                    <strong>마커 테마</strong>
                     <span id="mapDesignMarkerSelected">-</span>
                   </div>
                   <label class="map-marker-line-gap-control" for="mapMarkerLineGapInput">
@@ -121,20 +121,6 @@
                     <input id="mapMarkerLineGapInput" type="number" min="0" max="10" step="1" inputmode="decimal">
                   </label>
                   <div id="mapMarkerDesignGrid" class="map-marker-design-grid"></div>
-                </div>
-                <div class="map-design-section">
-                  <div class="map-design-section-head">
-                    <strong>그래프</strong>
-                    <span id="mapDesignGraphSelected">-</span>
-                  </div>
-                  <div id="mapGraphDesignGrid" class="map-graph-design-grid"></div>
-                </div>
-                <div class="map-design-section">
-                  <div class="map-design-section-head">
-                    <strong>평당 보조선</strong>
-                    <span id="mapDesignPyeongSelected">-</span>
-                  </div>
-                  <div id="mapPyeongGraphDesignGrid" class="map-graph-design-grid"></div>
                 </div>
               </div>
             </aside>
@@ -385,42 +371,10 @@
       <section id="designView" class="view">
         <section class="panel design-panel">
           <div class="panel-head">
-            <h2>마커 정보량</h2>
+            <h2>마커 테마</h2>
             <span id="designMarkerSelected">-</span>
           </div>
           <div id="markerDesignGrid" class="marker-design-grid"></div>
-        </section>
-
-        <section class="panel design-panel">
-          <div class="panel-head">
-            <h2>상단 검색 시안</h2>
-            <span id="designMapHeaderSelected">-</span>
-          </div>
-          <div id="mapHeaderDesignGrid" class="map-header-design-grid"></div>
-        </section>
-
-        <section class="panel design-panel">
-          <div class="panel-head">
-            <h2>로고 시안</h2>
-            <span id="designLogoSelected">-</span>
-          </div>
-          <div id="logoDesignGrid" class="logo-design-grid"></div>
-        </section>
-
-        <section class="panel design-panel">
-          <div class="panel-head">
-            <h2>그래프 시안</h2>
-            <span id="designGraphSelected">-</span>
-          </div>
-          <div id="graphDesignGrid" class="graph-design-grid"></div>
-        </section>
-
-        <section class="panel design-panel">
-          <div class="panel-head">
-            <h2>평당 그래프 시안</h2>
-            <span id="designPyeongGraphSelected">-</span>
-          </div>
-          <div id="pyeongGraphDesignGrid" class="graph-design-grid"></div>
         </section>
       </section>
 
@@ -625,6 +579,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260615-molit-duplicate-filter"></script>
+    <script src="/app.js?v=20260616-marker-theme-candidates"></script>
   </body>
 </html>

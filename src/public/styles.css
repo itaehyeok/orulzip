@@ -145,15 +145,15 @@ h2 {
 }
 
 .map-top-header {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 10px;
   padding: 10px 0;
 }
 
-.map-shell-mode .map-top-header {
-  display: flex;
+body:not(.map-shell-mode) .map-top-search-panel {
+  display: none;
 }
 
 .map-top-logo {
@@ -1437,6 +1437,85 @@ input {
   padding: 0 3px;
 }
 
+.apartment-map-marker[class*="marker-theme-"],
+.zoom-cluster-marker [class*="marker-theme-"] {
+  --data-color: var(--marker-color, var(--zoom-color));
+  --theme-bg: color-mix(in srgb, var(--data-color) 88%, white);
+  --theme-border: rgba(255, 255, 255, 0.96);
+  --theme-text: #ffffff;
+  --theme-muted: rgba(255, 255, 255, 0.9);
+  --theme-radius: 999px;
+  --theme-shadow: 0 10px 22px rgba(16, 24, 40, 0.22);
+  background: var(--theme-bg);
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  box-shadow: var(--theme-shadow);
+  color: var(--theme-text);
+}
+
+.apartment-map-marker[class*="marker-theme-"] .marker-rate,
+.apartment-map-marker[class*="marker-theme-"] small,
+.zoom-cluster-marker [class*="marker-theme-"] strong,
+.zoom-cluster-marker [class*="marker-theme-"] span,
+.zoom-cluster-marker [class*="marker-theme-"] small,
+.zoom-cluster-marker [class*="marker-theme-"] b {
+  color: inherit;
+}
+
+.apartment-map-marker[class*="marker-theme-"] small,
+.zoom-cluster-marker [class*="marker-theme-"] .zoom-cluster-count,
+.zoom-cluster-marker [class*="marker-theme-"] .zoom-cluster-rank {
+  color: var(--theme-muted);
+}
+
+.apartment-map-marker[class*="marker-theme-"].marker-rank-circle .marker-rank-line b,
+.apartment-map-marker[class*="marker-theme-"].marker-rank-box .marker-rank-line b {
+  background: var(--theme-rank-bg, rgba(255, 255, 255, 0.18));
+  border-color: var(--theme-rank-border, rgba(255, 255, 255, 0.46));
+  color: var(--theme-rank-text, var(--theme-text));
+}
+
+.apartment-map-marker.marker-theme-forest-card,
+.zoom-cluster-marker .marker-theme-forest-card { --theme-bg: color-mix(in srgb, var(--data-color) 90%, #0f3d33); --theme-border: #f7faf7; --theme-radius: 9px; --theme-shadow: 0 12px 24px rgba(15, 61, 51, 0.28); }
+.apartment-map-marker.marker-theme-graphite-pill,
+.zoom-cluster-marker .marker-theme-graphite-pill { --theme-bg: #171717; --theme-border: #f8fafc; --theme-muted: #d1d5db; --theme-shadow: 0 12px 26px rgba(0, 0, 0, 0.32); }
+.apartment-map-marker.marker-theme-blueprint,
+.zoom-cluster-marker .marker-theme-blueprint { --theme-bg: #ffffff; --theme-border: #2563eb; --theme-text: #1d4ed8; --theme-muted: #315fbd; --theme-radius: 8px; --theme-rank-bg: #eaf1ff; --theme-rank-border: #bcd1ff; }
+.apartment-map-marker.marker-theme-ivory-line,
+.zoom-cluster-marker .marker-theme-ivory-line { --theme-bg: #fffaf0; --theme-border: #d6a85b; --theme-text: #7a4b0c; --theme-muted: #8a5a18; --theme-radius: 8px; --theme-rank-bg: #fff3d1; --theme-rank-border: #e4bd71; }
+.apartment-map-marker.marker-theme-mint-chip,
+.zoom-cluster-marker .marker-theme-mint-chip { --theme-bg: #dff7ed; --theme-border: #3a9d7b; --theme-text: #0f5f4a; --theme-muted: #1f755d; --theme-radius: 10px; --theme-rank-bg: #ffffff; --theme-rank-border: #8ed4be; }
+.apartment-map-marker.marker-theme-coral-badge,
+.zoom-cluster-marker .marker-theme-coral-badge { --theme-bg: #d95f43; --theme-border: #fff3ec; --theme-muted: #ffe7dc; --theme-shadow: 0 12px 28px rgba(217, 95, 67, 0.28); }
+.apartment-map-marker.marker-theme-indigo-stack,
+.zoom-cluster-marker .marker-theme-indigo-stack { --theme-bg: #3730a3; --theme-border: #eef2ff; --theme-muted: #dbe3ff; --theme-radius: 9px; }
+.apartment-map-marker.marker-theme-slate-minimal,
+.zoom-cluster-marker .marker-theme-slate-minimal { --theme-bg: #f8fafc; --theme-border: #475467; --theme-text: #1f2937; --theme-muted: #475467; --theme-shadow: 0 8px 18px rgba(16, 24, 40, 0.14); }
+.apartment-map-marker.marker-theme-paper-tag,
+.zoom-cluster-marker .marker-theme-paper-tag { --theme-bg: #ffffff; --theme-border: #98a2b3; --theme-text: #344054; --theme-muted: #667085; --theme-radius: 6px; --theme-rank-bg: #f2f4f7; --theme-rank-border: #d0d5dd; }
+.apartment-map-marker.marker-theme-emerald-glow,
+.zoom-cluster-marker .marker-theme-emerald-glow { --theme-bg: #12805c; --theme-border: #d8fff1; --theme-muted: #d4f8eb; --theme-shadow: 0 0 0 4px rgba(18, 128, 92, 0.12), 0 14px 30px rgba(18, 128, 92, 0.26); }
+.apartment-map-marker.marker-theme-cocoa-label,
+.zoom-cluster-marker .marker-theme-cocoa-label { --theme-bg: #6b3f21; --theme-border: #fff0dc; --theme-muted: #f4d6b6; --theme-radius: 8px; }
+.apartment-map-marker.marker-theme-sky-glass,
+.zoom-cluster-marker .marker-theme-sky-glass { --theme-bg: rgba(226, 244, 255, 0.92); --theme-border: #3b82f6; --theme-text: #155e9f; --theme-muted: #1d70b8; --theme-radius: 10px; --theme-rank-bg: rgba(255, 255, 255, 0.72); --theme-rank-border: #93c5fd; }
+.apartment-map-marker.marker-theme-navy-ticket,
+.zoom-cluster-marker .marker-theme-navy-ticket { --theme-bg: #102033; --theme-border: #dbeafe; --theme-muted: #c9d8ee; --theme-radius: 7px; }
+.apartment-map-marker.marker-theme-ruby-dot,
+.zoom-cluster-marker .marker-theme-ruby-dot { --theme-bg: #b42318; --theme-border: #fff1f0; --theme-muted: #ffe0dd; --theme-shadow: 0 13px 28px rgba(180, 35, 24, 0.26); }
+.apartment-map-marker.marker-theme-olive-map,
+.zoom-cluster-marker .marker-theme-olive-map { --theme-bg: #e8f1dc; --theme-border: #6f8f3f; --theme-text: #365314; --theme-muted: #4d6b22; --theme-radius: 9px; }
+.apartment-map-marker.marker-theme-cyan-pin,
+.zoom-cluster-marker .marker-theme-cyan-pin { --theme-bg: #ffffff; --theme-border: #0891b2; --theme-text: #0e7490; --theme-muted: #0f718a; --theme-rank-bg: #ecfeff; --theme-rank-border: #67e8f9; }
+.apartment-map-marker.marker-theme-plum-soft,
+.zoom-cluster-marker .marker-theme-plum-soft { --theme-bg: #f4e8ff; --theme-border: #8b5cf6; --theme-text: #5b21b6; --theme-muted: #6d28d9; --theme-radius: 10px; --theme-rank-bg: #ffffff; --theme-rank-border: #c4b5fd; }
+.apartment-map-marker.marker-theme-steel-data,
+.zoom-cluster-marker .marker-theme-steel-data { --theme-bg: #f8fafc; --theme-border: #344054; --theme-text: #1d2939; --theme-muted: #475467; --theme-radius: 7px; --theme-rank-bg: #e4e7ec; --theme-rank-border: #98a2b3; }
+.apartment-map-marker.marker-theme-black-price,
+.zoom-cluster-marker .marker-theme-black-price { --theme-bg: #050505; --theme-border: #ffffff; --theme-muted: #d0d5dd; --theme-shadow: 0 12px 28px rgba(0, 0, 0, 0.34); }
+.apartment-map-marker.marker-theme-white-compact,
+.zoom-cluster-marker .marker-theme-white-compact { --theme-bg: #ffffff; --theme-border: #111827; --theme-text: #111827; --theme-muted: #344054; --theme-radius: 7px; --theme-rank-bg: #111827; --theme-rank-border: #111827; --theme-rank-text: #ffffff; }
+
 .apartment-hover-tooltip {
   border: 1px solid rgba(16, 24, 40, 0.16);
   border-radius: 8px;
@@ -1447,6 +1526,25 @@ input {
   line-height: 1.45;
   padding: 8px 10px;
   white-space: nowrap;
+}
+
+.apartment-hover-ranks {
+  border-top: 1px solid rgba(16, 24, 40, 0.1);
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.apartment-hover-ranks span {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.apartment-hover-ranks b {
+  font-weight: 800;
 }
 
 .map-design-panel {
@@ -1531,6 +1629,8 @@ input {
 }
 
 .map-design-option {
+  display: grid;
+  gap: 3px;
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -1539,6 +1639,8 @@ input {
   cursor: pointer;
   font-size: 12px;
   font-weight: 900;
+  padding: 7px 8px;
+  text-align: left;
 }
 
 .map-design-option.active {
@@ -1547,8 +1649,19 @@ input {
   color: var(--blue);
 }
 
+.map-design-option span {
+  overflow: hidden;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .map-marker-design-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2238,7 +2351,7 @@ input {
 .zoom-cluster-marker strong {
   display: block;
   font-size: 12px;
-  max-width: 74px;
+  max-width: 86px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2279,12 +2392,12 @@ input {
 }
 
 .zoom-rank-none strong {
-  max-width: 68px;
+  max-width: 82px;
 }
 
 .zoom-rank-all strong,
 .zoom-rank-full strong {
-  max-width: 86px;
+  max-width: 98px;
 }
 
 .zoom-rank-all span,
@@ -2510,6 +2623,7 @@ input {
 
 #markerDesignGrid.marker-design-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 16px;
   padding: 16px;
 }
@@ -2578,6 +2692,10 @@ input {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.marker-theme-card {
+  align-content: start;
 }
 
 .graph-design-card-head strong {
@@ -3024,6 +3142,14 @@ input {
   transform: rotate(24deg);
 }
 
+.marker-design-map-preview .preview-road-c {
+  left: 10%;
+  top: 18%;
+  width: 52%;
+  height: 6px;
+  transform: rotate(18deg);
+}
+
 .marker-design-map-preview .preview-water {
   position: absolute;
   right: -8%;
@@ -3095,8 +3221,39 @@ input {
   top: 72%;
 }
 
+.marker-theme-preview {
+  height: 230px;
+}
+
+.marker-theme-preview .preview-marker-node {
+  transform: translate(-50%, -50%) scale(0.76);
+  transform-origin: center;
+}
+
+.marker-theme-preview .preview-marker-node.preview-sido {
+  left: 23%;
+  top: 28%;
+}
+
+.marker-theme-preview .preview-marker-node.preview-sigungu {
+  left: 72%;
+  top: 31%;
+}
+
+.marker-theme-preview .preview-marker-node.preview-dong {
+  left: 31%;
+  top: 72%;
+}
+
+.marker-theme-preview .preview-marker-node.preview-apartment {
+  left: 75%;
+  top: 72%;
+}
+
 .marker-design-preview .apartment-map-marker,
-.marker-design-preview .zoom-cluster-marker {
+.marker-design-preview .zoom-cluster-marker,
+.marker-design-map-preview .apartment-map-marker,
+.marker-design-map-preview .zoom-cluster-marker {
   pointer-events: none;
 }
 

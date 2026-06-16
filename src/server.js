@@ -365,6 +365,7 @@ function summarizeZoomGroups(rows, level) {
       groups.set(group.code, {
         code: group.code,
         name: group.name,
+        hierarchy: group.hierarchy || {},
         latValues: [],
         lngValues: [],
         growthRates: [],
@@ -386,6 +387,12 @@ function summarizeZoomGroups(rows, level) {
     .map((group) => ({
       code: group.code,
       name: group.name,
+      sidoCode: group.hierarchy.sidoCode || group.code.slice(0, 2),
+      sidoName: group.hierarchy.sidoName || sidoName(group.code.slice(0, 2)),
+      sigunguCode: group.hierarchy.sigunguCode || (level !== "sido" ? group.code.slice(0, 5) : ""),
+      sigunguName: group.hierarchy.sigunguName || "",
+      dongKey: group.hierarchy.dongKey || (level === "dong" ? group.code : ""),
+      dongName: group.hierarchy.dongName || "",
       lat: average(group.latValues),
       lng: average(group.lngValues),
       apartmentCount: group.apartmentIds.size,
@@ -434,18 +441,55 @@ function assignGroupRanks(items, keyOf, rankField, totalField) {
 
 function zoomGroupInfo(row, rows, level) {
   const code = row.apartment.legalDongCode || "";
+  const hierarchy = hierarchyFromApartment(row.apartment, rows);
   if (level === "sido") {
     const sidoCode = code.slice(0, 2);
-    return { code: sidoCode, name: sidoName(sidoCode) };
+    return {
+      code: sidoCode,
+      name: hierarchy.sidoName || sidoName(sidoCode),
+      hierarchy: {
+        sidoCode,
+        sidoName: hierarchy.sidoName || sidoName(sidoCode)
+      }
+    };
   }
   if (level === "sigungu") {
     const sigunguCode = code.slice(0, 5);
-    return { code: sigunguCode, name: sigunguName(rows, sigunguCode) };
+    return {
+      code: sigunguCode,
+      name: hierarchy.sigunguName || sigunguName(rows, sigunguCode),
+      hierarchy: {
+        sidoCode: hierarchy.sidoCode,
+        sidoName: hierarchy.sidoName,
+        sigunguCode,
+        sigunguName: hierarchy.sigunguName || sigunguName(rows, sigunguCode)
+      }
+    };
   }
   const dongCode = code.slice(0, 8) || `${row.apartment.address}:${row.apartment.neighborhoodName}`;
   return {
     code: dongCode,
-    name: zoomDongName(row.apartment)
+    name: hierarchy.dongDisplayName || zoomDongName(row.apartment),
+    hierarchy
+  };
+}
+
+function hierarchyFromApartment(apartment, rows = []) {
+  const code = apartment.legalDongCode || "";
+  const sidoCode = code.slice(0, 2);
+  const sigunguCode = code.slice(0, 5);
+  const sigungu = sigunguName(rows, sigunguCode);
+  const dong = apartment.neighborhoodName || "미분류";
+  return {
+    sidoCode,
+    sidoName: sidoName(sidoCode),
+    sigunguCode,
+    sigunguName: sigungu,
+    dongKey: code.slice(0, 8) || `${apartment.address}:${dong}`,
+    dongName: dong,
+    dongDisplayName: sigungu && !String(dong).startsWith(sigungu)
+      ? `${sigungu} ${dong}`
+      : dong
   };
 }
 

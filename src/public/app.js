@@ -79,7 +79,7 @@ const defaultGraphDesignId = "clean-line";
 const graphDesignStorageKey = "orulzip.graphDesignId";
 const defaultPyeongGraphDesignId = "pyeong-soft";
 const pyeongGraphDesignStorageKey = "orulzip.pyeongGraphDesignId";
-const defaultMarkerDesignId = "verbosity-dong";
+const defaultMarkerDesignId = "theme-forest-card";
 const markerDesignStorageKey = "orulzip.markerDesignId";
 const markerVerbosityStorageKey = "orulzip.markerVerbosityByLevel";
 const markerLevelConfigs = [
@@ -119,44 +119,30 @@ const pyeongGraphDesignVariants = [
 ];
 const pyeongGraphDesignVariantMap = new Map(pyeongGraphDesignVariants.map((item) => [item.id, item]));
 const markerDesignVariants = [
-  markerDesign("verbosity-rate", "01 최소", { group: "정보량 낮음", showRank: false, size: "small", groupRankMode: "none", apartmentRankMode: "none", note: "상승률만 표시" }),
-  markerDesign("verbosity-dong", "02 기본", { group: "정보량 낮음", showRank: true, size: "wide", groupRankMode: "parent", apartmentRankMode: "dong", rankLabelMode: "short", note: "바로 위 지역 순위까지" }),
-  markerDesign("verbosity-local", "03 지역 2줄", { group: "정보량 중간", showRank: true, size: "medium", groupRankMode: "regional", apartmentRankMode: "local", rankLabelMode: "short", note: "가까운 상위 지역 2개까지" }),
-  markerDesign("verbosity-region", "04 지역 3줄", { group: "정보량 중간", showRank: true, size: "tall", groupRankMode: "regional", apartmentRankMode: "regional", rankLabelMode: "short", note: "시도 순위까지 압축 표시" }),
-  markerDesign("verbosity-full", "05 전체 순위", { group: "정보량 높음", showRank: true, size: "full", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "short", note: "동/구/시/전국 순위" }),
-  markerDesign("verbosity-named", "06 지역명 포함", { group: "정보량 높음", showRank: true, size: "full", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "named", note: "지역명을 넣은 전체 순위" }),
-  markerDesign("verbosity-phrase", "07 문장형", { group: "정보량 높음", showRank: true, size: "sentence", groupRankMode: "full", apartmentRankMode: "full", rankLabelMode: "phrase", note: "목동 상승률 1/14등 형태" }),
-  markerDesign("verbosity-compact-full", "08 압축 전체", { group: "정보량 높음", showRank: true, size: "dense", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", note: "짧은 라벨로 전체 순위" })
+  markerDesign("theme-forest-card", "01 포레스트 카드", { group: "통합 테마", shape: "card", tone: "solid", size: "medium", rankStyle: "box", groupRankMode: "regional", apartmentRankMode: "local", note: "현재 지도와 가장 가까운 녹색 카드형" }),
+  markerDesign("theme-graphite-pill", "02 그래파이트 필", { group: "통합 테마", shape: "pill", tone: "solid", size: "wide", rankStyle: "plain", groupRankMode: "parent", apartmentRankMode: "dong", note: "검정 헤더와 어울리는 절제된 필형" }),
+  markerDesign("theme-blueprint", "03 블루프린트", { group: "통합 테마", shape: "card", tone: "outline", size: "medium", rankStyle: "box", groupRankMode: "regional", apartmentRankMode: "local", note: "청사진 느낌의 선명한 라인형" }),
+  markerDesign("theme-ivory-line", "04 아이보리 라인", { group: "통합 테마", shape: "card", tone: "white", size: "medium", rankStyle: "plain", groupRankMode: "regional", apartmentRankMode: "local", note: "밝은 배경 위에서 단정한 흰색 라벨" }),
+  markerDesign("theme-mint-chip", "05 민트 칩", { group: "통합 테마", shape: "card", tone: "soft", size: "medium", rankStyle: "circle", groupRankMode: "regional", apartmentRankMode: "local", note: "부드럽지만 데이터 값이 잘 보이는 칩형" }),
+  markerDesign("theme-coral-badge", "06 코랄 배지", { group: "통합 테마", shape: "pill", tone: "solid", size: "wide", rankStyle: "circle", groupRankMode: "parent", apartmentRankMode: "dong", note: "상승 지역을 강하게 보여주는 배지형" }),
+  markerDesign("theme-indigo-stack", "07 인디고 스택", { group: "통합 테마", shape: "card", tone: "solid", size: "tall", rankStyle: "box", groupRankMode: "all", apartmentRankMode: "regional", note: "순위 정보가 조금 더 많은 스택형" }),
+  markerDesign("theme-slate-minimal", "08 슬레이트 미니멀", { group: "통합 테마", shape: "pill", tone: "outline", size: "small", rankStyle: "plain", groupRankMode: "none", apartmentRankMode: "none", showRank: false, note: "지도 자체를 많이 보이게 하는 최소형" }),
+  markerDesign("theme-paper-tag", "09 페이퍼 태그", { group: "통합 테마", shape: "card", tone: "white", size: "wide", rankStyle: "box", groupRankMode: "parent", apartmentRankMode: "dong", note: "종이 태그처럼 가볍게 얹히는 형태" }),
+  markerDesign("theme-emerald-glow", "10 에메랄드 글로우", { group: "통합 테마", shape: "pill", tone: "solid", size: "medium", rankStyle: "circle", groupRankMode: "regional", apartmentRankMode: "local", note: "살짝 빛나는 고급형" }),
+  markerDesign("theme-cocoa-label", "11 코코아 라벨", { group: "통합 테마", shape: "card", tone: "solid", size: "medium", rankStyle: "plain", groupRankMode: "regional", apartmentRankMode: "local", note: "따뜻한 라벨 느낌의 차분한 테마" }),
+  markerDesign("theme-sky-glass", "12 스카이 글래스", { group: "통합 테마", shape: "card", tone: "soft", size: "medium", rankStyle: "box", groupRankMode: "regional", apartmentRankMode: "local", note: "지도 위에 반투명하게 뜨는 유리 느낌" }),
+  markerDesign("theme-navy-ticket", "13 네이비 티켓", { group: "통합 테마", shape: "card", tone: "solid", size: "tall", rankStyle: "box", groupRankMode: "all", apartmentRankMode: "regional", note: "티켓처럼 정돈된 정보형" }),
+  markerDesign("theme-ruby-dot", "14 루비 도트", { group: "통합 테마", shape: "pill", tone: "solid", size: "wide", rankStyle: "circle", groupRankMode: "parent", apartmentRankMode: "dong", note: "강한 색 대비로 빠르게 읽히는 테마" }),
+  markerDesign("theme-olive-map", "15 올리브 맵", { group: "통합 테마", shape: "card", tone: "soft", size: "medium", rankStyle: "plain", groupRankMode: "regional", apartmentRankMode: "local", note: "지도 색감과 자연스럽게 섞이는 테마" }),
+  markerDesign("theme-cyan-pin", "16 시안 핀", { group: "통합 테마", shape: "pill", tone: "outline", size: "wide", rankStyle: "box", groupRankMode: "parent", apartmentRankMode: "dong", note: "핀처럼 또렷한 테두리형" }),
+  markerDesign("theme-plum-soft", "17 플럼 소프트", { group: "통합 테마", shape: "card", tone: "soft", size: "medium", rankStyle: "circle", groupRankMode: "regional", apartmentRankMode: "local", note: "부드러운 보라 계열 포인트" }),
+  markerDesign("theme-steel-data", "18 스틸 데이터", { group: "통합 테마", shape: "card", tone: "outline", size: "tall", rankStyle: "box", groupRankMode: "all", apartmentRankMode: "regional", note: "대시보드처럼 정확한 정보형" }),
+  markerDesign("theme-black-price", "19 블랙 프라이스", { group: "통합 테마", shape: "pill", tone: "solid", size: "medium", rankStyle: "plain", groupRankMode: "regional", apartmentRankMode: "local", note: "가격 앱처럼 굵고 강한 블랙 테마" }),
+  markerDesign("theme-white-compact", "20 화이트 컴팩트", { group: "통합 테마", shape: "card", tone: "white", size: "dense", rankStyle: "box", groupRankMode: "all", apartmentRankMode: "full", rankLabelMode: "abbr", note: "작은 공간에 많은 정보를 담는 흰색 테마" })
 ];
 const markerDesignVariantMap = new Map(markerDesignVariants.map((item) => [item.id, item]));
-const markerVerbosityOptionsByLevel = {
-  sido: [
-    markerVerbosityOption("verbosity-rate", "상승률만", "도시명과 상승률만 표시"),
-    markerVerbosityOption("verbosity-dong", "전국 순위", "전국 도시 중 순위 표시"),
-    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 전국 순위까지 표시")
-  ],
-  sigungu: [
-    markerVerbosityOption("verbosity-rate", "상승률만", "시군구명과 상승률만 표시"),
-    markerVerbosityOption("verbosity-dong", "시도 순위", "해당 시도 안 순위 표시"),
-    markerVerbosityOption("verbosity-local", "시도+전국", "시도 순위와 전국 순위 표시"),
-    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 시도/전국 순위 표시")
-  ],
-  dong: [
-    markerVerbosityOption("verbosity-rate", "상승률만", "동 이름과 상승률만 표시"),
-    markerVerbosityOption("verbosity-dong", "구 순위", "해당 구 안 순위 표시"),
-    markerVerbosityOption("verbosity-local", "구+시도", "구 순위와 시도 순위 표시"),
-    markerVerbosityOption("verbosity-full", "구+시도+전국", "상위 지역 순위를 모두 표시"),
-    markerVerbosityOption("verbosity-phrase", "아파트수 포함", "아파트수와 전체 순위 표시")
-  ],
-  apartment: [
-    markerVerbosityOption("verbosity-rate", "상승률만", "상승률만 표시"),
-    markerVerbosityOption("verbosity-dong", "동 순위", "해당 동 안 순위 표시"),
-    markerVerbosityOption("verbosity-local", "동+구", "동 순위와 구 순위 표시"),
-    markerVerbosityOption("verbosity-region", "동+구+시도", "시도 순위까지 표시"),
-    markerVerbosityOption("verbosity-full", "동+구+시도+전국", "전체 순위 표시"),
-    markerVerbosityOption("verbosity-named", "지역명 포함", "양천구, 서울시처럼 지역명까지 표시")
-  ]
-};
+const markerThemeOptions = markerDesignVariants.map((item) => markerVerbosityOption(item.id, item.name.replace(/^\d+\s*/, ""), item.note));
+const markerVerbosityOptionsByLevel = Object.fromEntries(markerLevelConfigs.map((level) => [level.id, markerThemeOptions]));
 const logoDesignVariants = [
   logoDesign("minimal-roof", "01 미니멀 루프", { symbol: "minimal-roof", tone: "black", style: "line", tagline: "12번 원안. 상단 헤더에 넣기 좋은 절제된 워드마크" }),
   logoDesign("minimal-roof-blue", "02 블루 포인트", { symbol: "minimal-roof", tone: "blue", style: "line", tagline: "원안 구조에 브랜드 블루 상승선만 더 강조" }),
@@ -182,23 +168,23 @@ const homeMapView = {
 };
 const apartmentMapZoom = 16;
 const sidoLabelByCode = {
-  11: "서울시",
-  26: "부산시",
-  27: "대구시",
-  28: "인천시",
-  29: "광주시",
-  30: "대전시",
-  31: "울산시",
-  36: "세종시",
-  41: "경기도",
-  42: "강원도",
-  43: "충청북도",
-  44: "충청남도",
-  45: "전라북도",
-  46: "전라남도",
-  47: "경상북도",
-  48: "경상남도",
-  50: "제주도"
+  11: "서울",
+  26: "부산",
+  27: "대구",
+  28: "인천",
+  29: "광주",
+  30: "대전",
+  31: "울산",
+  36: "세종",
+  41: "경기",
+  42: "강원",
+  43: "충북",
+  44: "충남",
+  45: "전북",
+  46: "전남",
+  47: "경북",
+  48: "경남",
+  50: "제주"
 };
 const sigunguLabelByCode = {
   11110: "종로구",
@@ -2163,7 +2149,7 @@ function apartmentMarkerRankLines(item, design = activeMarkerDesign("apartment")
 
 function apartmentMarkerAllRankRows(item, design = activeMarkerDesign("apartment")) {
   const dongLabel = shortDongLabel(item.dongName || item.neighborhoodName || "동");
-  const sigunguLabel = shortZoomLabel(item.sigunguName || "", "sigungu") || "구";
+  const sigunguLabel = shortZoomLabel(item.sigunguName || item.address || "", "sigungu") || "구";
   const sidoLabel = zoomRankSidoLabel(item);
   const rows = [
     apartmentRankRow(dongLabel, "동", item.dongRank, item.dongRankTotal, design),
@@ -2219,11 +2205,66 @@ function shortDongLabel(value) {
 
 function apartmentHoverHtml(item) {
   const hasData = item.hasData !== false;
+  const rankRows = apartmentHoverRankRows(item);
+  const rankHtml = rankRows.length
+    ? `
+      <div class="apartment-hover-ranks">
+        ${rankRows.map((row) => `
+          <span>
+            <b>${escapeHtml(row.label)}</b>
+            ${escapeHtml(row.rank)}
+          </span>
+        `).join("")}
+      </div>
+    `
+    : "";
   return `
     <strong>${escapeHtml(item.name)}</strong><br>
-    ${escapeHtml(item.dongName || item.neighborhoodName || "-")}<br>
+    ${escapeHtml(apartmentRegionPath(item) || "-")}<br>
     상승률 ${hasData ? formatPercent(item.growthRate) : "데이터없음"}
+    ${rankHtml}
   `;
+}
+
+function apartmentRegionPath(item = {}) {
+  const sido = zoomRankSidoLabel(item);
+  const sigungu = shortZoomLabel(item.sigunguName || item.address || "", "sigungu");
+  const dong = shortDongLabel(item.dongName || item.neighborhoodName || "");
+  return [sido, sigungu, dong]
+    .filter((part) => part && !["시도", "시군구", "동", "-"].includes(part))
+    .filter((part, index, parts) => parts.indexOf(part) === index)
+    .join(" ");
+}
+
+function apartmentHoverRankRows(item = {}) {
+  const rows = [
+    {
+      label: shortDongLabel(item.dongName || item.neighborhoodName || "동"),
+      rank: item.dongRank,
+      total: item.dongRankTotal
+    },
+    {
+      label: shortZoomLabel(item.sigunguName || item.address || "", "sigungu") || "시군구",
+      rank: item.sigunguRank,
+      total: item.sigunguRankTotal
+    },
+    {
+      label: zoomRankSidoLabel(item),
+      rank: item.sidoRank,
+      total: item.sidoRankTotal
+    },
+    {
+      label: "전국",
+      rank: item.countryRank,
+      total: item.countryRankTotal
+    }
+  ];
+  return rows
+    .filter((row) => Number.isFinite(Number(row.rank)))
+    .map((row) => ({
+      label: row.label,
+      rank: formatRankText(row.rank, row.total)
+    }));
 }
 
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
@@ -2425,17 +2466,17 @@ function renderMapPopupRanks(rankSummary) {
   }
   const rows = [
     {
-      label: rankSummary.dongName || "동네",
+      label: shortDongLabel(rankSummary.dongName || "동네"),
       rank: rankSummary.dongRank,
       total: rankSummary.dongRankTotal
     },
     {
-      label: rankSummary.sigunguName || "구",
+      label: shortZoomLabel(rankSummary.sigunguName || "", "sigungu") || "구",
       rank: rankSummary.sigunguRank,
       total: rankSummary.sigunguRankTotal
     },
     {
-      label: rankSummary.sidoName || "시",
+      label: shortRegionLabel(rankSummary.sidoName || "") || "시",
       rank: rankSummary.sidoRank,
       total: rankSummary.sidoRankTotal
     },
@@ -2887,10 +2928,6 @@ function normalizeMarkerLineGapPx(value) {
 }
 
 function renderDesignTab() {
-  renderMapHeaderDesignGallery();
-  renderLogoDesignGallery();
-  renderGraphDesignGallery();
-  renderPyeongGraphDesignGallery();
   renderMarkerDesignGallery();
   renderMapDesignPanel();
 }
@@ -2902,91 +2939,41 @@ function toggleMapDesignPanel() {
 
 function renderMapDesignPanel() {
   if (!els.mapDesignPanel) return;
-  const graph = activeGraphDesign();
-  const pyeongGraph = activePyeongGraphDesign();
   els.mapDesignPanel.classList.toggle("collapsed", state.mapDesignCollapsed);
   if (els.mapDesignToggleBtn) {
     els.mapDesignToggleBtn.textContent = state.mapDesignCollapsed ? "디자인 펼치기" : "디자인 접기";
     els.mapDesignToggleBtn.setAttribute("aria-expanded", String(!state.mapDesignCollapsed));
   }
-  if (els.mapDesignGraphSelected) els.mapDesignGraphSelected.textContent = graph.name.replace(/^\d+\s*/, "");
-  if (els.mapDesignPyeongSelected) els.mapDesignPyeongSelected.textContent = pyeongGraph.name.replace(/^\d+\s*/, "");
   if (els.mapDesignMarkerSelected) els.mapDesignMarkerSelected.textContent = markerSelectionSummary();
   if (els.mapMarkerLineGapInput) {
     els.mapMarkerLineGapInput.value = String(normalizeMarkerLineGapPx(state.markerLineGapPx));
   }
-  if (els.mapGraphDesignGrid) {
-    els.mapGraphDesignGrid.innerHTML = graphDesignVariants.map((item) => {
-      const isActive = item.id === graph.id;
-      return `
-        <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-graph-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
-          ${escapeHtml(item.name.replace(/^\d+\s*/, ""))}
-        </button>
-      `;
-    }).join("");
-  }
-  if (els.mapPyeongGraphDesignGrid) {
-    els.mapPyeongGraphDesignGrid.innerHTML = pyeongGraphDesignVariants.map((item) => {
-      const isActive = item.id === pyeongGraph.id;
-      return `
-        <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-pyeong-graph-design-id="${escapeHtml(item.id)}" aria-pressed="${isActive}">
-          ${escapeHtml(item.name.replace(/^\d+\s*/, ""))}
-        </button>
-      `;
-    }).join("");
-  }
   if (els.mapMarkerDesignGrid) {
-    els.mapMarkerDesignGrid.innerHTML = renderMarkerVerbosityControls({ mode: "compact" });
+    els.mapMarkerDesignGrid.innerHTML = renderMarkerThemeControls({ mode: "compact" });
   }
 }
 
-function groupedMarkerDesignVariants() {
-  const groups = [];
-  const byName = new Map();
-  for (const item of markerDesignVariants) {
-    const name = item.group || "기본형";
-    if (!byName.has(name)) {
-      const group = { name, items: [] };
-      byName.set(name, group);
-      groups.push(group);
+function renderMarkerThemeControls({ mode = "full" } = {}) {
+  const active = activeMarkerDesign("apartment");
+  return markerDesignVariants.map((design, index) => {
+    const isActive = design.id === active.id;
+    if (mode === "compact") {
+      return `
+        <button class="map-design-option ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+          <strong>${escapeHtml(design.name.replace(/^\d+\s*/, ""))}</strong>
+          <span>${escapeHtml(design.note || "")}</span>
+        </button>
+      `;
     }
-    byName.get(name).items.push(item);
-  }
-  return groups;
-}
-
-function renderMarkerVerbosityControls({ mode = "full" } = {}) {
-  return markerLevelConfigs.map((level) => {
-    const active = activeMarkerDesign(level.id);
-    const options = markerVerbosityOptionsForLevel(level.id);
-    const activeOption = markerVerbosityOptionForLevel(level.id, active.id);
     return `
-      <section class="marker-info-level marker-info-${escapeHtml(mode)}">
-        <div class="marker-info-level-head">
-          <div>
-            <h3>${escapeHtml(level.fullName)}</h3>
-            ${mode === "full" ? `<p>${escapeHtml(level.description)}</p>` : ""}
-          </div>
-          <span>${escapeHtml(activeOption.label)}</span>
-        </div>
-        <div class="marker-info-option-grid">
-          ${options.map((option, index) => {
-            const design = markerDesignVariantMap.get(option.id);
-            if (!design) return "";
-            const isActive = design.id === active.id;
-            return `
-              <button class="marker-info-option ${isActive ? "active" : ""}" type="button" data-marker-level="${escapeHtml(level.id)}" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
-                <span class="marker-info-option-head">
-                  <strong>${escapeHtml(option.label)}</strong>
-                  ${mode === "full" ? `<em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${options.length}`}</em>` : ""}
-                </span>
-                ${mode === "full" && option.note ? `<small>${escapeHtml(option.note)}</small>` : ""}
-                ${mode === "full" ? markerInfoPreviewHtml(level.id, design) : ""}
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </section>
+      <button class="marker-design-card marker-theme-card ${isActive ? "active" : ""}" type="button" data-marker-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${markerDesignVariants.length}`}</em>
+        </span>
+        ${markerThemePreviewHtml(design)}
+        <span class="marker-design-note">${escapeHtml(design.note || "")}</span>
+      </button>
     `;
   }).join("");
 }
@@ -3054,7 +3041,7 @@ function renderPyeongGraphDesignGallery() {
 function renderMarkerDesignGallery() {
   if (!els.markerDesignGrid) return;
   els.designMarkerSelected.textContent = markerSelectionSummary();
-  els.markerDesignGrid.innerHTML = renderMarkerVerbosityControls({ mode: "full" });
+  els.markerDesignGrid.innerHTML = renderMarkerThemeControls({ mode: "full" });
 }
 
 function renderMapHeaderDesignGallery() {
@@ -3246,40 +3233,29 @@ function markerDesignSampleItems() {
   ];
 }
 
-function markerPreviewHtml(item, design) {
-  return apartmentMarkerHtml(item, design);
-}
-
 function markerSelectionSummary() {
-  return markerLevelConfigs
-    .map((level) => {
-      const active = activeMarkerDesign(level.id);
-      return `${level.name} ${markerVerbosityOptionForLevel(level.id, active.id).label}`;
-    })
-    .join(" · ");
+  const active = activeMarkerDesign("apartment");
+  return `${active.name.replace(/^\d+\s*/, "")} / ${markerDesignVariants.length}개`;
 }
 
-function markerInfoPreviewHtml(level, design) {
-  const sample = level === "apartment"
-    ? markerDesignSampleItems()[0]
-    : markerDesignSampleGroups()[level] || markerDesignSampleGroups().dong;
-  const markerHtml = level === "apartment"
-    ? markerPreviewHtml(sample, design)
-    : zoomGroupMarkerContentHtml(sample, level, design);
-  const size = level === "apartment" ? markerIconSize(design) : zoomMarkerSize(level, design);
+function markerThemePreviewHtml(design) {
+  const groupSamples = markerDesignSampleGroups();
+  const apartmentSample = markerDesignSampleItems()[0];
+  const previewItems = [
+    { level: "sido", html: zoomGroupMarkerContentHtml(groupSamples.sido, "sido", design), size: zoomMarkerSize("sido", design) },
+    { level: "sigungu", html: zoomGroupMarkerContentHtml(groupSamples.sigungu, "sigungu", design), size: zoomMarkerSize("sigungu", design) },
+    { level: "dong", html: zoomGroupMarkerContentHtml(groupSamples.dong, "dong", design), size: zoomMarkerSize("dong", design) },
+    { level: "apartment", html: apartmentMarkerHtml(apartmentSample, design), size: markerIconSize(design) }
+  ];
   return `
-    <span class="marker-design-map-preview marker-info-preview-${escapeHtml(level)}">
+    <span class="marker-design-map-preview marker-theme-preview">
       <span class="preview-road preview-road-a"></span>
       <span class="preview-road preview-road-b"></span>
+      <span class="preview-road preview-road-c"></span>
       <span class="preview-water"></span>
-      <span class="preview-map-label label-${escapeHtml(level)}">${escapeHtml(markerLevelLabel(level))}</span>
-      ${markerDesignPreviewNode(markerHtml, level, size)}
+      ${previewItems.map((item) => markerDesignPreviewNode(item.html, item.level, item.size)).join("")}
     </span>
   `;
-}
-
-function markerLevelLabel(level) {
-  return markerLevelConfigs.find((item) => item.id === level)?.name || "마커";
 }
 
 function markerDesignPreviewNode(html, level, size) {
@@ -3775,12 +3751,25 @@ function zoomGroupMarkerContentHtml(item, level, design = activeMarkerDesign(lev
     : "";
   return `
     <div class="zoom-cluster-content level-${escapeHtml(level)} marker-${escapeHtml(design.id)} zoom-rank-${escapeHtml(design.groupRankMode)} zoom-label-${escapeHtml(design.rankLabelMode)}" style="--zoom-color: ${growthColor(item.growthRate)}">
-      <strong>${escapeHtml(shortZoomLabel(item.name, level))}</strong>
+      <strong>${escapeHtml(zoomGroupCurrentLabel(item, level))}</strong>
       <span>${formatPercent(item.growthRate)}</span>
       ${countHtml}
       ${zoomGroupMarkerRankHtml(item, level, design)}
     </div>
   `;
+}
+
+function zoomGroupCurrentLabel(item, level) {
+  if (level === "sido") {
+    return shortRegionLabel(item.sidoName || item.name) || shortZoomLabel(item.name, level) || "시도";
+  }
+  if (level === "sigungu") {
+    return shortZoomLabel(item.sigunguName || item.name, level) || "시군구";
+  }
+  if (level === "dong") {
+    return shortZoomLabel(item.dongName || item.name, level) || "동";
+  }
+  return shortZoomLabel(item.name, level) || item.name || "지역";
 }
 
 function zoomGroupMarkerRankHtml(item, level, design = activeMarkerDesign(level)) {
@@ -3830,9 +3819,7 @@ function zoomRankRow(label, shortLabel, rank, total, design = activeMarkerDesign
 }
 
 function compactRankLabel(label, shortLabel, design = activeMarkerDesign()) {
-  if (design.rankLabelMode === "abbr") return shortLabel;
-  if (design.rankLabelMode === "named" || design.rankLabelMode === "phrase") return label || shortLabel || "";
-  return shortLabel || label || "";
+  return label || shortLabel || "";
 }
 
 function zoomRankSigunguLabel(item) {
@@ -3846,31 +3833,7 @@ function zoomRankSigunguLabel(item) {
 
 function zoomRankSidoLabel(item) {
   const code = String(item.sidoCode || item.code || "").slice(0, 2);
-  return sidoLabelByCode[code] || fullSidoLabel(item.sidoName) || "시도";
-}
-
-function fullSidoLabel(name = "") {
-  const compact = shortRegionLabel(name);
-  if (!compact) return "";
-  return {
-    서울: "서울시",
-    부산: "부산시",
-    대구: "대구시",
-    인천: "인천시",
-    광주: "광주시",
-    대전: "대전시",
-    울산: "울산시",
-    세종: "세종시",
-    경기: "경기도",
-    강원: "강원도",
-    충북: "충청북도",
-    충남: "충청남도",
-    전북: "전라북도",
-    전남: "전라남도",
-    경북: "경상북도",
-    경남: "경상남도",
-    제주: "제주도"
-  }[compact] || compact;
+  return sidoLabelByCode[code] || shortRegionLabel(item.sidoName) || "시도";
 }
 
 function formatRankText(rank, total) {
@@ -3891,25 +3854,25 @@ function zoomMarkerSize(level = "", design = activeMarkerDesign(level)) {
     full: 4
   }[mode] ?? 1;
   if (level === "dong") return [
-    [86, 66],
-    [104, 82],
-    [112, 92],
-    [124, 104],
-    [132, 112]
+    [92, 74],
+    [108, 90],
+    [116, 100],
+    [128, 112],
+    [136, 120]
   ][scale];
   if (level === "sigungu") return [
-    [82, 62],
-    [96, 76],
-    [104, 84],
-    [112, 92],
-    [120, 100]
+    [88, 70],
+    [100, 84],
+    [108, 92],
+    [116, 100],
+    [124, 108]
   ][scale];
   return [
-    [68, 58],
-    [76, 68],
-    [80, 72],
-    [84, 76],
-    [92, 84]
+    [74, 66],
+    [82, 76],
+    [86, 80],
+    [90, 84],
+    [98, 92]
   ][scale];
 }
 
