@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Apartment Growth MVP</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260616-map-transition-linked">
+    <link rel="stylesheet" href="/styles.css?v=20260616-transition-menu-removed">
   </head>
   <body>
     <main class="app-shell">
@@ -43,7 +43,6 @@
             <a data-tab="formula" href="/formula">시세식</a>
             <a data-tab="terms" href="/terms">용어</a>
             <a data-tab="map" href="/kb-map">지도(KB시세)</a>
-            <a data-tab="transitionDesign" href="/marker-transition">전환시안</a>
           </div>
         </details>
       </nav>
@@ -380,109 +379,6 @@
         </section>
       </section>
 
-      <section id="transitionDesignView" class="view">
-        <section class="panel transition-design-panel">
-          <div class="panel-head">
-            <h2>마커 전환 시안</h2>
-            <span id="transitionDesignSelected">선택 대기</span>
-          </div>
-          <div id="transitionDesignGrid" class="transition-design-grid">
-            <article class="transition-design-card" data-transition-card="current">
-              <div class="transition-design-head">
-                <strong>01 현재모드</strong>
-                <span>기존처럼 바로 비우고 새 마커를 즉시 그림</span>
-              </div>
-              <div class="transition-preview-map transition-mode-current" data-transition-preview>
-                <span class="transition-map-water"></span>
-                <span class="transition-map-road road-a"></span>
-                <span class="transition-map-road road-b"></span>
-                <span class="transition-marker transition-old marker-a">분당구<br>9.9%</span>
-                <span class="transition-marker transition-old marker-b">수정구<br>5.1%</span>
-                <span class="transition-marker transition-old marker-c">하남시<br>7.4%</span>
-                <span class="transition-marker transition-new marker-d">정자동<br>18.9%</span>
-                <span class="transition-marker transition-new marker-e">수내동<br>15.6%</span>
-                <span class="transition-marker transition-new marker-f">서현동<br>22.6%</span>
-              </div>
-              <p>가장 빠르지만, 단위가 바뀌는 순간이 시각적으로 덜 드러납니다.</p>
-              <div class="transition-card-actions">
-                <button type="button" data-transition-replay="current">다시 보기</button>
-                <button type="button" data-transition-select="current">선택</button>
-              </div>
-            </article>
-
-            <article class="transition-design-card" data-transition-card="dim">
-              <div class="transition-design-head">
-                <strong>02 반투명 유지</strong>
-                <span>기존 마커를 흐리게 둔 뒤 새 단위로 교체</span>
-              </div>
-              <div class="transition-preview-map transition-mode-dim" data-transition-preview>
-                <span class="transition-map-water"></span>
-                <span class="transition-map-road road-a"></span>
-                <span class="transition-map-road road-b"></span>
-                <span class="transition-marker transition-old marker-a">분당구<br>9.9%</span>
-                <span class="transition-marker transition-old marker-b">수정구<br>5.1%</span>
-                <span class="transition-marker transition-old marker-c">하남시<br>7.4%</span>
-                <span class="transition-marker transition-new marker-d">정자동<br>18.9%</span>
-                <span class="transition-marker transition-new marker-e">수내동<br>15.6%</span>
-                <span class="transition-marker transition-new marker-f">서현동<br>22.6%</span>
-              </div>
-              <p>지도가 비지 않아서 안정적이고, 전환 중이라는 느낌은 opacity 변화로 전달합니다.</p>
-              <div class="transition-card-actions">
-                <button type="button" data-transition-replay="dim">다시 보기</button>
-                <button type="button" data-transition-select="dim">선택</button>
-              </div>
-            </article>
-
-            <article class="transition-design-card" data-transition-card="badge">
-              <div class="transition-design-head">
-                <strong>03 상태 배지</strong>
-                <span>단위 변경 순간을 문구로 명확히 알림</span>
-              </div>
-              <div class="transition-preview-map transition-mode-badge" data-transition-preview>
-                <span class="transition-status-badge">동 단위로 전환 중...</span>
-                <span class="transition-map-water"></span>
-                <span class="transition-map-road road-a"></span>
-                <span class="transition-map-road road-b"></span>
-                <span class="transition-marker transition-old marker-a">분당구<br>9.9%</span>
-                <span class="transition-marker transition-old marker-b">수정구<br>5.1%</span>
-                <span class="transition-marker transition-old marker-c">하남시<br>7.4%</span>
-                <span class="transition-marker transition-new marker-d">정자동<br>18.9%</span>
-                <span class="transition-marker transition-new marker-e">수내동<br>15.6%</span>
-                <span class="transition-marker transition-new marker-f">서현동<br>22.6%</span>
-              </div>
-              <p>마커가 잠깐 남아 있어도 사용자가 “집계 단위가 바뀌는 중”이라고 이해하기 쉽습니다.</p>
-              <div class="transition-card-actions">
-                <button type="button" data-transition-replay="badge">다시 보기</button>
-                <button type="button" data-transition-select="badge">선택</button>
-              </div>
-            </article>
-
-            <article class="transition-design-card" data-transition-card="fade">
-              <div class="transition-design-head">
-                <strong>04 페이드 교체</strong>
-                <span>기존 마커가 사라지고 새 마커가 자연스럽게 등장</span>
-              </div>
-              <div class="transition-preview-map transition-mode-fade" data-transition-preview>
-                <span class="transition-map-water"></span>
-                <span class="transition-map-road road-a"></span>
-                <span class="transition-map-road road-b"></span>
-                <span class="transition-marker transition-old marker-a">분당구<br>9.9%</span>
-                <span class="transition-marker transition-old marker-b">수정구<br>5.1%</span>
-                <span class="transition-marker transition-old marker-c">하남시<br>7.4%</span>
-                <span class="transition-marker transition-new marker-d">정자동<br>18.9%</span>
-                <span class="transition-marker transition-new marker-e">수내동<br>15.6%</span>
-                <span class="transition-marker transition-new marker-f">서현동<br>22.6%</span>
-              </div>
-              <p>가장 깔끔하지만 로딩이 길면 전환 중이라는 상태 문구가 추가로 필요할 수 있습니다.</p>
-              <div class="transition-card-actions">
-                <button type="button" data-transition-replay="fade">다시 보기</button>
-                <button type="button" data-transition-select="fade">선택</button>
-              </div>
-            </article>
-          </div>
-        </section>
-      </section>
-
       <section id="termsView" class="view">
         <section class="panel terms-panel">
           <div class="panel-head">
@@ -684,6 +580,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260616-map-transition-linked"></script>
+    <script src="/app.js?v=20260616-transition-menu-removed"></script>
   </body>
 </html>

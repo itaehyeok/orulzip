@@ -7,7 +7,6 @@ const tabRoutes = {
   formula: "/formula",
   terms: "/terms",
   design: "/design",
-  transitionDesign: "/marker-transition",
   crawl: "/crawl"
 };
 
@@ -22,7 +21,6 @@ const routeTabs = {
   "/formula": "formula",
   "/terms": "terms",
   "/design": "design",
-  "/marker-transition": "transitionDesign",
   "/crawl": "crawl"
 };
 
@@ -323,9 +321,6 @@ const els = {
   pyeongGraphDesignGrid: document.querySelector("#pyeongGraphDesignGrid"),
   designMarkerSelected: document.querySelector("#designMarkerSelected"),
   markerDesignGrid: document.querySelector("#markerDesignGrid"),
-  transitionDesignView: document.querySelector("#transitionDesignView"),
-  transitionDesignSelected: document.querySelector("#transitionDesignSelected"),
-  transitionDesignGrid: document.querySelector("#transitionDesignGrid"),
   molitSummary: document.querySelector("#molitSummary"),
   molitCompletionList: document.querySelector("#molitCompletionList"),
   molitCoordinateSummary: document.querySelector("#molitCoordinateSummary"),
@@ -495,17 +490,6 @@ function bindEvents() {
   els.mapMarkerLineGapInput?.addEventListener("input", () => {
     setMarkerLineGapPx(els.mapMarkerLineGapInput.value);
   });
-  els.transitionDesignGrid?.addEventListener("click", (event) => {
-    const replayButton = event.target.closest("[data-transition-replay]");
-    if (replayButton) {
-      replayTransitionPreviews(replayButton.dataset.transitionReplay);
-      return;
-    }
-    const selectButton = event.target.closest("[data-transition-select]");
-    if (selectButton) {
-      setActiveTransitionDesign(selectButton.dataset.transitionSelect);
-    }
-  });
   els.mapDesignToggleBtn?.addEventListener("click", toggleMapDesignPanel);
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
 
@@ -653,11 +637,6 @@ async function refresh() {
     return;
   }
 
-  if (state.activeTab === "transitionDesign") {
-    renderTransitionDesignTab();
-    return;
-  }
-
   if (state.activeTab === "terms") {
     return;
   }
@@ -729,11 +708,6 @@ async function loadActiveViewData() {
     return;
   }
 
-  if (state.activeTab === "transitionDesign") {
-    renderTransitionDesignTab();
-    return;
-  }
-
   if (state.activeTab === "terms") {
     return;
   }
@@ -785,7 +759,6 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
   document.querySelector("#termsView").classList.toggle("active", nextTab === "terms");
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
-  document.querySelector("#transitionDesignView").classList.toggle("active", nextTab === "transitionDesign");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
 
@@ -3075,49 +3048,9 @@ function readStoredTransitionDesignId() {
   }
 }
 
-function setActiveTransitionDesign(id) {
-  if (!transitionDesignLabels[id]) return;
-  state.activeTransitionDesignId = id;
-  try {
-    window.localStorage.setItem(transitionDesignStorageKey, id);
-  } catch {
-    // localStorage may be disabled in private contexts.
-  }
-  renderTransitionDesignTab();
-}
-
 function renderDesignTab() {
   renderMarkerDesignGallery();
   renderMapDesignPanel();
-}
-
-function renderTransitionDesignTab() {
-  if (!els.transitionDesignGrid) return;
-  if (els.transitionDesignSelected) {
-    els.transitionDesignSelected.textContent = `${transitionDesignLabels[state.activeTransitionDesignId] || transitionDesignLabels.current} 선택됨`;
-  }
-  els.transitionDesignGrid.querySelectorAll("[data-transition-card]").forEach((card) => {
-    const isActive = card.dataset.transitionCard === state.activeTransitionDesignId;
-    card.classList.toggle("active", isActive);
-    card.querySelectorAll("[data-transition-select]").forEach((button) => {
-      button.textContent = isActive ? "선택됨" : "선택";
-      button.setAttribute("aria-pressed", String(isActive));
-    });
-  });
-  replayTransitionPreviews();
-}
-
-function replayTransitionPreviews(targetId = "") {
-  const previews = targetId
-    ? [...document.querySelectorAll("[data-transition-card]")]
-      .filter((card) => card.dataset.transitionCard === targetId)
-      .flatMap((card) => [...card.querySelectorAll("[data-transition-preview]")])
-    : [...document.querySelectorAll("[data-transition-preview]")];
-  previews.forEach((preview) => {
-    preview.classList.remove("is-playing");
-    void preview.offsetWidth;
-    preview.classList.add("is-playing");
-  });
 }
 
 function toggleMapDesignPanel() {
