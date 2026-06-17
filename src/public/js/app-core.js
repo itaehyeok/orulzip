@@ -10,6 +10,7 @@ async function init() {
   state.apartmentMarkerStylePresets = readStoredApartmentMarkerStylePresets();
   state.regionMarkerDesignByLevel = readStoredRegionMarkerDesignByLevel();
   state.regionMarkerDisplayByLevel = readStoredRegionMarkerDisplayByLevel();
+  state.regionMarkerTemplateByLevel = readStoredRegionMarkerTemplateByLevel();
   state.regionMarkerStyleByLevel = readStoredRegionMarkerStyleByLevel();
   state.regionMarkerStylePresets = readStoredRegionMarkerStylePresets();
   state.activeLogoDesignId = readStoredLogoDesignId();
@@ -48,9 +49,11 @@ async function loadAdminSession() {
 }
 
 function renderAdminNavigation() {
+  const showAdminNav = Boolean(state.isAdmin);
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
-    item.hidden = !state.isAdmin;
+    item.hidden = !showAdminNav;
   });
+  if (!showAdminNav) closeTabMoreMenus();
 }
 
 function bindEvents() {
@@ -74,6 +77,10 @@ function bindEvents() {
   });
   window.addEventListener("resize", positionOpenTabMoreMenus);
   window.addEventListener("scroll", positionOpenTabMoreMenus, { passive: true });
+  window.addEventListener("pageshow", async () => {
+    await loadAdminSession();
+    renderAdminNavigation();
+  });
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -110,6 +117,12 @@ function bindEvents() {
     const card = event.target.closest("[data-growth-rate-color-design-id]");
     if (!card) return;
     setActiveGrowthRateColorDesign(card.dataset.growthRateColorDesignId);
+  });
+  document.querySelectorAll("a[href='/logout'], a[href='/admin-logout']").forEach((link) => {
+    link.addEventListener("click", () => {
+      state.isAdmin = false;
+      renderAdminNavigation();
+    });
   });
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
   document.addEventListener("change", handleMarkerRankDisplayOptionChange);

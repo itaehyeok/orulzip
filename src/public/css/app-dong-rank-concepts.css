@@ -111,6 +111,19 @@
   gap: 12px;
 }
 
+.region-marker-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.region-marker-editor-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
 .region-marker-style-group {
   display: grid;
   gap: 8px;
@@ -119,6 +132,10 @@
   border: 1px solid #e4e9f1;
   border-radius: 8px;
   padding: 10px;
+}
+
+.region-marker-template-group {
+  background: #fbfcff;
 }
 
 .region-marker-style-group legend {
@@ -131,6 +148,126 @@
 .region-marker-style-fields {
   display: grid;
   gap: 8px;
+}
+
+.region-marker-template-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.region-marker-template-field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.region-marker-template-field span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.region-marker-template-field input {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid #d8deea;
+  border-radius: 6px;
+  color: #1d2939;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 0 10px;
+}
+
+.region-marker-template-field input:focus {
+  border-color: #2939a8;
+  box-shadow: 0 0 0 3px rgba(41, 57, 168, 0.1);
+  outline: 0;
+}
+
+.region-marker-token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.region-marker-token-list button {
+  min-height: 28px;
+  border: 1px solid #d8deea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #2939a8;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 0 9px;
+}
+
+.region-marker-token-list button:hover {
+  border-color: #9db7ea;
+  background: #eef4ff;
+}
+
+.region-marker-template-preview {
+  position: sticky;
+  top: 12px;
+  min-width: 0;
+}
+
+.region-marker-preview-card {
+  overflow: hidden;
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.region-marker-preview-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #edf1f7;
+  padding: 10px 12px;
+}
+
+.region-marker-preview-top strong {
+  color: #1d2939;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.region-marker-preview-top span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.region-marker-preview-map {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    #e8eef3;
+}
+
+.region-marker-preview-marker {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+}
+
+.region-marker-preview-marker.active {
+  z-index: 4;
+}
+
+.region-marker-preview-marker.active > .region-data-marker {
+  box-shadow: 0 0 0 4px rgba(35, 103, 209, 0.16), 0 16px 30px rgba(16, 24, 40, 0.22);
 }
 
 .marker-rank-display-options {
@@ -456,7 +593,7 @@
 .dong-rank-demo em {
   align-items: center;
   display: inline-flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 5px;
   box-sizing: border-box;
   width: 100%;
@@ -469,6 +606,7 @@
   font-weight: 950;
   line-height: 1;
   padding: 4px 7px;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -483,12 +621,24 @@
   font-size: var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-label-font-size, 9px));
 }
 
+.dong-rank-demo em[data-rank-level="sigungu"] {
+  font-size: var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-value-font-size, 10px));
+}
+
 .dong-rank-demo em[data-rank-level="sido"] b {
   font-size: var(--region-marker-rank-sido-font-size, var(--region-marker-rank-label-font-size, 9px));
 }
 
+.dong-rank-demo em[data-rank-level="sido"] {
+  font-size: var(--region-marker-rank-sido-font-size, var(--region-marker-rank-value-font-size, 10px));
+}
+
 .dong-rank-demo em[data-rank-level="national"] b {
   font-size: var(--region-marker-rank-national-font-size, var(--region-marker-rank-label-font-size, 9px));
+}
+
+.dong-rank-demo em[data-rank-level="national"] {
+  font-size: var(--region-marker-rank-national-font-size, var(--region-marker-rank-value-font-size, 10px));
 }
 
 .rank-chip-white {
@@ -567,6 +717,18 @@
 }
 
 @media (max-width: 640px) {
+  .region-marker-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .region-marker-template-preview {
+    position: static;
+  }
+
+  .region-marker-template-field {
+    grid-template-columns: 1fr;
+  }
+
   .dong-rank-concept-grid {
     grid-template-columns: 1fr;
   }

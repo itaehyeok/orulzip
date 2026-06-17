@@ -1,5 +1,6 @@
 const regionMarkerDesignStorageKey = "orulzip.regionMarkerDesignByLevel";
 const regionMarkerDisplayStorageKey = "orulzip.regionMarkerDisplayByLevel";
+const regionMarkerTemplateStorageKey = "orulzip.regionMarkerTemplateByLevel.v1";
 const regionMarkerStyleStorageKey = "orulzip.regionMarkerStyleByLevel";
 const regionMarkerStylePresetStorageKey = "orulzip.regionMarkerStylePresets";
 const regionMarkerLevels = ["dong", "sigungu", "sido"];
@@ -23,6 +24,73 @@ const defaultRegionMarkerDisplayByLevel = {
   dong: { sigungu: true, sido: true, national: true },
   sigungu: { sido: true, national: true },
   sido: { national: true }
+};
+const defaultRegionMarkerTemplateByLevel = {
+  dong: {
+    label: "{{동명}}",
+    value: "{{상승률}}",
+    rankRows: {
+      sigungu: "{{시군구명}} {{시군구내순위}}",
+      sido: "{{시도명}} {{시도내순위}}",
+      national: "전국 {{전국순위}}"
+    }
+  },
+  sigungu: {
+    label: "{{시군구명}}",
+    value: "{{상승률}}",
+    rankRows: {
+      sido: "{{시도명}} {{시도내순위}}",
+      national: "전국 {{전국순위}}"
+    }
+  },
+  sido: {
+    label: "{{시도명}}",
+    value: "{{상승률}}",
+    rankRows: {
+      national: "전국 {{전국순위}}"
+    }
+  }
+};
+const regionMarkerTemplateTokensByLevel = {
+  dong: [
+    ["동명", "동 지역명"],
+    ["시군구명", "상위 시군구"],
+    ["시도명", "상위 시도"],
+    ["상승률", "상승률"],
+    ["시군구내순위", "시군구 내 순위"],
+    ["시군구내등수", "시군구 내 등수"],
+    ["시군구내전체", "시군구 내 전체"],
+    ["시군구내상위퍼센트", "시군구 내 상위 %"],
+    ["시도내순위", "시도 내 순위"],
+    ["시도내등수", "시도 내 등수"],
+    ["시도내전체", "시도 내 전체"],
+    ["시도내상위퍼센트", "시도 내 상위 %"],
+    ["전국순위", "전국 순위"],
+    ["전국등수", "전국 등수"],
+    ["전국전체", "전국 전체"],
+    ["전국상위퍼센트", "전국 상위 %"]
+  ],
+  sigungu: [
+    ["시군구명", "시군구 지역명"],
+    ["시도명", "상위 시도"],
+    ["상승률", "상승률"],
+    ["시도내순위", "시도 내 순위"],
+    ["시도내등수", "시도 내 등수"],
+    ["시도내전체", "시도 내 전체"],
+    ["시도내상위퍼센트", "시도 내 상위 %"],
+    ["전국순위", "전국 순위"],
+    ["전국등수", "전국 등수"],
+    ["전국전체", "전국 전체"],
+    ["전국상위퍼센트", "전국 상위 %"]
+  ],
+  sido: [
+    ["시도명", "시도 지역명"],
+    ["상승률", "상승률"],
+    ["전국순위", "전국 순위"],
+    ["전국등수", "전국 등수"],
+    ["전국전체", "전국 전체"],
+    ["전국상위퍼센트", "전국 상위 %"]
+  ]
 };
 const regionMarkerDesignOptions = [
   { id: "white", name: "화이트 데이터칩", className: "rank-chip-white" },
@@ -83,6 +151,19 @@ function readStoredRegionMarkerDisplayByLevel() {
   return result;
 }
 
+function readStoredRegionMarkerTemplateByLevel() {
+  const result = cloneDefaultRegionMarkerTemplate();
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(regionMarkerTemplateStorageKey) || "{}");
+    for (const level of regionMarkerLevels) {
+      result[level] = sanitizeRegionMarkerTemplate(level, stored?.[level], result[level]);
+    }
+  } catch {
+    // Ignore malformed localStorage and use defaults.
+  }
+  return result;
+}
+
 function readStoredRegionMarkerStyleByLevel() {
   const result = {};
   try {
@@ -125,6 +206,19 @@ function cloneDefaultRegionMarkerDisplay() {
   );
 }
 
+function cloneDefaultRegionMarkerTemplate() {
+  return Object.fromEntries(
+    Object.entries(defaultRegionMarkerTemplateByLevel).map(([level, template]) => [
+      level,
+      {
+        label: template.label,
+        value: template.value,
+        rankRows: { ...template.rankRows }
+      }
+    ])
+  );
+}
+
 function activeRegionMarkerDesign(level = "dong") {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   const id = state.regionMarkerDesignByLevel?.[normalizedLevel] || defaultRegionMarkerDesignByLevel[normalizedLevel];
@@ -143,6 +237,15 @@ function activeRegionMarkerRankLevels(level = "dong") {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   const display = activeRegionMarkerDisplay(normalizedLevel);
   return (regionMarkerRankLevelsByLevel[normalizedLevel] || []).filter((rankLevel) => display[rankLevel]);
+}
+
+function activeRegionMarkerTemplate(level = "dong") {
+  const normalizedLevel = normalizeRegionMarkerLevel(level);
+  return sanitizeRegionMarkerTemplate(
+    normalizedLevel,
+    state.regionMarkerTemplateByLevel?.[normalizedLevel],
+    defaultRegionMarkerTemplateByLevel[normalizedLevel]
+  );
 }
 
 function activeRegionMarkerStyle(level = "dong", design = activeRegionMarkerDesign(level)) {
@@ -189,6 +292,28 @@ function sanitizeRegionMarkerStyle(style) {
   return Object.keys(result).length ? result : null;
 }
 
+function sanitizeRegionMarkerTemplate(level, template, fallback = defaultRegionMarkerTemplateByLevel[normalizeRegionMarkerLevel(level)]) {
+  const normalizedLevel = normalizeRegionMarkerLevel(level);
+  const defaultTemplate = fallback || defaultRegionMarkerTemplateByLevel[normalizedLevel];
+  const result = {
+    label: normalizeRegionMarkerTemplateText(template?.label, defaultTemplate.label),
+    value: normalizeRegionMarkerTemplateText(template?.value, defaultTemplate.value),
+    rankRows: {}
+  };
+  for (const rankLevel of regionMarkerRankLevelsByLevel[normalizedLevel] || []) {
+    result.rankRows[rankLevel] = normalizeRegionMarkerTemplateText(
+      template?.rankRows?.[rankLevel],
+      defaultTemplate.rankRows?.[rankLevel] || ""
+    );
+  }
+  return result;
+}
+
+function normalizeRegionMarkerTemplateText(value, fallback = "") {
+  const text = typeof value === "string" ? value : fallback;
+  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
 function normalizeRegionMarkerStyleValue(key, value) {
   const control = regionMarkerStyleControlMap.get(key);
   if (!control) return null;
@@ -218,6 +343,37 @@ function setRegionMarkerRankVisible(level, rankLevel, visible) {
   state.regionMarkerDisplayByLevel[normalizedLevel][rankLevel] = Boolean(visible);
   writeRegionMarkerDisplayState();
   syncRegionMarkerDesignControls();
+  rerenderRegionMarkers();
+}
+
+function setRegionMarkerTemplateValue(level, field, rankLevel, value) {
+  const normalizedLevel = normalizeRegionMarkerLevel(level);
+  const current = activeRegionMarkerTemplate(normalizedLevel);
+  const next = {
+    label: current.label,
+    value: current.value,
+    rankRows: { ...current.rankRows }
+  };
+  if (field === "label" || field === "value") {
+    next[field] = normalizeRegionMarkerTemplateText(value, defaultRegionMarkerTemplateByLevel[normalizedLevel][field]);
+  } else if (field === "rankRow" && (regionMarkerRankLevelsByLevel[normalizedLevel] || []).includes(rankLevel)) {
+    next.rankRows[rankLevel] = normalizeRegionMarkerTemplateText(value, defaultRegionMarkerTemplateByLevel[normalizedLevel].rankRows[rankLevel]);
+  } else {
+    return;
+  }
+  if (!state.regionMarkerTemplateByLevel) state.regionMarkerTemplateByLevel = cloneDefaultRegionMarkerTemplate();
+  state.regionMarkerTemplateByLevel[normalizedLevel] = next;
+  writeRegionMarkerTemplateState();
+  syncRegionMarkerTemplatePreview();
+  rerenderRegionMarkers();
+}
+
+function resetRegionMarkerTemplate(level) {
+  const normalizedLevel = normalizeRegionMarkerLevel(level);
+  if (!state.regionMarkerTemplateByLevel) state.regionMarkerTemplateByLevel = cloneDefaultRegionMarkerTemplate();
+  state.regionMarkerTemplateByLevel[normalizedLevel] = sanitizeRegionMarkerTemplate(normalizedLevel, defaultRegionMarkerTemplateByLevel[normalizedLevel]);
+  writeRegionMarkerTemplateState();
+  renderRegionMarkerStyleEditor();
   rerenderRegionMarkers();
 }
 
@@ -316,6 +472,14 @@ function writeRegionMarkerDisplayState() {
   }
 }
 
+function writeRegionMarkerTemplateState() {
+  try {
+    window.localStorage.setItem(regionMarkerTemplateStorageKey, JSON.stringify(state.regionMarkerTemplateByLevel || defaultRegionMarkerTemplateByLevel));
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+}
+
 function writeRegionMarkerStyleState() {
   try {
     window.localStorage.setItem(regionMarkerStyleStorageKey, JSON.stringify(state.regionMarkerStyleByLevel || {}));
@@ -377,8 +541,14 @@ function bindRegionMarkerDesignControls() {
     if (actionButton) {
       const action = actionButton.dataset.regionMarkerStyleAction;
       if (action === "reset") resetRegionMarkerStyle();
+      if (action === "resetTemplate") resetRegionMarkerTemplate(activeRegionMarkerStyleEditorLevel());
       if (action === "savePreset") saveRegionMarkerStylePreset();
       if (action === "applyPreset") applySelectedRegionMarkerStylePreset();
+      return;
+    }
+    const tokenButton = event.target.closest("[data-region-marker-template-token]");
+    if (tokenButton) {
+      insertRegionMarkerTemplateToken(tokenButton.dataset.regionMarkerTemplateToken);
       return;
     }
     const presetDeleteButton = event.target.closest("[data-region-marker-preset-delete]");
@@ -409,9 +579,20 @@ function bindRegionMarkerDesignControls() {
     });
   });
   document.addEventListener("input", (event) => {
-    const input = event.target.closest("[data-region-marker-style-key]");
-    if (!input) return;
-    setRegionMarkerStyleValue(activeRegionMarkerStyleEditorLevel(), input.dataset.regionMarkerStyleKey, input.value);
+    const styleInput = event.target.closest("[data-region-marker-style-key]");
+    if (styleInput) {
+      setRegionMarkerStyleValue(activeRegionMarkerStyleEditorLevel(), styleInput.dataset.regionMarkerStyleKey, styleInput.value);
+      return;
+    }
+    const templateInput = event.target.closest("[data-region-marker-template-field]");
+    if (templateInput) {
+      setRegionMarkerTemplateValue(
+        activeRegionMarkerStyleEditorLevel(),
+        templateInput.dataset.regionMarkerTemplateField,
+        templateInput.dataset.regionMarkerTemplateRank || "",
+        templateInput.value
+      );
+    }
   });
 }
 
@@ -439,6 +620,22 @@ function syncRegionMarkerDesignControls() {
   syncRegionMarkerStyleEditor();
 }
 
+function insertRegionMarkerTemplateToken(token) {
+  const container = document.getElementById("regionMarkerStyleEditor");
+  if (!container || !token) return;
+  const activeInput = document.activeElement?.matches?.("[data-region-marker-template-field]")
+    ? document.activeElement
+    : container.querySelector("[data-region-marker-template-field='label']");
+  if (!activeInput) return;
+  const insertText = `{{${token}}}`;
+  const start = Number.isFinite(activeInput.selectionStart) ? activeInput.selectionStart : activeInput.value.length;
+  const end = Number.isFinite(activeInput.selectionEnd) ? activeInput.selectionEnd : activeInput.value.length;
+  activeInput.value = `${activeInput.value.slice(0, start)}${insertText}${activeInput.value.slice(end)}`;
+  activeInput.focus();
+  activeInput.setSelectionRange(start + insertText.length, start + insertText.length);
+  activeInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function rerenderRegionMarkers() {
   if (state.latestZoomMapData) {
     renderZoomMapSummary(state.latestZoomMapData);
@@ -458,33 +655,66 @@ function renderRegionMarkerStyleEditor() {
   if (!container) return;
   const level = activeRegionMarkerStyleEditorLevel();
   const style = activeRegionMarkerStyle(level);
+  const template = activeRegionMarkerTemplate(level);
   const groupedControls = groupRegionMarkerStyleControls();
   const presets = state.regionMarkerStylePresets || [];
   container.innerHTML = `
     <div class="panel-head">
-      <h2>지역 마커 세부 편집</h2>
-      <span>동 · 시군구 · 시도 공통 적용</span>
+      <h2>지역 마커 디자인 에디터</h2>
+      <span>${escapeHtml(regionMarkerLevelLabels[level])} 템플릿 · 공통 폰트 조절</span>
     </div>
     <div class="region-marker-editor-body">
       <div class="region-marker-editor-toolbar">
-        <div class="region-marker-common-badge">세 단위 동시 편집</div>
+        <div class="region-marker-level-tabs" role="tablist" aria-label="지역 마커 종류">
+          ${regionMarkerLevels.map((markerLevel) => `
+            <button type="button" class="${markerLevel === level ? "active" : ""}" data-region-marker-style-level-option="${escapeHtml(markerLevel)}" aria-pressed="${markerLevel === level}">
+              ${escapeHtml(regionMarkerLevelLabels[markerLevel])}
+            </button>
+          `).join("")}
+        </div>
         <div class="region-marker-editor-actions">
+          <button type="button" data-region-marker-style-action="resetTemplate">템플릿 리셋</button>
           <button type="button" data-region-marker-style-action="reset">전체 리셋</button>
           <input type="text" maxlength="20" placeholder="프리셋 이름" data-region-marker-preset-name>
           <button type="button" data-region-marker-style-action="savePreset">저장</button>
           <button type="button" data-region-marker-style-action="applyPreset" ${selectedRegionMarkerStylePreset() ? "" : "disabled"}>선택 프리셋 적용</button>
         </div>
       </div>
-      <div class="region-marker-style-groups">
-        ${markerRankDisplayEditorHtml("region")}
-        ${Object.entries(groupedControls).map(([group, controls]) => `
-          <fieldset class="region-marker-style-group">
-            <legend>${escapeHtml(group)}</legend>
-            <div class="region-marker-style-fields">
-              ${controls.map((control) => regionMarkerStyleControlHtml(control, style[control.key])).join("")}
+      <div class="region-marker-editor-layout">
+        <div class="region-marker-editor-main">
+          <fieldset class="region-marker-style-group region-marker-template-group">
+            <legend>문구 템플릿</legend>
+            <div class="region-marker-template-fields">
+              ${regionMarkerTemplateInputHtml("지역명 줄", "label", "", template.label)}
+              ${regionMarkerTemplateInputHtml("상승률 줄", "value", "", template.value)}
+              ${(regionMarkerRankLevelsByLevel[level] || []).map((rankLevel) => regionMarkerTemplateInputHtml(
+                `${regionMarkerRankLevelLabel(level, rankLevel)} 줄`,
+                "rankRow",
+                rankLevel,
+                template.rankRows[rankLevel] || ""
+              )).join("")}
+            </div>
+            <div class="region-marker-token-list" aria-label="사용 가능한 변수">
+              ${(regionMarkerTemplateTokensByLevel[level] || []).map(([token, label]) => `
+                <button type="button" data-region-marker-template-token="${escapeHtml(token)}" title="${escapeHtml(label)}">{{${escapeHtml(token)}}}</button>
+              `).join("")}
             </div>
           </fieldset>
-        `).join("")}
+          <div class="region-marker-style-groups">
+            ${markerRankDisplayEditorHtml("region")}
+            ${Object.entries(groupedControls).map(([group, controls]) => `
+              <fieldset class="region-marker-style-group">
+                <legend>${escapeHtml(group)}</legend>
+                <div class="region-marker-style-fields">
+                  ${controls.map((control) => regionMarkerStyleControlHtml(control, style[control.key])).join("")}
+                </div>
+              </fieldset>
+            `).join("")}
+          </div>
+        </div>
+        <aside class="region-marker-template-preview" aria-label="지도 미리보기">
+          ${regionMarkerTemplatePreviewMapHtml(level)}
+        </aside>
       </div>
       <div class="region-marker-preset-list">
         ${presets.length ? presets.map((preset) => `
@@ -499,6 +729,105 @@ function renderRegionMarkerStyleEditor() {
       </div>
     </div>
   `;
+}
+
+function regionMarkerTemplateInputHtml(label, field, rankLevel, value) {
+  return `
+    <label class="region-marker-template-field">
+      <span>${escapeHtml(label)}</span>
+      <input type="text" value="${escapeHtml(value)}" data-region-marker-template-field="${escapeHtml(field)}" data-region-marker-template-rank="${escapeHtml(rankLevel)}" spellcheck="false">
+    </label>
+  `;
+}
+
+function regionMarkerRankLevelLabel(level, rankLevel) {
+  if (level === "dong" && rankLevel === "sigungu") return "시군구 내 순위";
+  if ((level === "dong" || level === "sigungu") && rankLevel === "sido") return "시도 내 순위";
+  if (rankLevel === "national") return "전국 순위";
+  return rankLevel;
+}
+
+function regionMarkerTemplatePreviewMapHtml(activeLevel = "dong") {
+  const samples = regionMarkerTemplatePreviewSamples();
+  return `
+    <div class="region-marker-preview-card">
+      <div class="region-marker-preview-top">
+        <strong>지도 미리보기</strong>
+        <span>${escapeHtml(regionMarkerLevelLabels[activeLevel])} 편집 중</span>
+      </div>
+      <div class="region-marker-preview-map">
+        <span class="growth-rate-map-preview-road road-a"></span>
+        <span class="growth-rate-map-preview-road road-b"></span>
+        <span class="growth-rate-map-preview-river"></span>
+        ${samples.map((sample) => regionMarkerTemplatePreviewMarkerHtml(sample, activeLevel)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function regionMarkerTemplatePreviewMarkerHtml(sample, activeLevel) {
+  const design = activeRegionMarkerDesign(sample.level);
+  const isActive = sample.level === activeLevel;
+  return `
+    <span class="region-marker-preview-marker level-${escapeHtml(sample.level)} ${isActive ? "active" : ""}" style="left:${sample.x}%;top:${sample.y}%;">
+      ${zoomGroupMarkerContentHtml(sample.item, sample.level, design)}
+    </span>
+  `;
+}
+
+function regionMarkerTemplatePreviewSamples() {
+  return [
+    {
+      level: "sido",
+      x: 63,
+      y: 25,
+      item: {
+        name: "서울",
+        sidoName: "서울",
+        sidoCode: "11",
+        growthRate: 0.056,
+        countryRank: 4,
+        countryRankTotal: 17
+      }
+    },
+    {
+      level: "sigungu",
+      x: 34,
+      y: 54,
+      item: {
+        name: "서울 강남구",
+        sigunguName: "서울 강남구",
+        sidoName: "서울",
+        sigunguCode: "11680",
+        sidoCode: "11",
+        growthRate: 0.072,
+        sidoRank: 16,
+        sidoRankTotal: 25,
+        countryRank: 118,
+        countryRankTotal: 250
+      }
+    },
+    {
+      level: "dong",
+      x: 70,
+      y: 63,
+      item: {
+        name: "서울 강남구 압구정동",
+        dongName: "압구정동",
+        sigunguName: "서울 강남구",
+        sidoName: "서울",
+        sigunguCode: "11680",
+        sidoCode: "11",
+        growthRate: 0.094,
+        sigunguRank: 3,
+        sigunguRankTotal: 14,
+        sidoRank: 16,
+        sidoRankTotal: 425,
+        countryRank: 122,
+        countryRankTotal: 3500
+      }
+    }
+  ];
 }
 
 function groupRegionMarkerStyleControls() {
@@ -524,6 +853,7 @@ function syncRegionMarkerStyleEditor() {
   if (!container) return;
   const level = activeRegionMarkerStyleEditorLevel();
   const style = activeRegionMarkerStyle(level);
+  const template = activeRegionMarkerTemplate(level);
   const selectedPreset = selectedRegionMarkerStylePreset();
   container.querySelectorAll("[data-region-marker-style-level-option]").forEach((button) => {
     const isActive = normalizeRegionMarkerLevel(button.dataset.regionMarkerStyleLevelOption) === level;
@@ -534,6 +864,12 @@ function syncRegionMarkerStyleEditor() {
     const value = style[input.dataset.regionMarkerStyleKey];
     if (String(input.value) !== String(value)) input.value = value;
   });
+  container.querySelectorAll("[data-region-marker-template-field]").forEach((input) => {
+    const field = input.dataset.regionMarkerTemplateField;
+    const rankLevel = input.dataset.regionMarkerTemplateRank || "";
+    const value = field === "rankRow" ? template.rankRows[rankLevel] : template[field];
+    if (String(input.value) !== String(value || "")) input.value = value || "";
+  });
   container.querySelectorAll("[data-region-marker-preset-id]").forEach((button) => {
     const isSelected = button.dataset.regionMarkerPresetId === selectedPreset?.id;
     button.closest(".region-marker-preset-chip")?.classList.toggle("active", isSelected);
@@ -542,6 +878,14 @@ function syncRegionMarkerStyleEditor() {
     button.disabled = !selectedPreset;
   });
   syncMarkerRankDisplayOptionControls();
+  syncRegionMarkerTemplatePreview();
+}
+
+function syncRegionMarkerTemplatePreview() {
+  const container = document.getElementById("regionMarkerStyleEditor");
+  const preview = container?.querySelector(".region-marker-template-preview");
+  if (!preview) return;
+  preview.innerHTML = regionMarkerTemplatePreviewMapHtml(activeRegionMarkerStyleEditorLevel());
 }
 
 function activeRegionMarkerStyleEditorLevel() {

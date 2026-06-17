@@ -50,6 +50,10 @@ function isJibunLike(value = "") {
 function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesign(level)) {
   const markerDesign = activeRegionMarkerDesign(level) || design;
   const rows = zoomGroupMarkerRankRows(item, level);
+  const template = activeRegionMarkerTemplate(level);
+  const values = zoomGroupMarkerTemplateValues(item, level, markerDesign);
+  const labelText = renderRegionMarkerTemplateText(template.label, values);
+  const valueText = renderRegionMarkerTemplateText(template.value, values);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
@@ -65,12 +69,12 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   ].filter(Boolean).map(escapeHtml).join(" ");
   return `
     <span class="${markerClasses}" style="${markerStyle}">
-      <small>${escapeHtml(zoomGroupCurrentLabel(item, level))}</small>
-      <strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${formatPercent(item.growthRate)}</strong>
+      ${labelText ? `<small>${escapeHtml(labelText)}</small>` : ""}
+      ${valueText ? `<strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${escapeHtml(valueText)}</strong>` : ""}
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
-            <em data-rank-level="${escapeHtml(row.rankLevel)}"><b>${escapeHtml(row.label)}</b> ${escapeHtml(row.rank)}</em>
+            <em data-rank-level="${escapeHtml(row.rankLevel)}">${escapeHtml(row.text)}</em>
           `).join("")}
         </span>
       ` : ""}
@@ -99,8 +103,14 @@ function zoomGroupCurrentLabel(item, level) {
 
 function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(level)) {
   const visibleRankLevels = new Set(activeRegionMarkerRankLevels(level));
+  const template = activeRegionMarkerTemplate(level);
+  const values = zoomGroupMarkerTemplateValues(item, level, design);
   return zoomGroupAllRankRows(item, level, design)
-    .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-");
+    .map((row) => ({
+      ...row,
+      text: renderRegionMarkerTemplateText(template.rankRows?.[row.rankLevel] || row.template, values)
+    }))
+    .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && row.text);
 }
 
 function zoomGroupAllRankRows(item, level, design = activeRegionMarkerDesign(level)) {
@@ -126,8 +136,50 @@ function zoomRankRow(rankLevel, label, shortLabel, rank, total, design = activeR
   return {
     rankLevel,
     label: compactRankLabel(label, shortLabel, design),
-    rank: formatMarkerRankText(rank, total, "region", growthRate)
+    rank: formatMarkerRankText(rank, total, "region", growthRate),
+    template: `${compactRankLabel(label, shortLabel, design)} ${formatMarkerRankText(rank, total, "region", growthRate)}`
   };
+}
+
+function zoomGroupMarkerTemplateValues(item, level, design = activeRegionMarkerDesign(level)) {
+  const sigunguLabel = zoomRankSigunguLabel(item);
+  const sidoLabel = zoomRankSidoLabel(item);
+  const values = {
+    "동명": level === "dong" ? zoomGroupCurrentLabel(item, "dong") : shortZoomLabel(item.dongName || item.name, "dong"),
+    "시군구명": level === "sigungu" ? zoomGroupCurrentLabel(item, "sigungu") : sigunguLabel,
+    "시도명": level === "sido" ? zoomGroupCurrentLabel(item, "sido") : sidoLabel,
+    "상승률": formatPercent(item.growthRate),
+    "시군구내순위": formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
+    "시군구내등수": formatMarkerRankNumber(item.sigunguRank),
+    "시군구내전체": formatMarkerRankNumber(item.sigunguRankTotal),
+    "시군구내상위퍼센트": formatMarkerTopPercent(item.sigunguRank, item.sigunguRankTotal),
+    "시도내순위": formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", item.growthRate),
+    "시도내등수": formatMarkerRankNumber(item.sidoRank),
+    "시도내전체": formatMarkerRankNumber(item.sidoRankTotal),
+    "시도내상위퍼센트": formatMarkerTopPercent(item.sidoRank, item.sidoRankTotal),
+    "전국순위": formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", item.growthRate),
+    "전국등수": formatMarkerRankNumber(item.countryRank),
+    "전국전체": formatMarkerRankNumber(item.countryRankTotal),
+    "전국상위퍼센트": formatMarkerTopPercent(item.countryRank, item.countryRankTotal)
+  };
+  return values;
+}
+
+function renderRegionMarkerTemplateText(template, values) {
+  return String(template || "")
+    .replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, token) => values[token.trim()] ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatMarkerRankNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? formatInt(number) : "-";
+}
+
+function formatMarkerTopPercent(rank, total) {
+  const percentile = growthRankPercentile(rank, total);
+  return percentile === null ? "-" : `상위 ${percentile.toFixed(1)}%`;
 }
 
 function compactRankLabel(label, shortLabel, design = activeRegionMarkerDesign()) {

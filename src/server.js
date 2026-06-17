@@ -1078,7 +1078,15 @@ function createAdminCookie() {
 }
 
 function clearAdminCookie() {
-  return `${adminCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return [
+    `${adminCookieName}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    adminCookieSecure ? "Secure" : ""
+  ].filter(Boolean).join("; ");
 }
 
 function signAdminPayload(payload) {
