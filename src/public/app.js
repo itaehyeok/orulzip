@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260617-growth-rate-rank-colors";
+  const version = "20260617-region-marker-config";
   const scripts = [
     "app-prelude",
     "app-state",
@@ -10,6 +10,7 @@
     "app-map-popup",
     "app-design",
     "app-apartment-marker-design",
+    "app-region-marker-config",
     "app-region-marker-design",
     "app-marker-utils",
     "app-rankings",
