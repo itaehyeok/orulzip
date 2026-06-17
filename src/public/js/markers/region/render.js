@@ -2,11 +2,12 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const markerDesign = activeRegionMarkerDesign(level) || design;
   const content = regionMarkerResolvedContent(item, level, markerDesign);
   const { rows, labelText, valuePrefixText, valueText, valueSuffixText } = content;
+  const layout = regionMarkerAutoLayout(item, level, markerDesign, content);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
     regionMarkerStyleInline(level, markerDesign),
-    regionMarkerAutoLayoutInline(item, level, markerDesign, content)
+    regionMarkerAutoLayoutInline(layout)
   ].filter(Boolean).join("; ");
   const markerClasses = [
     "zoom-cluster-content",
@@ -29,7 +30,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
-            <em data-rank-level="${escapeHtml(row.rankLevel)}">
+            <em data-rank-level="${escapeHtml(row.rankLevel)}" data-rank-has-label="${row.label ? "true" : "false"}" style="${regionMarkerRankRowStyle(row, layout, level, markerDesign)}">
               ${row.label ? `<b>${escapeHtml(row.label)}</b>` : ""}
               ${row.value ? `<span class="region-marker-rank-value">${escapeHtml(row.value)}</span>` : ""}
             </em>
@@ -185,12 +186,22 @@ function renderRegionMarkerRankRow(value, context, fallbackRow) {
   };
 }
 
-function regionMarkerAutoLayoutInline(item, level, design = activeRegionMarkerDesign(level), content = null) {
-  const layout = regionMarkerAutoLayout(item, level, design, content);
+function regionMarkerAutoLayoutInline(layout) {
   return [
     `--region-marker-outer-width:${layout.outerBoxWidth}px`,
     `--region-marker-rank-box-width:${layout.rankBoxWidth}px`
   ].join(";");
+}
+
+function regionMarkerRankRowStyle(row, layout, level, design = activeRegionMarkerDesign(level)) {
+  const style = activeRegionMarkerStyle(normalizeRegionMarkerLevel(level), design);
+  const baseFontSize = Math.min(regionMarkerRankLabelFontSize(row.rankLevel, style), style.rankValueFontSize);
+  const rowWidth = estimateRegionMarkerRankRowWidth(row, baseFontSize, baseFontSize);
+  const availableWidth = Math.max(1, layout.rankBoxWidth - 12);
+  const nextFontSize = rowWidth > availableWidth
+    ? clampNumber(Math.floor((baseFontSize * availableWidth / rowWidth) * 10) / 10, 5, baseFontSize)
+    : baseFontSize;
+  return `--region-marker-row-font-size:${nextFontSize}px`;
 }
 
 function regionMarkerAutoLayout(item, level, design = activeRegionMarkerDesign(level), content = null) {
@@ -217,14 +228,20 @@ function regionMarkerAutoLayout(item, level, design = activeRegionMarkerDesign(l
 
 function autoRegionMarkerRankBoxWidth(rows, style) {
   const rowWidth = Math.max(0, ...rows.map((row) => {
-    const labelSize = regionMarkerRankLabelFontSize(row.rankLevel, style);
-    const valueSize = style.rankValueFontSize;
-    const labelWidth = estimateRegionMarkerTextWidth(row.label, labelSize);
-    const valueWidth = estimateRegionMarkerTextWidth(row.value, valueSize);
-    const gap = row.label && row.value ? 5 : 0;
-    return labelWidth + valueWidth + gap + 18;
+    return estimateRegionMarkerRankRowWidth(
+      row,
+      regionMarkerRankLabelFontSize(row.rankLevel, style),
+      style.rankValueFontSize
+    ) + 18;
   }));
   return clampNumber(Math.ceil(rowWidth), 62, 128);
+}
+
+function estimateRegionMarkerRankRowWidth(row, labelFontSize, valueFontSize) {
+  const labelWidth = estimateRegionMarkerTextWidth(row.label, labelFontSize);
+  const valueWidth = estimateRegionMarkerTextWidth(row.value, valueFontSize);
+  const gap = row.label && row.value ? 5 : 0;
+  return labelWidth + valueWidth + gap;
 }
 
 function regionMarkerRankLabelFontSize(rankLevel, style) {

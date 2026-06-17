@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260618-auto-rank-size";
+  const version = "20260618-rank-row-align";
   const scripts = [
     "app-prelude",
     "app-state",
