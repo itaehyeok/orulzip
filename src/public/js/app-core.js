@@ -56,8 +56,7 @@ function renderAdminNavigation() {
 
 function renderAdminStatusBar() {
   if (!els.adminStatusBar) return;
-  const adminTabs = new Set(["map", "neighborhood", "apartment", "formula", "terms", "design", "crawl"]);
-  els.adminStatusBar.hidden = !(state.isAdmin && adminTabs.has(state.activeTab));
+  els.adminStatusBar.hidden = !state.isAdmin;
 }
 
 function bindEvents() {
