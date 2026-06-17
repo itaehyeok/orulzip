@@ -2,6 +2,8 @@ const apartmentMarkerDesignStorageKey = "orulzip.apartmentMarkerDesignId";
 const apartmentMarkerDisplayStorageKey = "orulzip.apartmentMarkerDisplay.v2";
 const apartmentMarkerStyleStorageKey = "orulzip.apartmentMarkerStyle.v2";
 const apartmentMarkerStylePresetStorageKey = "orulzip.apartmentMarkerStylePresets.v2";
+const apartmentMarkerModeStorageKey = "orulzip.apartmentMarkerMode.v1";
+const defaultApartmentMarkerMode = "region";
 
 const apartmentMarkerDesignOptions = [
   { id: "white", name: "화이트 데이터칩", className: "rank-chip-white" },
@@ -114,6 +116,26 @@ function readStoredApartmentMarkerStylePresets() {
   } catch {
     return [];
   }
+}
+
+function readStoredApartmentMarkerMode() {
+  try {
+    const stored = window.localStorage.getItem(apartmentMarkerModeStorageKey);
+    return stored === "legacy" ? "legacy" : defaultApartmentMarkerMode;
+  } catch {
+    return defaultApartmentMarkerMode;
+  }
+}
+
+function activeApartmentMarkerMode() {
+  return state.apartmentMarkerMode === "legacy" ? "legacy" : defaultApartmentMarkerMode;
+}
+
+function setApartmentMarkerMode(mode) {
+  state.apartmentMarkerMode = mode === "legacy" ? "legacy" : defaultApartmentMarkerMode;
+  writeApartmentMarkerModeState();
+  syncApartmentMarkerModeControls();
+  rerenderApartmentMarkers();
 }
 
 function activeApartmentMarkerDesign() {
@@ -309,6 +331,14 @@ function writeApartmentMarkerStylePresetState() {
   }
 }
 
+function writeApartmentMarkerModeState() {
+  try {
+    window.localStorage.setItem(apartmentMarkerModeStorageKey, activeApartmentMarkerMode());
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+}
+
 function apartmentMarkerStyleCssVars(design = activeApartmentMarkerDesign()) {
   const style = activeApartmentMarkerStyle(design);
   const rankWidthExtra = typeof markerRankWidthExtra === "function" ? markerRankWidthExtra("apartment") : 0;
@@ -352,6 +382,11 @@ function applyApartmentMarkerStyleToElement(element, design = activeApartmentMar
 
 function bindApartmentMarkerDesignControls() {
   document.addEventListener("click", (event) => {
+    const modeButton = event.target.closest("[data-apartment-marker-mode]");
+    if (modeButton) {
+      setApartmentMarkerMode(modeButton.dataset.apartmentMarkerMode);
+      return;
+    }
     const actionButton = event.target.closest("[data-apartment-marker-style-action]");
     if (actionButton) {
       const action = actionButton.dataset.apartmentMarkerStyleAction;
@@ -412,6 +447,19 @@ function syncApartmentMarkerDesignControls() {
     });
   });
   syncApartmentMarkerStyleEditor();
+  syncApartmentMarkerModeControls();
+}
+
+function syncApartmentMarkerModeControls() {
+  const mode = activeApartmentMarkerMode();
+  document.querySelectorAll("[data-apartment-marker-mode]").forEach((button) => {
+    const isActive = button.dataset.apartmentMarkerMode === mode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  document.querySelectorAll("[data-apartment-marker-mode-label]").forEach((element) => {
+    element.textContent = mode === "legacy" ? "예전 아파트 마커" : "현재 아파트 마커";
+  });
 }
 
 function rerenderApartmentMarkers() {

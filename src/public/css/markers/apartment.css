@@ -325,6 +325,146 @@
   --rank-badge-text: #111827;
 }
 
+.apartment-rank-marker.apartment-marker-region-like {
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  width: var(--apartment-marker-outer-width);
+  min-width: var(--apartment-marker-outer-width);
+  border: 2px solid var(--rank-border);
+  border-radius: 7px;
+  background: var(--rank-bg);
+  box-shadow: 0 14px 26px rgba(16, 24, 40, 0.18);
+  color: var(--rank-text);
+  padding: 8px;
+  text-align: center;
+}
+
+.apartment-rank-marker.apartment-marker-region-like::before {
+  display: none;
+}
+
+.apartment-rank-marker.apartment-marker-region-like.selected {
+  box-shadow: 0 16px 30px rgba(16, 24, 40, 0.28);
+  filter: none;
+  transform: scale(1.04);
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-name-row,
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-area-row,
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rate-row {
+  max-width: calc(var(--apartment-marker-outer-width) - 16px);
+  justify-self: center;
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-name-row {
+  color: var(--rank-muted);
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rate-row {
+  color: var(--rank-text);
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-list {
+  display: grid;
+  box-sizing: border-box;
+  width: min(var(--apartment-marker-rank-box-width), 100%);
+  max-width: 100%;
+  min-width: 0;
+  gap: var(--apartment-marker-rank-row-gap);
+  margin-top: var(--apartment-marker-value-rank-gap);
+  place-items: center;
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-list em {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+  gap: 4px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--apartment-marker-rank-row-height);
+  border: 0;
+  border-radius: 999px;
+  background: var(--rank-badge-bg);
+  color: var(--rank-badge-text);
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-list b {
+  justify-self: start;
+  min-width: 0;
+  overflow: hidden;
+  color: currentColor;
+  font-size: var(--apartment-marker-row-font-size, 7px);
+  font-weight: 950;
+  opacity: 0.78;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-value {
+  display: block;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: currentColor;
+  font-size: var(--apartment-marker-row-font-size, 7px);
+  font-weight: 950;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-list em[data-rank-has-label="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.apartment-rank-marker.apartment-marker-region-like .apartment-marker-rank-list em[data-rank-has-label="false"] .apartment-marker-rank-value {
+  justify-self: center;
+  text-align: center;
+}
+
+.tab-more-control {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.tab-more-control span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.tab-more-control button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.tab-more-control button.active,
+.tab-more-control button[aria-pressed="true"] {
+  border-color: #2939a8;
+  background: #eef2ff;
+  color: #2939a8;
+}
+
 .apartment-marker-style-editor .region-marker-common-badge {
   background: #eef2ff;
   color: #2939a8;

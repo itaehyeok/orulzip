@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260618-rank-row-align">
+    <link rel="stylesheet" href="/styles.css?v=20260618-apartment-region-marker">
   </head>
   <body>
     <main class="app-shell">
@@ -56,6 +56,11 @@
             <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
             <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
             <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
+            <div class="tab-more-control" data-admin-only hidden>
+              <span data-apartment-marker-mode-label>현재 아파트 마커</span>
+              <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
+              <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
+            </div>
           </div>
         </details>
         <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
@@ -959,6 +964,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260618-rank-row-align"></script>
+    <script src="/app.js?v=20260618-apartment-region-marker"></script>
   </body>
 </html>

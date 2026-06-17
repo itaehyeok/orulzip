@@ -8,6 +8,7 @@ async function init() {
   state.apartmentMarkerDisplay = readStoredApartmentMarkerDisplay();
   state.apartmentMarkerStyle = readStoredApartmentMarkerStyle();
   state.apartmentMarkerStylePresets = readStoredApartmentMarkerStylePresets();
+  state.apartmentMarkerMode = readStoredApartmentMarkerMode();
   state.regionMarkerDesignByLevel = readStoredRegionMarkerDesignByLevel();
   state.regionMarkerDisplayByLevel = readStoredRegionMarkerDisplayByLevel();
   state.regionMarkerStyleByLevel = readStoredRegionMarkerStyleByLevel();

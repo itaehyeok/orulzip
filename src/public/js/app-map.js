@@ -852,7 +852,7 @@ function renderZoomApartmentMarker(item) {
     return;
   }
   const design = activeApartmentMarkerDesign();
-  const [width, height] = apartmentMarkerIconSize(design);
+  const [width, height] = apartmentMarkerIconSize(design, item);
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
@@ -907,7 +907,7 @@ function renderNaverZoomGroupMarker(item, level) {
 function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeApartmentMarkerDesign();
-  const [width, height] = apartmentMarkerIconSize(design);
+  const [width, height] = apartmentMarkerIconSize(design, item);
   const baseZIndex = zoomMarkerBaseZIndex("apartment");
   const marker = new window.naver.maps.Marker({
     position,

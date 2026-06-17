@@ -76,6 +76,7 @@ const state = {
   apartmentMarkerDisplay: null,
   apartmentMarkerStyle: null,
   apartmentMarkerStylePresets: null,
+  apartmentMarkerMode: "region",
   selectedApartmentMarkerStylePresetId: "",
   activeLogoDesignId: null,
   activeMapHeaderDesignId: null,
