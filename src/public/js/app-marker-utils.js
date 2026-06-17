@@ -148,6 +148,7 @@ function zoomGroupMarkerTemplateValues(item, level, design = activeRegionMarkerD
     "동명": level === "dong" ? zoomGroupCurrentLabel(item, "dong") : shortZoomLabel(item.dongName || item.name, "dong"),
     "시군구명": level === "sigungu" ? zoomGroupCurrentLabel(item, "sigungu") : sigunguLabel,
     "시도명": level === "sido" ? zoomGroupCurrentLabel(item, "sido") : sidoLabel,
+    "기간": activeMarkerPeriodLabel(),
     "상승률": formatPercent(item.growthRate),
     "시군구내순위": formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
     "시군구내등수": formatMarkerRankNumber(item.sigunguRank),
@@ -163,6 +164,15 @@ function zoomGroupMarkerTemplateValues(item, level, design = activeRegionMarkerD
     "전국상위퍼센트": formatMarkerTopPercent(item.countryRank, item.countryRankTotal)
   };
   return values;
+}
+
+function activeMarkerPeriodLabel() {
+  const months = typeof currentPeriodMonths === "function" ? currentPeriodMonths() : 12;
+  if (months >= 60) return "5년";
+  if (months >= 36) return "3년";
+  if (months >= 12) return "1년";
+  if (months >= 6) return "6개월";
+  return "3개월";
 }
 
 function renderRegionMarkerTemplateText(template, values) {

@@ -82,6 +82,7 @@ function bindEvents() {
     renderAdminNavigation();
   });
   document.querySelector(".deploy-version-copy")?.addEventListener("click", copyDeployVersion);
+  document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -195,8 +196,13 @@ function bindEvents() {
     const isSearchClick = els.mapSearchPanel?.contains(event.target);
     const isRankingClick = els.mapApartmentRanking?.contains(event.target);
     const isTabMoreClick = event.target.closest(".tab-more-menu");
+    const isDeployVersionClick = event.target.closest(".deploy-version-badge");
     if (!isSearchClick && !isRankingClick) hideMapSearchResults();
     if (!isTabMoreClick) closeTabMoreMenus();
+    if (!isDeployVersionClick) closeDeployCommitPopover();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDeployCommitPopover();
   });
 }
 
@@ -232,6 +238,73 @@ function fallbackCopyText(text) {
   input.select();
   document.execCommand("copy");
   input.remove();
+}
+
+function toggleDeployCommitPopover() {
+  const popover = document.querySelector(".deploy-commit-popover");
+  const button = document.querySelector(".deploy-version-commit");
+  if (!popover || !button) return;
+  const willOpen = popover.hidden;
+  if (willOpen) renderDeployCommitList();
+  popover.hidden = !willOpen;
+  button.setAttribute("aria-expanded", String(willOpen));
+}
+
+function closeDeployCommitPopover() {
+  const popover = document.querySelector(".deploy-commit-popover");
+  const button = document.querySelector(".deploy-version-commit");
+  if (!popover || popover.hidden) return;
+  popover.hidden = true;
+  button?.setAttribute("aria-expanded", "false");
+}
+
+function renderDeployCommitList() {
+  const badge = document.querySelector(".deploy-version-badge");
+  const list = document.querySelector(".deploy-commit-list");
+  if (!badge || !list) return;
+  const commits = parseDeployCommitData(badge.dataset.deployCommits);
+  list.innerHTML = commits.length
+    ? commits.map((commit) => `
+      <div class="deploy-commit-item">
+        <span class="deploy-commit-sha">${escapeHtml(commit.sha)}</span>
+        <span class="deploy-commit-subject">${escapeHtml(commit.subject || "-")}</span>
+        <span class="deploy-commit-time">${escapeHtml(relativeCommitTime(commit.committedAt))}</span>
+      </div>
+    `).join("")
+    : `<div class="deploy-commit-empty">커밋 정보 없음</div>`;
+}
+
+function parseDeployCommitData(value) {
+  try {
+    const commits = JSON.parse(value || "[]");
+    if (!Array.isArray(commits)) return [];
+    return commits
+      .map((commit) => ({
+        sha: String(commit?.sha || "").slice(0, 7),
+        subject: String(commit?.subject || ""),
+        committedAt: String(commit?.committedAt || "")
+      }))
+      .filter((commit) => commit.sha)
+      .slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+function relativeCommitTime(value) {
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "-";
+  const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (seconds < 60) return "방금 전";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}개월 전`;
+  return `${Math.floor(months / 12)}년 전`;
 }
 
 function closeTabMoreMenus() {

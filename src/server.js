@@ -72,6 +72,7 @@ const adminCookieSecure = process.env.ORULZIP_ADMIN_COOKIE_SECURE === "1";
 const deployedAtKst = process.env.ORULZIP_DEPLOYED_AT_KST || "local";
 const deployCommitSha = normalizeCommitSha(process.env.ORULZIP_COMMIT_SHA) || readLocalCommitSha() || "unknown";
 const deployVersionText = `v ${deployedAtKst} · ${deployCommitSha}`;
+const recentDeployCommits = parseRecentCommitJson(process.env.ORULZIP_RECENT_COMMITS_JSON) || readLocalRecentCommits();
 const routeSeo = new Map([
   ["/", {
     title: "오를집 - 아파트 실거래가 상승률 지도",
@@ -1032,7 +1033,10 @@ function injectRouteSeo(html, routePath) {
 function injectDeployVersion(html) {
   return html
     .replaceAll("__ORULZIP_DEPLOY_VERSION__", escapeHtml(deployVersionText))
-    .replaceAll("__ORULZIP_DEPLOY_COPY_TEXT__", escapeAttribute(deployVersionText));
+    .replaceAll("__ORULZIP_DEPLOYED_AT__", escapeHtml(`v ${deployedAtKst}`))
+    .replaceAll("__ORULZIP_DEPLOY_COMMIT__", escapeHtml(deployCommitSha))
+    .replaceAll("__ORULZIP_DEPLOY_COPY_TEXT__", escapeAttribute(deployVersionText))
+    .replaceAll("__ORULZIP_RECENT_COMMITS__", escapeAttribute(JSON.stringify(recentDeployCommits)));
 }
 
 function absoluteUrl(pathname) {
@@ -1054,6 +1058,44 @@ function readLocalCommitSha() {
   } catch {
     return "";
   }
+}
+
+function parseRecentCommitJson(value) {
+  try {
+    const commits = JSON.parse(String(value || ""));
+    if (!Array.isArray(commits)) return null;
+    return sanitizeRecentCommits(commits);
+  } catch {
+    return null;
+  }
+}
+
+function readLocalRecentCommits() {
+  try {
+    const output = execFileSync("git", ["log", "-5", "--pretty=format:%h%x09%cI%x09%s"], {
+      cwd: __dirname,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    const commits = output.split("\n").filter(Boolean).map((line) => {
+      const [sha, committedAt, ...subjectParts] = line.split("\t");
+      return { sha, committedAt, subject: subjectParts.join("\t") };
+    });
+    return sanitizeRecentCommits(commits);
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeRecentCommits(commits) {
+  return commits
+    .map((commit) => ({
+      sha: normalizeCommitSha(commit?.sha),
+      committedAt: String(commit?.committedAt || ""),
+      subject: String(commit?.subject || "").slice(0, 120)
+    }))
+    .filter((commit) => commit.sha)
+    .slice(0, 5);
 }
 
 function escapeHtml(value) {

@@ -920,6 +920,23 @@ input {
   user-select: text;
 }
 
+.deploy-version-commit {
+  border: 0;
+  background: transparent;
+  color: #2367d1;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+  line-height: 1;
+  padding: 0;
+}
+
+.deploy-version-commit:hover,
+.deploy-version-commit:focus-visible {
+  text-decoration: underline;
+  outline: 0;
+}
+
 .deploy-version-copy {
   display: inline-flex;
   align-items: center;
@@ -954,4 +971,71 @@ input {
 .deploy-version-badge.copied .deploy-version-copy {
   border-color: rgba(22, 128, 95, 0.38);
   color: #16805f;
+}
+
+.deploy-commit-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  width: min(420px, calc(100vw - 24px));
+  gap: 8px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.18);
+  color: #1d2939;
+  padding: 10px;
+}
+
+.deploy-commit-popover > strong {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.deploy-commit-list {
+  display: grid;
+  gap: 6px;
+}
+
+.deploy-commit-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 7px 8px;
+}
+
+.deploy-commit-sha {
+  color: #2367d1;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.deploy-commit-subject {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deploy-commit-time {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.deploy-commit-empty {
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 9px;
 }

@@ -77,6 +77,7 @@ git checkout -B "$DEPLOY_BRANCH" "refs/remotes/origin/$DEPLOY_BRANCH"
 git reset --hard "refs/remotes/origin/$DEPLOY_BRANCH"
 export ORULZIP_COMMIT_SHA="$(git rev-parse --short=7 HEAD)"
 export ORULZIP_DEPLOYED_AT_KST="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')"
+export ORULZIP_RECENT_COMMITS_JSON="$(git log -5 --pretty=format:'%h%x09%cI%x09%s' | node -e 'const fs = require("fs"); const rows = fs.readFileSync(0, "utf8").split(/\n/).filter(Boolean).map((line) => { const [sha, committedAt, ...subjectParts] = line.split("\t"); return { sha, committedAt, subject: subjectParts.join("\t") }; }); process.stdout.write(JSON.stringify(rows));')"
 log "deploy version: $ORULZIP_DEPLOYED_AT_KST $ORULZIP_COMMIT_SHA"
 
 if [ -n "$DOCKER_NETWORK_NAME" ]; then
