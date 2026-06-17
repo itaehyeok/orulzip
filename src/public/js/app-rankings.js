@@ -99,7 +99,7 @@ function renderNeighborhoodTable(result) {
         <td>${formatMoney(row.startPyeongPrice)}</td>
         <td>${formatMoney(row.endPyeongPrice)}</td>
         <td class="${row.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(row.growthAmount)}</td>
-        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
+        <td>${renderGrowthRateText(row.growthRate, row.rank, result.rows.length)}</td>
       </tr>
     `).join("")
     : `<tr><td colspan="7" class="empty">표시할 동네 데이터가 없습니다.</td></tr>`;
@@ -132,7 +132,7 @@ function renderApartmentTable(result) {
         <td>${formatMoney(row.averagePyeongPrice)}</td>
         <td>${formatMoney(row.endPyeongPrice)}</td>
         <td>${formatInt(row.observedMonthCount)}개월</td>
-        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
+        <td>${renderGrowthRateText(row.growthRate)}</td>
       </tr>
     ` : `
       <tr class="clickable-row" data-apartment-id="${escapeHtml(row.apartmentId)}">
@@ -143,7 +143,7 @@ function renderApartmentTable(result) {
         <td>${formatMoney(row.startPyeongPrice)}</td>
         <td>${formatMoney(row.endPyeongPrice)}</td>
         <td class="${row.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(row.growthAmount)}</td>
-        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
+        <td>${renderGrowthRateText(row.growthRate, row.rank, pagination.totalRows)}</td>
       </tr>
     `).join("")
     : `<tr><td colspan="8" class="empty">표시할 아파트 데이터가 없습니다.</td></tr>`;

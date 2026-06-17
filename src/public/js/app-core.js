@@ -14,10 +14,12 @@ async function init() {
   state.regionMarkerStylePresets = readStoredRegionMarkerStylePresets();
   state.activeLogoDesignId = readStoredLogoDesignId();
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
+  state.activeGrowthRateColorDesignId = readStoredGrowthRateColorDesignId();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   state.activeTransitionDesignId = readStoredTransitionDesignId();
   applyMarkerLineGap();
   applyMapHeaderDesign();
+  applyGrowthRateColorDesign();
   setActiveTab(tabFromLocation());
   renderApartmentMarkerStyleEditor();
   renderRegionMarkerStyleEditor();
@@ -54,7 +56,7 @@ function renderAdminNavigation() {
 
 function renderAdminStatusBar() {
   if (!els.adminStatusBar) return;
-  const adminTabs = new Set(["map", "formula", "terms", "design", "crawl"]);
+  const adminTabs = new Set(["map", "neighborhood", "apartment", "formula", "terms", "design", "crawl"]);
   els.adminStatusBar.hidden = !(state.isAdmin && adminTabs.has(state.activeTab));
 }
 
@@ -110,6 +112,11 @@ function bindEvents() {
     const card = event.target.closest("[data-pyeong-graph-design-id]");
     if (!card) return;
     setActivePyeongGraphDesign(card.dataset.pyeongGraphDesignId);
+  });
+  els.growthRateColorDesignGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-growth-rate-color-design-id]");
+    if (!card) return;
+    setActiveGrowthRateColorDesign(card.dataset.growthRateColorDesignId);
   });
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
   document.addEventListener("change", handleMarkerRankDisplayOptionChange);

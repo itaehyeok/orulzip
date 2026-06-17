@@ -74,6 +74,36 @@ function formatPercent(value) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+function growthRankPercentile(rank, total) {
+  const rankNumber = Number(rank);
+  const totalNumber = Number(total);
+  if (!Number.isFinite(rankNumber) || !Number.isFinite(totalNumber) || totalNumber <= 0) return null;
+  return (rankNumber / totalNumber) * 100;
+}
+
+function growthRateTone(rate, rank = null, total = null) {
+  const number = Number(rate);
+  if (!Number.isFinite(number)) return "growth-rate-no-data";
+  if (number < 0) return "growth-rate-negative";
+  if (number === 0) return "growth-rate-neutral";
+
+  const percentile = growthRankPercentile(rank, total);
+  if (percentile !== null) {
+    if (percentile <= 1) return "growth-rate-top-1";
+    if (percentile <= 5) return "growth-rate-top-2";
+    if (percentile <= 15) return "growth-rate-top-3";
+  }
+  return "growth-rate-positive";
+}
+
+function growthRateToneClass(rate, rank = null, total = null) {
+  return `growth-rate-tone ${growthRateTone(rate, rank, total)}`;
+}
+
+function renderGrowthRateText(rate, rank = null, total = null) {
+  return `<span class="${growthRateToneClass(rate, rank, total)}">${formatPercent(rate)}</span>`;
+}
+
 function formatPercentValue(value) {
   if (!Number.isFinite(value)) return "-";
   return `${(value * 100).toFixed(2)}%`;

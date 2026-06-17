@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260617-deploy-version-test">
+    <link rel="stylesheet" href="/styles.css?v=20260617-growth-rate-rank-colors">
   </head>
   <body>
     <main class="app-shell">
@@ -51,8 +51,8 @@
         <details class="tab-more-menu">
           <summary>더보기</summary>
           <div class="tab-more-list">
-            <a data-tab="neighborhood" href="/neighborhood">동네별</a>
-            <a data-tab="apartment" href="/apartments">아파트별</a>
+            <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
+            <a data-tab="apartment" data-admin-only href="/apartments" hidden>아파트별</a>
             <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
             <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
             <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
@@ -388,6 +388,14 @@
       </section>
 
       <section id="designView" class="view">
+        <section class="panel design-panel growth-rate-color-panel">
+          <div class="panel-head">
+            <h2>상승률 색상 시안</h2>
+            <span id="growthRateColorSelected">대기 중</span>
+          </div>
+          <div id="growthRateColorDesignGrid" class="growth-rate-color-grid"></div>
+        </section>
+
         <section class="panel design-panel apartment-marker-concept-panel" data-apartment-marker-panel>
           <div class="panel-head">
             <h2>아파트 데이터칩 마커 시안</h2>
@@ -942,6 +950,6 @@
     </main>
     <div class="deploy-version-badge" aria-label="배포 테스트 버전">v 2026-06-17 11:12 KST</div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260617-marker-rank-preview-sync"></script>
+    <script src="/app.js?v=20260617-growth-rate-rank-colors"></script>
   </body>
 </html>

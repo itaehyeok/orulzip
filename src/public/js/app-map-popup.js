@@ -181,7 +181,7 @@ function renderMapPopupPyeongGrowth(series, latestMonth) {
       return `<em class="no-data">${years}년 없음</em>`;
     }
     const growthRate = (latest - start) / start;
-    return `<em class="${growthRate >= 0 ? "positive" : "negative"}">${years}년 ${formatPercent(growthRate)}</em>`;
+    return `<em>${years}년 ${renderGrowthRateText(growthRate)}</em>`;
   }).join("");
   els.mapPopupPyeongGrowth.innerHTML = `
     <span>평당 상승률</span>
@@ -268,12 +268,11 @@ function renderMapPopupChangeRow(item, latest, latestMonth, years) {
   }
   const growthAmount = latest.saleMid - start.saleMid;
   const growthRate = start.saleMid ? growthAmount / start.saleMid : null;
-  const directionClass = growthAmount >= 0 ? "positive" : "negative";
   return `
     <div class="map-popup-change-row">
       <span>${years}년전</span>
       <strong>${formatKoreanPrice(start.saleMid)} → ${formatKoreanPrice(latest.saleMid)}</strong>
-      <em class="${directionClass}">${formatPercent(growthRate)}</em>
+      <em>${renderGrowthRateText(growthRate)}</em>
     </div>
   `;
 }

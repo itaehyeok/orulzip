@@ -447,19 +447,39 @@
   outline: 0;
 }
 
-.map-ranking-rate.positive {
-  background: #e9f7f1;
-  color: #087443;
+.map-ranking-rate {
+  background: var(--growth-rate-neutral-bg);
+  color: var(--growth-rate-neutral);
 }
 
-.map-ranking-rate.negative {
-  background: #e8f0ff;
-  color: var(--blue);
+.map-ranking-rate.growth-rate-top-1 {
+  background: var(--growth-rate-top-1-bg);
+  color: var(--growth-rate-top-1);
 }
 
-.map-ranking-rate.no-data {
+.map-ranking-rate.growth-rate-top-2 {
+  background: var(--growth-rate-top-2-bg);
+  color: var(--growth-rate-top-2);
+}
+
+.map-ranking-rate.growth-rate-top-3 {
+  background: var(--growth-rate-top-3-bg);
+  color: var(--growth-rate-top-3);
+}
+
+.map-ranking-rate.growth-rate-positive {
+  background: var(--growth-rate-positive-bg);
+  color: var(--growth-rate-positive);
+}
+
+.map-ranking-rate.growth-rate-negative {
+  background: var(--growth-rate-negative-bg);
+  color: var(--growth-rate-negative);
+}
+
+.map-ranking-rate.growth-rate-no-data {
   background: #f2f4f7;
-  color: var(--muted);
+  color: var(--growth-rate-no-data);
   font-size: 11px;
 }
 

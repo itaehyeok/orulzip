@@ -204,6 +204,133 @@ function setActiveMapHeaderDesign(id) {
   renderMapHeaderDesignGallery();
 }
 
+const growthRateColorDesignStorageKey = "orulzip.growthRateColorDesignId";
+const growthRateColorDesignVariants = [
+  {
+    id: "signal",
+    name: "01 시그널",
+    note: "상위권을 빨강-주황-녹색으로 빠르게 구분",
+    top1: "#b42318",
+    top2: "#c24132",
+    top3: "#d97706",
+    positive: "#16805f",
+    negative: "#2367d1",
+    neutral: "#667085",
+    noData: "#98a2b3"
+  },
+  {
+    id: "premium",
+    name: "02 프리미엄",
+    note: "고상승 구간을 와인/골드/딥그린으로 절제",
+    top1: "#9f1239",
+    top2: "#b45309",
+    top3: "#0f766e",
+    positive: "#047857",
+    negative: "#2563eb",
+    neutral: "#667085",
+    noData: "#98a2b3"
+  },
+  {
+    id: "ranking",
+    name: "03 랭킹 집중",
+    note: "최상위만 강하게, 2-3단계는 차분하게 표시",
+    top1: "#dc2626",
+    top2: "#ea580c",
+    top3: "#ca8a04",
+    positive: "#475467",
+    negative: "#2563eb",
+    neutral: "#667085",
+    noData: "#98a2b3"
+  },
+  {
+    id: "minimal",
+    name: "04 미니멀",
+    note: "지도와 테이블을 덜 흔드는 낮은 채도의 색상",
+    top1: "#7f1d1d",
+    top2: "#92400e",
+    top3: "#166534",
+    positive: "#475467",
+    negative: "#1d4ed8",
+    neutral: "#667085",
+    noData: "#98a2b3"
+  }
+];
+const growthRateColorDesignVariantMap = new Map(growthRateColorDesignVariants.map((item) => [item.id, item]));
+const defaultGrowthRateColorDesignId = "signal";
+
+function activeGrowthRateColorDesign() {
+  return growthRateColorDesignVariantMap.get(state.activeGrowthRateColorDesignId)
+    || growthRateColorDesignVariantMap.get(defaultGrowthRateColorDesignId)
+    || growthRateColorDesignVariants[0];
+}
+
+function readStoredGrowthRateColorDesignId() {
+  try {
+    const stored = window.localStorage.getItem(growthRateColorDesignStorageKey);
+    return growthRateColorDesignVariantMap.has(stored) ? stored : defaultGrowthRateColorDesignId;
+  } catch {
+    return defaultGrowthRateColorDesignId;
+  }
+}
+
+function setActiveGrowthRateColorDesign(id) {
+  if (!growthRateColorDesignVariantMap.has(id)) return;
+  state.activeGrowthRateColorDesignId = id;
+  try {
+    window.localStorage.setItem(growthRateColorDesignStorageKey, id);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  applyGrowthRateColorDesign();
+  renderGrowthRateColorDesignGallery();
+}
+
+function applyGrowthRateColorDesign() {
+  const design = activeGrowthRateColorDesign();
+  const root = document.documentElement;
+  root.style.setProperty("--growth-rate-top-1", design.top1);
+  root.style.setProperty("--growth-rate-top-2", design.top2);
+  root.style.setProperty("--growth-rate-top-3", design.top3);
+  root.style.setProperty("--growth-rate-positive", design.positive);
+  root.style.setProperty("--growth-rate-negative", design.negative);
+  root.style.setProperty("--growth-rate-neutral", design.neutral);
+  root.style.setProperty("--growth-rate-no-data", design.noData);
+  root.style.setProperty("--growth-rate-top-1-bg", alphaHex(design.top1, 0.12));
+  root.style.setProperty("--growth-rate-top-2-bg", alphaHex(design.top2, 0.1));
+  root.style.setProperty("--growth-rate-top-3-bg", alphaHex(design.top3, 0.12));
+  root.style.setProperty("--growth-rate-positive-bg", alphaHex(design.positive, 0.1));
+  root.style.setProperty("--growth-rate-negative-bg", alphaHex(design.negative, 0.1));
+  root.style.setProperty("--growth-rate-neutral-bg", alphaHex(design.neutral, 0.1));
+}
+
+function growthRateColorPreviewStyle(design) {
+  return [
+    `--growth-rate-top-1:${design.top1}`,
+    `--growth-rate-top-2:${design.top2}`,
+    `--growth-rate-top-3:${design.top3}`,
+    `--growth-rate-positive:${design.positive}`,
+    `--growth-rate-negative:${design.negative}`,
+    `--growth-rate-neutral:${design.neutral}`,
+    `--growth-rate-no-data:${design.noData}`,
+    `--growth-rate-top-1-bg:${alphaHex(design.top1, 0.12)}`,
+    `--growth-rate-top-2-bg:${alphaHex(design.top2, 0.1)}`,
+    `--growth-rate-top-3-bg:${alphaHex(design.top3, 0.12)}`,
+    `--growth-rate-positive-bg:${alphaHex(design.positive, 0.1)}`,
+    `--growth-rate-negative-bg:${alphaHex(design.negative, 0.1)}`,
+    `--growth-rate-neutral-bg:${alphaHex(design.neutral, 0.1)}`
+  ].join(";");
+}
+
+function alphaHex(hex, alpha) {
+  const normalized = String(hex || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return `rgba(102, 112, 133, ${alpha})`;
+  const value = Number.parseInt(normalized, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 function applyMapHeaderDesign() {
   const design = activeMapHeaderDesign();
   const root = document.documentElement;
@@ -382,9 +509,46 @@ function readStoredTransitionDesignId() {
 }
 
 function renderDesignTab() {
+  renderGrowthRateColorDesignGallery();
   syncApartmentMarkerDesignControls();
   syncRegionMarkerDesignControls();
   syncMarkerRankDisplayOptionControls();
+}
+
+function renderGrowthRateColorDesignGallery() {
+  if (!els.growthRateColorDesignGrid) return;
+  const active = activeGrowthRateColorDesign();
+  if (els.growthRateColorSelected) {
+    els.growthRateColorSelected.textContent = `${active.name} / ${growthRateColorDesignVariants.length}개`;
+  }
+  const samples = [
+    { scope: "상위 1%", name: "반포동", rate: 0.184, rank: 1, total: 200 },
+    { scope: "상위 5%", name: "서초구", rate: 0.122, rank: 8, total: 220 },
+    { scope: "상위 15%", name: "서울", rate: 0.074, rank: 32, total: 260 },
+    { scope: "양수", name: "송파동", rate: 0.031, rank: 68, total: 260 },
+    { scope: "하락", name: "가락동", rate: -0.018, rank: 210, total: 260 }
+  ];
+  els.growthRateColorDesignGrid.innerHTML = growthRateColorDesignVariants.map((design, index) => {
+    const isActive = design.id === active.id;
+    return `
+      <button class="growth-rate-color-card ${isActive ? "active" : ""}" type="button" data-growth-rate-color-design-id="${escapeHtml(design.id)}" aria-pressed="${isActive}" style="${growthRateColorPreviewStyle(design)}">
+        <span class="graph-design-card-head">
+          <strong>${escapeHtml(design.name)}</strong>
+          <em>${isActive ? "선택됨" : `${String(index + 1).padStart(2, "0")}/${growthRateColorDesignVariants.length}`}</em>
+        </span>
+        <span class="growth-rate-color-preview">
+          ${samples.map((sample) => `
+            <span class="growth-rate-color-row">
+              <span>${escapeHtml(sample.scope)}</span>
+              <strong>${escapeHtml(sample.name)}</strong>
+              <em class="${growthRateToneClass(sample.rate, sample.rank, sample.total)}">${formatPercent(sample.rate)}</em>
+            </span>
+          `).join("")}
+        </span>
+        <span class="growth-rate-color-note">${escapeHtml(design.note)}</span>
+      </button>
+    `;
+  }).join("");
 }
 
 function renderGraphDesignGallery() {

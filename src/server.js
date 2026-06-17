@@ -44,11 +44,15 @@ const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
-const protectedAppRoutes = new Set(["/kb-map", "/formula", "/terms", "/design", "/crawl"]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl"]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
   "/api/sync",
+  "/api/neighborhood-rankings",
+  "/api/neighborhood-chart",
+  "/api/apartment-rankings",
+  "/api/apartment-detail",
   "/api/formula-analysis",
   "/api/molit/status",
   "/api/molit/coordinate-audit",

@@ -4,7 +4,8 @@
 
 .map-header-design-grid,
 .logo-design-grid,
-.graph-design-grid {
+.graph-design-grid,
+.growth-rate-color-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
@@ -13,7 +14,8 @@
 
 .map-header-design-card,
 .logo-design-card,
-.graph-design-card {
+.graph-design-card,
+.growth-rate-color-card {
   display: grid;
   gap: 10px;
   min-width: 0;
@@ -30,7 +32,8 @@
 
 .map-header-design-card:hover,
 .logo-design-card:hover,
-.graph-design-card:hover {
+.graph-design-card:hover,
+.growth-rate-color-card:hover {
   border-color: #9db7ea;
   box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
   transform: translateY(-1px);
@@ -38,7 +41,8 @@
 
 .map-header-design-card.active,
 .logo-design-card.active,
-.graph-design-card.active {
+.graph-design-card.active,
+.growth-rate-color-card.active {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(35, 103, 209, 0.12);
 }
@@ -74,6 +78,70 @@
 .graph-design-card.active .graph-design-card-head em {
   background: #e8f0ff;
   color: var(--blue);
+}
+
+.growth-rate-color-preview {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px;
+}
+
+.growth-rate-color-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 68px;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.growth-rate-color-row strong {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-rate-color-row em {
+  justify-self: end;
+  border-radius: 999px;
+  background: var(--growth-rate-neutral-bg);
+  font-style: normal;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.growth-rate-color-row em.growth-rate-top-1 {
+  background: var(--growth-rate-top-1-bg);
+}
+
+.growth-rate-color-row em.growth-rate-top-2 {
+  background: var(--growth-rate-top-2-bg);
+}
+
+.growth-rate-color-row em.growth-rate-top-3 {
+  background: var(--growth-rate-top-3-bg);
+}
+
+.growth-rate-color-row em.growth-rate-positive {
+  background: var(--growth-rate-positive-bg);
+}
+
+.growth-rate-color-row em.growth-rate-negative {
+  background: var(--growth-rate-negative-bg);
+}
+
+.growth-rate-color-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .map-header-design-preview {

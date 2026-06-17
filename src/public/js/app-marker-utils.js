@@ -3,7 +3,7 @@ function zoomGroupPopup(item) {
     <strong>${escapeHtml(item.name)}</strong><br>
     아파트 ${formatInt(item.apartmentCount)}개 / 면적 ${formatInt(item.areaCount)}개<br>
     평균 상승액 ${formatMoney(item.growthAmount)}<br>
-    평균 상승률 ${formatPercent(item.growthRate)}
+    평균 상승률 ${renderGrowthRateText(item.growthRate, item.countryRank, item.countryRankTotal)}
   `;
 }
 
@@ -66,7 +66,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   return `
     <span class="${markerClasses}" style="${markerStyle}">
       <small>${escapeHtml(zoomGroupCurrentLabel(item, level))}</small>
-      <strong>${formatPercent(item.growthRate)}</strong>
+      <strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${formatPercent(item.growthRate)}</strong>
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
@@ -206,6 +206,13 @@ function zoomMarkerAnchor(level = "", design = activeRegionMarkerDesign(level)) 
   return [width / 2, height / 2];
 }
 
+function zoomGroupToneRank(item, level = "") {
+  if (level === "sido") return [item.countryRank, item.countryRankTotal];
+  if (level === "sigungu") return [item.sidoRank, item.sidoRankTotal];
+  if (level === "dong") return [item.sigunguRank, item.sigunguRankTotal];
+  return [item.countryRank, item.countryRankTotal];
+}
+
 function growthColor(rate) {
   if (!Number.isFinite(rate)) return "#667085";
   if (rate >= 1) return "#b42318";
@@ -219,7 +226,6 @@ function sortableRate(rate) {
   return Number.isFinite(rate) ? Number(rate) : -Infinity;
 }
 
-function rateClass(rate) {
-  if (!Number.isFinite(rate)) return "no-data";
-  return rate >= 0 ? "positive" : "negative";
+function rateClass(rate, rank = null, total = null) {
+  return growthRateToneClass(rate, rank, total);
 }

@@ -541,7 +541,7 @@ function renderMapApartmentRanking(level, items) {
           <em>${escapeHtml(item.neighborhoodName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
         </span>
         <span class="map-ranking-actions">
-          <span class="map-ranking-rate ${rateClass(item.growthRate)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+          <span class="map-ranking-rate ${rateClass(item.growthRate, index + 1, rows.length)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
           <button class="map-ranking-detail-btn" type="button" data-apartment-detail-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 상세 보기">상세</button>
         </span>
       </div>
@@ -955,7 +955,7 @@ function apartmentMarkerHtml(item, design = activeApartmentMarkerDesign()) {
   const detailRows = [
     display.name && name ? `<small class="apartment-marker-name-row" data-apartment-marker-info="name">${escapeHtml(name)}</small>` : "",
     display.area && area ? `<small class="apartment-marker-area-row" data-apartment-marker-info="area">${escapeHtml(area)}</small>` : "",
-    display.rate ? `<strong class="apartment-marker-rate-row" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
+    display.rate ? `<strong class="apartment-marker-rate-row ${growthRateToneClass(item.growthRate, item.countryRank, item.countryRankTotal)}" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
   ].filter(Boolean).join("");
   return `
     <div class="apartment-map-marker apartment-rank-marker ${escapeHtml(design.className)} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-apartment-marker-border="${style.borderEnabled ? "on" : "off"}" data-apartment-marker-shadow="${style.shadowEnabled ? "on" : "off"}" style="--marker-color:${growthColor(item.growthRate)}; ${apartmentMarkerStyleInline(design)}">
@@ -1068,7 +1068,7 @@ function apartmentHoverHtml(item) {
   return `
     <strong>${escapeHtml(item.name)}</strong><br>
     ${escapeHtml(apartmentRegionPath(item) || "-")}<br>
-    상승률 ${hasData ? formatPercent(item.growthRate) : "데이터없음"}
+    상승률 ${hasData ? renderGrowthRateText(item.growthRate, item.countryRank, item.countryRankTotal) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
     ${rankHtml}
   `;
 }
