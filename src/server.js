@@ -147,7 +147,7 @@ const server = createServer(async (req, res) => {
       return json(res, { authenticated: isAdmin });
     }
 
-    if (url.pathname === "/admin-logout") {
+    if (url.pathname === "/admin-logout" || url.pathname === "/logout") {
       res.writeHead(302, {
         "Set-Cookie": clearAdminCookie(),
         Location: "/map"
@@ -156,7 +156,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname === "/admin-login") {
+    if (url.pathname === "/admin-login" || url.pathname === "/login") {
       if (req.method === "POST") {
         const body = await readFormBody(req);
         const nextPath = safeNextPath(body.next || url.searchParams.get("next") || "/map");
@@ -185,7 +185,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (protectedAppRoutes.has(normalizedPath) && !isAdmin) {
-      res.writeHead(302, { Location: `/admin-login?next=${encodeURIComponent(normalizedPath)}` });
+      res.writeHead(302, { Location: `/login?next=${encodeURIComponent(normalizedPath)}` });
       res.end();
       return;
     }
@@ -1134,7 +1134,7 @@ function renderAdminLoginPage({ nextPath = "/map", error = "" } = {}) {
   </head>
   <body>
     <main>
-      <form method="post" action="/admin-login">
+      <form method="post" action="/login">
         <div>
           <h1>관리자 로그인</h1>
           <p>오를집 내부 관리 화면에 접근하려면 로그인하세요.</p>

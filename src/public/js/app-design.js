@@ -545,10 +545,87 @@ function renderGrowthRateColorDesignGallery() {
             </span>
           `).join("")}
         </span>
+        ${growthRateMapPreviewHtml(design)}
         <span class="growth-rate-color-note">${escapeHtml(design.note)}</span>
       </button>
     `;
   }).join("");
+}
+
+function growthRateMapPreviewHtml(design) {
+  const markerSamples = [
+    {
+      level: "sido",
+      label: "서울",
+      sub: "전국 1/17",
+      rate: 0.145,
+      rank: 1,
+      total: 17,
+      x: 58,
+      y: 24
+    },
+    {
+      level: "sigungu",
+      label: "서초구",
+      sub: "서울 2/25",
+      rate: 0.098,
+      rank: 2,
+      total: 25,
+      x: 28,
+      y: 54
+    },
+    {
+      level: "dong",
+      label: "반포동",
+      sub: "서초 6/18",
+      rate: 0.061,
+      rank: 6,
+      total: 18,
+      x: 70,
+      y: 58
+    },
+    {
+      level: "apartment",
+      label: "아크로리버파크",
+      sub: "전국 43/8,136",
+      rate: -0.014,
+      rank: 220,
+      total: 8136,
+      x: 43,
+      y: 78
+    }
+  ];
+  return `
+    <span class="growth-rate-map-preview" style="${growthRateColorPreviewStyle(design)}">
+      <span class="growth-rate-map-preview-top">
+        <span>오를집</span>
+        <span>동 또는 아파트</span>
+      </span>
+      <span class="growth-rate-map-preview-tabs">
+        <span class="active">지도</span>
+        <span>가격대별</span>
+        <span>디자인</span>
+      </span>
+      <span class="growth-rate-map-preview-period">
+        <span>3개월전 기준</span>
+        <span class="active">1년전 기준</span>
+        <span>5년전 기준</span>
+      </span>
+      <span class="growth-rate-map-preview-canvas">
+        <span class="growth-rate-map-preview-road road-a"></span>
+        <span class="growth-rate-map-preview-road road-b"></span>
+        <span class="growth-rate-map-preview-river"></span>
+        ${markerSamples.map((marker) => `
+          <span class="growth-rate-map-marker ${escapeHtml(marker.level)}" style="left:${marker.x}%;top:${marker.y}%;">
+            <span>${escapeHtml(marker.label)}</span>
+            <strong class="${growthRateToneClass(marker.rate, marker.rank, marker.total)}">${formatPercent(marker.rate)}</strong>
+            <em>${escapeHtml(marker.sub)}</em>
+          </span>
+        `).join("")}
+      </span>
+      <span class="growth-rate-map-preview-caption">지도 화면 안에서 시도, 시군구, 동, 아파트 마커의 상승률 색상 적용</span>
+    </span>
+  `;
 }
 
 function renderGraphDesignGallery() {

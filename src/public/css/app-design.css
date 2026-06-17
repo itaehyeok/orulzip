@@ -144,6 +144,214 @@
   line-height: 1.45;
 }
 
+.growth-rate-map-preview {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.growth-rate-map-preview-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.growth-rate-map-preview-top span:first-child {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.growth-rate-map-preview-top span:last-child {
+  overflow: hidden;
+  height: 28px;
+  border: 1px solid #e4e9f1;
+  border-radius: 7px;
+  background: #f9fafb;
+  color: #98a2b3;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 26px;
+  padding: 0 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-rate-map-preview-tabs,
+.growth-rate-map-preview-period {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+  padding: 7px 8px;
+  background: #f8fafc;
+}
+
+.growth-rate-map-preview-tabs span,
+.growth-rate-map-preview-period span {
+  flex: 0 0 auto;
+  height: 24px;
+  border: 1px solid #e4e9f1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #475467;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 22px;
+  padding: 0 8px;
+}
+
+.growth-rate-map-preview-tabs span.active,
+.growth-rate-map-preview-period span.active {
+  border-color: #9db7ea;
+  background: #eef4ff;
+  color: var(--blue);
+}
+
+.growth-rate-map-preview-period {
+  padding-top: 0;
+}
+
+.growth-rate-map-preview-canvas {
+  position: relative;
+  display: block;
+  height: 230px;
+  border-top: 1px solid #edf1f7;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    #e8eef3;
+}
+
+.growth-rate-map-preview-road,
+.growth-rate-map-preview-river {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.growth-rate-map-preview-river {
+  right: -16%;
+  bottom: -18%;
+  width: 60%;
+  height: 58%;
+  border-radius: 999px 0 0 0;
+  background: #cfe3f1;
+  transform: rotate(-11deg);
+}
+
+.growth-rate-map-preview-road {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(196, 206, 220, 0.55);
+}
+
+.growth-rate-map-preview-road.road-a {
+  top: 36%;
+  left: -12%;
+  width: 78%;
+  transform: rotate(-18deg);
+}
+
+.growth-rate-map-preview-road.road-b {
+  right: -10%;
+  bottom: 30%;
+  width: 82%;
+  transform: rotate(14deg);
+}
+
+.growth-rate-map-marker {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  min-width: 72px;
+  max-width: 132px;
+  gap: 2px;
+  border: 1px solid rgba(16, 24, 40, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.16);
+  padding: 7px 9px;
+  transform: translate(-50%, -50%);
+}
+
+.growth-rate-map-marker::after {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgba(16, 24, 40, 0.1);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.growth-rate-map-marker.sido {
+  min-width: 86px;
+  border-color: rgba(35, 103, 209, 0.22);
+}
+
+.growth-rate-map-marker.sigungu {
+  min-width: 92px;
+}
+
+.growth-rate-map-marker.dong {
+  min-width: 86px;
+}
+
+.growth-rate-map-marker.apartment {
+  min-width: 118px;
+}
+
+.growth-rate-map-marker span,
+.growth-rate-map-marker strong,
+.growth-rate-map-marker em {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.growth-rate-map-marker span {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 11px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-rate-map-marker strong {
+  font-size: 15px;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.growth-rate-map-marker em {
+  overflow: hidden;
+  color: #667085;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-rate-map-preview-caption {
+  display: block;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.35;
+  padding: 8px 10px 10px;
+}
+
 .map-header-design-preview {
   display: grid;
   overflow: hidden;
