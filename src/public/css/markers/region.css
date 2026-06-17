@@ -134,10 +134,6 @@
   padding: 10px;
 }
 
-.region-marker-template-group {
-  background: #fbfcff;
-}
-
 .region-marker-style-group legend {
   color: #1d2939;
   font-size: 12px;
@@ -150,66 +146,7 @@
   gap: 8px;
 }
 
-.region-marker-template-fields {
-  display: grid;
-  gap: 8px;
-}
-
-.region-marker-template-field {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-}
-
-.region-marker-template-field span {
-  color: #475467;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.region-marker-template-field input {
-  min-width: 0;
-  height: 32px;
-  border: 1px solid #d8deea;
-  border-radius: 6px;
-  color: #1d2939;
-  font-size: 12px;
-  font-weight: 850;
-  padding: 0 10px;
-}
-
-.region-marker-template-field input:focus {
-  border-color: #2939a8;
-  box-shadow: 0 0 0 3px rgba(41, 57, 168, 0.1);
-  outline: 0;
-}
-
-.region-marker-token-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.region-marker-token-list button {
-  min-height: 28px;
-  border: 1px solid #d8deea;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #2939a8;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 950;
-  padding: 0 9px;
-}
-
-.region-marker-token-list button:hover {
-  border-color: #9db7ea;
-  background: #eef4ff;
-}
-
-.region-marker-template-preview {
+.region-marker-style-preview {
   position: sticky;
   top: 12px;
   min-width: 0;
@@ -721,12 +658,8 @@
     grid-template-columns: 1fr;
   }
 
-  .region-marker-template-preview {
+  .region-marker-style-preview {
     position: static;
-  }
-
-  .region-marker-template-field {
-    grid-template-columns: 1fr;
   }
 
   .dong-rank-concept-grid {

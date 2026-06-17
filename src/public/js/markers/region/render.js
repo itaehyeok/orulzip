@@ -1,10 +1,10 @@
 function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesign(level)) {
   const markerDesign = activeRegionMarkerDesign(level) || design;
   const rows = zoomGroupMarkerRankRows(item, level);
-  const template = activeRegionMarkerTemplate(level);
-  const values = zoomGroupMarkerTemplateValues(item, level, markerDesign);
-  const labelText = renderRegionMarkerTemplateText(template.label, values);
-  const valueText = renderRegionMarkerTemplateText(template.value, values);
+  const textConfig = activeRegionMarkerText(level);
+  const textContext = zoomGroupMarkerTextContext(item, level, markerDesign);
+  const labelText = renderRegionMarkerText(textConfig.label, textContext);
+  const valueText = renderRegionMarkerText(textConfig.value, textContext);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
@@ -54,12 +54,12 @@ function zoomGroupCurrentLabel(item, level) {
 
 function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(level)) {
   const visibleRankLevels = new Set(activeRegionMarkerRankLevels(level));
-  const template = activeRegionMarkerTemplate(level);
-  const values = zoomGroupMarkerTemplateValues(item, level, design);
+  const textConfig = activeRegionMarkerText(level);
+  const textContext = zoomGroupMarkerTextContext(item, level, design);
   return zoomGroupAllRankRows(item, level, design)
     .map((row) => ({
       ...row,
-      text: renderRegionMarkerTemplateText(template.rankRows?.[row.rankLevel] || row.template, values)
+      text: renderRegionMarkerText(textConfig.rankRows?.[row.rankLevel], textContext, row.text)
     }))
     .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && row.text);
 }
@@ -88,33 +88,36 @@ function zoomRankRow(rankLevel, label, shortLabel, rank, total, design = activeR
     rankLevel,
     label: compactRankLabel(label, shortLabel, design),
     rank: formatMarkerRankText(rank, total, "region", growthRate),
-    template: `${compactRankLabel(label, shortLabel, design)} ${formatMarkerRankText(rank, total, "region", growthRate)}`
+    text: `${compactRankLabel(label, shortLabel, design)} ${formatMarkerRankText(rank, total, "region", growthRate)}`
   };
 }
 
-function zoomGroupMarkerTemplateValues(item, level, design = activeRegionMarkerDesign(level)) {
+function zoomGroupMarkerTextContext(item, level, design = activeRegionMarkerDesign(level)) {
   const sigunguLabel = zoomRankSigunguLabel(item);
   const sidoLabel = zoomRankSidoLabel(item);
-  const values = {
-    "동명": level === "dong" ? zoomGroupCurrentLabel(item, "dong") : shortZoomLabel(item.dongName || item.name, "dong"),
-    "시군구명": level === "sigungu" ? zoomGroupCurrentLabel(item, "sigungu") : sigunguLabel,
-    "시도명": level === "sido" ? zoomGroupCurrentLabel(item, "sido") : sidoLabel,
-    "기간": activeMarkerPeriodLabel(),
-    "상승률": formatPercent(item.growthRate),
-    "시군구내순위": formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
-    "시군구내등수": formatMarkerRankNumber(item.sigunguRank),
-    "시군구내전체": formatMarkerRankNumber(item.sigunguRankTotal),
-    "시군구내상위퍼센트": formatMarkerTopPercent(item.sigunguRank, item.sigunguRankTotal),
-    "시도내순위": formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", item.growthRate),
-    "시도내등수": formatMarkerRankNumber(item.sidoRank),
-    "시도내전체": formatMarkerRankNumber(item.sidoRankTotal),
-    "시도내상위퍼센트": formatMarkerTopPercent(item.sidoRank, item.sidoRankTotal),
-    "전국순위": formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", item.growthRate),
-    "전국등수": formatMarkerRankNumber(item.countryRank),
-    "전국전체": formatMarkerRankNumber(item.countryRankTotal),
-    "전국상위퍼센트": formatMarkerTopPercent(item.countryRank, item.countryRankTotal)
+  return {
+    item,
+    level,
+    design,
+    dongName: level === "dong" ? zoomGroupCurrentLabel(item, "dong") : shortZoomLabel(item.dongName || item.name, "dong"),
+    sigunguName: level === "sigungu" ? zoomGroupCurrentLabel(item, "sigungu") : sigunguLabel,
+    sidoName: level === "sido" ? zoomGroupCurrentLabel(item, "sido") : sidoLabel,
+    periodLabel: activeMarkerPeriodLabel(),
+    growthRate: item.growthRate,
+    growthRateText: formatPercent(item.growthRate),
+    sigunguRankText: formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
+    sigunguRank: formatMarkerRankNumber(item.sigunguRank),
+    sigunguRankTotal: formatMarkerRankNumber(item.sigunguRankTotal),
+    sigunguTopPercent: formatMarkerTopPercent(item.sigunguRank, item.sigunguRankTotal),
+    sidoRankText: formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", item.growthRate),
+    sidoRank: formatMarkerRankNumber(item.sidoRank),
+    sidoRankTotal: formatMarkerRankNumber(item.sidoRankTotal),
+    sidoTopPercent: formatMarkerTopPercent(item.sidoRank, item.sidoRankTotal),
+    countryRankText: formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", item.growthRate),
+    countryRank: formatMarkerRankNumber(item.countryRank),
+    countryRankTotal: formatMarkerRankNumber(item.countryRankTotal),
+    countryTopPercent: formatMarkerTopPercent(item.countryRank, item.countryRankTotal)
   };
-  return values;
 }
 
 function activeMarkerPeriodLabel() {
@@ -126,9 +129,9 @@ function activeMarkerPeriodLabel() {
   return "3개월";
 }
 
-function renderRegionMarkerTemplateText(template, values) {
-  return String(template || "")
-    .replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, token) => values[token.trim()] ?? "")
+function renderRegionMarkerText(value, context, fallback = "") {
+  const text = typeof value === "function" ? value(context) : (value ?? fallback);
+  return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
 }

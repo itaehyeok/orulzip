@@ -64,7 +64,16 @@ src/public/css/markers/apartment.css
 src/public/js/markers/region/config.js
 ```
 
-지역 마커 문구, 변수, 기본 크기, 디자인 탭 미리보기 샘플을 수정합니다.
+지역 마커 문구, 기본 크기, 디자인 탭 미리보기 샘플을 수정합니다.
+
+시군구 마커의 지역명과 상승률 문구는 여기부터 봅니다.
+
+```js
+sigungu: {
+  label: ({ sigunguName }) => sigunguName,
+  value: ({ growthRate }) => formatPercent(growthRate),
+}
+```
 
 ```text
 src/public/js/markers/region/render.js
@@ -138,16 +147,16 @@ http://localhost:3065
 lsof -nP -iTCP:3065 -sTCP:LISTEN
 ```
 
-## 템플릿 예시
+## 문구 수정 예시
 
-`src/public/js/markers/region/config.js`의 `defaultTemplateByLevel`에서 바꿉니다.
+`src/public/js/markers/region/config.js`의 `textByLevel`에서 바꿉니다.
 
 ```js
-value: "{{기간}}간 상승 {{상승률}}"
+value: ({ periodLabel, growthRate }) => `${periodLabel}간 상승 ${formatPercent(growthRate)}`
 ```
 
 동 마커의 시군구 순위 줄:
 
 ```js
-sigungu: "{{시군구명}} {{시군구내등수}}등/{{시군구내전체}}"
+sigungu: ({ sigunguName, sigunguRank, sigunguRankTotal }) => `${sigunguName} ${sigunguRank}등/${sigunguRankTotal}`
 ```

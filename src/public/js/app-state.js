@@ -90,7 +90,6 @@ const state = {
   markerLineGapPx: null,
   regionMarkerDesignByLevel: null,
   regionMarkerDisplayByLevel: null,
-  regionMarkerTemplateByLevel: null,
   regionMarkerStyleByLevel: null,
   regionMarkerStylePresets: null,
   selectedRegionMarkerStylePresetId: "",

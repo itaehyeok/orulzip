@@ -1,6 +1,6 @@
 // Region marker edit zone.
 // Change this file first when you want to adjust dong/sigungu/sido marker text,
-// default sizes, available template tokens, or design-preview sample data.
+// default sizes, design-preview sample data, or the style controls shown in the design tab.
 window.orulzipRegionMarkerConfig = {
   levels: ["dong", "sigungu", "sido"],
   levelLabels: {
@@ -24,75 +24,33 @@ window.orulzipRegionMarkerConfig = {
     sigungu: { sido: true, national: true },
     sido: { national: true }
   },
-  defaultTemplateByLevel: {
+  textByLevel: {
     dong: {
-      label: "{{동명}}",
-      value: "{{상승률}}",
+      label: ({ dongName }) => dongName,
+      value: ({ growthRate }) => formatPercent(growthRate),
       rankRows: {
-        sigungu: "{{시군구명}} {{시군구내순위}}",
-        sido: "{{시도명}} {{시도내순위}}",
-        national: "전국 {{전국순위}}"
+        sigungu: ({ sigunguName, sigunguRankText }) => `${sigunguName} ${sigunguRankText}`,
+        sido: ({ sidoName, sidoRankText }) => `${sidoName} ${sidoRankText}`,
+        national: ({ countryRankText }) => `전국 ${countryRankText}`
       }
     },
     sigungu: {
-      label: "{{시군구명}}",
-      value: "{{상승률}}",
+      // "송파구" is made here.
+      label: ({ sigunguName }) => sigunguName,
+      // "12.1%" is made here.
+      value: ({ growthRate }) => formatPercent(growthRate),
       rankRows: {
-        sido: "{{시도명}} {{시도내순위}}",
-        national: "전국 {{전국순위}}"
+        sido: ({ sidoName, sidoRankText }) => `${sidoName} ${sidoRankText}`,
+        national: ({ countryRankText }) => `전국 ${countryRankText}`
       }
     },
     sido: {
-      label: "{{시도명}}",
-      value: "{{상승률}}",
+      label: ({ sidoName }) => sidoName,
+      value: ({ growthRate }) => formatPercent(growthRate),
       rankRows: {
-        national: "전국 {{전국순위}}"
+        national: ({ countryRankText }) => `전국 ${countryRankText}`
       }
     }
-  },
-  templateTokensByLevel: {
-    dong: [
-      ["동명", "동 지역명"],
-      ["시군구명", "상위 시군구"],
-      ["시도명", "상위 시도"],
-      ["기간", "선택 기간"],
-      ["상승률", "상승률"],
-      ["시군구내순위", "시군구 내 순위"],
-      ["시군구내등수", "시군구 내 등수"],
-      ["시군구내전체", "시군구 내 전체"],
-      ["시군구내상위퍼센트", "시군구 내 상위 %"],
-      ["시도내순위", "시도 내 순위"],
-      ["시도내등수", "시도 내 등수"],
-      ["시도내전체", "시도 내 전체"],
-      ["시도내상위퍼센트", "시도 내 상위 %"],
-      ["전국순위", "전국 순위"],
-      ["전국등수", "전국 등수"],
-      ["전국전체", "전국 전체"],
-      ["전국상위퍼센트", "전국 상위 %"]
-    ],
-    sigungu: [
-      ["시군구명", "시군구 지역명"],
-      ["시도명", "상위 시도"],
-      ["기간", "선택 기간"],
-      ["상승률", "상승률"],
-      ["시도내순위", "시도 내 순위"],
-      ["시도내등수", "시도 내 등수"],
-      ["시도내전체", "시도 내 전체"],
-      ["시도내상위퍼센트", "시도 내 상위 %"],
-      ["전국순위", "전국 순위"],
-      ["전국등수", "전국 등수"],
-      ["전국전체", "전국 전체"],
-      ["전국상위퍼센트", "전국 상위 %"]
-    ],
-    sido: [
-      ["시도명", "시도 지역명"],
-      ["기간", "선택 기간"],
-      ["상승률", "상승률"],
-      ["전국순위", "전국 순위"],
-      ["전국등수", "전국 등수"],
-      ["전국전체", "전국 전체"],
-      ["전국상위퍼센트", "전국 상위 %"]
-    ]
   },
   designOptions: [
     { id: "white", name: "화이트 데이터칩", className: "rank-chip-white" },

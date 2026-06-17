@@ -10,7 +10,6 @@ async function init() {
   state.apartmentMarkerStylePresets = readStoredApartmentMarkerStylePresets();
   state.regionMarkerDesignByLevel = readStoredRegionMarkerDesignByLevel();
   state.regionMarkerDisplayByLevel = readStoredRegionMarkerDisplayByLevel();
-  state.regionMarkerTemplateByLevel = readStoredRegionMarkerTemplateByLevel();
   state.regionMarkerStyleByLevel = readStoredRegionMarkerStyleByLevel();
   state.regionMarkerStylePresets = readStoredRegionMarkerStylePresets();
   state.activeLogoDesignId = readStoredLogoDesignId();
