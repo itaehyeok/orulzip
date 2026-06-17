@@ -3,6 +3,7 @@ async function init() {
   state.activePyeongGraphDesignId = readStoredPyeongGraphDesignId();
   state.activeMarkerDesignId = readStoredMarkerDesignId();
   state.markerVerbosityByLevel = readStoredMarkerVerbosityByLevel(state.activeMarkerDesignId);
+  state.markerRankDisplayOptions = readStoredMarkerRankDisplayOptions();
   state.apartmentMarkerDesignId = readStoredApartmentMarkerDesignId();
   state.apartmentMarkerDisplay = readStoredApartmentMarkerDisplay();
   state.apartmentMarkerStyle = readStoredApartmentMarkerStyle();
@@ -48,6 +49,13 @@ function renderAdminNavigation() {
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !state.isAdmin;
   });
+  renderAdminStatusBar();
+}
+
+function renderAdminStatusBar() {
+  if (!els.adminStatusBar) return;
+  const adminTabs = new Set(["map", "formula", "terms", "design", "crawl"]);
+  els.adminStatusBar.hidden = !(state.isAdmin && adminTabs.has(state.activeTab));
 }
 
 function bindEvents() {
@@ -104,6 +112,7 @@ function bindEvents() {
     setActivePyeongGraphDesign(card.dataset.pyeongGraphDesignId);
   });
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
+  document.addEventListener("change", handleMarkerRankDisplayOptionChange);
   bindApartmentMarkerDesignControls();
   bindRegionMarkerDesignControls();
 
@@ -376,6 +385,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   document.title = tabTitles[nextTab] || tabTitles.molitMap;
+  renderAdminStatusBar();
 
   const nextRoute = tabRoutes[nextTab];
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {

@@ -249,6 +249,108 @@ function normalizeMarkerLineGapPx(value) {
   return Math.max(0, Math.min(10, Math.round(number)));
 }
 
+function readStoredMarkerRankDisplayOptions() {
+  try {
+    return normalizeMarkerRankDisplayOptions(JSON.parse(window.localStorage.getItem(markerRankDisplayStorageKey) || "{}"));
+  } catch {
+    return normalizeMarkerRankDisplayOptions();
+  }
+}
+
+function normalizeMarkerRankDisplayOptions(value = {}) {
+  return {
+    region: normalizeMarkerRankDisplayScope(value.region, defaultMarkerRankDisplayOptions.region),
+    apartment: normalizeMarkerRankDisplayScope(value.apartment, defaultMarkerRankDisplayOptions.apartment)
+  };
+}
+
+function normalizeMarkerRankDisplayScope(value = {}, fallback = defaultMarkerRankDisplayOptions.region) {
+  return {
+    showTotal: typeof value.showTotal === "boolean" ? value.showTotal : fallback.showTotal,
+    showSuffix: typeof value.showSuffix === "boolean" ? value.showSuffix : fallback.showSuffix,
+    showPercent: typeof value.showPercent === "boolean" ? value.showPercent : fallback.showPercent
+  };
+}
+
+function markerRankDisplayOptions(scope = "region") {
+  const normalizedScope = scope === "apartment" ? "apartment" : "region";
+  const options = normalizeMarkerRankDisplayOptions(state.markerRankDisplayOptions || defaultMarkerRankDisplayOptions);
+  return options[normalizedScope];
+}
+
+function writeStoredMarkerRankDisplayOptions() {
+  try {
+    window.localStorage.setItem(markerRankDisplayStorageKey, JSON.stringify(state.markerRankDisplayOptions || defaultMarkerRankDisplayOptions));
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+}
+
+function handleMarkerRankDisplayOptionChange(event) {
+  const input = event.target.closest("[data-marker-rank-display-option]");
+  if (!input) return;
+  setMarkerRankDisplayOption(input.dataset.markerRankScope, input.dataset.markerRankDisplayOption, input.checked);
+}
+
+function setMarkerRankDisplayOption(scope, option, checked) {
+  const normalizedScope = scope === "apartment" ? "apartment" : "region";
+  if (!["showTotal", "showSuffix", "showPercent"].includes(option)) return;
+  state.markerRankDisplayOptions = normalizeMarkerRankDisplayOptions(state.markerRankDisplayOptions || defaultMarkerRankDisplayOptions);
+  state.markerRankDisplayOptions[normalizedScope][option] = Boolean(checked);
+  writeStoredMarkerRankDisplayOptions();
+  syncMarkerRankDisplayOptionControls();
+  syncApartmentMarkerDesignControls();
+  syncRegionMarkerDesignControls();
+  if (state.latestZoomMapData) {
+    renderZoomMapSummary(state.latestZoomMapData);
+  }
+}
+
+function markerRankDisplayEditorHtml(scope = "region") {
+  const normalizedScope = scope === "apartment" ? "apartment" : "region";
+  const options = markerRankDisplayOptions(normalizedScope);
+  return `
+    <fieldset class="region-marker-style-group marker-rank-display-options" data-marker-rank-display-scope="${escapeHtml(normalizedScope)}">
+      <legend>순위 표시</legend>
+      <div class="marker-rank-display-preview" data-marker-rank-display-preview="${escapeHtml(normalizedScope)}">
+        ${escapeHtml(markerRankDisplayPreviewText(normalizedScope))}
+      </div>
+      <div class="marker-rank-display-fields">
+        ${markerRankDisplayOptionCheckbox(normalizedScope, "showTotal", "전체개수", options.showTotal)}
+        ${markerRankDisplayOptionCheckbox(normalizedScope, "showSuffix", "뒤에 등", options.showSuffix)}
+        ${markerRankDisplayOptionCheckbox(normalizedScope, "showPercent", "뒤 퍼센트", options.showPercent)}
+      </div>
+    </fieldset>
+  `;
+}
+
+function markerRankDisplayOptionCheckbox(scope, option, label, checked) {
+  return `
+    <label class="apartment-marker-style-field-toggle">
+      <input type="checkbox" ${checked ? "checked" : ""} data-marker-rank-scope="${escapeHtml(scope)}" data-marker-rank-display-option="${escapeHtml(option)}">
+      <span>${escapeHtml(label)}</span>
+    </label>
+  `;
+}
+
+function syncMarkerRankDisplayOptionControls() {
+  document.querySelectorAll("[data-marker-rank-display-scope]").forEach((container) => {
+    const scope = container.dataset.markerRankDisplayScope === "apartment" ? "apartment" : "region";
+    const options = markerRankDisplayOptions(scope);
+    container.querySelectorAll("[data-marker-rank-display-option]").forEach((input) => {
+      input.checked = Boolean(options[input.dataset.markerRankDisplayOption]);
+    });
+    const preview = container.querySelector("[data-marker-rank-display-preview]");
+    if (preview) preview.textContent = markerRankDisplayPreviewText(scope);
+  });
+}
+
+function markerRankDisplayPreviewText(scope = "region") {
+  const label = scope === "apartment" ? "목동" : "수정구";
+  const rankText = formatMarkerRankText(2, 115, scope, 0.07);
+  return `${label} ${rankText}`;
+}
+
 function readStoredTransitionDesignId() {
   try {
     const stored = window.localStorage.getItem(transitionDesignStorageKey);
@@ -261,6 +363,7 @@ function readStoredTransitionDesignId() {
 function renderDesignTab() {
   syncApartmentMarkerDesignControls();
   syncRegionMarkerDesignControls();
+  syncMarkerRankDisplayOptionControls();
 }
 
 function renderGraphDesignGallery() {

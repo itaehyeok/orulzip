@@ -334,9 +334,10 @@ function writeRegionMarkerStylePresetState() {
 
 function regionMarkerStyleCssVars(level = "dong", design = activeRegionMarkerDesign(level)) {
   const style = activeRegionMarkerStyle(level, design);
+  const rankWidthExtra = typeof markerRankWidthExtra === "function" ? markerRankWidthExtra("region") : 0;
   return {
-    "--region-marker-outer-width": `${style.outerBoxWidth}px`,
-    "--region-marker-rank-box-width": `${style.rankBoxWidth}px`,
+    "--region-marker-outer-width": `${style.outerBoxWidth + rankWidthExtra}px`,
+    "--region-marker-rank-box-width": `${style.rankBoxWidth + rankWidthExtra}px`,
     "--region-marker-label-font-size": `${style.labelFontSize}px`,
     "--region-marker-value-font-size": `${style.valueFontSize}px`,
     "--region-marker-rank-sigungu-font-size": `${style.sigunguFontSize}px`,
@@ -475,6 +476,7 @@ function renderRegionMarkerStyleEditor() {
         </div>
       </div>
       <div class="region-marker-style-groups">
+        ${markerRankDisplayEditorHtml("region")}
         ${Object.entries(groupedControls).map(([group, controls]) => `
           <fieldset class="region-marker-style-group">
             <legend>${escapeHtml(group)}</legend>
@@ -539,6 +541,7 @@ function syncRegionMarkerStyleEditor() {
   container.querySelectorAll("[data-region-marker-style-action='applyPreset']").forEach((button) => {
     button.disabled = !selectedPreset;
   });
+  syncMarkerRankDisplayOptionControls();
 }
 
 function activeRegionMarkerStyleEditorLevel() {

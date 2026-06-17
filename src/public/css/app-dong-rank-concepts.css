@@ -133,6 +133,28 @@
   gap: 8px;
 }
 
+.marker-rank-display-options {
+  align-content: start;
+}
+
+.marker-rank-display-preview {
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1.2;
+  padding: 8px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker-rank-display-fields {
+  display: grid;
+  gap: 8px;
+}
+
 .region-marker-style-field {
   display: grid;
   grid-template-columns: 92px minmax(86px, 1fr) 56px;

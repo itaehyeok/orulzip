@@ -106,27 +106,27 @@ function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(
 function zoomGroupAllRankRows(item, level, design = activeRegionMarkerDesign(level)) {
   if (level === "dong") {
     return [
-      zoomRankRow("sigungu", zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design),
-      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design),
-      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design)
+      zoomRankRow("sigungu", zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design, item.growthRate),
+      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, item.growthRate),
+      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
     ];
   }
   if (level === "sigungu") {
     return [
-      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design),
-      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design)
+      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, item.growthRate),
+      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
     ];
   }
   return [
-    zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design)
+    zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
   ];
 }
 
-function zoomRankRow(rankLevel, label, shortLabel, rank, total, design = activeRegionMarkerDesign()) {
+function zoomRankRow(rankLevel, label, shortLabel, rank, total, design = activeRegionMarkerDesign(), growthRate = null) {
   return {
     rankLevel,
     label: compactRankLabel(label, shortLabel, design),
-    rank: formatRegionMarkerRankText(rank)
+    rank: formatMarkerRankText(rank, total, "region", growthRate)
   };
 }
 
@@ -162,11 +162,28 @@ function formatRegionMarkerRankText(rank) {
   return `${formatInt(rankNumber)}등`;
 }
 
+function formatMarkerRankText(rank, total, scope = "region", growthRate = null) {
+  const rankNumber = Number(rank);
+  const totalNumber = Number(total);
+  if (!Number.isFinite(rankNumber)) return "-";
+  const options = markerRankDisplayOptions(scope);
+  const suffix = options.showSuffix ? "등" : "";
+  let text = `${formatInt(rankNumber)}${suffix}`;
+  if (options.showTotal && Number.isFinite(totalNumber) && totalNumber > 0) {
+    text += `/${formatInt(totalNumber)}`;
+  }
+  const growthNumber = Number(growthRate);
+  if (options.showPercent && Number.isFinite(growthNumber)) {
+    text += ` (${formatPercent(growthNumber)})`;
+  }
+  return text;
+}
+
 function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   const rowCount = activeRegionMarkerRankLevels(normalizedLevel).length;
   const style = activeRegionMarkerStyle(normalizedLevel, design);
-  const width = Math.max(style.outerBoxWidth, style.rankBoxWidth + 16) + 22;
+  const width = Math.max(style.outerBoxWidth, style.rankBoxWidth + 16) + 22 + markerRankWidthExtra("region");
   const rankRowsHeight = rowCount
     ? (rowCount * style.rankRowHeight) + (Math.max(0, rowCount - 1) * style.rankRowGap)
     : 0;
@@ -177,6 +194,11 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
     + (rowCount ? style.valueRankGap + rankRowsHeight : 0);
   const height = Math.max(54, Math.ceil(contentHeight + 24));
   return [width, height];
+}
+
+function markerRankWidthExtra(scope = "region") {
+  const options = markerRankDisplayOptions(scope);
+  return (options.showTotal ? 18 : 0) + (options.showPercent ? 34 : 0) + (options.showSuffix ? 6 : 0);
 }
 
 function zoomMarkerAnchor(level = "", design = activeRegionMarkerDesign(level)) {

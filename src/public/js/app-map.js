@@ -983,19 +983,19 @@ function apartmentMarkerAllRankRows(item) {
   const sigunguLabel = shortZoomLabel(item.sigunguName || item.address || "", "sigungu") || "구";
   const sidoLabel = zoomRankSidoLabel(item);
   return [
-    apartmentRankRow("dong", dongLabel, item.dongRank, item.dongRankTotal),
-    apartmentRankRow("sigungu", sigunguLabel, item.sigunguRank, item.sigunguRankTotal),
-    apartmentRankRow("sido", sidoLabel, item.sidoRank, item.sidoRankTotal),
-    apartmentRankRow("national", "전국", item.countryRank, item.countryRankTotal),
+    apartmentRankRow("dong", dongLabel, item.dongRank, item.dongRankTotal, item.growthRate),
+    apartmentRankRow("sigungu", sigunguLabel, item.sigunguRank, item.sigunguRankTotal, item.growthRate),
+    apartmentRankRow("sido", sidoLabel, item.sidoRank, item.sidoRankTotal, item.growthRate),
+    apartmentRankRow("national", "전국", item.countryRank, item.countryRankTotal, item.growthRate),
     apartmentRankPercentRow("nationalPercent", "전국", item.countryRank, item.countryRankTotal)
   ];
 }
 
-function apartmentRankRow(key, label, rank, total) {
+function apartmentRankRow(key, label, rank, total, growthRate = null) {
   return {
     key,
     label,
-    rank: formatRankText(rank, total)
+    rank: formatMarkerRankText(rank, total, "apartment", growthRate)
   };
 }
 
@@ -1035,7 +1035,7 @@ function apartmentMarkerIconSize(design = activeApartmentMarkerDesign()) {
     ? style.valueRankGap + (rankCount * style.rankRowHeight) + Math.max(0, rankCount - 1) * style.rankRowGap
     : 0;
   const height = Math.ceil(18 + textHeight + rankHeight + 24 + 18);
-  return [style.outerBoxWidth, Math.max(52, height)];
+  return [style.outerBoxWidth + markerRankWidthExtra("apartment"), Math.max(52, height)];
 }
 
 function apartmentMarkerIconAnchor(size, design = activeApartmentMarkerDesign()) {

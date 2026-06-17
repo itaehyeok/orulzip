@@ -1,8 +1,8 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
-@import url("/css/app-base.css?v=20260617-marker-design-restored");
-@import url("/css/app-map.css?v=20260617-marker-design-restored");
-@import url("/css/app-map-panels.css?v=20260617-marker-design-restored");
-@import url("/css/app-design.css?v=20260617-marker-design-restored");
-@import url("/css/app-dong-rank-concepts.css?v=20260617-marker-design-restored");
-@import url("/css/app-apartment-marker-concepts.css?v=20260617-marker-design-restored");
-@import url("/css/app-responsive.css?v=20260617-marker-design-restored");
+@import url("/css/app-base.css?v=20260617-marker-rank-controls");
+@import url("/css/app-map.css?v=20260617-marker-rank-controls");
+@import url("/css/app-map-panels.css?v=20260617-marker-rank-controls");
+@import url("/css/app-design.css?v=20260617-marker-rank-controls");
+@import url("/css/app-dong-rank-concepts.css?v=20260617-marker-rank-controls");
+@import url("/css/app-apartment-marker-concepts.css?v=20260617-marker-rank-controls");
+@import url("/css/app-responsive.css?v=20260617-marker-rank-controls");

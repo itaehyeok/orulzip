@@ -71,6 +71,7 @@ const state = {
   activePyeongGraphDesignId: null,
   activeMarkerDesignId: null,
   markerVerbosityByLevel: null,
+  markerRankDisplayOptions: null,
   apartmentMarkerDesignId: null,
   apartmentMarkerDisplay: null,
   apartmentMarkerStyle: null,
@@ -121,6 +122,11 @@ const defaultMapHeaderDesignId = "musinsa-black";
 const mapHeaderDesignStorageKey = "orulzip.mapHeaderDesignId";
 const defaultMarkerLineGapPx = 3;
 const markerLineGapStorageKey = "orulzip.markerLineGapPx";
+const markerRankDisplayStorageKey = "orulzip.markerRankDisplayOptions.v2";
+const defaultMarkerRankDisplayOptions = {
+  region: { showTotal: false, showSuffix: true, showPercent: false },
+  apartment: { showTotal: false, showSuffix: true, showPercent: false }
+};
 const transitionDesignStorageKey = "orulzip.transitionDesignId";
 const transitionDesignLabels = {
   current: "01 현재모드",
@@ -337,6 +343,7 @@ const els = {
   designView: document.querySelector("#designView"),
   designMapHeaderSelected: document.querySelector("#designMapHeaderSelected"),
   mapHeaderDesignGrid: document.querySelector("#mapHeaderDesignGrid"),
+  adminStatusBar: document.querySelector("#adminStatusBar"),
   designLogoSelected: document.querySelector("#designLogoSelected"),
   logoDesignGrid: document.querySelector("#logoDesignGrid"),
   designGraphSelected: document.querySelector("#designGraphSelected"),

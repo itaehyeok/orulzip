@@ -311,9 +311,10 @@ function writeApartmentMarkerStylePresetState() {
 
 function apartmentMarkerStyleCssVars(design = activeApartmentMarkerDesign()) {
   const style = activeApartmentMarkerStyle(design);
+  const rankWidthExtra = typeof markerRankWidthExtra === "function" ? markerRankWidthExtra("apartment") : 0;
   return {
-    "--apartment-marker-outer-width": `${style.outerBoxWidth}px`,
-    "--apartment-marker-rank-box-width": `${style.rankBoxWidth}px`,
+    "--apartment-marker-outer-width": `${style.outerBoxWidth + rankWidthExtra}px`,
+    "--apartment-marker-rank-box-width": `${style.rankBoxWidth + rankWidthExtra}px`,
     "--apartment-marker-name-font-size": `${style.nameFontSize}px`,
     "--apartment-marker-area-font-size": `${style.areaFontSize}px`,
     "--apartment-marker-value-font-size": `${style.valueFontSize}px`,
@@ -445,6 +446,7 @@ function renderApartmentMarkerStyleEditor() {
         </div>
       </div>
       <div class="region-marker-style-groups">
+        ${markerRankDisplayEditorHtml("apartment")}
         ${Object.entries(groupedControls).map(([group, controls]) => `
           <fieldset class="region-marker-style-group">
             <legend>${escapeHtml(group)}</legend>
@@ -515,6 +517,7 @@ function syncApartmentMarkerStyleEditor() {
   container.querySelectorAll("[data-apartment-marker-style-action='applyPreset']").forEach((button) => {
     button.disabled = !selectedPreset;
   });
+  syncMarkerRankDisplayOptionControls();
 }
 
 function selectedApartmentMarkerStylePreset() {
