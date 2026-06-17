@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260616-transition-menu-removed">
+    <link rel="stylesheet" href="/styles.css?v=20260617-marker-design-restored">
   </head>
   <body>
     <main class="app-shell">
@@ -384,12 +384,355 @@
       </section>
 
       <section id="designView" class="view">
-        <section class="panel design-panel">
+        <section class="panel design-panel apartment-marker-concept-panel" data-apartment-marker-panel>
           <div class="panel-head">
-            <h2>마커 테마</h2>
-            <span id="designMarkerSelected">-</span>
+            <h2>아파트 데이터칩 마커 시안</h2>
+            <span>화이트 · 스택 · 미니 테이블 · 다크</span>
           </div>
-          <div id="markerDesignGrid" class="marker-design-grid"></div>
+          <input id="apartmentMarkerNameToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="name">
+          <input id="apartmentMarkerAreaToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="area">
+          <input id="apartmentMarkerRateToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="rate" checked>
+          <input id="apartmentMarkerDongToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="dong" checked>
+          <input id="apartmentMarkerSigunguToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="sigungu">
+          <input id="apartmentMarkerSidoToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="sido">
+          <input id="apartmentMarkerNationalToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="national">
+          <input id="apartmentMarkerNationalPercentToggle" class="dong-rank-toggle-source" type="checkbox" data-apartment-marker-display-key="nationalPercent" checked>
+          <div class="dong-rank-concept-controls apartment-marker-display-controls" aria-label="아파트 마커 표시 정보">
+            <span>표시 정보</span>
+            <label for="apartmentMarkerNameToggle">아파트명</label>
+            <label for="apartmentMarkerAreaToggle">면적/평형</label>
+            <label for="apartmentMarkerRateToggle">상승률</label>
+            <label for="apartmentMarkerDongToggle">동</label>
+            <label for="apartmentMarkerSigunguToggle">시군구</label>
+            <label for="apartmentMarkerSidoToggle">시도</label>
+            <label for="apartmentMarkerNationalToggle">전국</label>
+            <label for="apartmentMarkerNationalPercentToggle">전국 %</label>
+          </div>
+          <div class="dong-rank-concept-grid apartment-marker-concept-grid">
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-apartment-marker-design-id="white" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>01 화이트 데이터칩</strong>
+                <span>밝은 지도</span>
+              </div>
+              <div class="dong-rank-stage apartment-marker-stage">
+                <span class="apartment-rank-marker apartment-rank-demo rank-chip-white">
+                  <small class="apartment-marker-name-row" data-apartment-marker-info="name">래미안퍼스티지</small>
+                  <small class="apartment-marker-area-row" data-apartment-marker-info="area">84㎡ · 34평</small>
+                  <strong class="apartment-marker-rate-row" data-apartment-marker-info="rate">+12.8%</strong>
+                  <span class="apartment-marker-rank-list">
+                    <em data-rank-level="dong"><b>반포동</b> 3등</em>
+                    <em data-rank-level="sigungu"><b>서초구</b> 18등</em>
+                    <em data-rank-level="sido"><b>서울</b> 72등</em>
+                    <em data-rank-level="national"><b>전국</b> 367등</em>
+                    <em data-rank-level="nationalPercent"><b>전국</b> 상위 3.9%</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-apartment-marker-design-id="stack" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>02 데이터칩 스택</strong>
+                <span>원안 확장</span>
+              </div>
+              <div class="dong-rank-stage apartment-marker-stage">
+                <span class="apartment-rank-marker apartment-rank-demo rank-chip-stack">
+                  <small class="apartment-marker-name-row" data-apartment-marker-info="name">힐스테이트</small>
+                  <small class="apartment-marker-area-row" data-apartment-marker-info="area">59㎡ · 25평</small>
+                  <strong class="apartment-marker-rate-row" data-apartment-marker-info="rate">+9.4%</strong>
+                  <span class="apartment-marker-rank-list">
+                    <em data-rank-level="dong"><b>수진동</b> 5등</em>
+                    <em data-rank-level="sigungu"><b>수정구</b> 21등</em>
+                    <em data-rank-level="sido"><b>경기</b> 93등</em>
+                    <em data-rank-level="national"><b>전국</b> 421등</em>
+                    <em data-rank-level="nationalPercent"><b>전국</b> 상위 4.6%</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-apartment-marker-design-id="table" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>03 미니 테이블</strong>
+                <span>정돈형</span>
+              </div>
+              <div class="dong-rank-stage apartment-marker-stage">
+                <span class="apartment-rank-marker apartment-rank-demo rank-chip-table">
+                  <small class="apartment-marker-name-row" data-apartment-marker-info="name">동광뷰엘</small>
+                  <small class="apartment-marker-area-row" data-apartment-marker-info="area">80㎡ · 30평</small>
+                  <strong class="apartment-marker-rate-row" data-apartment-marker-info="rate">+7.6%</strong>
+                  <span class="apartment-marker-rank-list">
+                    <em data-rank-level="dong"><b>남양읍</b> 8등</em>
+                    <em data-rank-level="sigungu"><b>화성시</b> 42등</em>
+                    <em data-rank-level="sido"><b>경기</b> 151등</em>
+                    <em data-rank-level="national"><b>전국</b> 706등</em>
+                    <em data-rank-level="nationalPercent"><b>전국</b> 상위 6.8%</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-apartment-marker-design-id="dark" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>04 다크 데이터칩</strong>
+                <span>대비형</span>
+              </div>
+              <div class="dong-rank-stage apartment-marker-stage">
+                <span class="apartment-rank-marker apartment-rank-demo rank-chip-dark">
+                  <small class="apartment-marker-name-row" data-apartment-marker-info="name">센트럴자이</small>
+                  <small class="apartment-marker-area-row" data-apartment-marker-info="area">101㎡ · 39평</small>
+                  <strong class="apartment-marker-rate-row" data-apartment-marker-info="rate">+6.9%</strong>
+                  <span class="apartment-marker-rank-list">
+                    <em data-rank-level="dong"><b>역삼동</b> 11등</em>
+                    <em data-rank-level="sigungu"><b>강남구</b> 48등</em>
+                    <em data-rank-level="sido"><b>서울</b> 194등</em>
+                    <em data-rank-level="national"><b>전국</b> 812등</em>
+                    <em data-rank-level="nationalPercent"><b>전국</b> 상위 7.2%</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="apartmentMarkerStyleEditor" class="panel design-panel region-marker-style-editor apartment-marker-style-editor" aria-label="아파트 마커 세부 편집"></section>
+        <section id="regionMarkerStyleEditor" class="panel design-panel region-marker-style-editor" aria-label="지역 마커 세부 편집"></section>
+
+        <section class="panel design-panel dong-rank-concept-panel" data-region-marker-level="dong">
+          <div class="panel-head">
+            <h2>동 데이터칩 순위 시안</h2>
+            <span>화이트 · 스택 · 미니 테이블 · 다크</span>
+          </div>
+          <input id="dongRankSigunguToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="dong" data-region-marker-rank-level="sigungu" checked>
+          <input id="dongRankSidoToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="dong" data-region-marker-rank-level="sido" checked>
+          <input id="dongRankNationalToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="dong" data-region-marker-rank-level="national" checked>
+          <div class="dong-rank-concept-controls" aria-label="동 마커 순위 표시 정보">
+            <span>표시 정보</span>
+            <label for="dongRankSigunguToggle">수정구</label>
+            <label for="dongRankSidoToggle">경기</label>
+            <label for="dongRankNationalToggle">전국</label>
+          </div>
+          <div class="dong-rank-concept-grid">
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="white" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>01 화이트 데이터칩</strong>
+                <span>선택안</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-white">
+                  <small>수진동</small>
+                  <strong>+7.2%</strong>
+                  <span>
+                    <em data-rank-level="sigungu"><b>수정구</b> 3등</em>
+                    <em data-rank-level="sido"><b>경기</b> 22등</em>
+                    <em data-rank-level="national"><b>전국</b> 828등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="stack" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>02 데이터칩 스택</strong>
+                <span>강조형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-stack">
+                  <small>은행동</small>
+                  <strong>+7.0%</strong>
+                  <span>
+                    <em data-rank-level="sigungu"><b>수정구</b> 4등</em>
+                    <em data-rank-level="sido"><b>경기</b> 27등</em>
+                    <em data-rank-level="national"><b>전국</b> 910등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="table" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>03 미니 테이블</strong>
+                <span>정돈형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-table">
+                  <small>상대원동</small>
+                  <strong>+4.0%</strong>
+                  <span>
+                    <em data-rank-level="sigungu"><b>중원구</b> 2등</em>
+                    <em data-rank-level="sido"><b>경기</b> 31등</em>
+                    <em data-rank-level="national"><b>전국</b> 948등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="dark" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>04 다크 데이터칩</strong>
+                <span>대비형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-dark">
+                  <small>금광동</small>
+                  <strong>+7.4%</strong>
+                  <span>
+                    <em data-rank-level="sigungu"><b>중원구</b> 1등</em>
+                    <em data-rank-level="sido"><b>경기</b> 18등</em>
+                    <em data-rank-level="national"><b>전국</b> 367등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel design-panel dong-rank-concept-panel" data-region-marker-level="sigungu">
+          <div class="panel-head">
+            <h2>시군구 데이터칩 순위 시안</h2>
+            <span>상위 지역 선택 표시</span>
+          </div>
+          <input id="sigunguRankSidoToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="sigungu" data-region-marker-rank-level="sido" checked>
+          <input id="sigunguRankNationalToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="sigungu" data-region-marker-rank-level="national" checked>
+          <div class="dong-rank-concept-controls" aria-label="시군구 마커 순위 표시 정보">
+            <span>표시 정보</span>
+            <label for="sigunguRankSidoToggle">경기</label>
+            <label for="sigunguRankNationalToggle">전국</label>
+          </div>
+          <div class="dong-rank-concept-grid">
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="white" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>01 화이트 데이터칩</strong>
+                <span>선택안</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-white">
+                  <small>수정구</small>
+                  <strong>+5.3%</strong>
+                  <span>
+                    <em data-rank-level="sido"><b>경기</b> 4등</em>
+                    <em data-rank-level="national"><b>전국</b> 118등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="stack" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>02 데이터칩 스택</strong>
+                <span>강조형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-stack">
+                  <small>중원구</small>
+                  <strong>+4.8%</strong>
+                  <span>
+                    <em data-rank-level="sido"><b>경기</b> 7등</em>
+                    <em data-rank-level="national"><b>전국</b> 204등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="table" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>03 미니 테이블</strong>
+                <span>정돈형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-table">
+                  <small>분당구</small>
+                  <strong>+3.9%</strong>
+                  <span>
+                    <em data-rank-level="sido"><b>경기</b> 13등</em>
+                    <em data-rank-level="national"><b>전국</b> 431등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="dark" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>04 다크 데이터칩</strong>
+                <span>대비형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-dark">
+                  <small>강남구</small>
+                  <strong>+3.5%</strong>
+                  <span>
+                    <em data-rank-level="sido"><b>서울</b> 5등</em>
+                    <em data-rank-level="national"><b>전국</b> 522등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel design-panel dong-rank-concept-panel" data-region-marker-level="sido">
+          <div class="panel-head">
+            <h2>시도 데이터칩 순위 시안</h2>
+            <span>전국 순위 선택 표시</span>
+          </div>
+          <input id="sidoRankNationalToggle" class="dong-rank-toggle-source" type="checkbox" data-region-marker-level="sido" data-region-marker-rank-level="national" checked>
+          <div class="dong-rank-concept-controls" aria-label="시도 마커 순위 표시 정보">
+            <span>표시 정보</span>
+            <label for="sidoRankNationalToggle">전국</label>
+          </div>
+          <div class="dong-rank-concept-grid">
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="white" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>01 화이트 데이터칩</strong>
+                <span>선택안</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-white">
+                  <small>경기</small>
+                  <strong>+4.6%</strong>
+                  <span>
+                    <em data-rank-level="national"><b>전국</b> 2등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="stack" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>02 데이터칩 스택</strong>
+                <span>강조형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-stack">
+                  <small>서울</small>
+                  <strong>+3.8%</strong>
+                  <span>
+                    <em data-rank-level="national"><b>전국</b> 4등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="table" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>03 미니 테이블</strong>
+                <span>정돈형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-table">
+                  <small>인천</small>
+                  <strong>+2.7%</strong>
+                  <span>
+                    <em data-rank-level="national"><b>전국</b> 7등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+            <article class="dong-rank-concept-card" role="button" tabindex="0" data-region-marker-design-id="dark" aria-pressed="false">
+              <div class="marker-concept-head">
+                <strong>04 다크 데이터칩</strong>
+                <span>대비형</span>
+              </div>
+              <div class="dong-rank-stage">
+                <span class="dong-rank-demo rank-chip-dark">
+                  <small>부산</small>
+                  <strong>+2.1%</strong>
+                  <span>
+                    <em data-rank-level="national"><b>전국</b> 9등</em>
+                  </span>
+                </span>
+              </div>
+            </article>
+          </div>
         </section>
       </section>
 
@@ -594,6 +937,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260616-transition-menu-removed"></script>
+    <script src="/app.js?v=20260617-marker-design-restored"></script>
   </body>
 </html>

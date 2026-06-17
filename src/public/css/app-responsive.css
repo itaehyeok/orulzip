@@ -1,0 +1,368 @@
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  background: #fbfcfe;
+  font-size: 12px;
+}
+
+th:nth-child(2),
+td:nth-child(2),
+th:nth-child(3),
+td:nth-child(3),
+th:nth-child(4),
+td:nth-child(4) {
+  text-align: left;
+}
+
+.price-band-table th:nth-child(4),
+.price-band-table td:nth-child(4) {
+  text-align: right;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: #f6f8fb;
+}
+
+.table-main {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+}
+
+.muted-cell {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.table-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.table-links a {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.table-links a:hover {
+  text-decoration: underline;
+}
+
+.positive {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.negative {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.empty {
+  padding: 48px 16px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .map-shell-mode .app-shell {
+    padding: 0;
+  }
+
+  .map-top-header {
+    gap: 8px;
+    margin-bottom: 0;
+    padding: 10px 12px;
+    background: var(--map-header-bg);
+  }
+
+  .map-top-header .orulzip-logo {
+    --logo-accent: var(--map-header-text);
+    --logo-main: var(--map-header-text);
+    --logo-text: var(--map-header-text);
+    color: var(--map-header-text);
+  }
+
+  .map-top-header .orulzip-logo-mark {
+    width: 36px;
+    height: 36px;
+    background: transparent;
+  }
+
+  .map-top-header .orulzip-logo-mark svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .map-top-header .orulzip-logo-word {
+    display: none;
+  }
+
+  .map-top-header .logo-accent {
+    stroke: var(--map-header-text);
+  }
+
+  .map-top-header .logo-accent-fill {
+    fill: var(--map-header-text);
+  }
+
+  .map-top-search-panel input {
+    height: 42px;
+    border: 0;
+    background: var(--map-header-search-bg);
+    color: var(--map-header-search-text);
+    font-size: 16px;
+  }
+
+  .map-top-search-panel input::placeholder {
+    color: var(--map-header-search-placeholder);
+  }
+
+  .map-top-search-panel::after {
+    color: var(--map-header-search-icon);
+  }
+
+  .map-top-search-panel::before {
+    background: var(--map-header-search-icon);
+  }
+
+  .top-tabs {
+    gap: 6px;
+  }
+
+  .map-shell-mode .top-tabs {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 0;
+    padding: 10px 12px;
+    background: var(--map-header-period-bg);
+    scrollbar-width: none;
+  }
+
+  .map-shell-mode .tab-more-menu[open] .tab-more-list {
+    position: fixed;
+    top: var(--tab-more-top, 112px);
+    left: var(--tab-more-left, auto);
+    right: auto;
+    z-index: 2000;
+    min-width: 170px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .map-shell-mode .top-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .top-tabs a,
+  .top-tabs summary {
+    height: 34px;
+    padding: 0 8px;
+    font-size: 15px;
+  }
+
+  .map-shell-mode .top-tabs a,
+  .map-shell-mode .top-tabs summary {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    background: var(--map-header-chip-bg);
+    box-shadow: 0 1px 5px rgba(16, 24, 40, 0.08);
+  }
+
+  .map-period-bar {
+    display: grid;
+    gap: 8px;
+    padding: 9px 12px 10px;
+    background: var(--map-header-period-bg);
+  }
+
+  .map-period-bar .period-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .map-period-bar .period-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .map-period-bar .period-buttons button {
+    flex: 0 0 auto;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  .map-shell-mode .top-tabs a.active,
+  .map-shell-mode .top-tabs button.active,
+  .map-shell-mode .tab-more-menu.active summary,
+  .map-period-bar .period-buttons button.active {
+    border-color: var(--map-header-chip-active-border);
+    background: var(--map-header-chip-active-bg);
+    color: var(--map-header-chip-active-text);
+  }
+
+  .map-period-meta {
+    display: none;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .collection-summary-grid,
+  .crawl-grid,
+  .crawl-job-progress,
+  .map-header-design-grid,
+  .logo-design-grid,
+  .graph-design-grid,
+  .info-grid,
+  .terms-grid,
+  .term-card ol,
+  .map-popup-area-picker {
+    grid-template-columns: 1fr;
+  }
+
+  th,
+  td {
+    padding: 10px;
+  }
+
+  .detail-body {
+    padding-top: 10px;
+  }
+
+  .detail-chart {
+    min-height: 400px;
+  }
+
+  .detail-chart-scroll {
+    padding: 0 12px 8px;
+  }
+
+  .detail-chart-scroll svg {
+    width: 980px;
+    height: 350px;
+  }
+
+  .chart-tooltip {
+    max-width: min(240px, calc(100vw - 40px));
+    font-size: 11px;
+  }
+
+  .growth-map {
+    height: 460px;
+  }
+
+  .map-view.active {
+    height: calc(100dvh - 114px);
+    min-height: 0;
+  }
+
+  .map-panel {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .map-panel .growth-map {
+    min-height: 0;
+  }
+
+  .map-apartment-popup {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    width: auto;
+    max-height: calc(100% - 20px);
+  }
+
+  .map-apartment-ranking {
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+    left: 10px;
+    width: auto;
+    max-height: calc(100% - 20px);
+  }
+
+  .map-apartment-ranking.ranking-active {
+    top: auto;
+    bottom: 10px;
+    max-height: 42%;
+  }
+
+  .map-location-control {
+    top: 12px;
+    right: 12px;
+    height: 42px;
+    min-width: 42px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .map-apartment-ranking.ranking-active + .map-location-control {
+    top: 10px;
+  }
+
+  .map-ranking-row {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+
+  .map-ranking-detail-btn {
+    min-height: 22px;
+    padding: 0 8px;
+  }
+
+  .map-popup-stats {
+    grid-template-columns: 1fr;
+  }
+}

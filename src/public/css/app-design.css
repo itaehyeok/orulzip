@@ -1,0 +1,443 @@
+.design-panel {
+  margin-bottom: 16px;
+}
+
+.map-header-design-grid,
+.logo-design-grid,
+.graph-design-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.map-header-design-card,
+.logo-design-card,
+.graph-design-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.map-header-design-card:hover,
+.logo-design-card:hover,
+.graph-design-card:hover {
+  border-color: #9db7ea;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
+  transform: translateY(-1px);
+}
+
+.map-header-design-card.active,
+.logo-design-card.active,
+.graph-design-card.active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(35, 103, 209, 0.12);
+}
+
+.graph-design-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.graph-design-card-head strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-design-card-head em {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.map-header-design-card.active .graph-design-card-head em,
+.logo-design-card.active .graph-design-card-head em,
+.graph-design-card.active .graph-design-card-head em {
+  background: #e8f0ff;
+  color: var(--blue);
+}
+
+.map-header-design-preview {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 10px;
+  background: var(--preview-period-bg);
+}
+
+.map-header-preview-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: var(--preview-header-bg);
+  color: var(--preview-header-text);
+}
+
+.map-header-preview-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+
+.map-header-preview-logo svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.map-header-preview-logo .logo-stroke,
+.map-header-preview-logo .logo-accent {
+  stroke: currentColor;
+}
+
+.map-header-preview-search {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--preview-search-bg);
+  color: var(--preview-search-placeholder);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 34px;
+  padding: 0 34px 0 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-header-preview-search::after {
+  position: absolute;
+  top: 9px;
+  right: 13px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--preview-search-icon);
+  border-radius: 50%;
+  content: "";
+}
+
+.map-header-preview-search::before {
+  position: absolute;
+  top: 21px;
+  right: 10px;
+  width: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--preview-search-icon);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.map-header-preview-tabs,
+.map-header-preview-periods {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+  padding: 8px 10px;
+  background: var(--preview-period-bg);
+}
+
+.map-header-preview-tabs span,
+.map-header-preview-periods span {
+  flex: 0 0 auto;
+  height: 27px;
+  border: 1px solid #e4e9f1;
+  border-radius: 8px;
+  background: var(--preview-chip-bg);
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 25px;
+  padding: 0 10px;
+}
+
+.map-header-preview-tabs span.active,
+.map-header-preview-periods span.active {
+  border-color: var(--preview-chip-active-border);
+  background: var(--preview-chip-active-bg);
+  color: var(--preview-chip-active-text);
+}
+
+.map-header-preview-periods {
+  padding-top: 0;
+}
+
+.map-header-preview-map {
+  position: relative;
+  display: block;
+  height: 130px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 22% 22%, rgba(255, 255, 255, 0.6) 0 22px, transparent 23px),
+    linear-gradient(135deg, var(--preview-map-land) 0 44%, var(--preview-map-water) 44% 56%, var(--preview-map-land) 56% 100%);
+}
+
+.preview-road {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: var(--preview-map-road);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.74);
+}
+
+.preview-road.road-a {
+  top: 50px;
+  left: -20px;
+  width: 260px;
+  height: 10px;
+  transform: rotate(-18deg);
+}
+
+.preview-road.road-b {
+  top: 20px;
+  left: 138px;
+  width: 10px;
+  height: 170px;
+  transform: rotate(18deg);
+}
+
+.preview-water {
+  position: absolute;
+  right: -18px;
+  bottom: 10px;
+  width: 150px;
+  height: 46px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--preview-map-water) 70%, #ffffff);
+}
+
+.preview-marker {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #16805f;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.2);
+}
+
+.preview-marker.marker-a {
+  top: 24px;
+  left: 56px;
+}
+
+.preview-marker.marker-b {
+  right: 42px;
+  bottom: 28px;
+  background: #d97706;
+}
+
+.logo-design-preview {
+  display: grid;
+  min-height: 112px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(152, 162, 179, 0.11) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(152, 162, 179, 0.11) 1px, transparent 1px),
+    #fbfcfe;
+  background-size: 28px 28px;
+  padding: 18px;
+}
+
+.logo-design-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.orulzip-logo {
+  --logo-main: #2367d1;
+  --logo-accent: #16805f;
+  --logo-soft: rgba(35, 103, 209, 0.11);
+  --logo-text: #111827;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  color: var(--logo-text);
+  white-space: nowrap;
+}
+
+.orulzip-logo.tone-green {
+  --logo-main: #16805f;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(22, 128, 95, 0.12);
+}
+
+.orulzip-logo.tone-navy {
+  --logo-main: #1f2937;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(31, 41, 55, 0.1);
+}
+
+.orulzip-logo.tone-orange {
+  --logo-main: #d97706;
+  --logo-accent: #c24132;
+  --logo-soft: rgba(217, 119, 6, 0.13);
+}
+
+.orulzip-logo.tone-teal {
+  --logo-main: #0f766e;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(15, 118, 110, 0.12);
+}
+
+.orulzip-logo.tone-purple {
+  --logo-main: #6941c6;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(105, 65, 198, 0.12);
+}
+
+.orulzip-logo.tone-black {
+  --logo-main: #111827;
+  --logo-accent: #2367d1;
+  --logo-soft: rgba(17, 24, 39, 0.08);
+}
+
+.orulzip-logo.style-badge,
+.orulzip-logo.style-soft {
+  padding: 10px 14px 10px 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
+}
+
+.orulzip-logo.style-badge .orulzip-logo-mark,
+.orulzip-logo.style-solid .orulzip-logo-mark {
+  background: var(--logo-main);
+}
+
+.orulzip-logo.style-soft .orulzip-logo-mark,
+.orulzip-logo.style-line .orulzip-logo-mark {
+  background: var(--logo-soft);
+}
+
+.orulzip-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--logo-main);
+}
+
+.orulzip-logo.style-badge .orulzip-logo-mark,
+.orulzip-logo.style-solid .orulzip-logo-mark {
+  color: #ffffff;
+}
+
+.orulzip-logo-mark svg {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.orulzip-logo-word {
+  color: var(--logo-text);
+  font-size: 31px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.logo-stroke {
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-stroke-bold {
+  stroke-width: 3.8;
+}
+
+.logo-stroke-rounded {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-accent {
+  stroke: var(--logo-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-accent-fill {
+  fill: var(--logo-accent);
+}
+
+.logo-fill-soft {
+  fill: var(--logo-soft);
+}
+
+.logo-fill-strong {
+  fill: currentColor;
+}
+
+.logo-knockout {
+  fill: #ffffff;
+}
+
+.orulzip-logo.style-badge .logo-knockout,
+.orulzip-logo.style-solid .logo-knockout {
+  fill: var(--logo-main);
+}
+
+.logo-accent-on-dark {
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.86;
+}
+
+.graph-design-preview {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.graph-design-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}

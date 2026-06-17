@@ -1,0 +1,352 @@
+.apartment-marker-concept-panel {
+  margin-bottom: 16px;
+}
+
+.apartment-marker-concept-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.apartment-marker-stage {
+  min-height: 218px;
+  padding: 34px 12px 38px;
+}
+
+#apartmentMarkerNameToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerNameToggle"],
+#apartmentMarkerAreaToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerAreaToggle"],
+#apartmentMarkerRateToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerRateToggle"],
+#apartmentMarkerDongToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerDongToggle"],
+#apartmentMarkerSigunguToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerSigunguToggle"],
+#apartmentMarkerSidoToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerSidoToggle"],
+#apartmentMarkerNationalToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerNationalToggle"],
+#apartmentMarkerNationalPercentToggle:checked ~ .apartment-marker-display-controls label[for="apartmentMarkerNationalPercentToggle"] {
+  border-color: #2939a8;
+  background: #2939a8;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(41, 57, 168, 0.18);
+}
+
+#apartmentMarkerNameToggle:not(:checked) ~ .apartment-marker-concept-grid [data-apartment-marker-info="name"],
+#apartmentMarkerAreaToggle:not(:checked) ~ .apartment-marker-concept-grid [data-apartment-marker-info="area"],
+#apartmentMarkerRateToggle:not(:checked) ~ .apartment-marker-concept-grid [data-apartment-marker-info="rate"],
+#apartmentMarkerDongToggle:not(:checked) ~ .apartment-marker-concept-grid [data-rank-level="dong"],
+#apartmentMarkerSigunguToggle:not(:checked) ~ .apartment-marker-concept-grid [data-rank-level="sigungu"],
+#apartmentMarkerSidoToggle:not(:checked) ~ .apartment-marker-concept-grid [data-rank-level="sido"],
+#apartmentMarkerNationalToggle:not(:checked) ~ .apartment-marker-concept-grid [data-rank-level="national"],
+#apartmentMarkerNationalPercentToggle:not(:checked) ~ .apartment-marker-concept-grid [data-rank-level="nationalPercent"] {
+  display: none;
+}
+
+.apartment-rank-marker {
+  --rank-bg: #ffffff;
+  --rank-border: #5262d6;
+  --rank-text: #2939a8;
+  --rank-muted: #667085;
+  --rank-badge-bg: #eef2ff;
+  --rank-badge-text: #2939a8;
+  --apartment-marker-outer-width: 138px;
+  --apartment-marker-rank-box-width: 116px;
+  --apartment-marker-name-font-size: 10px;
+  --apartment-marker-area-font-size: 9px;
+  --apartment-marker-value-font-size: 24px;
+  --apartment-marker-rank-dong-font-size: 9px;
+  --apartment-marker-rank-sigungu-font-size: 9px;
+  --apartment-marker-rank-sido-font-size: 9px;
+  --apartment-marker-rank-national-font-size: 9px;
+  --apartment-marker-rank-national-percent-font-size: 9px;
+  --apartment-marker-rank-value-font-size: 10px;
+  --apartment-marker-name-area-gap: 3px;
+  --apartment-marker-area-rate-gap: 4px;
+  --apartment-marker-value-rank-gap: 5px;
+  --apartment-marker-rank-row-gap: 4px;
+  --apartment-marker-rank-row-height: 18px;
+  --apartment-marker-tail-height: 24px;
+  --apartment-marker-tail-width: 30px;
+  --apartment-marker-tail-offset: 0px;
+  --apartment-marker-tail-clearance: 18px;
+  --apartment-marker-tail-top: calc(100% - var(--apartment-marker-tail-height) - var(--apartment-marker-tail-clearance) + var(--apartment-marker-tail-offset));
+  --apartment-marker-tail-tip-y: calc(var(--apartment-marker-tail-top) + var(--apartment-marker-tail-height));
+  --apartment-marker-shape: polygon(
+    0 0,
+    100% 0,
+    100% var(--apartment-marker-tail-top),
+    var(--apartment-marker-tail-width) var(--apartment-marker-tail-top),
+    0 var(--apartment-marker-tail-tip-y),
+    0 0
+  );
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  box-sizing: border-box;
+  width: var(--apartment-marker-outer-width);
+  min-width: var(--apartment-marker-outer-width);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--rank-text);
+  filter: none;
+  font-weight: 950;
+  line-height: 1;
+  padding: 8px 8px calc(10px + var(--apartment-marker-tail-height) + var(--apartment-marker-tail-clearance));
+  pointer-events: auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.apartment-map-marker.apartment-rank-marker {
+  align-items: initial;
+  flex-direction: initial;
+  gap: 0;
+  height: auto;
+  min-height: 0;
+  font-size: inherit;
+  justify-content: initial;
+}
+
+.apartment-rank-marker::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 7px 7px 0 0;
+  background: var(--rank-bg);
+  clip-path: var(--apartment-marker-shape);
+  content: "";
+}
+
+.apartment-rank-marker[data-apartment-marker-border="on"] {
+  filter:
+    drop-shadow(0 1px 0 var(--rank-border))
+    drop-shadow(1px 0 0 var(--rank-border))
+    drop-shadow(0 -1px 0 var(--rank-border))
+    drop-shadow(-1px 0 0 var(--rank-border));
+}
+
+.apartment-rank-marker[data-apartment-marker-shadow="on"] {
+  filter: drop-shadow(0 14px 26px rgba(16, 24, 40, 0.18));
+}
+
+.apartment-rank-marker[data-apartment-marker-border="on"][data-apartment-marker-shadow="on"] {
+  filter:
+    drop-shadow(0 1px 0 var(--rank-border))
+    drop-shadow(1px 0 0 var(--rank-border))
+    drop-shadow(0 -1px 0 var(--rank-border))
+    drop-shadow(-1px 0 0 var(--rank-border))
+    drop-shadow(0 14px 26px rgba(16, 24, 40, 0.18));
+}
+
+.apartment-rank-marker.no-data {
+  --rank-bg: #667085;
+  --rank-border: #ffffff;
+  --rank-text: #ffffff;
+  --rank-muted: #f2f4f7;
+  --rank-badge-bg: rgba(255, 255, 255, 0.16);
+  --rank-badge-text: #ffffff;
+}
+
+.apartment-rank-marker.selected {
+  box-shadow: none;
+  filter: none;
+  transform: scale(1.06);
+}
+
+.apartment-rank-marker[data-apartment-marker-border="on"].selected {
+  filter:
+    drop-shadow(0 1px 0 var(--rank-border))
+    drop-shadow(1px 0 0 var(--rank-border))
+    drop-shadow(0 -1px 0 var(--rank-border))
+    drop-shadow(-1px 0 0 var(--rank-border));
+}
+
+.apartment-rank-marker[data-apartment-marker-shadow="on"].selected {
+  filter:
+    drop-shadow(0 0 0 rgba(35, 103, 209, 0.2))
+    drop-shadow(0 18px 30px rgba(16, 24, 40, 0.28));
+}
+
+.apartment-rank-marker[data-apartment-marker-border="on"][data-apartment-marker-shadow="on"].selected {
+  filter:
+    drop-shadow(0 1px 0 var(--rank-border))
+    drop-shadow(1px 0 0 var(--rank-border))
+    drop-shadow(0 -1px 0 var(--rank-border))
+    drop-shadow(-1px 0 0 var(--rank-border))
+    drop-shadow(0 18px 30px rgba(16, 24, 40, 0.28));
+}
+
+.apartment-marker-name-row,
+.apartment-marker-area-row,
+.apartment-marker-rate-row {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: calc(var(--apartment-marker-outer-width) - 16px);
+  overflow: hidden;
+  color: var(--rank-muted);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apartment-marker-name-row {
+  font-size: var(--apartment-marker-name-font-size);
+}
+
+.apartment-marker-area-row {
+  margin-top: var(--apartment-marker-name-area-gap);
+  font-size: var(--apartment-marker-area-font-size);
+}
+
+.apartment-marker-rate-row {
+  margin-top: var(--apartment-marker-area-rate-gap);
+  color: var(--rank-text);
+  font-size: var(--apartment-marker-value-font-size);
+  line-height: 0.96;
+}
+
+.apartment-marker-name-row + .apartment-marker-rate-row {
+  margin-top: var(--apartment-marker-area-rate-gap);
+}
+
+.apartment-marker-rank-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-self: center;
+  box-sizing: border-box;
+  width: var(--apartment-marker-rank-box-width);
+  gap: var(--apartment-marker-rank-row-gap);
+  margin-top: var(--apartment-marker-value-rank-gap);
+}
+
+.apartment-marker-rank-list:empty {
+  display: none;
+}
+
+.apartment-rank-marker > :first-child {
+  margin-top: 0;
+}
+
+.apartment-marker-rank-list em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--apartment-marker-rank-row-height);
+  border: 0;
+  border-radius: 999px;
+  background: var(--rank-badge-bg);
+  color: var(--rank-badge-text);
+  font-size: var(--apartment-marker-rank-value-font-size);
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.apartment-marker-rank-list b {
+  color: currentColor;
+  font-size: var(--apartment-marker-rank-dong-font-size);
+  font-weight: 950;
+  opacity: 0.78;
+}
+
+.apartment-marker-rank-list em[data-rank-level="sigungu"] b {
+  font-size: var(--apartment-marker-rank-sigungu-font-size);
+}
+
+.apartment-marker-rank-list em[data-rank-level="sido"] b {
+  font-size: var(--apartment-marker-rank-sido-font-size);
+}
+
+.apartment-marker-rank-list em[data-rank-level="national"] b {
+  font-size: var(--apartment-marker-rank-national-font-size);
+}
+
+.apartment-marker-rank-list em[data-rank-level="nationalPercent"] b {
+  font-size: var(--apartment-marker-rank-national-percent-font-size);
+}
+
+.apartment-rank-marker.rank-chip-white {
+  --rank-bg: #ffffff;
+  --rank-border: #5262d6;
+  --rank-text: #2939a8;
+  --rank-muted: #667085;
+  --rank-badge-bg: #eef2ff;
+  --rank-badge-text: #2939a8;
+}
+
+.apartment-rank-marker.rank-chip-stack {
+  --rank-bg: #eef2ff;
+  --rank-border: #5b68d9;
+  --rank-text: #3040a7;
+  --rank-muted: #5360bc;
+  --rank-badge-bg: #3040a7;
+  --rank-badge-text: #ffffff;
+}
+
+.apartment-rank-marker.rank-chip-table {
+  --rank-bg: #eef2ff;
+  --rank-border: #5b68d9;
+  --rank-text: #3040a7;
+  --rank-muted: #5360bc;
+  --rank-badge-bg: #ffffff;
+  --rank-badge-text: #3040a7;
+  text-align: left;
+}
+
+.apartment-rank-marker.rank-chip-table .apartment-marker-rank-list {
+  overflow: hidden;
+  gap: var(--apartment-marker-rank-row-gap, 0);
+  border: 1px solid rgba(48, 64, 167, 0.18);
+  border-radius: 6px;
+}
+
+.apartment-rank-marker.rank-chip-table .apartment-marker-rank-list em {
+  border-bottom: 1px solid rgba(48, 64, 167, 0.14);
+  border-radius: 0;
+}
+
+.apartment-rank-marker.rank-chip-table .apartment-marker-rank-list em:last-child {
+  border-bottom: 0;
+}
+
+.apartment-rank-marker.rank-chip-dark {
+  --rank-bg: #111827;
+  --rank-border: #ffffff;
+  --rank-text: #ffffff;
+  --rank-muted: #c7d2fe;
+  --rank-badge-bg: #ffffff;
+  --rank-badge-text: #111827;
+}
+
+.apartment-marker-style-editor .region-marker-common-badge {
+  background: #eef2ff;
+  color: #2939a8;
+}
+
+.apartment-marker-style-field-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 35px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.apartment-marker-style-field-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: #2939a8;
+}
+
+@media (max-width: 640px) {
+  .apartment-marker-concept-grid {
+    grid-template-columns: 1fr;
+  }
+}
