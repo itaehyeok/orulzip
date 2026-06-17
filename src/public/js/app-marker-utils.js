@@ -52,8 +52,8 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const rows = zoomGroupMarkerRankRows(item, level);
   const template = activeRegionMarkerTemplate(level);
   const values = zoomGroupMarkerTemplateValues(item, level, markerDesign);
-  const labelText = renderRegionMarkerTemplateText(template.label, values);
-  const valueText = renderRegionMarkerTemplateText(template.value, values);
+  const label = renderRegionMarkerTemplate(template.label, values);
+  const value = renderRegionMarkerTemplate(template.value, values);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
@@ -69,12 +69,12 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   ].filter(Boolean).map(escapeHtml).join(" ");
   return `
     <span class="${markerClasses}" style="${markerStyle}">
-      ${labelText ? `<small>${escapeHtml(labelText)}</small>` : ""}
-      ${valueText ? `<strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${escapeHtml(valueText)}</strong>` : ""}
+      ${label.text ? `<small>${label.html}</small>` : ""}
+      ${value.text ? `<strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${value.html}</strong>` : ""}
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
-            <em data-rank-level="${escapeHtml(row.rankLevel)}">${escapeHtml(row.text)}</em>
+            <em data-rank-level="${escapeHtml(row.rankLevel)}">${row.html}</em>
           `).join("")}
         </span>
       ` : ""}
@@ -108,7 +108,12 @@ function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(
   return zoomGroupAllRankRows(item, level, design)
     .map((row) => ({
       ...row,
-      text: renderRegionMarkerTemplateText(template.rankRows?.[row.rankLevel] || row.template, values)
+      rendered: renderRegionMarkerTemplate(template.rankRows?.[row.rankLevel] || row.template, values)
+    }))
+    .map((row) => ({
+      ...row,
+      text: row.rendered.text,
+      html: row.rendered.html
     }))
     .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && row.text);
 }
@@ -176,10 +181,25 @@ function activeMarkerPeriodLabel() {
 }
 
 function renderRegionMarkerTemplateText(template, values) {
-  return String(template || "")
+  return renderRegionMarkerTemplate(template, values).text;
+}
+
+function renderRegionMarkerTemplate(template, values) {
+  if (typeof regionMarkerTemplateMarkupToHtml === "function") {
+    return regionMarkerTemplateMarkupToHtml(template, {
+      values,
+      replaceVariables: true,
+      editorSpans: false
+    });
+  }
+  const text = String(template || "")
     .replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, token) => values[token.trim()] ?? "")
     .replace(/\s+/g, " ")
     .trim();
+  return {
+    text,
+    html: escapeHtml(text)
+  };
 }
 
 function formatMarkerRankNumber(value) {
