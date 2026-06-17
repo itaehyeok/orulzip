@@ -1,0 +1,35 @@
+name: Deploy Development
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to development folder
+    runs-on: [self-hosted, linux, orulzip-production]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v4
+
+      - name: Deploy development
+        env:
+          DEPLOY_DIR: /home/th/docker/custom/orulzip/development
+          DEPLOY_BRANCH: develop
+          COMPOSE_PROJECT_NAME: orulzip-development
+          DEPLOY_LOCK_FILE: /tmp/orulzip-development-deploy.lock
+          HEALTHCHECK_URL: http://localhost:3051/map
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./scripts/deploy-production.sh

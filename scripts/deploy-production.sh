@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PRODUCTION_DIR="${PRODUCTION_DIR:-/home/th/docker/custom/orulzip/production}"
+DEPLOY_DIR="${DEPLOY_DIR:-${PRODUCTION_DIR:-/home/th/docker/custom/orulzip/production}}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-orulzip}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost:3050/map}"
@@ -47,19 +47,29 @@ if ! flock -n 9; then
   exit 1
 fi
 
-if [ ! -d "$PRODUCTION_DIR/.git" ]; then
-  log "not a git checkout: $PRODUCTION_DIR"
-  exit 1
+if [ ! -d "$DEPLOY_DIR/.git" ]; then
+  log "initializing git checkout: $DEPLOY_DIR"
+  mkdir -p "$DEPLOY_DIR"
+  cd "$DEPLOY_DIR"
+  git init
+  if ! git remote get-url origin >/dev/null 2>&1; then
+    if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+      git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+    else
+      log "missing origin remote and GITHUB_REPOSITORY"
+      exit 1
+    fi
+  fi
+else
+  cd "$DEPLOY_DIR"
 fi
-
-cd "$PRODUCTION_DIR"
 
 if [ ! -f ".env" ]; then
-  log "missing $PRODUCTION_DIR/.env"
+  log "missing $DEPLOY_DIR/.env"
   exit 1
 fi
 
-log "updating $PRODUCTION_DIR from origin/$DEPLOY_BRANCH"
+log "updating $DEPLOY_DIR from origin/$DEPLOY_BRANCH"
 fetch_origin_branch
 git checkout -B "$DEPLOY_BRANCH" "refs/remotes/origin/$DEPLOY_BRANCH"
 git reset --hard "refs/remotes/origin/$DEPLOY_BRANCH"

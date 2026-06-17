@@ -25,7 +25,7 @@ jobs:
 
       - name: Deploy production
         env:
-          PRODUCTION_DIR: /home/th/docker/custom/orulzip/production
+          DEPLOY_DIR: /home/th/docker/custom/orulzip/production
           DEPLOY_BRANCH: main
           COMPOSE_PROJECT_NAME: orulzip
           HEALTHCHECK_URL: http://localhost:3050/map
