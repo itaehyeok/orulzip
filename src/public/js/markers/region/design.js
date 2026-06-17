@@ -154,6 +154,14 @@ function defaultRegionMarkerOuterWidth(level, designId) {
   return regionMarkerDesignDefaultWidths[designId] || regionMarkerDesignDefaultWidths.white;
 }
 
+function effectiveRegionMarkerRankBoxWidth(style, rankWidthExtra = 0) {
+  const outerWidth = Number(style?.outerBoxWidth) + rankWidthExtra;
+  const wantedRankWidth = Number(style?.rankBoxWidth) + rankWidthExtra;
+  if (!Number.isFinite(outerWidth) || !Number.isFinite(wantedRankWidth)) return wantedRankWidth;
+  const maxRankWidth = Math.max(0, outerWidth - 16);
+  return Math.min(wantedRankWidth, maxRankWidth);
+}
+
 function sanitizeRegionMarkerStyle(style) {
   if (!style || typeof style !== "object") return null;
   const result = {};
@@ -314,9 +322,11 @@ function writeRegionMarkerStylePresetState() {
 function regionMarkerStyleCssVars(level = "dong", design = activeRegionMarkerDesign(level)) {
   const style = activeRegionMarkerStyle(level, design);
   const rankWidthExtra = typeof markerRankWidthExtra === "function" ? markerRankWidthExtra("region") : 0;
+  const outerWidth = style.outerBoxWidth + rankWidthExtra;
+  const rankBoxWidth = effectiveRegionMarkerRankBoxWidth(style, rankWidthExtra);
   return {
-    "--region-marker-outer-width": `${style.outerBoxWidth + rankWidthExtra}px`,
-    "--region-marker-rank-box-width": `${style.rankBoxWidth + rankWidthExtra}px`,
+    "--region-marker-outer-width": `${outerWidth}px`,
+    "--region-marker-rank-box-width": `${rankBoxWidth}px`,
     "--region-marker-label-font-size": `${style.labelFontSize}px`,
     "--region-marker-value-prefix-font-size": `${style.valuePrefixFontSize}px`,
     "--region-marker-value-font-size": `${style.valueFontSize}px`,

@@ -568,12 +568,14 @@
   margin-bottom: 0;
 }
 
-.dong-rank-demo span {
+.dong-rank-demo > span {
   display: grid;
-  width: var(--region-marker-rank-box-width, auto);
   box-sizing: border-box;
   gap: var(--region-marker-rank-row-gap, 4px);
+  max-width: 100%;
+  min-width: 0;
   place-items: center;
+  width: min(var(--region-marker-rank-box-width, 100%), 100%);
 }
 
 .dong-rank-demo em {
@@ -591,6 +593,8 @@
   font-style: normal;
   font-weight: 950;
   line-height: 1;
+  min-width: 0;
+  overflow: hidden;
   padding: 4px 7px;
   text-align: center;
   white-space: nowrap;
@@ -598,17 +602,28 @@
 
 .dong-rank-demo b {
   color: currentColor;
+  flex: 1 1 auto;
   font-size: var(--region-marker-rank-label-font-size, 9px);
   font-weight: 950;
+  min-width: 0;
   opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dong-rank-demo .region-marker-rank-value {
   color: currentColor;
   display: inline-block;
+  flex: 0 1 auto;
   font-size: var(--region-marker-rank-value-font-size, 10px);
   font-weight: 950;
   line-height: 1;
+  max-width: 64%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dong-rank-demo em[data-rank-level="sigungu"] b {

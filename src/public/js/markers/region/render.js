@@ -180,7 +180,12 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   const textConfig = activeRegionMarkerText(normalizedLevel);
   const hasValuePrefix = Boolean(textConfig.valuePrefix);
   const hasValueSuffix = Boolean(textConfig.valueSuffix);
-  const width = Math.max(style.outerBoxWidth, style.rankBoxWidth + 16) + 22 + markerRankWidthExtra("region");
+  const rankWidthExtra = markerRankWidthExtra("region");
+  const rankBoxWidth = typeof effectiveRegionMarkerRankBoxWidth === "function"
+    ? effectiveRegionMarkerRankBoxWidth(style, rankWidthExtra)
+    : style.rankBoxWidth + rankWidthExtra;
+  const outerBoxWidth = style.outerBoxWidth + rankWidthExtra;
+  const width = Math.max(outerBoxWidth, rankBoxWidth + 16) + 22;
   const rankRowsHeight = rowCount
     ? (rowCount * style.rankRowHeight) + (Math.max(0, rowCount - 1) * style.rankRowGap)
     : 0;
