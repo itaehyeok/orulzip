@@ -503,7 +503,8 @@
 
 .dong-rank-demo strong {
   box-sizing: border-box;
-  display: block;
+  display: grid;
+  gap: 2px;
   justify-self: stretch;
   color: var(--rank-text);
   font-size: var(--region-marker-value-font-size, 25px);
@@ -513,6 +514,28 @@
   margin-bottom: var(--region-marker-value-rank-gap, 5px);
   text-align: center;
   width: 100%;
+}
+
+.dong-rank-demo .region-marker-value-prefix,
+.dong-rank-demo .region-marker-value-rate {
+  display: block;
+  justify-self: stretch;
+  text-align: center;
+  width: 100%;
+}
+
+.dong-rank-demo .region-marker-value-prefix {
+  color: var(--rank-muted);
+  font-size: var(--region-marker-value-prefix-font-size, 9px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.dong-rank-demo .region-marker-value-rate {
+  color: var(--rank-text);
+  font-size: var(--region-marker-value-font-size, 25px);
+  font-weight: 950;
+  line-height: 0.96;
 }
 
 .dong-rank-demo strong:last-child {

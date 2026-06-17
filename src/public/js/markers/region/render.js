@@ -4,6 +4,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const textConfig = activeRegionMarkerText(level);
   const textContext = zoomGroupMarkerTextContext(item, level, markerDesign);
   const labelText = renderRegionMarkerText(textConfig.label, textContext);
+  const valuePrefixText = renderRegionMarkerText(textConfig.valuePrefix, textContext);
   const valueText = renderRegionMarkerText(textConfig.value, textContext);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
@@ -21,7 +22,12 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   return `
     <span class="${markerClasses}" style="${markerStyle}">
       ${labelText ? `<small>${escapeHtml(labelText)}</small>` : ""}
-      ${valueText ? `<strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">${escapeHtml(valueText)}</strong>` : ""}
+      ${(valuePrefixText || valueText) ? `
+        <strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">
+          ${valuePrefixText ? `<span class="region-marker-value-prefix">${escapeHtml(valuePrefixText)}</span>` : ""}
+          ${valueText ? `<span class="region-marker-value-rate">${escapeHtml(valueText)}</span>` : ""}
+        </strong>
+      ` : ""}
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
@@ -140,14 +146,19 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   const rowCount = activeRegionMarkerRankLevels(normalizedLevel).length;
   const style = activeRegionMarkerStyle(normalizedLevel, design);
+  const textConfig = activeRegionMarkerText(normalizedLevel);
+  const hasValuePrefix = Boolean(textConfig.valuePrefix);
   const width = Math.max(style.outerBoxWidth, style.rankBoxWidth + 16) + 22 + markerRankWidthExtra("region");
   const rankRowsHeight = rowCount
     ? (rowCount * style.rankRowHeight) + (Math.max(0, rowCount - 1) * style.rankRowGap)
     : 0;
+  const valueBlockHeight = hasValuePrefix
+    ? (style.valuePrefixFontSize * 1.05) + 2 + (style.valueFontSize * 0.96)
+    : (style.valueFontSize * 0.96);
   const contentHeight = 20
     + (style.labelFontSize * 1.05)
     + style.labelRateGap
-    + (style.valueFontSize * 0.96)
+    + valueBlockHeight
     + (rowCount ? style.valueRankGap + rankRowsHeight : 0);
   const height = Math.max(54, Math.ceil(contentHeight + 24));
   return [width, height];

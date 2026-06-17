@@ -37,6 +37,7 @@ window.orulzipRegionMarkerConfig = {
     sigungu: {
       // "송파구" is made here.
       label: ({ sigunguName }) => sigunguName,
+      valuePrefix: ({ periodLabel }) => `${periodLabel}간 상승`,
       // "12.1%" is made here.
       value: ({ growthRate }) => formatPercent(growthRate),
       rankRows: {
@@ -62,6 +63,7 @@ window.orulzipRegionMarkerConfig = {
     { key: "outerBoxWidth", label: "외부 박스 너비", group: "박스", min: 88, max: 220, step: 1 },
     { key: "rankBoxWidth", label: "순위 박스 너비", group: "박스", min: 70, max: 204, step: 1 },
     { key: "labelFontSize", label: "지역명 글자", group: "글자", min: 8, max: 18, step: 1 },
+    { key: "valuePrefixFontSize", label: "상승률 앞글자", group: "글자", min: 7, max: 18, step: 1 },
     { key: "valueFontSize", label: "상승률 글자", group: "글자", min: 16, max: 38, step: 1 },
     { key: "sigunguFontSize", label: "시군구 글자", group: "글자", min: 7, max: 17, step: 1 },
     { key: "sidoFontSize", label: "시도 글자", group: "글자", min: 7, max: 17, step: 1 },
@@ -84,7 +86,8 @@ window.orulzipRegionMarkerConfig = {
   },
   defaultStyle: {
     labelFontSize: 10,
-    valueFontSize: 25,
+    valuePrefixFontSize: 9,
+    valueFontSize: 17,
     sigunguFontSize: 9,
     sidoFontSize: 9,
     nationalFontSize: 9,
