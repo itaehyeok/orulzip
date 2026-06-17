@@ -28,6 +28,7 @@ window.orulzipRegionMarkerConfig = {
     dong: {
       label: ({ dongName }) => dongName,
       value: ({ growthRate }) => formatPercent(growthRate),
+      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
       rankRows: {
         sigungu: ({ sigunguName, sigunguRankText }) => `${sigunguName} ${sigunguRankText}`,
         sido: ({ sidoName, sidoRankText }) => `${sidoName} ${sidoRankText}`,
@@ -37,9 +38,9 @@ window.orulzipRegionMarkerConfig = {
     sigungu: {
       // "송파구" is made here.
       label: ({ sigunguName }) => sigunguName,
-      valuePrefix: ({ periodLabel }) => `${periodLabel}간 상승`,
       // "12.1%" is made here.
       value: ({ growthRate }) => formatPercent(growthRate),
+      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
       rankRows: {
         sido: ({ sidoName, sidoRankText }) => `${sidoName} ${sidoRankText}`,
         national: ({ countryRankText }) => `전국 ${countryRankText}`
@@ -48,6 +49,7 @@ window.orulzipRegionMarkerConfig = {
     sido: {
       label: ({ sidoName }) => sidoName,
       value: ({ growthRate }) => formatPercent(growthRate),
+      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
       rankRows: {
         national: ({ countryRankText }) => `전국 ${countryRankText}`
       }
@@ -65,14 +67,19 @@ window.orulzipRegionMarkerConfig = {
     { key: "labelFontSize", label: "지역명 글자", group: "글자", min: 8, max: 18, step: 1 },
     { key: "valuePrefixFontSize", label: "상승률 앞글자", group: "글자", min: 7, max: 18, step: 1 },
     { key: "valueFontSize", label: "상승률 글자", group: "글자", min: 16, max: 38, step: 1 },
+    { key: "valueSuffixFontSize", label: "상승률 밑글자", group: "글자", min: 7, max: 18, step: 1 },
     { key: "sigunguFontSize", label: "시군구 글자", group: "글자", min: 7, max: 17, step: 1 },
     { key: "sidoFontSize", label: "시도 글자", group: "글자", min: 7, max: 17, step: 1 },
     { key: "nationalFontSize", label: "전국 글자", group: "글자", min: 7, max: 17, step: 1 },
     { key: "rankValueFontSize", label: "등수 글자", group: "글자", min: 8, max: 18, step: 1 },
     { key: "labelRateGap", label: "지역명-상승률 간격", group: "행간", min: 0, max: 18, step: 1 },
+    { key: "valueSuffixGap", label: "상승률-밑글자 간격", group: "행간", min: 0, max: 12, step: 1 },
     { key: "valueRankGap", label: "상승률-순위박스 간격", group: "행간", min: 0, max: 18, step: 1 },
     { key: "rankRowGap", label: "순위 행간", group: "행간", min: 0, max: 12, step: 1 },
-    { key: "rankRowHeight", label: "순위 행 높이", group: "행간", min: 14, max: 32, step: 1 }
+    { key: "rankRowHeight", label: "순위 행 높이", group: "행간", min: 14, max: 32, step: 1 },
+    { key: "labelColor", label: "지역명 색상", group: "색상", type: "color" },
+    { key: "valueColor", label: "상승률 색상", group: "색상", type: "color" },
+    { key: "valueSuffixColor", label: "상승률 밑글자 색상", group: "색상", type: "color" }
   ],
   defaultWidthsByDesign: {
     white: 126,
@@ -88,15 +95,20 @@ window.orulzipRegionMarkerConfig = {
     labelFontSize: 10,
     valuePrefixFontSize: 9,
     valueFontSize: 17,
+    valueSuffixFontSize: 9,
     sigunguFontSize: 9,
     sidoFontSize: 9,
     nationalFontSize: 9,
     rankValueFontSize: 10,
     labelRateGap: 5,
+    valueSuffixGap: 2,
     valueRankGap: 5,
     rankRowGap: 4,
     tableRankRowGap: 0,
-    rankRowHeight: 18
+    rankRowHeight: 18,
+    labelColor: "#667085",
+    valueColor: "#2939a8",
+    valueSuffixColor: "#667085"
   },
   previewSamples: [
     {

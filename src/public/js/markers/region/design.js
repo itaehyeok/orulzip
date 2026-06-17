@@ -131,14 +131,19 @@ function defaultRegionMarkerStyle(level = "dong", design = activeRegionMarkerDes
     labelFontSize: defaultStyle.labelFontSize ?? 10,
     valuePrefixFontSize: defaultStyle.valuePrefixFontSize ?? 9,
     valueFontSize: defaultStyle.valueFontSize ?? 25,
+    valueSuffixFontSize: defaultStyle.valueSuffixFontSize ?? 9,
     sigunguFontSize: defaultStyle.sigunguFontSize ?? 9,
     sidoFontSize: defaultStyle.sidoFontSize ?? 9,
     nationalFontSize: defaultStyle.nationalFontSize ?? 9,
     rankValueFontSize: defaultStyle.rankValueFontSize ?? 10,
     labelRateGap: defaultStyle.labelRateGap ?? 5,
+    valueSuffixGap: defaultStyle.valueSuffixGap ?? 2,
     valueRankGap: defaultStyle.valueRankGap ?? 5,
     rankRowGap: designId === "table" ? (defaultStyle.tableRankRowGap ?? 0) : (defaultStyle.rankRowGap ?? 4),
-    rankRowHeight: defaultStyle.rankRowHeight ?? 18
+    rankRowHeight: defaultStyle.rankRowHeight ?? 18,
+    labelColor: defaultStyle.labelColor || "#667085",
+    valueColor: defaultStyle.valueColor || "#2939a8",
+    valueSuffixColor: defaultStyle.valueSuffixColor || "#667085"
   };
 }
 
@@ -162,6 +167,10 @@ function sanitizeRegionMarkerStyle(style) {
 function normalizeRegionMarkerStyleValue(key, value) {
   const control = regionMarkerStyleControlMap.get(key);
   if (!control) return null;
+  if (control.type === "color") {
+    const text = String(value || "").trim();
+    return /^#[0-9a-f]{6}$/i.test(text) ? text.toLowerCase() : null;
+  }
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
   const clamped = Math.min(control.max, Math.max(control.min, number));
@@ -311,14 +320,19 @@ function regionMarkerStyleCssVars(level = "dong", design = activeRegionMarkerDes
     "--region-marker-label-font-size": `${style.labelFontSize}px`,
     "--region-marker-value-prefix-font-size": `${style.valuePrefixFontSize}px`,
     "--region-marker-value-font-size": `${style.valueFontSize}px`,
+    "--region-marker-value-suffix-font-size": `${style.valueSuffixFontSize}px`,
     "--region-marker-rank-sigungu-font-size": `${style.sigunguFontSize}px`,
     "--region-marker-rank-sido-font-size": `${style.sidoFontSize}px`,
     "--region-marker-rank-national-font-size": `${style.nationalFontSize}px`,
     "--region-marker-rank-value-font-size": `${style.rankValueFontSize}px`,
     "--region-marker-label-rate-gap": `${style.labelRateGap}px`,
+    "--region-marker-value-suffix-gap": `${style.valueSuffixGap}px`,
     "--region-marker-value-rank-gap": `${style.valueRankGap}px`,
     "--region-marker-rank-row-gap": `${style.rankRowGap}px`,
-    "--region-marker-rank-row-height": `${style.rankRowHeight}px`
+    "--region-marker-rank-row-height": `${style.rankRowHeight}px`,
+    "--region-marker-label-color": style.labelColor,
+    "--region-marker-value-color": style.valueColor,
+    "--region-marker-value-suffix-color": style.valueSuffixColor
   };
 }
 
@@ -527,6 +541,15 @@ function groupRegionMarkerStyleControls() {
 }
 
 function regionMarkerStyleControlHtml(control, value) {
+  if (control.type === "color") {
+    return `
+      <label class="region-marker-style-field region-marker-color-field">
+        <span>${escapeHtml(control.label)}</span>
+        <input type="color" value="${escapeHtml(value)}" data-region-marker-style-key="${escapeHtml(control.key)}">
+        <input type="text" value="${escapeHtml(value)}" data-region-marker-style-key="${escapeHtml(control.key)}" maxlength="7" spellcheck="false">
+      </label>
+    `;
+  }
   return `
     <label class="region-marker-style-field">
       <span>${escapeHtml(control.label)}</span>

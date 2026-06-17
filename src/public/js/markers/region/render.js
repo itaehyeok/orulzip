@@ -6,6 +6,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const labelText = renderRegionMarkerText(textConfig.label, textContext);
   const valuePrefixText = renderRegionMarkerText(textConfig.valuePrefix, textContext);
   const valueText = renderRegionMarkerText(textConfig.value, textContext);
+  const valueSuffixText = renderRegionMarkerText(textConfig.valueSuffix, textContext);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
@@ -22,10 +23,11 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   return `
     <span class="${markerClasses}" style="${markerStyle}">
       ${labelText ? `<small>${escapeHtml(labelText)}</small>` : ""}
-      ${(valuePrefixText || valueText) ? `
+      ${(valuePrefixText || valueText || valueSuffixText) ? `
         <strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">
           ${valuePrefixText ? `<span class="region-marker-value-prefix">${escapeHtml(valuePrefixText)}</span>` : ""}
           ${valueText ? `<span class="region-marker-value-rate">${escapeHtml(valueText)}</span>` : ""}
+          ${valueSuffixText ? `<span class="region-marker-value-suffix">${escapeHtml(valueSuffixText)}</span>` : ""}
         </strong>
       ` : ""}
       ${rows.length ? `
@@ -148,13 +150,15 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   const style = activeRegionMarkerStyle(normalizedLevel, design);
   const textConfig = activeRegionMarkerText(normalizedLevel);
   const hasValuePrefix = Boolean(textConfig.valuePrefix);
+  const hasValueSuffix = Boolean(textConfig.valueSuffix);
   const width = Math.max(style.outerBoxWidth, style.rankBoxWidth + 16) + 22 + markerRankWidthExtra("region");
   const rankRowsHeight = rowCount
     ? (rowCount * style.rankRowHeight) + (Math.max(0, rowCount - 1) * style.rankRowGap)
     : 0;
-  const valueBlockHeight = hasValuePrefix
-    ? (style.valuePrefixFontSize * 1.05) + 2 + (style.valueFontSize * 0.96)
-    : (style.valueFontSize * 0.96);
+  const valueBlockHeight =
+    (hasValuePrefix ? (style.valuePrefixFontSize * 1.05) + 2 : 0)
+    + (style.valueFontSize * 0.96)
+    + (hasValueSuffix ? style.valueSuffixGap + (style.valueSuffixFontSize * 1.05) : 0);
   const contentHeight = 20
     + (style.labelFontSize * 1.05)
     + style.labelRateGap
