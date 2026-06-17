@@ -411,7 +411,9 @@
 }
 
 .dong-rank-demo small {
+  box-sizing: border-box;
   display: block;
+  justify-self: stretch;
   max-width: calc(var(--region-marker-outer-width, var(--rank-default-width)) - 16px);
   overflow: hidden;
   color: var(--rank-muted);
@@ -419,18 +421,24 @@
   font-weight: 950;
   line-height: 1.05;
   margin-bottom: var(--region-marker-label-rate-gap, 5px);
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+  width: 100%;
 }
 
 .dong-rank-demo strong {
+  box-sizing: border-box;
   display: block;
+  justify-self: stretch;
   color: var(--rank-text);
   font-size: var(--region-marker-value-font-size, 25px);
   font-weight: 950;
   letter-spacing: 0;
   line-height: 0.96;
   margin-bottom: var(--region-marker-value-rank-gap, 5px);
+  text-align: center;
+  width: 100%;
 }
 
 .dong-rank-demo strong:last-child {

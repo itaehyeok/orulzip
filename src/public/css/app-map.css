@@ -764,7 +764,15 @@
 .apartment-map-marker.marker-theme-white-compact,
 .zoom-cluster-marker .marker-theme-white-compact { --theme-bg: #ffffff; --theme-border: #111827; --theme-text: #111827; --theme-muted: #344054; --theme-radius: 7px; --theme-rank-bg: #111827; --theme-rank-border: #111827; --theme-rank-text: #ffffff; }
 
+.zoom-cluster-marker {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
 .zoom-cluster-marker > .region-data-marker {
+  flex: 0 0 auto;
+  margin-inline: auto;
   pointer-events: auto;
 }
 
