@@ -19,6 +19,7 @@ This document tracks the public apartment trade data collection setup. Keep this
 - Default period follows the current KB data period:
   - `201601` through `202606` as of 2026-06-12.
 - Current coded targets:
+  - Nationwide: 254 current 시군구-level LAWD codes from 행정표준코드관리시스템 법정동코드 전체자료, downloaded 2026-06-17
   - Seoul: 25 gu codes
   - Gyeonggi: 시군구 codes currently listed in `scripts/sync-molit-trades.js`
   - Incheon: 10 gu/gun codes
@@ -34,7 +35,7 @@ Expected base request count for the current coded scope:
 
 ## Nationwide Collection Plan
 
-Nationwide collection needs a full LAWD-code master before it can be run safely. The target should be a single source target such as `nationwide`, not duplicated per custom display region, so the same transaction is not stored several times under different `target_region_id` values.
+Nationwide collection uses the single source target `nationwide`, so new and refreshed transaction rows are normalized under one `target_region_id`.
 
 Recommended daily budget:
 
@@ -44,9 +45,9 @@ Recommended daily budget:
 
 Expected duration after a nationwide LAWD-code master is added:
 
-- Roughly 250 LAWD-code groups x 126 months = about 31,500 base requests.
+- 254 LAWD-code groups x 126 months = about 32,004 base requests.
 - Some dense regions/months require additional pages.
-- At an 8,000 request/day budget, expect about 4-5 days for the initial nationwide backfill.
+- At a 6,500 task/day budget, expect about 5 days for the initial nationwide backfill.
 - After backfill, refresh only the latest 3 months daily or weekly.
 
 Operational rule:
@@ -70,10 +71,10 @@ Collect current target scope:
 docker compose run --rm web npm run sync:molit -- --targets seoul,bundang,dongtan --limit 9000 --delay-ms 250
 ```
 
-Collect current coded 수도권 scope within the safe daily budget:
+Collect nationwide scope within the safe daily budget:
 
 ```sh
-docker compose run --rm web npm run sync:molit -- --targets seoul,gyeonggi,incheon --limit 8000 --delay-ms 350
+docker compose run --rm molit-daily-collector npm run sync:molit -- --targets nationwide --limit 6500 --delay-ms 500
 ```
 
 Start the automatic daily collector:

@@ -51,7 +51,7 @@ services:
       - -c
       - >
         while true; do
-          npm run sync:molit -- --targets ${MOLIT_DAILY_TARGETS:-seoul,gyeonggi,incheon} --limit ${MOLIT_DAILY_LIMIT:-8000} --delay-ms ${MOLIT_DAILY_DELAY_MS:-350};
+          npm run sync:molit -- --targets ${MOLIT_DAILY_TARGETS:-nationwide} --limit ${MOLIT_DAILY_LIMIT:-6500} --delay-ms ${MOLIT_DAILY_DELAY_MS:-500};
           sleep ${MOLIT_DAILY_INTERVAL_SECONDS:-86400};
         done
     environment:

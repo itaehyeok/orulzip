@@ -53,7 +53,9 @@ CONTAINER_PREFIX=orulzip-data-collector
 DATABASE_URL=postgres://orulzip_writer:...@orulzip-postgres:5432/orulzip
 ORULZIP_DB_INIT=1
 ORULZIP_READ_ONLY=0
-MOLIT_DAILY_TARGETS=seoul,gyeonggi,incheon
+MOLIT_DAILY_TARGETS=nationwide
+MOLIT_DAILY_LIMIT=6500
+MOLIT_DAILY_DELAY_MS=500
 ```
 
 Use a separate `ORULZIP_ADMIN_SESSION_SECRET` for development. Web containers should use the read-only database account; data collector containers should use the writer account.

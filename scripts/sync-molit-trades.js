@@ -12,6 +12,7 @@ import {
 } from "../src/services/molit-trade-store.js";
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
 import { refreshMapGrowthCacheIfUnlocked, refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
+import { NATIONWIDE_LAWD_CODES } from "./molit-lawd-codes.js";
 
 const SEOUL_LAWD_CODES = [
   ["11110", "서울 종로구"],
@@ -121,6 +122,10 @@ const INCHEON_LAWD_CODES = [
 ];
 
 const TARGETS = {
+  nationwide: {
+    id: "nationwide",
+    lawdCodes: NATIONWIDE_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
   seoul: {
     id: "seoul",
     lawdCodes: SEOUL_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
