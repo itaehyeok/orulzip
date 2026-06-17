@@ -93,7 +93,6 @@ const state = {
   regionMarkerStyleByLevel: null,
   regionMarkerStylePresets: null,
   selectedRegionMarkerStylePresetId: "",
-  regionMarkerLayoutId: null,
   activeRegionMarkerStyleLevel: "dong",
   activeTransitionDesignId: "current",
   latestZoomMapData: null,
