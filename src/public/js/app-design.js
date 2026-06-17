@@ -343,12 +343,33 @@ function syncMarkerRankDisplayOptionControls() {
     const preview = container.querySelector("[data-marker-rank-display-preview]");
     if (preview) preview.textContent = markerRankDisplayPreviewText(scope);
   });
+  syncMarkerRankPreviewRows();
 }
 
 function markerRankDisplayPreviewText(scope = "region") {
   const label = scope === "apartment" ? "목동" : "수정구";
   const rankText = formatMarkerRankText(2, 115, scope, 0.07);
   return `${label} ${rankText}`;
+}
+
+function syncMarkerRankPreviewRows() {
+  if (typeof formatMarkerRankText !== "function") return;
+  document.querySelectorAll("[data-preview-rank-value]").forEach((row) => {
+    const label = row.querySelector("b")?.textContent || row.dataset.previewRankLabel || "";
+    const rank = Number(row.dataset.previewRankValue);
+    const total = Number(row.dataset.previewRankTotal);
+    const growth = row.dataset.previewRankGrowth === undefined ? null : Number(row.dataset.previewRankGrowth);
+    const scope = row.closest("[data-apartment-marker-panel]") ? "apartment" : "region";
+    const rankText = formatMarkerRankText(rank, total, scope, growth);
+    row.textContent = "";
+    if (label) {
+      const labelElement = document.createElement("b");
+      labelElement.textContent = label;
+      row.append(labelElement, document.createTextNode(` ${rankText}`));
+      return;
+    }
+    row.textContent = rankText;
+  });
 }
 
 function readStoredTransitionDesignId() {
