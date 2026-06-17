@@ -1,16 +1,12 @@
 function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesign(level)) {
   const markerDesign = activeRegionMarkerDesign(level) || design;
-  const rows = zoomGroupMarkerRankRows(item, level);
-  const textConfig = activeRegionMarkerText(level);
-  const textContext = zoomGroupMarkerTextContext(item, level, markerDesign);
-  const labelText = renderRegionMarkerText(textConfig.label, textContext);
-  const valuePrefixText = renderRegionMarkerText(textConfig.valuePrefix, textContext);
-  const valueText = renderRegionMarkerText(textConfig.value, textContext);
-  const valueSuffixText = renderRegionMarkerText(textConfig.valueSuffix, textContext);
+  const content = regionMarkerResolvedContent(item, level, markerDesign);
+  const { rows, labelText, valuePrefixText, valueText, valueSuffixText } = content;
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
     `--zoom-color: ${growthColor(item.growthRate)}`,
-    regionMarkerStyleInline(level, markerDesign)
+    regionMarkerStyleInline(level, markerDesign),
+    regionMarkerAutoLayoutInline(item, level, markerDesign, content)
   ].filter(Boolean).join("; ");
   const markerClasses = [
     "zoom-cluster-content",
@@ -44,6 +40,18 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   `;
 }
 
+function regionMarkerResolvedContent(item, level, design = activeRegionMarkerDesign(level)) {
+  const textConfig = activeRegionMarkerText(level);
+  const textContext = zoomGroupMarkerTextContext(item, level, design);
+  return {
+    rows: zoomGroupMarkerRankRows(item, level, design, textConfig, textContext),
+    labelText: renderRegionMarkerText(textConfig.label, textContext),
+    valuePrefixText: renderRegionMarkerText(textConfig.valuePrefix, textContext),
+    valueText: renderRegionMarkerText(textConfig.value, textContext),
+    valueSuffixText: renderRegionMarkerText(textConfig.valueSuffix, textContext)
+  };
+}
+
 function regionMarkerSizeClass(level) {
   if (level === "sido") return "rank-chip-sido";
   if (level === "sigungu") return "rank-chip-region";
@@ -63,10 +71,14 @@ function zoomGroupCurrentLabel(item, level) {
   return shortZoomLabel(item.name, level) || item.name || "지역";
 }
 
-function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(level)) {
+function zoomGroupMarkerRankRows(
+  item,
+  level,
+  design = activeRegionMarkerDesign(level),
+  textConfig = activeRegionMarkerText(level),
+  textContext = zoomGroupMarkerTextContext(item, level, design)
+) {
   const visibleRankLevels = new Set(activeRegionMarkerRankLevels(level));
-  const textConfig = activeRegionMarkerText(level);
-  const textContext = zoomGroupMarkerTextContext(item, level, design);
   return zoomGroupAllRankRows(item, level, design)
     .map((row) => renderRegionMarkerRankRow(textConfig.rankRows?.[row.rankLevel], textContext, row))
     .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && (row.label || row.value));
@@ -173,18 +185,98 @@ function renderRegionMarkerRankRow(value, context, fallbackRow) {
   };
 }
 
-function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
+function regionMarkerAutoLayoutInline(item, level, design = activeRegionMarkerDesign(level), content = null) {
+  const layout = regionMarkerAutoLayout(item, level, design, content);
+  return [
+    `--region-marker-outer-width:${layout.outerBoxWidth}px`,
+    `--region-marker-rank-box-width:${layout.rankBoxWidth}px`
+  ].join(";");
+}
+
+function regionMarkerAutoLayout(item, level, design = activeRegionMarkerDesign(level), content = null) {
+  const normalizedLevel = normalizeRegionMarkerLevel(level);
+  const style = activeRegionMarkerStyle(normalizedLevel, design);
+  const resolvedContent = content || regionMarkerResolvedContent(item, normalizedLevel, design);
+  const rankBoxWidth = autoRegionMarkerRankBoxWidth(resolvedContent.rows, style);
+  const topTextWidth = Math.max(
+    estimateRegionMarkerTextWidth(resolvedContent.labelText, style.labelFontSize),
+    estimateRegionMarkerTextWidth(resolvedContent.valuePrefixText, style.valuePrefixFontSize),
+    estimateRegionMarkerTextWidth(resolvedContent.valueText, style.valueFontSize),
+    estimateRegionMarkerTextWidth(resolvedContent.valueSuffixText, style.valueSuffixFontSize)
+  );
+  const outerBoxWidth = clampNumber(
+    Math.ceil(Math.max(topTextWidth + 16, rankBoxWidth + 16)),
+    autoRegionMarkerMinOuterWidth(normalizedLevel),
+    autoRegionMarkerMaxOuterWidth(normalizedLevel)
+  );
+  return {
+    outerBoxWidth,
+    rankBoxWidth: Math.min(rankBoxWidth, Math.max(0, outerBoxWidth - 16))
+  };
+}
+
+function autoRegionMarkerRankBoxWidth(rows, style) {
+  const rowWidth = Math.max(0, ...rows.map((row) => {
+    const labelSize = regionMarkerRankLabelFontSize(row.rankLevel, style);
+    const valueSize = style.rankValueFontSize;
+    const labelWidth = estimateRegionMarkerTextWidth(row.label, labelSize);
+    const valueWidth = estimateRegionMarkerTextWidth(row.value, valueSize);
+    const gap = row.label && row.value ? 5 : 0;
+    return labelWidth + valueWidth + gap + 18;
+  }));
+  return clampNumber(Math.ceil(rowWidth), 62, 128);
+}
+
+function regionMarkerRankLabelFontSize(rankLevel, style) {
+  if (rankLevel === "sigungu") return style.sigunguFontSize;
+  if (rankLevel === "sido") return style.sidoFontSize;
+  if (rankLevel === "national") return style.nationalFontSize;
+  return style.rankValueFontSize;
+}
+
+function estimateRegionMarkerTextWidth(text, fontSize) {
+  const size = Number(fontSize);
+  if (!text || !Number.isFinite(size)) return 0;
+  return Array.from(String(text)).reduce((sum, char) => {
+    if (/\s/.test(char)) return sum + (size * 0.35);
+    if (/[0-9]/.test(char)) return sum + (size * 0.58);
+    if (/[a-zA-Z]/.test(char)) return sum + (size * 0.62);
+    if (/[.%/()+-]/.test(char)) return sum + (size * 0.42);
+    return sum + size;
+  }, 0);
+}
+
+function autoRegionMarkerMinOuterWidth(level) {
+  if (level === "sido") return 72;
+  if (level === "sigungu") return 88;
+  return 92;
+}
+
+function autoRegionMarkerMaxOuterWidth(level) {
+  if (level === "sido") return 108;
+  if (level === "sigungu") return 118;
+  return 126;
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
+
+function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level), item = null) {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   const rowCount = activeRegionMarkerRankLevels(normalizedLevel).length;
   const style = activeRegionMarkerStyle(normalizedLevel, design);
   const textConfig = activeRegionMarkerText(normalizedLevel);
   const hasValuePrefix = Boolean(textConfig.valuePrefix);
   const hasValueSuffix = Boolean(textConfig.valueSuffix);
-  const rankWidthExtra = markerRankWidthExtra("region");
-  const rankBoxWidth = typeof effectiveRegionMarkerRankBoxWidth === "function"
+  const layout = item ? regionMarkerAutoLayout(item, normalizedLevel, design) : null;
+  const rankWidthExtra = item ? 0 : markerRankWidthExtra("region");
+  const rankBoxWidth = layout?.rankBoxWidth ?? (typeof effectiveRegionMarkerRankBoxWidth === "function"
     ? effectiveRegionMarkerRankBoxWidth(style, rankWidthExtra)
-    : style.rankBoxWidth + rankWidthExtra;
-  const outerBoxWidth = style.outerBoxWidth + rankWidthExtra;
+    : style.rankBoxWidth + rankWidthExtra);
+  const outerBoxWidth = layout?.outerBoxWidth ?? (style.outerBoxWidth + rankWidthExtra);
   const width = Math.max(outerBoxWidth, rankBoxWidth + 16) + 22;
   const rankRowsHeight = rowCount
     ? (rowCount * style.rankRowHeight) + (Math.max(0, rowCount - 1) * style.rankRowGap)
@@ -202,8 +294,8 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   return [width, height];
 }
 
-function zoomMarkerAnchor(level = "", design = activeRegionMarkerDesign(level)) {
-  const [width, height] = zoomMarkerSize(level, design);
+function zoomMarkerAnchor(level = "", design = activeRegionMarkerDesign(level), item = null) {
+  const [width, height] = zoomMarkerSize(level, design, item);
   return [width / 2, height / 2];
 }
 

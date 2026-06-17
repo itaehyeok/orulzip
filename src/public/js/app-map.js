@@ -825,7 +825,7 @@ function renderZoomGroupMarker(item, level) {
     return;
   }
   const design = activeRegionMarkerDesign(level);
-  const [width, height] = zoomMarkerSize(level, design);
+  const [width, height] = zoomMarkerSize(level, design, item);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: baseZIndex,
@@ -833,7 +833,7 @@ function renderZoomGroupMarker(item, level) {
       className: "zoom-cluster-marker",
       html: zoomGroupMarkerContentHtml(item, level, design),
       iconSize: [width, height],
-      iconAnchor: zoomMarkerAnchor(level, design)
+      iconAnchor: zoomMarkerAnchor(level, design, item)
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
@@ -880,7 +880,7 @@ function renderZoomApartmentMarker(item) {
 function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeRegionMarkerDesign(level);
-  const [width, height] = zoomMarkerSize(level, design);
+  const [width, height] = zoomMarkerSize(level, design, item);
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
     position,

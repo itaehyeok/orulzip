@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260618-rank-box-cap";
+  const version = "20260618-auto-rank-size";
   const scripts = [
     "app-prelude",
     "app-state",
