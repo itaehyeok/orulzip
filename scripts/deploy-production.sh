@@ -32,13 +32,13 @@ case "$1" in
 esac
 ASKPASS
     chmod 700 "$ASKPASS_FILE"
-    GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 git fetch --prune \
+    GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 git fetch \
       "https://github.com/${GITHUB_REPOSITORY}.git" \
-      "$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
+      "+$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
     return
   fi
 
-  GIT_TERMINAL_PROMPT=0 git fetch --prune origin "$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
+  GIT_TERMINAL_PROMPT=0 git fetch origin "+$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
 }
 
 exec 9>"$LOCK_FILE"
