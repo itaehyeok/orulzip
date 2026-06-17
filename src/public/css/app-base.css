@@ -184,37 +184,8 @@ h2 {
   justify-content: flex-start;
 }
 
-.admin-status-bar {
-  align-items: center;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  min-height: 42px;
-  padding: 8px 18px;
-  border-bottom: 1px solid var(--line);
-  background: #fbfcfe;
-  color: #475467;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.admin-status-bar[hidden] {
-  display: none;
-}
-
-.admin-status-bar a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  border: 1px solid #d0d5dd;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #1d2939;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 0 10px;
-  text-decoration: none;
+.tab-logout-link {
+  margin-left: auto;
 }
 
 .primary-btn {

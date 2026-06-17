@@ -346,7 +346,6 @@ const els = {
   mapHeaderDesignGrid: document.querySelector("#mapHeaderDesignGrid"),
   growthRateColorSelected: document.querySelector("#growthRateColorSelected"),
   growthRateColorDesignGrid: document.querySelector("#growthRateColorDesignGrid"),
-  adminStatusBar: document.querySelector("#adminStatusBar"),
   designLogoSelected: document.querySelector("#designLogoSelected"),
   logoDesignGrid: document.querySelector("#logoDesignGrid"),
   designGraphSelected: document.querySelector("#designGraphSelected"),

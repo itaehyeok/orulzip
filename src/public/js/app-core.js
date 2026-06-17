@@ -51,12 +51,6 @@ function renderAdminNavigation() {
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !state.isAdmin;
   });
-  renderAdminStatusBar();
-}
-
-function renderAdminStatusBar() {
-  if (!els.adminStatusBar) return;
-  els.adminStatusBar.hidden = !state.isAdmin;
 }
 
 function bindEvents() {
@@ -391,7 +385,6 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   document.title = tabTitles[nextTab] || tabTitles.molitMap;
-  renderAdminStatusBar();
 
   const nextRoute = tabRoutes[nextTab];
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
