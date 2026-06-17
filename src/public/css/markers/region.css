@@ -471,6 +471,7 @@
   z-index: 2;
   display: grid;
   gap: 0;
+  grid-template-columns: minmax(0, 1fr);
   box-sizing: border-box;
   width: var(--region-marker-outer-width, fit-content);
   min-width: var(--region-marker-outer-width, var(--rank-default-width));
@@ -483,6 +484,16 @@
   padding: 8px;
   place-items: center;
   text-align: center;
+}
+
+.dong-rank-demo > small,
+.dong-rank-demo > strong {
+  width: calc(var(--region-marker-outer-width, var(--rank-default-width)) - 16px);
+  justify-self: center;
+}
+
+.dong-rank-demo > span {
+  justify-self: center;
 }
 
 .dong-rank-demo small {
@@ -514,8 +525,12 @@
   letter-spacing: 0;
   line-height: 0.96;
   margin-bottom: var(--region-marker-value-rank-gap, 5px);
+  max-width: calc(var(--region-marker-outer-width, var(--rank-default-width)) - 16px);
+  overflow: visible;
   text-align: center;
-  width: 100%;
+  text-overflow: clip;
+  white-space: normal;
+  width: calc(var(--region-marker-outer-width, var(--rank-default-width)) - 16px);
 }
 
 .dong-rank-demo .region-marker-value-prefix,
@@ -555,7 +570,6 @@
 
 .dong-rank-demo span {
   display: grid;
-  justify-self: center;
   width: var(--region-marker-rank-box-width, auto);
   box-sizing: border-box;
   gap: var(--region-marker-rank-row-gap, 4px);

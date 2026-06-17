@@ -92,10 +92,10 @@ window.orulzipRegionMarkerConfig = {
     sigungu: 122
   },
   defaultStyle: {
-    labelFontSize: 10,
+    labelFontSize: 8,
     valuePrefixFontSize: 9,
-    valueFontSize: 17,
-    valueSuffixFontSize: 9,
+    valueFontSize: 14,
+    valueSuffixFontSize: 8,
     sigunguFontSize: 9,
     sidoFontSize: 9,
     nationalFontSize: 9,
