@@ -28,6 +28,8 @@ jobs:
           DEPLOY_DIR: /home/th/docker/custom/orulzip/production
           DEPLOY_BRANCH: main
           COMPOSE_PROJECT_NAME: orulzip
+          COMPOSE_FILE: docker-compose.web.yml
+          DOCKER_NETWORK_NAME: orulzip-shared
           HEALTHCHECK_URL: http://localhost:3050/map
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}

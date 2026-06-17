@@ -4,6 +4,8 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-${PRODUCTION_DIR:-/home/th/docker/custom/orulzip/production}}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-orulzip}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
+DOCKER_NETWORK_NAME="${DOCKER_NETWORK_NAME:-${ORULZIP_DOCKER_NETWORK:-}}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost:3050/map}"
 LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/orulzip-production-deploy.lock}"
 ASKPASS_FILE=""
@@ -74,7 +76,15 @@ fetch_origin_branch
 git checkout -B "$DEPLOY_BRANCH" "refs/remotes/origin/$DEPLOY_BRANCH"
 git reset --hard "refs/remotes/origin/$DEPLOY_BRANCH"
 
-log "building and restarting docker compose project $COMPOSE_PROJECT_NAME"
+if [ -n "$DOCKER_NETWORK_NAME" ]; then
+  if ! docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then
+    log "creating docker network $DOCKER_NETWORK_NAME"
+    docker network create "$DOCKER_NETWORK_NAME" >/dev/null
+  fi
+fi
+
+export COMPOSE_FILE
+log "building and restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
 docker compose -p "$COMPOSE_PROJECT_NAME" up -d --build
 
 log "checking service health at $HEALTHCHECK_URL"

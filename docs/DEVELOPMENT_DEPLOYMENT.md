@@ -6,31 +6,57 @@
 
 ```text
 /home/th/docker/custom/orulzip/
-  production/    # main -> orulzip.com
-  development/   # develop -> dev.orulzip.com
+  database/        # shared postgres
+  data-collector/  # data collection and cache jobs
+  production/      # main -> orulzip.com web
+  development/     # develop -> dev.orulzip.com web
   workspace/
 ```
 
 ## Runtime Split
 
-Production `.env`:
+Database `.env`:
+
+```env
+CONTAINER_PREFIX=orulzip
+POSTGRES_DATA_DIR=/mnt/elements10tb/orulzip/postgres
+POSTGRES_PASSWORD=...
+ORULZIP_DOCKER_NETWORK=orulzip-shared
+```
+
+Production web `.env`:
 
 ```env
 CONTAINER_PREFIX=orulzip
 WEB_PORT=3050
-POSTGRES_DATA_DIR=/mnt/elements10tb/orulzip/postgres
+DATABASE_URL=postgres://orulzip_readonly:...@orulzip-postgres:5432/orulzip
+ORULZIP_DB_INIT=0
+ORULZIP_READ_ONLY=1
+ORULZIP_ADMIN_COOKIE_SECURE=1
 ```
 
-Development `.env`:
+Development web `.env`:
 
 ```env
 CONTAINER_PREFIX=orulzip-development
 WEB_PORT=3051
-POSTGRES_DATA_DIR=/mnt/elements10tb/orulzip-development/postgres
+DATABASE_URL=postgres://orulzip_readonly:...@orulzip-postgres:5432/orulzip
+ORULZIP_DB_INIT=0
+ORULZIP_READ_ONLY=1
 ORULZIP_ADMIN_COOKIE_SECURE=1
 ```
 
-Use a separate `POSTGRES_PASSWORD` and `ORULZIP_ADMIN_SESSION_SECRET` for development.
+Data collector `.env`:
+
+```env
+CONTAINER_PREFIX=orulzip-data-collector
+DATABASE_URL=postgres://orulzip_writer:...@orulzip-postgres:5432/orulzip
+ORULZIP_DB_INIT=1
+ORULZIP_READ_ONLY=0
+MOLIT_DAILY_TARGETS=seoul,gyeonggi,incheon
+```
+
+Use a separate `ORULZIP_ADMIN_SESSION_SECRET` for development. Web containers should use the read-only database account; data collector containers should use the writer account.
 
 ## Caddy
 
@@ -56,8 +82,9 @@ In Hostinger DNS, add `dev.orulzip.com` pointing to the same public target as `o
 
 ## GitHub Actions
 
-- `main` pushes deploy to `/home/th/docker/custom/orulzip/production`
-- `develop` pushes deploy to `/home/th/docker/custom/orulzip/development`
+- `main` pushes deploy web-only compose to `/home/th/docker/custom/orulzip/production`
+- `develop` pushes deploy web-only compose to `/home/th/docker/custom/orulzip/development`
+- `database` and `data-collector` are managed separately and are not restarted by web deployments.
 
 The development workflow expects the self-hosted runner label used by production:
 

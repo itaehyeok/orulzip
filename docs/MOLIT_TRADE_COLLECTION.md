@@ -79,13 +79,14 @@ docker compose run --rm web npm run sync:molit -- --targets seoul,gyeonggi,inche
 Start the automatic daily collector:
 
 ```sh
-docker compose up -d --build molit-daily-collector
+cd /home/th/docker/custom/orulzip/data-collector
+COMPOSE_FILE=docker-compose.data-collector.yml docker compose -p orulzip-data-collector up -d --build molit-daily-collector
 ```
 
 Follow logs:
 
 ```sh
-docker logs -f orulzip-molit-daily-collector
+docker logs -f orulzip-data-collector-molit-daily-collector
 ```
 
 Resume behavior:

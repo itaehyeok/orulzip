@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ${CONTAINER_PREFIX:-orulzip}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orulzip
+      POSTGRES_USER: ${POSTGRES_USER:-orulzip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - ${POSTGRES_DATA_DIR:-/mnt/elements10tb/orulzip/postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orulzip} -d orulzip"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - orulzip-shared
+
+networks:
+  orulzip-shared:
+    name: ${ORULZIP_DOCKER_NETWORK:-orulzip-shared}
+    external: true

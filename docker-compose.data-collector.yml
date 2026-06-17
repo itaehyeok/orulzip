@@ -1,0 +1,71 @@
+services:
+  worker:
+    build: .
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
+      WORKER_REGION_IDS: ${WORKER_REGION_IDS:-seoul}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
+  worker-gyeonggi:
+    build: .
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-gyeonggi
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
+      WORKER_REGION_IDS: ${WORKER_GYEONGGI_REGION_IDS:-gyeonggi}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
+  price-band-cache:
+    build: .
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-price-band-cache
+    restart: unless-stopped
+    command: ["npm", "run", "refresh:price-band-cache:loop"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      PRICE_BAND_CACHE_REFRESH_INTERVAL_MS: ${PRICE_BAND_CACHE_REFRESH_INTERVAL_MS:-86400000}
+    networks:
+      - orulzip-shared
+
+  molit-daily-collector:
+    build: .
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-molit-daily-collector
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >
+        while true; do
+          npm run sync:molit -- --targets ${MOLIT_DAILY_TARGETS:-seoul,gyeonggi,incheon} --limit ${MOLIT_DAILY_LIMIT:-8000} --delay-ms ${MOLIT_DAILY_DELAY_MS:-350};
+          sleep ${MOLIT_DAILY_INTERVAL_SECONDS:-86400};
+        done
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+      NAVER_MAP_NCP_KEY_ID: ${NAVER_MAP_NCP_KEY_ID:-}
+      NAVER_MAP_NCP_KEY_SECRET: ${NAVER_MAP_NCP_KEY_SECRET:-}
+      MOLIT_GEOCODE_LIMIT: ${MOLIT_GEOCODE_LIMIT:-5000}
+    networks:
+      - orulzip-shared
+
+networks:
+  orulzip-shared:
+    name: ${ORULZIP_DOCKER_NETWORK:-orulzip-shared}
+    external: true

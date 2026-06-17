@@ -43,6 +43,8 @@ const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
+const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
+const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
 const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
 const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl"]);
 const protectedApiRoutes = new Set([
@@ -58,6 +60,7 @@ const protectedApiRoutes = new Set([
   "/api/molit/coordinate-audit",
   "/api/molit/duplicate-audit"
 ]);
+const writeApiRoutes = new Set(["/api/crawl/start", "/api/sync"]);
 const adminCookieName = "orulzip_admin";
 const adminUser = process.env.ORULZIP_ADMIN_USER || "th";
 const adminPassword = process.env.ORULZIP_ADMIN_PASSWORD || "";
@@ -128,7 +131,11 @@ const routeSeo = new Map([
   }]
 ]);
 
-await initDb();
+if (shouldInitDb) {
+  await initDb();
+} else {
+  console.log("Skipping database initialization because ORULZIP_DB_INIT=0");
+}
 
 const server = createServer(async (req, res) => {
   try {
@@ -181,6 +188,10 @@ const server = createServer(async (req, res) => {
       res.writeHead(302, { Location: `/admin-login?next=${encodeURIComponent(normalizedPath)}` });
       res.end();
       return;
+    }
+
+    if (readOnlyMode && writeApiRoutes.has(url.pathname)) {
+      return json(res, { error: "Read-only mode is enabled." }, 403);
     }
 
     if (url.pathname === "/api/filters") {
