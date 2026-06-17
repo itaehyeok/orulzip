@@ -2,6 +2,7 @@ const regionMarkerDesignStorageKey = "orulzip.regionMarkerDesignByLevel";
 const regionMarkerDisplayStorageKey = "orulzip.regionMarkerDisplayByLevel";
 const regionMarkerStyleStorageKey = "orulzip.regionMarkerStyleByLevel";
 const regionMarkerStylePresetStorageKey = "orulzip.regionMarkerStylePresets";
+const regionMarkerLayoutStorageKey = "orulzip.regionMarkerLayoutId";
 const regionMarkerConfig = window.orulzipRegionMarkerConfig || {};
 const regionMarkerLevels = regionMarkerConfig.levels || ["dong", "sigungu", "sido"];
 const regionMarkerLevelLabels = regionMarkerConfig.levelLabels || { all: "공통", dong: "동", sigungu: "시군구", sido: "시도" };
@@ -14,6 +15,10 @@ const regionMarkerDesignOptionMap = new Map(regionMarkerDesignOptions.map((item)
 const regionMarkerStyleControls = regionMarkerConfig.styleControls || [];
 const regionMarkerStyleControlMap = new Map(regionMarkerStyleControls.map((item) => [item.key, item]));
 const regionMarkerDesignDefaultWidths = regionMarkerConfig.defaultWidthsByDesign || {};
+const regionMarkerLayoutLabels = {
+  classic: "기존",
+  blueCard: "블루 카드"
+};
 
 function readStoredRegionMarkerDesignByLevel() {
   const result = { ...defaultRegionMarkerDesignByLevel };
@@ -81,6 +86,15 @@ function readStoredRegionMarkerStylePresets() {
   }
 }
 
+function readStoredRegionMarkerLayoutId() {
+  try {
+    const stored = window.localStorage.getItem(regionMarkerLayoutStorageKey);
+    return Object.hasOwn(regionMarkerLayoutLabels, stored) ? stored : "classic";
+  } catch {
+    return "classic";
+  }
+}
+
 function cloneDefaultRegionMarkerDisplay() {
   return Object.fromEntries(
     Object.entries(defaultRegionMarkerDisplayByLevel).map(([level, ranks]) => [level, { ...ranks }])
@@ -110,6 +124,10 @@ function activeRegionMarkerRankLevels(level = "dong") {
 function activeRegionMarkerText(level = "dong") {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
   return regionMarkerTextByLevel[normalizedLevel] || regionMarkerTextByLevel.dong || {};
+}
+
+function activeRegionMarkerLayoutId() {
+  return Object.hasOwn(regionMarkerLayoutLabels, state.regionMarkerLayoutId) ? state.regionMarkerLayoutId : "classic";
 }
 
 function activeRegionMarkerStyle(level = "dong", design = activeRegionMarkerDesign(level)) {
@@ -204,6 +222,13 @@ function setRegionMarkerStyleValue(level, key, value) {
   writeRegionMarkerStyleState();
   syncRegionMarkerStyleEditor();
   syncRegionMarkerDesignControls();
+  rerenderRegionMarkers();
+}
+
+function toggleRegionMarkerLayout() {
+  state.regionMarkerLayoutId = activeRegionMarkerLayoutId() === "blueCard" ? "classic" : "blueCard";
+  writeRegionMarkerLayoutState();
+  syncRegionMarkerLayoutControls();
   rerenderRegionMarkers();
 }
 
@@ -302,6 +327,14 @@ function writeRegionMarkerStylePresetState() {
   }
 }
 
+function writeRegionMarkerLayoutState() {
+  try {
+    window.localStorage.setItem(regionMarkerLayoutStorageKey, activeRegionMarkerLayoutId());
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+}
+
 function regionMarkerStyleCssVars(level = "dong", design = activeRegionMarkerDesign(level)) {
   const style = activeRegionMarkerStyle(level, design);
   const rankWidthExtra = typeof markerRankWidthExtra === "function" ? markerRankWidthExtra("region") : 0;
@@ -338,6 +371,12 @@ function applyRegionMarkerStyleToElement(element, level, design = activeRegionMa
 
 function bindRegionMarkerDesignControls() {
   document.addEventListener("click", (event) => {
+    const layoutButton = event.target.closest("[data-region-marker-layout-toggle]");
+    if (layoutButton) {
+      toggleRegionMarkerLayout();
+      closeTabMoreMenus();
+      return;
+    }
     const levelButton = event.target.closest("[data-region-marker-style-level-option]");
     if (levelButton) {
       state.activeRegionMarkerStyleLevel = normalizeRegionMarkerLevel(levelButton.dataset.regionMarkerStyleLevelOption);
@@ -409,6 +448,16 @@ function syncRegionMarkerDesignControls() {
     });
   });
   syncRegionMarkerStyleEditor();
+  syncRegionMarkerLayoutControls();
+}
+
+function syncRegionMarkerLayoutControls() {
+  const activeLayout = activeRegionMarkerLayoutId();
+  document.querySelectorAll("[data-region-marker-layout-toggle]").forEach((button) => {
+    button.textContent = `마커: ${regionMarkerLayoutLabels[activeLayout]}`;
+    button.classList.toggle("active", activeLayout === "blueCard");
+    button.setAttribute("aria-pressed", String(activeLayout === "blueCard"));
+  });
 }
 
 function rerenderRegionMarkers() {

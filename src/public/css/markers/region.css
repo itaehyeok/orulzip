@@ -601,6 +601,100 @@
   font-size: var(--region-marker-rank-national-font-size, var(--region-marker-rank-value-font-size, 10px));
 }
 
+.region-blue-card-marker {
+  box-sizing: border-box;
+  display: grid;
+  min-width: 0;
+  border-radius: 18px;
+  background: #307aff;
+  box-shadow: 0 14px 26px rgba(16, 24, 40, 0.14);
+  color: #ffffff;
+  padding: 14px 18px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.region-blue-card-marker.level-sido {
+  width: 96px;
+}
+
+.region-blue-card-marker.level-sigungu {
+  width: 108px;
+}
+
+.region-blue-card-marker.level-dong {
+  width: 118px;
+}
+
+.region-blue-card-name,
+.region-blue-card-rate,
+.region-blue-card-period,
+.region-blue-card-ranks,
+.region-blue-card-rank-row {
+  min-width: 0;
+}
+
+.region-blue-card-marker > .region-blue-card-name {
+  overflow: hidden;
+  font-size: 11px !important;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+
+.region-blue-card-marker > .region-blue-card-rate {
+  margin-top: 4px;
+  font-size: 13px !important;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+
+.region-blue-card-marker > .region-blue-card-period {
+  margin-top: 3px;
+  font-size: 7px !important;
+  font-weight: 750;
+  line-height: 1.05;
+}
+
+.region-blue-card-ranks {
+  display: grid;
+  gap: 2px;
+  margin-top: 7px;
+}
+
+.region-blue-card-rank-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 7px !important;
+  font-weight: 850;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.region-blue-card-rank-row > span {
+  font-size: 7px !important;
+}
+
+.region-blue-card-rank-row span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.region-blue-card-rank-row span:last-child {
+  font-weight: 950;
+  text-align: right;
+}
+
+.region-blue-card-marker.level-sido .region-blue-card-rank-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
 .rank-chip-white {
   --rank-bg: #ffffff;
   --rank-border: #5262d6;

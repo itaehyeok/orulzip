@@ -12,6 +12,7 @@ async function init() {
   state.regionMarkerDisplayByLevel = readStoredRegionMarkerDisplayByLevel();
   state.regionMarkerStyleByLevel = readStoredRegionMarkerStyleByLevel();
   state.regionMarkerStylePresets = readStoredRegionMarkerStylePresets();
+  state.regionMarkerLayoutId = readStoredRegionMarkerLayoutId();
   state.activeLogoDesignId = readStoredLogoDesignId();
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.activeGrowthRateColorDesignId = readStoredGrowthRateColorDesignId();
@@ -52,6 +53,7 @@ function renderAdminNavigation() {
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !showAdminNav;
   });
+  if (typeof syncRegionMarkerLayoutControls === "function") syncRegionMarkerLayoutControls();
   if (!showAdminNav) closeTabMoreMenus();
 }
 

@@ -1,4 +1,7 @@
 function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesign(level)) {
+  if (activeRegionMarkerLayoutId() === "blueCard") {
+    return zoomGroupBlueCardMarkerContentHtml(item, level);
+  }
   const markerDesign = activeRegionMarkerDesign(level) || design;
   const rows = zoomGroupMarkerRankRows(item, level);
   const textConfig = activeRegionMarkerText(level);
@@ -37,6 +40,82 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
       ` : ""}
     </span>
   `;
+}
+
+function zoomGroupBlueCardMarkerContentHtml(item, level) {
+  const context = zoomGroupMarkerTextContext(item, level);
+  const labelText = blueCardRegionLabel(context, level);
+  const rateText = formatPercent(item.growthRate);
+  const periodText = `(${context.periodLabel} 상승률)`;
+  const rows = blueCardRankRows(item, level, context);
+  const markerClasses = [
+    "zoom-cluster-content",
+    "region-data-marker",
+    "region-blue-card-marker",
+    `level-${level}`
+  ].map(escapeHtml).join(" ");
+  return `
+    <span class="${markerClasses}">
+      <span class="region-blue-card-name">${escapeHtml(labelText)}</span>
+      <span class="region-blue-card-rate">${escapeHtml(rateText)}</span>
+      <span class="region-blue-card-period">${escapeHtml(periodText)}</span>
+      ${rows.length ? `
+        <span class="region-blue-card-ranks">
+          ${rows.map((row) => `
+            <span class="region-blue-card-rank-row">
+              <span>${escapeHtml(row.label)}</span>
+              <span>${escapeHtml(row.value)}</span>
+            </span>
+          `).join("")}
+        </span>
+      ` : ""}
+    </span>
+  `;
+}
+
+function blueCardRegionLabel(context, level) {
+  if (level === "sido") return context.sidoName;
+  if (level === "sigungu") return context.sigunguName;
+  return context.dongName;
+}
+
+function blueCardRankRows(item, level, context = zoomGroupMarkerTextContext(item, level)) {
+  if (level === "sido") {
+    return [
+      { label: "전국", value: formatBlueCardRankOnlyText(item.countryRank) }
+    ];
+  }
+  if (level === "sigungu") {
+    return [
+      { label: context.sidoName, value: formatBlueCardRankText(item.sidoRank, item.sidoRankTotal) },
+      { label: "전국", value: formatBlueCardPercentText(item.countryRank, item.countryRankTotal) }
+    ];
+  }
+  return [
+    { label: context.sigunguName, value: formatBlueCardRankText(item.sigunguRank, item.sigunguRankTotal) },
+    { label: context.sidoName, value: formatBlueCardRankText(item.sidoRank, item.sidoRankTotal) },
+    { label: "전국", value: formatBlueCardPercentText(item.countryRank, item.countryRankTotal) }
+  ];
+}
+
+function formatBlueCardRankText(rank, total) {
+  const rankNumber = Number(rank);
+  const totalNumber = Number(total);
+  if (!Number.isFinite(rankNumber)) return "-";
+  if (Number.isFinite(totalNumber) && totalNumber > 0) {
+    return `${formatMarkerRankNumber(rankNumber)}/${formatMarkerRankNumber(totalNumber)}등`;
+  }
+  return `${formatMarkerRankNumber(rankNumber)}등`;
+}
+
+function formatBlueCardRankOnlyText(rank) {
+  const rankNumber = Number(rank);
+  return Number.isFinite(rankNumber) ? `${formatMarkerRankNumber(rankNumber)}등` : "-";
+}
+
+function formatBlueCardPercentText(rank, total) {
+  const percentile = growthRankPercentile(rank, total);
+  return percentile === null ? "-" : `${Math.round(percentile)}%`;
 }
 
 function regionMarkerSizeClass(level) {
@@ -144,6 +223,9 @@ function renderRegionMarkerText(value, context, fallback = "") {
 
 function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
   const normalizedLevel = normalizeRegionMarkerLevel(level);
+  if (activeRegionMarkerLayoutId() === "blueCard") {
+    return zoomBlueCardMarkerSize(normalizedLevel);
+  }
   const rowCount = activeRegionMarkerRankLevels(normalizedLevel).length;
   const style = activeRegionMarkerStyle(normalizedLevel, design);
   const textConfig = activeRegionMarkerText(normalizedLevel);
@@ -161,6 +243,23 @@ function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
     + valueBlockHeight
     + (rowCount ? style.valueRankGap + rankRowsHeight : 0);
   const height = Math.max(54, Math.ceil(contentHeight + 24));
+  return [width, height];
+}
+
+function zoomBlueCardMarkerSize(level = "dong") {
+  const rowCount = level === "sido" ? 1 : level === "sigungu" ? 2 : 3;
+  const width = { sido: 96, sigungu: 108, dong: 118 }[level] || 108;
+  const height = Math.ceil(
+    28
+    + (11 * 1.1)
+    + 4
+    + (13 * 0.96)
+    + 3
+    + (7 * 1.05)
+    + 7
+    + (rowCount * 8.2)
+    + (Math.max(0, rowCount - 1) * 2)
+  );
   return [width, height];
 }
 

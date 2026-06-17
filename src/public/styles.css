@@ -1,8 +1,8 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
-@import url("/css/app-base.css?v=20260617-deploy-version-test");
+@import url("/css/app-base.css?v=20260617-region-blue-card-marker");
 @import url("/css/app-map.css?v=20260617-deploy-version-test");
 @import url("/css/app-map-panels.css?v=20260617-deploy-version-test");
 @import url("/css/app-design.css?v=20260617-deploy-version-test");
-@import url("/css/markers/region.css?v=20260617-region-marker-value-prefix");
+@import url("/css/markers/region.css?v=20260617-region-blue-card-marker");
 @import url("/css/markers/apartment.css?v=20260617-marker-folder-refactor");
 @import url("/css/app-responsive.css?v=20260617-deploy-version-test");

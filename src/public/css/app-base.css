@@ -183,7 +183,8 @@ h2 {
   box-shadow: 0 12px 28px rgb(15 23 42 / 14%);
 }
 
-.tab-more-list a {
+.tab-more-list a,
+.tab-more-list button {
   width: 100%;
   justify-content: flex-start;
 }
