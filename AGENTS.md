@@ -7,7 +7,8 @@
 - Keep files focused by feature. If a file grows past roughly 1,200 lines, split it before adding more unrelated behavior.
 - Preserve script and stylesheet order in `src/public/index.html` unless you have verified that the moved code has no order dependency.
 - For map work, start in `src/public/js/app-map.js`, `src/public/js/app-map-popup.js`, `src/public/js/app-marker-utils.js`, and `src/public/css/app-map.css`.
-- For design-tab work, start in `src/public/js/app-design.js`, `src/public/js/app-apartment-marker-design.js`, `src/public/js/app-region-marker-design.js`, `src/public/css/app-design.css`, `src/public/css/app-dong-rank-concepts.css`, and `src/public/css/app-apartment-marker-concepts.css`.
+- For marker design work, start in `src/public/js/markers/`, `src/public/css/markers/`, and `src/public/css/app-design.css`.
+- For broader design-tab work outside markers, start in `src/public/js/app-design.js` and `src/public/css/app-design.css`.
 - For table/ranking/chart work, start in `src/public/js/app-rankings.js`.
 - For shared formatting, API calls, and HTML escaping, start in `src/public/js/app-utils.js`.
 - Avoid broad searches over generated logs, `node_modules`, or legacy monolith files unless the targeted split files are insufficient.

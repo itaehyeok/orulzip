@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260617-region-marker-config";
+  const version = "20260617-marker-folder-refactor";
   const scripts = [
     "app-prelude",
     "app-state",
@@ -9,10 +9,12 @@
     "app-map",
     "app-map-popup",
     "app-design",
-    "app-apartment-marker-design",
-    "app-region-marker-config",
-    "app-region-marker-design",
     "app-marker-utils",
+    "markers/apartment/design",
+    "markers/apartment/render",
+    "markers/region/config",
+    "markers/region/design",
+    "markers/region/render",
     "app-rankings",
     "app-utils",
     "app-bootstrap"
