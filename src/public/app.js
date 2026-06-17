@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260617-region-marker-value-suffix";
+  const version = "20260617-region-rank-layout";
   const scripts = [
     "app-prelude",
     "app-state",

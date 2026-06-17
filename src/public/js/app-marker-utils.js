@@ -78,21 +78,21 @@ function zoomRankSidoLabel(item) {
 function formatRankText(rank, total) {
   const rankNumber = Number(rank);
   const totalNumber = Number(total);
-  if (!Number.isFinite(rankNumber)) return "-";
+  if (!Number.isFinite(rankNumber) || rankNumber <= 0) return "-";
   if (Number.isFinite(totalNumber) && totalNumber > 0) return `${formatInt(rankNumber)}/${formatInt(totalNumber)}등`;
   return `${formatInt(rankNumber)}등`;
 }
 
 function formatRegionMarkerRankText(rank) {
   const rankNumber = Number(rank);
-  if (!Number.isFinite(rankNumber)) return "-";
+  if (!Number.isFinite(rankNumber) || rankNumber <= 0) return "-";
   return `${formatInt(rankNumber)}등`;
 }
 
 function formatMarkerRankText(rank, total, scope = "region", growthRate = null) {
   const rankNumber = Number(rank);
   const totalNumber = Number(total);
-  if (!Number.isFinite(rankNumber)) return "-";
+  if (!Number.isFinite(rankNumber) || rankNumber <= 0) return "-";
   const options = markerRankDisplayOptions(scope);
   const suffix = options.showSuffix ? "등" : "";
   let text = `${formatInt(rankNumber)}${suffix}`;
@@ -104,6 +104,15 @@ function formatMarkerRankText(rank, total, scope = "region", growthRate = null) 
     text += ` (${formatPercent(growthNumber)})`;
   }
   return text;
+}
+
+function formatMarkerRankRatioText(rank, total) {
+  return formatRankText(rank, total);
+}
+
+function formatMarkerTopPercentShort(rank, total) {
+  const percentile = growthRankPercentile(rank, total);
+  return percentile === null ? "-" : `${Math.round(percentile)}%`;
 }
 
 function markerRankWidthExtra(scope = "region") {

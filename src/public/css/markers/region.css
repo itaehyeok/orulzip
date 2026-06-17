@@ -603,28 +603,24 @@
   opacity: 0.78;
 }
 
-.dong-rank-demo em[data-rank-level="sigungu"] b {
-  font-size: var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-label-font-size, 9px));
+.dong-rank-demo .region-marker-rank-value {
+  color: currentColor;
+  display: inline-block;
+  font-size: var(--region-marker-rank-value-font-size, 10px);
+  font-weight: 950;
+  line-height: 1;
 }
 
-.dong-rank-demo em[data-rank-level="sigungu"] {
-  font-size: var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-value-font-size, 10px));
+.dong-rank-demo em[data-rank-level="sigungu"] b {
+  font-size: var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-label-font-size, 9px));
 }
 
 .dong-rank-demo em[data-rank-level="sido"] b {
   font-size: var(--region-marker-rank-sido-font-size, var(--region-marker-rank-label-font-size, 9px));
 }
 
-.dong-rank-demo em[data-rank-level="sido"] {
-  font-size: var(--region-marker-rank-sido-font-size, var(--region-marker-rank-value-font-size, 10px));
-}
-
 .dong-rank-demo em[data-rank-level="national"] b {
   font-size: var(--region-marker-rank-national-font-size, var(--region-marker-rank-label-font-size, 9px));
-}
-
-.dong-rank-demo em[data-rank-level="national"] {
-  font-size: var(--region-marker-rank-national-font-size, var(--region-marker-rank-value-font-size, 10px));
 }
 
 .rank-chip-white {

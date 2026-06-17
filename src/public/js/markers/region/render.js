@@ -33,7 +33,10 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
       ${rows.length ? `
         <span>
           ${rows.map((row) => `
-            <em data-rank-level="${escapeHtml(row.rankLevel)}">${escapeHtml(row.text)}</em>
+            <em data-rank-level="${escapeHtml(row.rankLevel)}">
+              ${row.label ? `<b>${escapeHtml(row.label)}</b>` : ""}
+              ${row.value ? `<span class="region-marker-rank-value">${escapeHtml(row.value)}</span>` : ""}
+            </em>
           `).join("")}
         </span>
       ` : ""}
@@ -65,11 +68,8 @@ function zoomGroupMarkerRankRows(item, level, design = activeRegionMarkerDesign(
   const textConfig = activeRegionMarkerText(level);
   const textContext = zoomGroupMarkerTextContext(item, level, design);
   return zoomGroupAllRankRows(item, level, design)
-    .map((row) => ({
-      ...row,
-      text: renderRegionMarkerText(textConfig.rankRows?.[row.rankLevel], textContext, row.text)
-    }))
-    .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && row.text);
+    .map((row) => renderRegionMarkerRankRow(textConfig.rankRows?.[row.rankLevel], textContext, row))
+    .filter((row) => visibleRankLevels.has(row.rankLevel) && row.rank !== "-" && (row.label || row.value));
 }
 
 function zoomGroupAllRankRows(item, level, design = activeRegionMarkerDesign(level)) {
@@ -92,11 +92,13 @@ function zoomGroupAllRankRows(item, level, design = activeRegionMarkerDesign(lev
 }
 
 function zoomRankRow(rankLevel, label, shortLabel, rank, total, design = activeRegionMarkerDesign(), growthRate = null) {
+  const rankText = formatMarkerRankText(rank, total, "region", growthRate);
   return {
     rankLevel,
     label: compactRankLabel(label, shortLabel, design),
-    rank: formatMarkerRankText(rank, total, "region", growthRate),
-    text: `${compactRankLabel(label, shortLabel, design)} ${formatMarkerRankText(rank, total, "region", growthRate)}`
+    rank: rankText,
+    value: rankText,
+    text: `${compactRankLabel(label, shortLabel, design)} ${rankText}`
   };
 }
 
@@ -114,17 +116,23 @@ function zoomGroupMarkerTextContext(item, level, design = activeRegionMarkerDesi
     growthRate: item.growthRate,
     growthRateText: formatPercent(item.growthRate),
     sigunguRankText: formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
+    sigunguRankRatioText: formatMarkerRankRatioText(item.sigunguRank, item.sigunguRankTotal),
     sigunguRank: formatMarkerRankNumber(item.sigunguRank),
     sigunguRankTotal: formatMarkerRankNumber(item.sigunguRankTotal),
     sigunguTopPercent: formatMarkerTopPercent(item.sigunguRank, item.sigunguRankTotal),
+    sigunguTopPercentShort: formatMarkerTopPercentShort(item.sigunguRank, item.sigunguRankTotal),
     sidoRankText: formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", item.growthRate),
+    sidoRankRatioText: formatMarkerRankRatioText(item.sidoRank, item.sidoRankTotal),
     sidoRank: formatMarkerRankNumber(item.sidoRank),
     sidoRankTotal: formatMarkerRankNumber(item.sidoRankTotal),
     sidoTopPercent: formatMarkerTopPercent(item.sidoRank, item.sidoRankTotal),
+    sidoTopPercentShort: formatMarkerTopPercentShort(item.sidoRank, item.sidoRankTotal),
     countryRankText: formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", item.growthRate),
+    countryRankRatioText: formatMarkerRankRatioText(item.countryRank, item.countryRankTotal),
     countryRank: formatMarkerRankNumber(item.countryRank),
     countryRankTotal: formatMarkerRankNumber(item.countryRankTotal),
-    countryTopPercent: formatMarkerTopPercent(item.countryRank, item.countryRankTotal)
+    countryTopPercent: formatMarkerTopPercent(item.countryRank, item.countryRankTotal),
+    countryTopPercentShort: formatMarkerTopPercentShort(item.countryRank, item.countryRankTotal)
   };
 }
 
@@ -142,6 +150,27 @@ function renderRegionMarkerText(value, context, fallback = "") {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function renderRegionMarkerRankRow(value, context, fallbackRow) {
+  const rendered = typeof value === "function" ? value(context) : value;
+  if (rendered && typeof rendered === "object") {
+    const label = rendered.label ?? fallbackRow.label ?? "";
+    const rowValue = rendered.value ?? fallbackRow.value ?? fallbackRow.rank ?? "";
+    return {
+      ...fallbackRow,
+      label: String(label || "").replace(/\s+/g, " ").trim(),
+      value: String(rowValue || "").replace(/\s+/g, " ").trim(),
+      text: [label, rowValue].filter(Boolean).join(" ")
+    };
+  }
+  const text = renderRegionMarkerText(value, context, fallbackRow.text);
+  return {
+    ...fallbackRow,
+    label: "",
+    value: text,
+    text
+  };
 }
 
 function zoomMarkerSize(level = "", design = activeRegionMarkerDesign(level)) {
