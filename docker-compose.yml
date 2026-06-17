@@ -16,7 +16,11 @@ services:
       retries: 10
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+        ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
     container_name: ${CONTAINER_PREFIX:-orulzip}-web
     restart: unless-stopped
     depends_on:
@@ -25,6 +29,8 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3050
+      ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+      ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
       DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
       NAVER_MAP_NCP_KEY_ID: ${NAVER_MAP_NCP_KEY_ID:-}
       NAVER_MAP_NCP_KEY_SECRET: ${NAVER_MAP_NCP_KEY_SECRET:-}

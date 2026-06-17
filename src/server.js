@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,6 +69,9 @@ const adminSessionSecret = process.env.ORULZIP_ADMIN_SESSION_SECRET
   || crypto.createHash("sha256").update(`orulzip-admin:${adminUser}:${adminPassword}`).digest("hex");
 const adminSessionMaxAgeSeconds = 60 * 60 * 24 * 30;
 const adminCookieSecure = process.env.ORULZIP_ADMIN_COOKIE_SECURE === "1";
+const deployedAtKst = process.env.ORULZIP_DEPLOYED_AT_KST || "local";
+const deployCommitSha = normalizeCommitSha(process.env.ORULZIP_COMMIT_SHA) || readLocalCommitSha() || "unknown";
+const deployVersionText = `v ${deployedAtKst} · ${deployCommitSha}`;
 const routeSeo = new Map([
   ["/", {
     title: "오를집 - 아파트 실거래가 상승률 지도",
@@ -980,6 +984,7 @@ async function serveStatic(pathname, res) {
   }
   if (filePath === "/index.html") {
     content = injectRouteSeo(content.toString("utf8"), normalizedPath);
+    content = injectDeployVersion(content);
   }
 
   res.writeHead(200, {
@@ -1024,8 +1029,31 @@ function injectRouteSeo(html, routePath) {
     .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
 }
 
+function injectDeployVersion(html) {
+  return html
+    .replaceAll("__ORULZIP_DEPLOY_VERSION__", escapeHtml(deployVersionText))
+    .replaceAll("__ORULZIP_DEPLOY_COPY_TEXT__", escapeAttribute(deployVersionText));
+}
+
 function absoluteUrl(pathname) {
   return `${siteOrigin}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function normalizeCommitSha(value) {
+  const match = String(value || "").match(/[0-9a-f]{7,40}/i);
+  return match ? match[0].slice(0, 7) : "";
+}
+
+function readLocalCommitSha() {
+  try {
+    return normalizeCommitSha(execFileSync("git", ["rev-parse", "--short=7", "HEAD"], {
+      cwd: __dirname,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }));
+  } catch {
+    return "";
+  }
 }
 
 function escapeHtml(value) {

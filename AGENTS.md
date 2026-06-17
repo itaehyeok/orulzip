@@ -12,6 +12,7 @@
 - For shared formatting, API calls, and HTML escaping, start in `src/public/js/app-utils.js`.
 - Avoid broad searches over generated logs, `node_modules`, or legacy monolith files unless the targeted split files are insufficient.
 - Before implementing code changes, if the user has not already received a concise explanation of the intended approach in the current thread, explain the approach first and wait for confirmation.
+- When a command is known to require network access or local port binding in this Codex sandbox, request escalated execution from the start instead of first trying the sandboxed command. This includes local dev servers, Playwright browser launches, GitHub pushes/fetches, Docker commands, SSH commands, and commands that listen on `127.0.0.1`/`localhost`.
 - Before starting a requested coding task, create a baseline commit when the current worktree contains approved/user-visible work that should be preserved. After finishing and verifying the task, create a completion commit. Do not include unrelated user changes in either commit.
 - When local coding work is completed, push the resulting commits to the remote `develop` branch by default. Do not push local feature work to `main` unless the user explicitly asks for a production/main release.
 - Backend files are not split as aggressively yet. If a task requires repeatedly opening or editing `src/server.js` or `src/services/map-growth-cache.js`, pause after the immediate task and tell the user that backend refactoring is now worth considering.

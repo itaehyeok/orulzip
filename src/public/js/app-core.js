@@ -81,6 +81,7 @@ function bindEvents() {
     await loadAdminSession();
     renderAdminNavigation();
   });
+  document.querySelector(".deploy-version-copy")?.addEventListener("click", copyDeployVersion);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -197,6 +198,40 @@ function bindEvents() {
     if (!isSearchClick && !isRankingClick) hideMapSearchResults();
     if (!isTabMoreClick) closeTabMoreMenus();
   });
+}
+
+async function copyDeployVersion() {
+  const badge = document.querySelector(".deploy-version-badge");
+  const button = document.querySelector(".deploy-version-copy");
+  const text = badge?.dataset.deployVersion || badge?.textContent?.trim() || "";
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      fallbackCopyText(text);
+    }
+  } catch {
+    fallbackCopyText(text);
+  }
+  badge.classList.add("copied");
+  if (button) button.setAttribute("aria-label", "복사됨");
+  window.setTimeout(() => {
+    badge.classList.remove("copied");
+    if (button) button.setAttribute("aria-label", "배포 버전 복사");
+  }, 1200);
+}
+
+function fallbackCopyText(text) {
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.left = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand("copy");
+  input.remove();
 }
 
 function closeTabMoreMenus() {

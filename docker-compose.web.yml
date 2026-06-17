@@ -1,11 +1,17 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+        ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
     container_name: ${CONTAINER_PREFIX:-orulzip}-web
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
       PORT: 3050
+      ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+      ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-0}
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-1}

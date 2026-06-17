@@ -75,6 +75,9 @@ log "updating $DEPLOY_DIR from origin/$DEPLOY_BRANCH"
 fetch_origin_branch
 git checkout -B "$DEPLOY_BRANCH" "refs/remotes/origin/$DEPLOY_BRANCH"
 git reset --hard "refs/remotes/origin/$DEPLOY_BRANCH"
+export ORULZIP_COMMIT_SHA="$(git rev-parse --short=7 HEAD)"
+export ORULZIP_DEPLOYED_AT_KST="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')"
+log "deploy version: $ORULZIP_DEPLOYED_AT_KST $ORULZIP_COMMIT_SHA"
 
 if [ -n "$DOCKER_NETWORK_NAME" ]; then
   if ! docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then

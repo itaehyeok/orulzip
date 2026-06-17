@@ -898,6 +898,9 @@ input {
   right: 12px;
   bottom: 10px;
   z-index: 1300;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid rgba(17, 24, 39, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
@@ -905,7 +908,46 @@ input {
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  padding: 7px 9px;
-  pointer-events: none;
+  padding: 5px 6px 5px 9px;
   box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+}
+
+.deploy-version-text {
+  user-select: text;
+}
+
+.deploy-version-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(71, 84, 103, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475467;
+  cursor: pointer;
+  padding: 0;
+}
+
+.deploy-version-copy:hover,
+.deploy-version-copy:focus-visible {
+  border-color: rgba(35, 103, 209, 0.38);
+  color: #2367d1;
+  outline: 0;
+}
+
+.deploy-version-copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.deploy-version-badge.copied .deploy-version-copy {
+  border-color: rgba(22, 128, 95, 0.38);
+  color: #16805f;
 }
