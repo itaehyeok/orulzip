@@ -875,3 +875,20 @@ input {
   white-space: nowrap;
   box-shadow: 0 12px 28px rgba(16, 24, 40, 0.22);
 }
+
+.deploy-version-badge {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 1300;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #475467;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 7px 9px;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+}
