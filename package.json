@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
+    "dev:firebat": "scripts/dev-firebat-local.sh",
+    "tunnel:firebat-db": "scripts/start-firebat-db-tunnel.sh",
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
     "sync:molit": "node scripts/sync-molit-trades.js",
