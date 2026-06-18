@@ -4,12 +4,18 @@ const APP_OVERVIEW_CACHE_KEY = "app-overview-v1";
 const DEFAULT_CACHE_MAX_AGE_HOURS = 24;
 
 export async function readAppOverviewCache({ maxAgeHours = DEFAULT_CACHE_MAX_AGE_HOURS } = {}) {
-  const cached = await query(`
-    select payload, refreshed_at
-    from app_cache_entries
-    where cache_key = $1
-      and refreshed_at >= now() - make_interval(hours => $2::int)
-  `, [APP_OVERVIEW_CACHE_KEY, maxAgeHours]);
+  let cached;
+  try {
+    cached = await query(`
+      select payload, refreshed_at
+      from app_cache_entries
+      where cache_key = $1
+        and refreshed_at >= now() - make_interval(hours => $2::int)
+    `, [APP_OVERVIEW_CACHE_KEY, maxAgeHours]);
+  } catch (error) {
+    if (!isAppOverviewCacheAccessError(error)) throw error;
+    return buildUncachedAppOverview(error);
+  }
 
   if (cached.rows[0]) {
     return {
@@ -26,17 +32,26 @@ export async function readAppOverviewCache({ maxAgeHours = DEFAULT_CACHE_MAX_AGE
 
 export async function refreshAppOverviewCache() {
   const overview = await buildAppOverview();
-  const saved = await withClient(async (client) => {
-    const result = await client.query(`
-      insert into app_cache_entries (cache_key, payload, refreshed_at)
-      values ($1, $2, now())
-      on conflict (cache_key) do update set
-        payload = excluded.payload,
-        refreshed_at = now()
-      returning refreshed_at
-    `, [APP_OVERVIEW_CACHE_KEY, overview]);
-    return result.rows[0];
-  });
+  let saved;
+  try {
+    saved = await withClient(async (client) => {
+      const result = await client.query(`
+        insert into app_cache_entries (cache_key, payload, refreshed_at)
+        values ($1, $2, now())
+        on conflict (cache_key) do update set
+          payload = excluded.payload,
+          refreshed_at = now()
+        returning refreshed_at
+      `, [APP_OVERVIEW_CACHE_KEY, overview]);
+      return result.rows[0];
+    });
+  } catch (error) {
+    if (!isAppOverviewCacheAccessError(error)) throw error;
+    return {
+      ...overview,
+      cache: uncachedAppOverviewMeta(error)
+    };
+  }
 
   return {
     ...overview,
@@ -45,6 +60,27 @@ export async function refreshAppOverviewCache() {
       refreshedAt: saved.refreshed_at
     }
   };
+}
+
+async function buildUncachedAppOverview(error) {
+  const overview = await buildAppOverview();
+  return {
+    ...overview,
+    cache: uncachedAppOverviewMeta(error)
+  };
+}
+
+function uncachedAppOverviewMeta(error) {
+  return {
+    hit: false,
+    refreshedAt: null,
+    bypassed: true,
+    reason: error?.code || "app_cache_unavailable"
+  };
+}
+
+function isAppOverviewCacheAccessError(error) {
+  return error?.code === "42501" || /permission denied/i.test(error?.message || "");
 }
 
 async function buildAppOverview() {
