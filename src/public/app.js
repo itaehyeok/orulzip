@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260618-trade-history-growth";
+  const version = "20260618-trade-growth-copy";
   const scripts = [
     "app-prelude",
     "app-state",

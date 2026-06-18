@@ -366,7 +366,7 @@
 }
 
 .map-popup-trade-row {
-  grid-template-columns: 76px minmax(96px, 1fr) 42px minmax(86px, auto);
+  grid-template-columns: 76px minmax(96px, 1fr) 42px minmax(100px, auto);
   min-width: 0;
   padding: 7px 8px;
   border: 1px solid #e4e7ec;
@@ -398,6 +398,18 @@
 .map-popup-trade-growth {
   justify-self: end;
   font-style: normal;
+}
+
+.map-popup-trade-growth.positive {
+  color: #c24132;
+}
+
+.map-popup-trade-growth.negative {
+  color: #2367d1;
+}
+
+.map-popup-trade-growth.neutral {
+  color: #667085;
 }
 
 .map-popup-trade-growth.no-data {

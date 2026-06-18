@@ -310,7 +310,7 @@ function renderMapPopupTradeHistory(item) {
   els.mapPopupTradeHistory.innerHTML = `
     <div class="map-popup-trade-head">
       <strong>거래기록</strong>
-      <span>${formatInt(trades.length)}건 · 1년전 월평균 대비</span>
+      <span>${mapPopupTradeHeaderComparisonLabel(item, trades)}</span>
     </div>
     ${rows || `<div class="map-popup-trade-empty">선택 평형의 거래기록이 없습니다.</div>`}
   `;
@@ -339,11 +339,40 @@ function renderMapPopupTradeGrowth(comparison) {
   if (!comparison || !Number.isFinite(comparison.growthRate)) {
     return `<b class="map-popup-trade-growth no-data">1년전 없음</b>`;
   }
+  const tone = mapPopupTradeGrowthTone(comparison.growthRate);
   return `
-    <b class="map-popup-trade-growth" title="${escapeHtml(formatMonth(comparison.baseMonth))} 월평균 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
-      ${renderGrowthRateText(comparison.growthRate)}
+    <b class="map-popup-trade-growth ${tone}" title="${escapeHtml(formatMonth(comparison.baseMonth))} 월평균 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
+      ${escapeHtml(mapPopupTradeGrowthText(comparison.growthRate))}
     </b>
   `;
+}
+
+function mapPopupTradeHeaderComparisonLabel(item, trades) {
+  const latestTrade = trades[0];
+  if (!latestTrade) return "1년전 대비";
+  const comparison = mapPopupTradeGrowthComparison(item, latestTrade, mapPopupVisibleTradeComparisonMonth);
+  const month = comparison?.requestedMonth || shiftCompactMonth(latestTrade.yearMonth, -mapPopupVisibleTradeComparisonMonth);
+  return month ? `1년전(${formatKoreanYearMonth(month)}) 대비` : "1년전 대비";
+}
+
+function mapPopupTradeGrowthTone(rate) {
+  const value = Number(rate);
+  if (!Number.isFinite(value) || value === 0) return "neutral";
+  return value > 0 ? "positive" : "negative";
+}
+
+function mapPopupTradeGrowthText(rate) {
+  const value = Number(rate);
+  if (!Number.isFinite(value)) return "-";
+  const percent = `${(Math.abs(value) * 100).toFixed(1)}%`;
+  if (value > 0) return `${percent} 상승`;
+  if (value < 0) return `${percent} 하락`;
+  return percent;
+}
+
+function formatKoreanYearMonth(yearMonth) {
+  if (!yearMonth || String(yearMonth).length < 6) return "";
+  return `${String(yearMonth).slice(2, 4)}년 ${String(yearMonth).slice(4, 6)}월`;
 }
 
 function mapPopupTradeGrowthComparison(item, trade, monthCount) {
