@@ -121,6 +121,8 @@ const INCHEON_LAWD_CODES = [
   ["28720", "인천 옹진군"]
 ];
 
+const GANGWON_LAWD_CODES = NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => lawdCd.startsWith("51"));
+
 const TARGETS = {
   nationwide: {
     id: "nationwide",
@@ -137,6 +139,10 @@ const TARGETS = {
   incheon: {
     id: "incheon",
     lawdCodes: INCHEON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  gangwon: {
+    id: "gangwon",
+    lawdCodes: GANGWON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   bundang: {
     id: "bundang",
