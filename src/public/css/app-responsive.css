@@ -378,4 +378,23 @@ td:nth-child(4) {
   .map-popup-stats {
     grid-template-columns: 1fr;
   }
+
+  .map-popup-trade-head {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .map-popup-trade-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .map-popup-trade-row strong {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .map-popup-trade-growth {
+    grid-column: 2;
+    grid-row: 2;
+  }
 }

@@ -385,6 +385,7 @@ const els = {
   mapPopupStats: document.querySelector("#mapPopupStats"),
   mapPopupChart: document.querySelector("#mapPopupChart"),
   mapPopupTooltip: document.querySelector("#mapPopupTooltip"),
+  mapPopupTradeHistory: document.querySelector("#mapPopupTradeHistory"),
   chart: document.querySelector("#chart"),
   chartPeriod: document.querySelector("#chartPeriod"),
   neighborhoodRows: document.querySelector("#neighborhoodRows"),

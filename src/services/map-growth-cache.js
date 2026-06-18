@@ -342,7 +342,7 @@ export async function buildMolitApartmentDetail(apartmentId) {
   const normalizedApartmentId = normalizeApartmentPrimaryId(apartmentId);
   const today = todayKstDateString();
   const currentMonth = today.slice(0, 7).replace("-", "");
-  const [complexResult, monthlyResult, recentResult] = await Promise.all([
+  const [complexResult, monthlyResult, recentResult, tradeResult] = await Promise.all([
     query(`
       select id, apt_name, legal_dong, lawd_cd, address,
              sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
@@ -394,7 +394,33 @@ export async function buildMolitApartmentDetail(apartmentId) {
         and coalesce(d.cancel_type, '') = ''
         and make_date(d.deal_year, d.deal_month, d.deal_day) between $2::date - interval '30 days' and $2::date
       group by round(d.exclusive_area_m2::numeric, 2)
-    `, [normalizedApartmentId, today])
+    `, [normalizedApartmentId, today]),
+    query(`
+      select
+        d.id,
+        round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
+        d.deal_year_month,
+        d.deal_year,
+        d.deal_month,
+        d.deal_day,
+        d.deal_amount,
+        d.floor
+      from molit_trade_deals d
+      join molit_complexes c
+        on c.id = $1
+       and c.lawd_cd = d.lawd_cd
+       and c.legal_dong = coalesce(trim(d.legal_dong), '')
+       and c.jibun = coalesce(trim(d.jibun), '')
+       and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
+      where d.exclusive_area_m2 is not null
+        and d.deal_amount is not null
+        and d.deal_year_month is not null
+        and coalesce(d.cancel_type, '') = ''
+      order by d.deal_year desc nulls last,
+               d.deal_month desc nulls last,
+               d.deal_day desc nulls last,
+               d.id desc
+    `, [normalizedApartmentId])
   ]);
 
   const apartment = serializeMolitComplexRow(complexResult.rows[0]);
@@ -410,6 +436,7 @@ export async function buildMolitApartmentDetail(apartmentId) {
   , "");
   const months = monthRange(firstMonth, currentMonth);
   const recentByType = new Map(recentResult.rows.map((row) => [String(row.exclusive_area_m2), serializeMolitPrice(row)]));
+  const tradesByType = groupMolitTradesByType(tradeResult.rows);
   const types = new Map();
   for (const row of monthlyResult.rows) {
     const typeKey = String(row.exclusive_area_m2);
@@ -452,6 +479,7 @@ export async function buildMolitApartmentDetail(apartmentId) {
       supplyAreaPyeong: type.supplyAreaPyeong,
       exclusiveAreaPyeong: type.exclusiveAreaPyeong,
       totalDealCount: type.totalDealCount,
+      trades: tradesByType.get(typeKey) || [],
       prices
     };
   }).filter((type) => type.prices.length);
@@ -932,6 +960,36 @@ function serializeMolitPrice(row) {
     pyeongPrice: Number(row.pyeong_price || 0),
     dealCount: Number(row.deal_count || 0)
   };
+}
+
+function groupMolitTradesByType(rows) {
+  const tradesByType = new Map();
+  for (const row of rows) {
+    const typeKey = String(row.exclusive_area_m2);
+    if (!tradesByType.has(typeKey)) tradesByType.set(typeKey, []);
+    tradesByType.get(typeKey).push(serializeMolitTrade(row));
+  }
+  return tradesByType;
+}
+
+function serializeMolitTrade(row) {
+  return {
+    id: String(row.id || ""),
+    yearMonth: row.deal_year_month || "",
+    dealDate: formatMolitDealDate(row),
+    dealAmount: Number(row.deal_amount || 0),
+    floor: row.floor === null ? null : Number(row.floor)
+  };
+}
+
+function formatMolitDealDate(row) {
+  const year = Number(row.deal_year);
+  const month = Number(row.deal_month);
+  const day = Number(row.deal_day);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return row.deal_year_month || "";
+  }
+  return `${year}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")}`;
 }
 
 function molitTypeKey(apartmentId, exclusiveAreaM2) {

@@ -1,3 +1,6 @@
+const mapPopupTradeComparisonMonths = [3, 6, 12, 36, 60];
+const mapPopupVisibleTradeComparisonMonth = 12;
+
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
   const source = currentMapSource();
@@ -52,6 +55,7 @@ function renderMapApartmentLoading(seedItem = null) {
   if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
   els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 5년 그래프`;
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
+  clearMapPopupTradeHistory();
   els.mapPopupStats.innerHTML = `
     <div class="map-popup-loading-card"></div>
     <div class="map-popup-loading-card"></div>
@@ -75,6 +79,7 @@ function renderMapApartmentError(seedItem = null, error = null) {
   els.mapPopupMeta.textContent = "불러오기 실패";
   els.mapPopupStats.innerHTML = "";
   els.mapPopupChart.innerHTML = `<div class="empty">시세 데이터를 불러오지 못했습니다.${error?.message ? ` ${escapeHtml(error.message)}` : ""}</div>`;
+  clearMapPopupTradeHistory();
 }
 
 function renderMapApartmentDetail(detail) {
@@ -88,6 +93,7 @@ function renderMapApartmentDetail(detail) {
     els.mapPopupMeta.textContent = "정보 없음";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">아파트 정보를 찾지 못했습니다.</div>`;
+    clearMapPopupTradeHistory();
     return;
   }
 
@@ -102,6 +108,7 @@ function renderMapApartmentDetail(detail) {
     els.mapPopupMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / 시세 정보 없음`;
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
+    clearMapPopupTradeHistory();
     return;
   }
 
@@ -113,6 +120,7 @@ function renderMapApartmentDetail(detail) {
     .map((areaType, index) => ({
       ...areaType,
       color: graphDesignColor(graphDesign, index, colors[index % colors.length]),
+      allPrices: areaType.prices,
       prices: areaType.prices.filter((price) => price.yearMonth >= startMonth && price.yearMonth <= latestMonth)
     }))
     .filter((areaType) => areaType.prices.length);
@@ -121,6 +129,7 @@ function renderMapApartmentDetail(detail) {
     if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
     els.mapPopupStats.innerHTML = "";
     els.mapPopupChart.innerHTML = `<div class="empty">선택 기간의 시세 데이터가 없습니다.</div>`;
+    clearMapPopupTradeHistory();
     return;
   }
 
@@ -133,6 +142,7 @@ function renderMapApartmentDetail(detail) {
   `;
 
   renderMapPopupChart({ months, series: selectedSeries, pyeongSeriesSource: allSeries });
+  renderMapPopupTradeHistory(selected);
 }
 
 function selectedMapPopupSeries(series) {
@@ -282,6 +292,94 @@ function latestPriceAtOrBefore(prices, yearMonth) {
     .filter((price) => price.yearMonth <= yearMonth)
     .sort((a, b) => String(a.yearMonth).localeCompare(String(b.yearMonth)))
     .at(-1) || null;
+}
+
+function clearMapPopupTradeHistory() {
+  if (!els.mapPopupTradeHistory) return;
+  els.mapPopupTradeHistory.innerHTML = "";
+}
+
+function renderMapPopupTradeHistory(item) {
+  if (!els.mapPopupTradeHistory) return;
+  if (!item) {
+    clearMapPopupTradeHistory();
+    return;
+  }
+  const trades = [...(item.trades || [])].sort(compareMolitTradesDesc);
+  const rows = trades.map((trade) => renderMapPopupTradeRow(item, trade)).join("");
+  els.mapPopupTradeHistory.innerHTML = `
+    <div class="map-popup-trade-head">
+      <strong>거래기록</strong>
+      <span>${formatInt(trades.length)}건 · 1년전 월평균 대비</span>
+    </div>
+    ${rows || `<div class="map-popup-trade-empty">선택 평형의 거래기록이 없습니다.</div>`}
+  `;
+}
+
+function renderMapPopupTradeRow(item, trade) {
+  const comparison = mapPopupTradeGrowthComparison(item, trade, mapPopupVisibleTradeComparisonMonth);
+  const floorLabel = Number.isFinite(Number(trade.floor)) ? `${formatInt(trade.floor)}층` : "-";
+  return `
+    <div class="map-popup-trade-row">
+      <span>${escapeHtml(mapPopupTradeDateLabel(trade))}</span>
+      <strong>${formatKoreanPrice(trade.dealAmount)}</strong>
+      <em>${escapeHtml(floorLabel)}</em>
+      ${renderMapPopupTradeGrowth(comparison)}
+    </div>
+  `;
+}
+
+function mapPopupTradeDateLabel(trade) {
+  if (trade.dealDate) return trade.dealDate;
+  if (trade.yearMonth && String(trade.yearMonth).length >= 6) return formatMonth(String(trade.yearMonth));
+  return "-";
+}
+
+function renderMapPopupTradeGrowth(comparison) {
+  if (!comparison || !Number.isFinite(comparison.growthRate)) {
+    return `<b class="map-popup-trade-growth no-data">1년전 없음</b>`;
+  }
+  return `
+    <b class="map-popup-trade-growth" title="${escapeHtml(formatMonth(comparison.baseMonth))} 월평균 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
+      ${renderGrowthRateText(comparison.growthRate)}
+    </b>
+  `;
+}
+
+function mapPopupTradeGrowthComparison(item, trade, monthCount) {
+  const comparisons = mapPopupTradeGrowthComparisons(item, trade);
+  return comparisons[String(monthCount)] || null;
+}
+
+function mapPopupTradeGrowthComparisons(item, trade) {
+  const prices = item.allPrices || item.prices || [];
+  return Object.fromEntries(mapPopupTradeComparisonMonths.map((monthCount) => {
+    const baseMonth = shiftCompactMonth(trade.yearMonth, -monthCount);
+    const base = latestPriceAtOrBefore(prices, baseMonth);
+    const baseSaleMid = Number(base?.saleMid);
+    const dealAmount = Number(trade.dealAmount);
+    if (!baseMonth || !Number.isFinite(baseSaleMid) || !baseSaleMid || !Number.isFinite(dealAmount)) {
+      return [String(monthCount), null];
+    }
+    return [String(monthCount), {
+      requestedMonth: baseMonth,
+      baseMonth: base.yearMonth,
+      baseSaleMid,
+      growthRate: (dealAmount - baseSaleMid) / baseSaleMid
+    }];
+  }));
+}
+
+function shiftCompactMonth(yearMonth, offset) {
+  if (!yearMonth || String(yearMonth).length < 6) return "";
+  const date = parseMonth(String(yearMonth));
+  date.setMonth(date.getMonth() + offset);
+  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function compareMolitTradesDesc(a, b) {
+  return String(b.dealDate || "").localeCompare(String(a.dealDate || ""))
+    || String(b.id || "").localeCompare(String(a.id || ""));
 }
 
 function renderMapPopupChart({ months, series, pyeongSeriesSource = series }) {
