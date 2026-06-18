@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260618-apartment-region-marker">
+    <link rel="stylesheet" href="/styles.css?v=20260618-period-dropdown">
   </head>
   <body>
     <main class="app-shell">
@@ -46,6 +46,16 @@
       <nav class="tabs top-tabs" aria-label="보기 전환">
         <a class="active" data-tab="molitMap" href="/map" aria-current="page">지도</a>
         <a data-tab="priceBands" href="/price-bands">가격대별</a>
+        <label class="top-period-select">
+          <span class="sr-only">기준 기간</span>
+          <select data-period-select aria-label="기준 기간">
+            <option value="3">3개월전 기준</option>
+            <option value="6">6개월전 기준</option>
+            <option value="12" selected>1년전 기준</option>
+            <option value="36">3년전 기준</option>
+            <option value="60">5년전 기준</option>
+          </select>
+        </label>
         <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
         <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
         <details class="tab-more-menu" data-admin-only hidden>
@@ -78,19 +88,10 @@
       </div>
 
       <section id="mapView" class="view active map-view">
-        <div class="map-period-bar">
-          <div class="period-buttons" aria-label="지도 기준 기간">
-            <button data-period-months="3">3개월전 기준</button>
-            <button data-period-months="6">6개월전 기준</button>
-            <button class="active" data-period-months="12">1년전 기준</button>
-            <button data-period-months="36">3년전 기준</button>
-            <button data-period-months="60">5년전 기준</button>
-          </div>
-          <div class="map-period-meta">
-            <span id="zoomMapLevel">확대 단계 확인 중</span>
-            <span id="zoomMapCount"></span>
-            <span id="zoomMapPeriod"></span>
-          </div>
+        <div class="map-period-meta" hidden>
+          <span id="zoomMapLevel">확대 단계 확인 중</span>
+          <span id="zoomMapCount"></span>
+          <span id="zoomMapPeriod"></span>
         </div>
         <section class="panel map-panel">
           <h2 id="zoomMapTitle" class="sr-only">지도</h2>
@@ -964,6 +965,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260618-apartment-region-marker"></script>
+    <script src="/app.js?v=20260618-period-dropdown"></script>
   </body>
 </html>

@@ -140,6 +140,15 @@ function bindEvents() {
       refresh();
     });
   });
+  document.querySelectorAll("[data-period-select]").forEach((select) => {
+    select.addEventListener("change", () => {
+      state.apartmentRankPage = 1;
+      state.priceBandKey = "";
+      state.priceBandPage = 1;
+      setPeriodMonths(Number(select.value) || 12);
+      refresh();
+    });
+  });
   document.querySelectorAll("[data-apartment-rank-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       state.apartmentRankMode = button.dataset.apartmentRankMode || "averagePyeong";

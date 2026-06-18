@@ -117,6 +117,44 @@ h2 {
   display: none;
 }
 
+.top-period-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 36px;
+}
+
+.top-period-select select {
+  width: 132px;
+  height: 36px;
+  appearance: none;
+  border: 1px solid #cfd8e7;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 1px 5px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 34px 0 14px;
+  white-space: nowrap;
+}
+
+.top-period-select::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #475467;
+  border-bottom: 2px solid #475467;
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
+}
+
 .growth-rate-tone {
   color: var(--growth-rate-neutral);
   font-weight: 850;

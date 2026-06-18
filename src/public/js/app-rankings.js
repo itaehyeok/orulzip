@@ -25,6 +25,9 @@ function syncPeriodButtons(activeMonths = currentPeriodMonths()) {
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.classList.toggle("active", periodButtonMonths(button) === activeMonths);
   });
+  document.querySelectorAll("[data-period-select]").forEach((select) => {
+    if (select.value !== String(activeMonths)) select.value = String(activeMonths);
+  });
 }
 
 function syncApartmentRankModeButtons() {
