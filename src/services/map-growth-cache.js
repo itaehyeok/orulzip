@@ -228,9 +228,9 @@ export async function refreshMolitMapGrowthCache({ periodYears = DEFAULT_MAP_CAC
   const snapshots = [];
   for (const period of normalizedPeriods(periodYears)) {
     const startMonth = addMonths(endMonth, -period.months);
-    const rows = await readMolitMatchedMonthlyRows(today, { startMonth, endMonth });
-    if (!rows.length) continue;
-    const items = buildMolitCacheItems(rows, { startMonth, endMonth });
+    const data = await readMolitMatchedMonthlyRows(today, { startMonth, endMonth });
+    if (!data.rows.length) continue;
+    const items = buildMolitCacheItems(data.rows, { startMonth, endMonth, recentByType: data.recentByType });
     const snapshot = await saveSnapshot({
       source: "molit",
       periodYears: period.storageYears,
@@ -768,37 +768,14 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
     `, [today])
   ]);
 
-  const recentByType = new Map(recent.rows.map((row) => [molitTypeKey(row.apartment_id, row.exclusive_area_m2), serializeMolitPrice(row)]));
-  return monthly.rows.map((row) => ({
-    apartment: {
-      id: row.apartment_id,
-      name: row.apartment_name,
-      neighborhoodName: row.neighborhood_name || "",
-      legalDongCode: row.legal_dong_code || "",
-      address: row.address || "",
-      sidoCode: row.sido_code || "",
-      sidoName: row.sido_name || "",
-      sigunguCode: row.sigungu_code || "",
-      sigunguName: row.sigungu_name || "",
-      dongKey: row.dong_key || "",
-      dongName: row.dong_name || "",
-      buildYear: row.build_year === null ? null : Number(row.build_year),
-      dealCount: Number(row.apartment_deal_count || 0),
-      firstMonth: row.first_month || "",
-      lastMonth: row.last_month || "",
-      lat: Number(row.lat),
-      lng: Number(row.lng)
-    },
-    typeKey: String(row.exclusive_area_m2),
-    exclusiveAreaM2: Number(row.exclusive_area_m2),
-    yearMonth: row.deal_year_month,
-    price: serializeMolitPrice(row),
-    recentPrice: recentByType.get(molitTypeKey(row.apartment_id, row.exclusive_area_m2)) || null
-  }));
+  return {
+    rows: monthly.rows,
+    recentByType: new Map(recent.rows.map((row) => [molitTypeKey(row.apartment_id, row.exclusive_area_m2), serializeMolitPrice(row)]))
+  };
 }
 
-function buildMolitCacheItems(rows, { startMonth, endMonth }) {
-  const apartments = groupMolitRows(rows);
+function buildMolitCacheItems(rows, { startMonth, endMonth, recentByType = new Map() }) {
+  const apartments = groupMolitRows(rows, recentByType);
   const duplicateResolution = resolveMolitDuplicateGroups([...apartments.values()].map((group) => group.apartment));
   const hiddenDuplicateIds = duplicateResolution.hiddenIds;
   const rankingRows = [];
@@ -884,29 +861,52 @@ function buildMolitCacheItems(rows, { startMonth, endMonth }) {
   };
 }
 
-function groupMolitRows(rows) {
+function groupMolitRows(rows, recentByType = new Map()) {
   const apartments = new Map();
   for (const row of rows) {
-    if (!apartments.has(row.apartment.id)) {
-      apartments.set(row.apartment.id, {
-        apartment: row.apartment,
+    const apartmentId = row.apartment_id;
+    if (!apartments.has(apartmentId)) {
+      apartments.set(apartmentId, {
+        apartment: molitApartmentFromRow(row),
         types: new Map()
       });
     }
-    const apartment = apartments.get(row.apartment.id);
-    if (!apartment.types.has(row.typeKey)) {
-      apartment.types.set(row.typeKey, {
-        typeKey: row.typeKey,
-        exclusiveAreaM2: row.exclusiveAreaM2,
-        recentPrice: row.recentPrice,
+    const apartment = apartments.get(apartmentId);
+    const typeKey = String(row.exclusive_area_m2);
+    if (!apartment.types.has(typeKey)) {
+      apartment.types.set(typeKey, {
+        typeKey,
+        exclusiveAreaM2: Number(row.exclusive_area_m2),
+        recentPrice: recentByType.get(molitTypeKey(apartmentId, row.exclusive_area_m2)) || null,
         monthly: new Map()
       });
     }
-    const type = apartment.types.get(row.typeKey);
-    if (row.recentPrice) type.recentPrice = row.recentPrice;
-    type.monthly.set(row.yearMonth, row.price);
+    const type = apartment.types.get(typeKey);
+    type.monthly.set(row.deal_year_month, serializeMolitPrice(row));
   }
   return apartments;
+}
+
+function molitApartmentFromRow(row) {
+  return {
+    id: row.apartment_id,
+    name: row.apartment_name,
+    neighborhoodName: row.neighborhood_name || "",
+    legalDongCode: row.legal_dong_code || "",
+    address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
+    buildYear: row.build_year === null ? null : Number(row.build_year),
+    dealCount: Number(row.apartment_deal_count || 0),
+    firstMonth: row.first_month || "",
+    lastMonth: row.last_month || "",
+    lat: Number(row.lat),
+    lng: Number(row.lng)
+  };
 }
 
 function carriedMolitPriceAtOrBefore(monthly, yearMonth) {
