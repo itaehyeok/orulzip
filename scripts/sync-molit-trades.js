@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { initDb } from "../src/services/db.js";
 import { MolitTradeProvider } from "../src/providers/molit-trade-provider.js";
 import {
@@ -11,7 +13,7 @@ import {
   upsertTradeDeals
 } from "../src/services/molit-trade-store.js";
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
-import { refreshMapGrowthCacheIfUnlocked, refreshMolitMapGrowthCache } from "../src/services/map-growth-cache.js";
+import { refreshMapGrowthCacheIfUnlocked } from "../src/services/map-growth-cache.js";
 import { NATIONWIDE_LAWD_CODES } from "./molit-lawd-codes.js";
 
 const SEOUL_LAWD_CODES = [
@@ -294,17 +296,7 @@ if (!options.skipMapCacheRefresh) {
     geocode: complexResult.geocode
   }, null, 2));
 
-  const molitCacheResult = await refreshMolitMapGrowthCache();
-  console.log(JSON.stringify({
-    message: "MOLIT map growth cache refreshed",
-    refreshedAt: molitCacheResult.refreshedAt,
-    snapshots: (molitCacheResult.snapshots || []).map((snapshot) => ({
-      periodYears: snapshot.periodYears,
-      startMonth: snapshot.startMonth,
-      endMonth: snapshot.endMonth,
-      itemCount: snapshot.itemCount
-    }))
-  }, null, 2));
+  refreshMolitMapGrowthCacheInIsolatedProcess();
 }
 
 function buildTasks({ targetIds, startMonth, endMonth }) {
@@ -363,6 +355,17 @@ function parseArgs(args) {
     else if (arg === "--skip-map-cache-refresh") parsed.skipMapCacheRefresh = true;
   }
   return parsed;
+}
+
+function refreshMolitMapGrowthCacheInIsolatedProcess() {
+  const scriptPath = fileURLToPath(new URL("./refresh-molit-map-cache.js", import.meta.url));
+  const result = spawnSync(process.execPath, [scriptPath, "--skip-complex-sync"], {
+    env: process.env,
+    stdio: "inherit"
+  });
+  if (result.status !== 0) {
+    throw new Error(`MOLIT map growth cache refresh failed with exit code ${result.status || 1}`);
+  }
 }
 
 function currentYearMonth() {
