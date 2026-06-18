@@ -660,11 +660,6 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
                  sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
                  build_year, apartment_deal_count, first_month, last_month, lat, lng, exclusive_area_m2, deal_year_month
       ),
-      period_rows as (
-        select *
-        from monthly
-        where deal_year_month > $1 and deal_year_month <= $2
-      ),
       start_rows as (
         select *
         from (
@@ -678,6 +673,20 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           where deal_year_month <= $1
         ) ranked_start_rows
         where start_rank = 1
+      ),
+      end_rows as (
+        select *
+        from (
+          select
+            monthly.*,
+            row_number() over (
+              partition by apartment_id, exclusive_area_m2
+              order by deal_year_month desc
+            ) as end_rank
+          from monthly
+          where deal_year_month <= $2
+        ) ranked_end_rows
+        where end_rank = 1
       )
       select
         apartment_id,
@@ -704,7 +713,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         sale_high,
         pyeong_price,
         deal_count
-      from period_rows
+      from start_rows
       union all
       select
         apartment_id,
@@ -731,7 +740,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         sale_high,
         pyeong_price,
         deal_count
-      from start_rows
+      from end_rows
       order by apartment_id, exclusive_area_m2, deal_year_month
     `, [startMonth, endMonth]),
     query(`
