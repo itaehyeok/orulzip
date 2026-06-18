@@ -124,6 +124,7 @@ const INCHEON_LAWD_CODES = [
 ];
 
 const GANGWON_LAWD_CODES = NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => lawdCd.startsWith("51"));
+const lawdCodesBySido = (...sidoCodes) => NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => sidoCodes.includes(lawdCd.slice(0, 2)));
 
 const TARGETS = {
   nationwide: {
@@ -145,6 +146,34 @@ const TARGETS = {
   gangwon: {
     id: "gangwon",
     lawdCodes: GANGWON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  chungbuk: {
+    id: "chungbuk",
+    lawdCodes: lawdCodesBySido("43").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  chungnam: {
+    id: "chungnam",
+    lawdCodes: lawdCodesBySido("44").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  jeonnam: {
+    id: "jeonnam",
+    lawdCodes: lawdCodesBySido("46").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  gyeongbuk: {
+    id: "gyeongbuk",
+    lawdCodes: lawdCodesBySido("47").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  gyeongnam: {
+    id: "gyeongnam",
+    lawdCodes: lawdCodesBySido("48").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  jeju: {
+    id: "jeju",
+    lawdCodes: lawdCodesBySido("50").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  jeonbuk: {
+    id: "jeonbuk",
+    lawdCodes: lawdCodesBySido("52").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   bundang: {
     id: "bundang",
@@ -171,6 +200,8 @@ const provider = new MolitTradeProvider({
 });
 
 const tasks = buildTasks({ targetIds, startMonth, endMonth });
+const completed = await completedFetchSet();
+const runnableTasks = tasks.filter((task) => options.force || !completed.has(fetchKey(task.target.id, task.lawdCd, task.yearMonth)));
 
 if (options.plan || !process.env.MOLIT_APT_TRADE_SERVICE_KEY) {
   console.log(JSON.stringify({
@@ -182,16 +213,15 @@ if (options.plan || !process.env.MOLIT_APT_TRADE_SERVICE_KEY) {
     targets: targetIds,
     taskCount: tasks.length,
     estimatedRequests: tasks.length,
+    remainingTasks: runnableTasks.length,
+    runnableTasks: Math.min(runnableTasks.length, options.limit),
     dailyLimit: options.limit,
     summary: await tradeCollectionSummary()
   }, null, 2));
   process.exit(options.plan || process.env.MOLIT_APT_TRADE_SERVICE_KEY ? 0 : 2);
 }
 
-const completed = await completedFetchSet();
-const runnable = tasks
-  .filter((task) => options.force || !completed.has(fetchKey(task.target.id, task.lawdCd, task.yearMonth)))
-  .slice(0, options.limit);
+const runnable = runnableTasks.slice(0, options.limit);
 
 console.log(JSON.stringify({
   message: "Starting MOLIT apartment trade collection",

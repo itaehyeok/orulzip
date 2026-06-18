@@ -81,6 +81,7 @@ function shortRegionLabel(name) {
     .replace("강원도", "강원")
     .replace("충청북도", "충북")
     .replace("충청남도", "충남")
+    .replace("전북특별자치도", "전북")
     .replace("전라북도", "전북")
     .replace("전라남도", "전남")
     .replace("경상북도", "경북")

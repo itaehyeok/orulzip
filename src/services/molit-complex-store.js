@@ -261,6 +261,7 @@ async function upsertMolitComplexesFromDeals() {
           when '43' then '충북'
           when '44' then '충남'
           when '45' then '전북'
+          when '52' then '전북'
           when '46' then '전남'
           when '47' then '경북'
           when '48' then '경남'

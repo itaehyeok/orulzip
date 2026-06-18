@@ -226,7 +226,8 @@ const sidoLabelByCode = {
   47: "경북",
   48: "경남",
   50: "제주",
-  51: "강원"
+  51: "강원",
+  52: "전북"
 };
 const sigunguLabelByCode = {
   11110: "종로구",

@@ -1218,7 +1218,8 @@ function sidoName(code) {
     47: "경북",
     48: "경남",
     50: "제주",
-    51: "강원"
+    51: "강원",
+    52: "전북"
   }[code] || code || "미분류";
 }
 
@@ -1244,7 +1245,7 @@ function sigunguNameFromAddress(address, code = "", neighborhood = "") {
 
 function isSidoAddressPart(value = "") {
   return /특별시$|광역시$|특별자치시$|특별자치도$|도$/.test(value)
-    || ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"].includes(value);
+    || ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전북특별자치도", "전남", "경북", "경남", "제주"].includes(value);
 }
 
 function serializeCachedItem(row, level) {
