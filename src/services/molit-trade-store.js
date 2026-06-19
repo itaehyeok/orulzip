@@ -31,7 +31,7 @@ export async function markTradeFetchStarted({ targetRegionId, lawdCd, lawdName, 
       lawd_name = excluded.lawd_name,
       status = 'running',
       error_message = null,
-      started_at = coalesce(molit_trade_fetches.started_at, now()),
+      started_at = now(),
       completed_at = null,
       updated_at = now()
   `, [targetRegionId, lawdCd, lawdName, yearMonth]);

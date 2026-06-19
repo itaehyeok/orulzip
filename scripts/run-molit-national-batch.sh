@@ -5,7 +5,7 @@ ROOT_DIR="${ORULZIP_DATA_COLLECTOR_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.."
 COMPOSE_FILE="${MOLIT_NATIONAL_BATCH_COMPOSE_FILE:-docker-compose.data-collector.yml}"
 SERVICE="${MOLIT_NATIONAL_BATCH_SERVICE:-molit-daily-collector}"
 TARGETS="${MOLIT_NATIONAL_BATCH_TARGETS:-gyeongnam,gyeongbuk,jeonnam,jeju,chungbuk,chungnam,jeonbuk}"
-LIMIT="${MOLIT_NATIONAL_BATCH_LIMIT:-9700}"
+LIMIT="${MOLIT_NATIONAL_BATCH_LIMIT:-20000}"
 DELAY_MS="${MOLIT_NATIONAL_BATCH_DELAY_MS:-500}"
 GEOCODE_LIMIT="${MOLIT_NATIONAL_BATCH_GEOCODE_LIMIT:-5000}"
 LOG_DIR="${MOLIT_NATIONAL_BATCH_LOG_DIR:-$ROOT_DIR/logs}"
@@ -65,12 +65,25 @@ if [[ "$remaining_before" -le 0 ]]; then
   exit 0
 fi
 
+set +e
 docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
   node scripts/sync-molit-trades.js \
     --targets "$TARGETS" \
     --limit "$LIMIT" \
     --delay-ms "$DELAY_MS" \
     --skip-map-cache-refresh
+sync_status="$?"
+set -e
+
+if [[ "$sync_status" -eq 75 ]]; then
+  log "MOLIT collection stopped after quota exhaustion; next scheduled run will resume from the first unfinished fetch."
+  exit 0
+fi
+
+if [[ "$sync_status" -ne 0 ]]; then
+  log "MOLIT collection failed with exit code $sync_status."
+  exit "$sync_status"
+fi
 
 docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
   npm run sync:molit-complexes -- \

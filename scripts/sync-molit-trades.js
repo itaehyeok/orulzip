@@ -235,6 +235,8 @@ console.log(JSON.stringify({
 let completedCount = 0;
 let failedCount = 0;
 let savedDeals = 0;
+let stoppedEarly = false;
+let stopReason = "";
 
 for (const task of runnable) {
   await markTradeFetchStarted({
@@ -279,6 +281,12 @@ for (const task of runnable) {
       error
     });
     console.error(`[molit] failed ${task.target.id} ${task.lawdName} ${task.yearMonth}: ${error.message}`);
+    if (isQuotaExceededError(error)) {
+      stoppedEarly = true;
+      stopReason = "quota-exceeded";
+      console.error(`[molit] stopping collection because quota appears to be exhausted: ${error.message}`);
+      break;
+    }
   }
 
   if (options.delayMs > 0) {
@@ -291,10 +299,12 @@ console.log(JSON.stringify({
   completedTasks: completedCount,
   failedTasks: failedCount,
   savedDeals,
+  stoppedEarly,
+  stopReason,
   summary: await tradeCollectionSummary()
 }, null, 2));
 
-if (!options.skipMapCacheRefresh) {
+if (!stoppedEarly && !options.skipMapCacheRefresh) {
   console.log("[molit] refreshing map growth cache");
   const cacheResult = await refreshMapGrowthCacheIfUnlocked();
   console.log(JSON.stringify({
@@ -327,6 +337,10 @@ if (!options.skipMapCacheRefresh) {
   }, null, 2));
 
   refreshMolitMapGrowthCacheInIsolatedProcess();
+}
+
+if (stopReason === "quota-exceeded") {
+  process.exitCode = 75;
 }
 
 function buildTasks({ targetIds, startMonth, endMonth }) {
@@ -396,6 +410,15 @@ function refreshMolitMapGrowthCacheInIsolatedProcess() {
   if (result.status !== 0) {
     throw new Error(`MOLIT map growth cache refresh failed with exit code ${result.status || 1}`);
   }
+}
+
+function isQuotaExceededError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return message.includes("http 429")
+    || message.includes("quota exceeded")
+    || message.includes("limited_number_of_service_requests")
+    || message.includes("limit exceeded")
+    || message.includes("too many requests");
 }
 
 function currentYearMonth() {
