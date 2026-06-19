@@ -76,6 +76,7 @@ const state = {
   mapRankingRequestId: 0,
   mapRankingPreserveUntil: 0,
   mapRankingMobileOpen: false,
+  mapRankingOverPopup: false,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
   mapPopupCloseSuppressedUntil: 0,

@@ -568,8 +568,10 @@ function renderMapApartmentRanking(level, items) {
     state.mapRankingDongScope = null;
     state.mapRankingScopes = null;
     state.mapRankingMobileOpen = false;
+    state.mapRankingOverPopup = false;
     els.mapApartmentRanking.classList.remove("ranking-active");
     els.mapApartmentRanking.classList.remove("ranking-open");
+    els.mapApartmentRanking.classList.remove("ranking-over-popup");
     els.mapApartmentRanking.hidden = true;
     els.mapRankingSection.hidden = true;
     els.mapRankingRows.innerHTML = "";
@@ -615,9 +617,15 @@ function closeMobileMapRanking() {
   setMobileMapRankingOpen(false);
 }
 
-function setMobileMapRankingOpen(open) {
+function clearMapRankingPopupOverlay() {
+  if (!state.mapRankingOverPopup) return;
+  state.mapRankingOverPopup = false;
+  syncMapRankingOverlayClasses(Boolean(els.mapApartmentRanking && !els.mapApartmentRanking.hidden));
+}
+
+function setMobileMapRankingOpen(open, { overPopup = false } = {}) {
   state.mapRankingMobileOpen = Boolean(open);
-  els.mapApartmentRanking?.classList.toggle("ranking-open", state.mapRankingMobileOpen);
+  state.mapRankingOverPopup = Boolean(state.mapRankingMobileOpen && overPopup);
   updateMobileMapRankingToggle(Boolean(els.mapApartmentRanking && !els.mapApartmentRanking.hidden));
 }
 
@@ -626,7 +634,58 @@ function updateMobileMapRankingToggle(available) {
   els.mapRankingToggleBtn.hidden = !available;
   els.mapRankingToggleBtn.textContent = state.mapRankingMobileOpen ? "랭킹 접기" : "랭킹 보기";
   els.mapRankingToggleBtn.setAttribute("aria-expanded", String(state.mapRankingMobileOpen));
-  els.mapApartmentRanking?.classList.toggle("ranking-open", state.mapRankingMobileOpen && available);
+  syncMapRankingOverlayClasses(available);
+}
+
+function syncMapRankingOverlayClasses(available) {
+  const isOpen = Boolean(state.mapRankingMobileOpen && available);
+  const isOverPopup = Boolean(isOpen && state.mapRankingOverPopup);
+  els.mapApartmentRanking?.classList.toggle("ranking-open", isOpen);
+  els.mapApartmentRanking?.classList.toggle("ranking-over-popup", isOverPopup);
+  els.mapRankingToggleBtn?.classList.toggle("ranking-over-popup", isOverPopup);
+}
+
+function openMapRankingFromPopupScope({ mode, key, label, total } = {}) {
+  const normalizedMode = ["dong", "sigungu", "country"].includes(mode) ? mode : "";
+  const normalizedKey = normalizedMode === "country" ? "country" : String(key || "").trim();
+  if (!normalizedMode || !normalizedKey || !els.mapApartmentRanking || !els.mapRankingSection) return;
+
+  const latest = state.latestZoomMapData;
+  const viewportRows = latest?.level === "apartment" ? sortedMapRankingRows(latest.items || []) : [];
+  const existingScopes = state.mapRankingScopes || closestMapRankingScopes(viewportRows);
+  const scopeLabel = label || (normalizedMode === "country" ? "전국" : normalizedKey);
+  const scope = mapRankingScope(normalizedMode, normalizedKey, scopeLabel, total);
+  const scopes = {
+    ...existingScopes,
+    [normalizedMode]: scope,
+    country: existingScopes?.country || mapRankingScope("country", "country", "전국", total)
+  };
+
+  state.mapRankingMode = normalizedMode;
+  state.mapRankingScopes = scopes;
+  state.mapRankingDongScope = scopes.dong || null;
+  if (state.mapPopupDetail?.apartment?.id) {
+    setFocusedMapApartment(state.mapPopupDetail.apartment);
+  }
+
+  els.mapApartmentRanking.classList.add("ranking-active");
+  els.mapApartmentRanking.hidden = false;
+  els.mapRankingSection.hidden = false;
+  renderMapRankingTabs(scopes, normalizedMode);
+  setMobileMapRankingOpen(true, { overPopup: true });
+  loadMapScopedRankingRows(scope);
+
+  if (typeof trackAnalyticsEvent === "function") {
+    trackAnalyticsEvent("map_popup_rank_clicked", {
+      rankMode: normalizedMode,
+      scopeKey: normalizedKey,
+      scopeName: scopeLabel,
+      apartmentId: state.mapPopupDetail?.apartment?.id || "",
+      apartmentName: state.mapPopupDetail?.apartment?.name || "",
+      mapSource: currentMapSource(),
+      periodLabel: mapAnalyticsPeriodLabel()
+    });
+  }
 }
 
 function sortedMapRankingRows(items) {

@@ -80,6 +80,10 @@
   display: none;
 }
 
+.map-apartment-ranking.ranking-over-popup {
+  z-index: 710;
+}
+
 .map-location-control {
   align-items: center;
   position: absolute;
@@ -154,6 +158,10 @@
 .map-ranking-toggle:focus-visible {
   background: #1d56b0;
   outline: 0;
+}
+
+.map-ranking-toggle.ranking-over-popup {
+  z-index: 720;
 }
 
 .map-location-icon {

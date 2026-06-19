@@ -52,6 +52,9 @@ function setMapApartmentPopupVisible(visible) {
   if (!els.mapApartmentPopup) return;
   els.mapApartmentPopup.hidden = !visible;
   els.mapCanvasWrap?.classList.toggle("popup-active", visible);
+  if (!visible && typeof clearMapRankingPopupOverlay === "function") {
+    clearMapRankingPopupOverlay();
+  }
   if (els.mapLocateBtn) {
     els.mapLocateBtn.hidden = visible;
     els.mapLocateBtn.setAttribute("aria-hidden", visible ? "true" : "false");
@@ -111,7 +114,7 @@ function renderMapApartmentDetail(detail) {
   setMapApartmentPopupVisible(true);
   els.mapPopupTitle.textContent = detail.apartment.name;
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
-  renderMapPopupRanks(detail.rankSummary);
+  renderMapPopupRanks(detail.rankSummary, detail.apartment);
 
   const latestMonth = detail.months.at(-1);
   if (!latestMonth) {
@@ -210,42 +213,96 @@ function renderMapPopupPyeongGrowth(series, latestMonth) {
   `;
 }
 
-function renderMapPopupRanks(rankSummary) {
+function renderMapPopupRanks(rankSummary, apartment = null) {
   if (!els.mapPopupRanks) return;
   if (!rankSummary) {
     els.mapPopupRanks.innerHTML = "";
     return;
   }
-  const rows = [
+  const rows = mapPopupRankRows(rankSummary, apartment);
+  els.mapPopupRanks.innerHTML = rows.length
+    ? rows.map(renderMapPopupRankChip).join("")
+    : "";
+  bindMapPopupRankEvents();
+}
+
+function mapPopupRankRows(rankSummary, apartment = {}) {
+  const dongLabel = shortDongLabel(rankSummary.dongName || apartment?.dongName || apartment?.neighborhoodName || "동네");
+  const sigunguLabel = shortZoomLabel(rankSummary.sigunguName || apartment?.sigunguName || apartment?.address || "", "sigungu") || "구";
+  return [
     {
-      label: shortDongLabel(rankSummary.dongName || "동네"),
+      mode: "dong",
+      key: mapPopupApartmentDongKey(apartment),
+      label: dongLabel,
       rank: rankSummary.dongRank,
       total: rankSummary.dongRankTotal
     },
     {
-      label: shortZoomLabel(rankSummary.sigunguName || "", "sigungu") || "구",
+      mode: "sigungu",
+      key: mapPopupApartmentSigunguCode(apartment),
+      label: sigunguLabel,
       rank: rankSummary.sigunguRank,
       total: rankSummary.sigunguRankTotal
     },
     {
-      label: shortRegionLabel(rankSummary.sidoName || "") || "시",
+      mode: "",
+      key: "",
+      label: shortRegionLabel(rankSummary.sidoName || apartment?.sidoName || "") || "시",
       rank: rankSummary.sidoRank,
       total: rankSummary.sidoRankTotal
     },
     {
+      mode: "country",
+      key: "country",
       label: "전국",
       rank: rankSummary.countryRank,
       total: rankSummary.countryRankTotal
     }
   ].filter((item) => Number.isFinite(Number(item.rank)));
-  els.mapPopupRanks.innerHTML = rows.length
-    ? rows.map((item) => `
-      <span>
-        <b>${escapeHtml(item.label)}</b>
-        ${formatRankText(item.rank, item.total)}
-      </span>
-    `).join("")
-    : "";
+}
+
+function renderMapPopupRankChip(item) {
+  const content = `
+    <b>${escapeHtml(item.label)}</b>
+    ${formatRankText(item.rank, item.total)}
+  `;
+  if (!item.mode || !item.key) {
+    return `<span>${content}</span>`;
+  }
+  return `
+    <button class="map-popup-rank-btn" type="button"
+      data-map-popup-rank-mode="${escapeHtml(item.mode)}"
+      data-map-popup-rank-key="${escapeHtml(item.key)}"
+      data-map-popup-rank-label="${escapeHtml(item.label)}"
+      data-map-popup-rank-total="${Number(item.total) || ""}"
+      aria-label="${escapeHtml(item.label)} 랭킹 보기">
+      ${content}
+    </button>
+  `;
+}
+
+function bindMapPopupRankEvents() {
+  els.mapPopupRanks?.querySelectorAll("[data-map-popup-rank-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (typeof openMapRankingFromPopupScope !== "function") return;
+      openMapRankingFromPopupScope({
+        mode: button.dataset.mapPopupRankMode || "",
+        key: button.dataset.mapPopupRankKey || "",
+        label: button.dataset.mapPopupRankLabel || "",
+        total: Number(button.dataset.mapPopupRankTotal || 0) || null
+      });
+    });
+  });
+}
+
+function mapPopupApartmentDongKey(apartment = {}) {
+  const dongKey = String(apartment?.dongKey || "").trim();
+  if (dongKey) return dongKey;
+  return String(apartment?.legalDongCode || "").slice(0, 8);
+}
+
+function mapPopupApartmentSigunguCode(apartment = {}) {
+  return String(apartment?.sigunguCode || apartment?.legalDongCode || "").slice(0, 5);
 }
 
 function averagePyeongAtMonth(series, yearMonth) {
