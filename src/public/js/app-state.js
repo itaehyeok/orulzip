@@ -73,6 +73,7 @@ const state = {
   mapRankingDongScope: null,
   mapRankingScopes: null,
   mapRankingRequestId: 0,
+  mapRankingPreserveUntil: 0,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
   mapPopupCloseSuppressedUntil: 0,

@@ -318,7 +318,9 @@ function renderZoomMapSummary(data) {
   els.zoomMapTitle.textContent = currentMapSource() === "molit"
     ? `${levelLabel} 실거래가 상승률 지도`
     : `${levelLabel} 상승률 지도`;
-  renderMapApartmentRanking(data.level, items);
+  if (!shouldPreserveMapRankingRender(data.level)) {
+    renderMapApartmentRanking(data.level, items);
+  }
   const renderZoom = Number(currentZoomMapView()?.zoom);
   const shouldAnimate = shouldAnimateZoomMapTransition(renderZoom);
   renderZoomMapItemsWithTransition(items, data.level, { animate: shouldAnimate });
@@ -877,8 +879,24 @@ function focusMapApartmentFromRanking(item) {
 }
 
 function focusMapApartment(item) {
+  preserveMapRankingDuringFocusNavigation(item);
   suppressZoomMapReloadForVisibleApartment(item);
   moveZoomMapTo(item, apartmentMapZoom);
+}
+
+function preserveMapRankingDuringFocusNavigation(item) {
+  if (!item?.id || !els.mapRankingSection || els.mapRankingSection.hidden) return;
+  state.mapRankingPreserveUntil = Date.now() + 5000;
+}
+
+function shouldPreserveMapRankingRender(level) {
+  const preserveUntil = Number(state.mapRankingPreserveUntil || 0);
+  if (!preserveUntil) return false;
+  if (level !== "apartment" || Date.now() >= preserveUntil) {
+    state.mapRankingPreserveUntil = 0;
+    return false;
+  }
+  return true;
 }
 
 function suppressZoomMapReloadForVisibleApartment(item) {
