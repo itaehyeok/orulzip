@@ -361,6 +361,8 @@ export async function initDb() {
       on map_dong_apartment_rank_items(snapshot_id, country_rank);
     create index if not exists map_dong_apartment_rank_apartment_idx
       on map_dong_apartment_rank_items(snapshot_id, apartment_id);
+    create index if not exists map_dong_apartment_rank_bounds_idx
+      on map_dong_apartment_rank_items(snapshot_id, lat, lng);
 
     create table if not exists apartment_rank_snapshots (
       id bigserial primary key,

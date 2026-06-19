@@ -59,6 +59,18 @@ export async function readCachedZoomMapSummary(filters) {
     if (scopedRanking) return scopedRanking;
   }
 
+  if (level === "apartment") {
+    const boundsRanking = await readCachedApartmentBoundsRanking({
+      snapshot,
+      filters,
+      source
+    }).catch((error) => {
+      if (error?.code === "42P01" || error?.code === "42703") return null;
+      throw error;
+    });
+    if (boundsRanking) return boundsRanking;
+  }
+
   const params = [snapshot.id, level];
   const apartmentScopeClause = level === "apartment" ? apartmentScopeWhereClause(filters, params) : "";
   const boundsClause = apartmentScopeClause ? "" : boundsWhereClause(filters, params);
@@ -261,6 +273,40 @@ export async function readCachedZoomMapSummary(filters) {
       periodYears: Number(snapshot.period_years)
     },
     items: itemsResult.rows.map((row) => serializeCachedItem(row, level))
+  };
+}
+
+async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
+  const params = [snapshot.id];
+  const boundsClause = boundsWhereClause(filters, params);
+  const result = await query(`
+    select *
+    from map_dong_apartment_rank_items
+    where snapshot_id = $1
+      ${boundsClause}
+    order by
+      has_data desc,
+      growth_rate desc nulls last,
+      apartment_count desc,
+      item_name asc
+    limit 2000
+  `, params);
+
+  return {
+    level: "apartment",
+    zoom: filters.zoom,
+    period: {
+      startMonth: snapshot.start_month,
+      endMonth: snapshot.end_month
+    },
+    cache: {
+      hit: true,
+      source,
+      updatedAt: snapshot.updated_at,
+      periodYears: Number(snapshot.period_years),
+      rankSource: "apartment-rank-bounds"
+    },
+    items: result.rows.map(serializeCachedDongApartmentRankItem)
   };
 }
 

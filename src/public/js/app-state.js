@@ -54,6 +54,7 @@ const state = {
   zoomNaverInfoWindow: null,
   zoomNaverInfoWindowCloseTimer: null,
   mapTransitionTimer: null,
+  lastZoomMapRenderLevel: null,
   userLocationMarker: null,
   userLocationNaverMarker: null,
   zoomMarkerTopZIndex: 10000,

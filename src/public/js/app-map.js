@@ -322,20 +322,21 @@ function renderZoomMapSummary(data) {
     renderMapApartmentRanking(data.level, items);
   }
   const renderZoom = Number(currentZoomMapView()?.zoom);
-  const shouldAnimate = shouldAnimateZoomMapTransition(renderZoom);
-  renderZoomMapItemsWithTransition(items, data.level, { animate: shouldAnimate });
+  const transitionMode = mapTransitionModeForRender(data.level);
+  renderZoomMapItemsWithTransition(items, data.level, { mode: transitionMode });
   state.lastZoomMapRenderZoom = Number.isFinite(renderZoom) ? renderZoom : null;
+  state.lastZoomMapRenderLevel = data.level || null;
 }
 
-function shouldAnimateZoomMapTransition(renderZoom) {
-  if (!Number.isFinite(renderZoom) || state.lastZoomMapRenderZoom === null) return false;
-  return Math.abs(renderZoom - state.lastZoomMapRenderZoom) >= 0.01;
+function mapTransitionModeForRender(level) {
+  if (!state.lastZoomMapRenderLevel || state.lastZoomMapRenderLevel === level) return "current";
+  const configuredMode = activeMapTransitionDesignId();
+  return configuredMode === "current" ? "fade" : configuredMode;
 }
 
-function renderZoomMapItemsWithTransition(items, level, { animate = true } = {}) {
-  const mode = activeMapTransitionDesignId();
+function renderZoomMapItemsWithTransition(items, level, { mode = "current" } = {}) {
   clearTimeout(state.mapTransitionTimer);
-  if (!animate || mode === "current" || !hasZoomMapOverlays()) {
+  if (mode === "current" || !hasZoomMapOverlays()) {
     resetMapTransitionState();
     replaceZoomMapItems(items, level, "");
     return;
