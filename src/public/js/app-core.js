@@ -127,6 +127,7 @@ function bindEvents() {
     });
   });
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
+  els.mapRankingToggleBtn?.addEventListener("click", toggleMobileMapRanking);
   document.addEventListener("change", handleMarkerRankDisplayOptionChange);
   bindApartmentMarkerDesignControls();
   bindRegionMarkerDesignControls();
@@ -220,14 +221,18 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const isSearchClick = els.mapSearchPanel?.contains(event.target);
     const isRankingClick = els.mapApartmentRanking?.contains(event.target);
+    const isRankingToggleClick = els.mapRankingToggleBtn?.contains(event.target);
     const isTabMoreClick = event.target.closest(".tab-more-menu");
     const isDeployVersionClick = event.target.closest(".deploy-version-badge");
-    if (!isSearchClick && !isRankingClick) hideMapSearchResults();
+    if (!isSearchClick && !isRankingClick && !isRankingToggleClick) hideMapSearchResults();
     if (!isTabMoreClick) closeTabMoreMenus();
     if (!isDeployVersionClick) closeDeployCommitPopover();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeDeployCommitPopover();
+    if (event.key === "Escape") {
+      closeDeployCommitPopover();
+      closeMobileMapRanking();
+    }
   });
 }
 

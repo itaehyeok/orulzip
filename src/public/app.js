@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260619-fast-apartment-markers";
+  const version = "20260620-mobile-ranking-toggle";
   const scripts = [
     "app-prelude",
     "app-state",

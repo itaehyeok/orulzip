@@ -125,6 +125,37 @@
   color: var(--red);
 }
 
+.map-ranking-toggle {
+  align-items: center;
+  position: absolute;
+  z-index: 625;
+  display: none;
+  height: 42px;
+  border: 1px solid rgba(35, 103, 209, 0.34);
+  border-radius: 999px;
+  background: #2367d1;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 16px;
+  box-shadow: 0 14px 34px rgba(16, 24, 40, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.map-ranking-toggle[hidden] {
+  display: none;
+}
+
+.map-ranking-toggle:hover,
+.map-ranking-toggle:focus-visible {
+  background: #1d56b0;
+  outline: 0;
+}
+
 .map-location-icon {
   position: relative;
   display: inline-block;

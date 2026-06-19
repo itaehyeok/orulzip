@@ -567,12 +567,15 @@ function renderMapApartmentRanking(level, items) {
     state.mapRankingRequestId += 1;
     state.mapRankingDongScope = null;
     state.mapRankingScopes = null;
+    state.mapRankingMobileOpen = false;
     els.mapApartmentRanking.classList.remove("ranking-active");
+    els.mapApartmentRanking.classList.remove("ranking-open");
     els.mapApartmentRanking.hidden = true;
     els.mapRankingSection.hidden = true;
     els.mapRankingRows.innerHTML = "";
     els.mapRankingCount.textContent = "";
     if (els.mapRankingTabs) els.mapRankingTabs.innerHTML = "";
+    updateMobileMapRankingToggle(false);
     return;
   }
 
@@ -588,6 +591,7 @@ function renderMapApartmentRanking(level, items) {
   els.mapApartmentRanking.classList.add("ranking-active");
   els.mapApartmentRanking.hidden = false;
   els.mapRankingSection.hidden = false;
+  updateMobileMapRankingToggle(true);
   renderMapRankingTabs(scopes, mode);
   if (mode !== "viewport" && scopes[mode]) {
     loadMapScopedRankingRows(scopes[mode]);
@@ -600,6 +604,29 @@ function renderMapApartmentRanking(level, items) {
     countText: `${formatInt(viewportRows.length)}개`,
     emptyText: "현재 지도에 표시할 아파트가 없습니다."
   });
+}
+
+function toggleMobileMapRanking() {
+  setMobileMapRankingOpen(!state.mapRankingMobileOpen);
+}
+
+function closeMobileMapRanking() {
+  if (!state.mapRankingMobileOpen) return;
+  setMobileMapRankingOpen(false);
+}
+
+function setMobileMapRankingOpen(open) {
+  state.mapRankingMobileOpen = Boolean(open);
+  els.mapApartmentRanking?.classList.toggle("ranking-open", state.mapRankingMobileOpen);
+  updateMobileMapRankingToggle(Boolean(els.mapApartmentRanking && !els.mapApartmentRanking.hidden));
+}
+
+function updateMobileMapRankingToggle(available) {
+  if (!els.mapRankingToggleBtn) return;
+  els.mapRankingToggleBtn.hidden = !available;
+  els.mapRankingToggleBtn.textContent = state.mapRankingMobileOpen ? "랭킹 접기" : "랭킹 보기";
+  els.mapRankingToggleBtn.setAttribute("aria-expanded", String(state.mapRankingMobileOpen));
+  els.mapApartmentRanking?.classList.toggle("ranking-open", state.mapRankingMobileOpen && available);
 }
 
 function sortedMapRankingRows(items) {
