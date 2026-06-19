@@ -20,6 +20,8 @@ try {
     path: "/analytics-check",
     title: "Analytics check",
     metadata: { checkId, step: "page_view" },
+    host: "analytics-check.local",
+    environment: "local",
     ipHash: "check-ip-hash",
     userAgent: "orulzip-analytics-check",
     isAdmin: true
@@ -31,12 +33,14 @@ try {
     path: "/analytics-check",
     title: "Analytics check",
     metadata: { checkId, step: "event" },
+    host: "analytics-check.local",
+    environment: "local",
     ipHash: "check-ip-hash",
     userAgent: "orulzip-analytics-check",
     isAdmin: true
   });
 
-  const summary = await readAnalyticsSummary({ days: 1, includeAdmin: true });
+  const summary = await readAnalyticsSummary({ days: 1, includeAdmin: true, includeInternal: true, environment: "local" });
   const count = await analyticsQuery(`
     select count(*)::integer as count
     from analytics.events

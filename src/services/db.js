@@ -496,6 +496,8 @@ export async function initAnalyticsDb() {
       title text,
       referrer text,
       metadata jsonb not null default '{}'::jsonb,
+      host text,
+      environment text not null default 'unknown',
       ip_hash text,
       user_agent text,
       is_admin boolean not null default false,
@@ -504,10 +506,16 @@ export async function initAnalyticsDb() {
     );
 
     alter table analytics.events
+      add column if not exists host text,
+      add column if not exists environment text not null default 'unknown',
       add column if not exists is_internal boolean not null default false;
 
     create index if not exists analytics_events_created_idx
       on analytics.events(created_at desc);
+    create index if not exists analytics_events_environment_created_idx
+      on analytics.events(environment, created_at desc);
+    create index if not exists analytics_events_host_created_idx
+      on analytics.events(host, created_at desc);
     create index if not exists analytics_events_name_path_idx
       on analytics.events(event_name, path, created_at desc);
     create index if not exists analytics_events_visitor_idx
@@ -587,6 +595,8 @@ export async function initAnalyticsDb() {
           title,
           referrer,
           metadata,
+          host,
+          environment,
           ip_hash,
           user_agent,
           is_admin,
@@ -602,6 +612,8 @@ export async function initAnalyticsDb() {
           title,
           referrer,
           metadata,
+          null,
+          'unknown',
           ip_hash,
           user_agent,
           is_admin,

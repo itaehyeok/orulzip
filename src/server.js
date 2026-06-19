@@ -167,6 +167,8 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const normalizedPath = normalizeRoute(url.pathname);
     const isAdmin = isAdminRequest(req);
+    const requestAnalyticsHost = analyticsRequestHost(req);
+    const requestAnalyticsEnvironment = analyticsEnvironmentForHost(requestAnalyticsHost);
 
     if (url.pathname === "/api/admin/session") {
       return json(res, { authenticated: isAdmin });
@@ -195,6 +197,8 @@ const server = createServer(async (req, res) => {
         title: body.title,
         referrer: body.referrer,
         metadata: body.metadata,
+        host: requestAnalyticsHost,
+        environment: requestAnalyticsEnvironment,
         ipHash: analyticsIpHash(req),
         userAgent: req.headers["user-agent"] || "",
         isAdmin
@@ -264,7 +268,8 @@ const server = createServer(async (req, res) => {
       return json(res, await readAnalyticsSummary({
         days: Number(url.searchParams.get("days") || 7),
         includeAdmin: url.searchParams.get("includeAdmin") === "1",
-        includeInternal: url.searchParams.get("includeInternal") === "1"
+        includeInternal: url.searchParams.get("includeInternal") === "1",
+        environment: analyticsRequestedEnvironment(url.searchParams.get("environment"), requestAnalyticsEnvironment)
       }));
     }
 
@@ -273,6 +278,7 @@ const server = createServer(async (req, res) => {
         days: Number(url.searchParams.get("days") || 7),
         includeAdmin: url.searchParams.get("includeAdmin") === "1",
         includeInternal: url.searchParams.get("includeInternal") === "1",
+        environment: analyticsRequestedEnvironment(url.searchParams.get("environment"), requestAnalyticsEnvironment),
         limit: Number(url.searchParams.get("limit") || 100)
       }));
     }
@@ -1259,6 +1265,54 @@ function analyticsVisitorId(cookies) {
     return value;
   }
   return crypto.randomUUID();
+}
+
+function analyticsRequestHost(req) {
+  const forwardedHost = firstHeaderValue(req.headers["x-forwarded-host"]);
+  const hostHeader = firstHeaderValue(req.headers.host);
+  return normalizeAnalyticsHost(forwardedHost || hostHeader);
+}
+
+function firstHeaderValue(value) {
+  const headerValue = Array.isArray(value) ? value[0] : value;
+  return String(headerValue || "").split(",")[0].trim();
+}
+
+function normalizeAnalyticsHost(value) {
+  const hostValue = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .split("/")[0];
+  const ipv6Match = hostValue.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (ipv6Match) return ipv6Match[1];
+  if (hostValue.includes(":") && hostValue.indexOf(":") === hostValue.lastIndexOf(":")) {
+    return hostValue.replace(/:\d+$/, "");
+  }
+  return hostValue;
+}
+
+function analyticsEnvironmentForHost(hostValue) {
+  const normalizedHost = normalizeAnalyticsHost(hostValue);
+  if (normalizedHost === "dev.orulzip.com") return "development";
+  if (normalizedHost === "orulzip.com" || normalizedHost === "www.orulzip.com") return "production";
+  if (
+    normalizedHost === "localhost"
+    || normalizedHost === "127.0.0.1"
+    || normalizedHost === "::1"
+    || normalizedHost.startsWith("192.168.")
+    || normalizedHost.startsWith("10.")
+  ) {
+    return "local";
+  }
+  return "unknown";
+}
+
+function analyticsRequestedEnvironment(value, fallbackEnvironment) {
+  const environment = String(value || "").trim().toLowerCase();
+  if (!environment || environment === "current") return fallbackEnvironment || "unknown";
+  if (["production", "development", "local", "unknown", "all"].includes(environment)) return environment;
+  return fallbackEnvironment || "unknown";
 }
 
 function analyticsIpHash(req) {

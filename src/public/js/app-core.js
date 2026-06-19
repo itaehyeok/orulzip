@@ -185,6 +185,10 @@ function bindEvents() {
     state.analyticsDays = Number(els.analyticsDaysSelect.value) || 7;
     loadAnalyticsDashboard();
   });
+  els.analyticsEnvironmentSelect?.addEventListener("change", () => {
+    state.analyticsEnvironment = String(els.analyticsEnvironmentSelect.value || "");
+    loadAnalyticsDashboard();
+  });
   els.analyticsIncludeAdminToggle?.addEventListener("change", () => {
     state.analyticsIncludeAdmin = Boolean(els.analyticsIncludeAdminToggle.checked);
     loadAnalyticsDashboard();

@@ -37,9 +37,11 @@ async function loadAnalyticsDashboard() {
   if (!els.analyticsView) return;
   const requestId = ++state.analyticsRequestId;
   const days = Number(els.analyticsDaysSelect?.value || state.analyticsDays || 7);
+  const environment = String(els.analyticsEnvironmentSelect?.value || state.analyticsEnvironment || "");
   const includeAdmin = Boolean(els.analyticsIncludeAdminToggle?.checked);
   const includeInternal = Boolean(els.analyticsIncludeInternalToggle?.checked);
   state.analyticsDays = days;
+  state.analyticsEnvironment = environment;
   state.analyticsIncludeAdmin = includeAdmin;
   state.analyticsIncludeInternal = includeInternal;
   renderAnalyticsLoading();
@@ -50,6 +52,7 @@ async function loadAnalyticsDashboard() {
       includeAdmin: includeAdmin ? "1" : "0",
       includeInternal: includeInternal ? "1" : "0"
     });
+    if (environment) params.set("environment", environment);
     const data = await api(`/api/analytics/summary?${params}`);
     if (requestId !== state.analyticsRequestId) return;
     renderAnalyticsDashboard(data);
@@ -100,6 +103,7 @@ function renderAnalyticsSummary(overview, filters) {
     ["페이지뷰", formatInt(overview.pageViews || 0), "화면 진입"],
     ["이벤트", formatInt(overview.events || 0), "클릭 포함"],
     ["방문 페이지", formatInt(overview.pages || 0), "고유 URL"],
+    ["환경", analyticsEnvironmentLabel(filters.environment), filters.environment === "all" ? "전체" : "현재 필터"],
     ["방문자당 이벤트", formatDecimal(Number(overview.eventsPerVisitor || 0), 1), "평균"]
   ];
   els.analyticsSummary.innerHTML = cards.map(([label, value, meta]) => `
@@ -163,6 +167,7 @@ function renderAnalyticsVisitorRows(rows) {
         <td>
           <strong class="table-main">${escapeHtml(shortAnalyticsId(row.visitorId))}</strong>
           ${row.lastIpHash ? `<span class="muted-cell">IP ${escapeHtml(shortAnalyticsHash(row.lastIpHash))}</span>` : ""}
+          ${row.lastEnvironment ? `<span class="muted-cell">${escapeHtml(analyticsEnvironmentLabel(row.lastEnvironment))}</span>` : ""}
           ${row.hasAdminEvents ? `<span class="analytics-admin-badge">관리자 포함</span>` : ""}
           ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
         </td>
@@ -187,6 +192,7 @@ function renderAnalyticsRecentEventRows(rows) {
         <td>${escapeHtml(shortAnalyticsId(row.visitorId))}</td>
         <td>
           ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
+          ${row.environment ? `<span class="muted-cell">${escapeHtml(analyticsEnvironmentLabel(row.environment))}${row.host ? ` · ${escapeHtml(row.host)}` : ""}</span>` : ""}
           ${escapeHtml(formatAnalyticsMetadata(row.metadata))}
         </td>
       </tr>
@@ -211,6 +217,16 @@ function analyticsEventLabel(eventName) {
     map_ranking_mode_changed: "랭킹 탭 전환",
     map_search_selected: "지도 검색 선택"
   }[eventName] || eventName || "-";
+}
+
+function analyticsEnvironmentLabel(environment) {
+  return {
+    production: "운영",
+    development: "개발",
+    local: "로컬",
+    unknown: "미확인",
+    all: "전체"
+  }[environment] || "미확인";
 }
 
 function formatAnalyticsDay(value) {

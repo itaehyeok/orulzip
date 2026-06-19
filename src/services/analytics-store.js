@@ -15,6 +15,8 @@ export async function recordAnalyticsEvent(input = {}) {
     title: truncateText(input.title, 240),
     referrer: truncateText(input.referrer, 640),
     metadata: sanitizeMetadata(input.metadata),
+    host: truncateText(input.host, 240),
+    environment: normalizeStoredAnalyticsEnvironment(input.environment),
     ipHash: truncateText(input.ipHash, 128),
     userAgent: truncateText(input.userAgent, 640),
     isAdmin: Boolean(input.isAdmin)
@@ -78,12 +80,14 @@ export async function recordAnalyticsEvent(input = {}) {
           title,
           referrer,
           metadata,
+          host,
+          environment,
           ip_hash,
           user_agent,
           is_admin,
           is_internal
         )
-        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
+        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
         returning id, created_at
       `, [
         payload.visitorId,
@@ -93,6 +97,8 @@ export async function recordAnalyticsEvent(input = {}) {
         payload.title,
         payload.referrer,
         JSON.stringify(payload.metadata),
+        payload.host,
+        payload.environment,
         payload.ipHash,
         payload.userAgent,
         payload.isAdmin,
@@ -159,10 +165,11 @@ export async function markAnalyticsVisitorInternal(visitorId, { reason = "admin_
   return { marked: true, visitorId: normalizedVisitorId };
 }
 
-export async function readAnalyticsSummary({ days = 7, includeAdmin = false, includeInternal = false } = {}) {
-  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal });
-  const params = [filters.days, filters.includeAdmin, filters.includeInternal];
-  const eventWhere = `created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not is_admin) and ($3::boolean or not is_internal)`;
+export async function readAnalyticsSummary({ days = 7, includeAdmin = false, includeInternal = false, environment = "all" } = {}) {
+  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal, environment });
+  const params = [filters.days, filters.includeAdmin, filters.includeInternal, filters.environment];
+  const eventWhere = `created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not is_admin) and ($3::boolean or not is_internal) and ($4::text = 'all' or coalesce(environment, 'unknown') = $4::text)`;
+  const eventWhereWithAlias = `e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal) and ($4::text = 'all' or coalesce(e.environment, 'unknown') = $4::text)`;
 
   const [
     overview,
@@ -232,11 +239,13 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
         (array_agg(e.path order by e.created_at desc))[1] as last_path,
         bool_or(e.is_admin)::boolean as has_admin_events,
         bool_or(e.is_internal)::boolean as is_internal,
+        (array_agg(e.host order by e.created_at desc))[1] as last_host,
+        (array_agg(e.environment order by e.created_at desc))[1] as last_environment,
         max(v.internal_reason) as internal_reason,
         max(v.internal_marked_at) as internal_marked_at
       from analytics.events e
       join analytics.visitors v on v.visitor_id = e.visitor_id
-      where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal)
+      where ${eventWhereWithAlias}
       group by e.visitor_id
       order by max(e.created_at) desc
       limit 30
@@ -250,6 +259,8 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
         path,
         title,
         metadata,
+        host,
+        environment,
         is_admin,
         is_internal,
         created_at
@@ -271,8 +282,8 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
   };
 }
 
-export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, includeInternal = false, limit = 100 } = {}) {
-  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal });
+export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, includeInternal = false, environment = "all", limit = 100 } = {}) {
+  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal, environment });
   const normalizedLimit = Math.max(10, Math.min(Number(limit) || 100, 300));
   const result = await analyticsQuery(`
     select
@@ -286,15 +297,17 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, in
       (array_agg(e.path order by e.created_at desc))[1] as last_path,
       bool_or(e.is_admin)::boolean as has_admin_events,
       bool_or(e.is_internal)::boolean as is_internal,
+      (array_agg(e.host order by e.created_at desc))[1] as last_host,
+      (array_agg(e.environment order by e.created_at desc))[1] as last_environment,
       max(v.internal_reason) as internal_reason,
       max(v.internal_marked_at) as internal_marked_at
     from analytics.events e
     join analytics.visitors v on v.visitor_id = e.visitor_id
-    where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal)
+    where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal) and ($4::text = 'all' or coalesce(e.environment, 'unknown') = $4::text)
     group by e.visitor_id
     order by max(e.created_at) desc
-    limit $4
-  `, [filters.days, filters.includeAdmin, filters.includeInternal, normalizedLimit]);
+    limit $5
+  `, [filters.days, filters.includeAdmin, filters.includeInternal, filters.environment, normalizedLimit]);
 
   return {
     filters: { ...filters, limit: normalizedLimit },
@@ -346,12 +359,24 @@ async function activeOrNewSessionId(client, { requestedSessionId, visitorId, pat
   return sessionId;
 }
 
-function normalizedAnalyticsFilters({ days = 7, includeAdmin = false, includeInternal = false } = {}) {
+function normalizedAnalyticsFilters({ days = 7, includeAdmin = false, includeInternal = false, environment = "all" } = {}) {
   return {
     days: Math.max(1, Math.min(Number(days) || 7, 90)),
     includeAdmin: Boolean(includeAdmin),
-    includeInternal: Boolean(includeInternal)
+    includeInternal: Boolean(includeInternal),
+    environment: normalizeAnalyticsEnvironment(environment)
   };
+}
+
+function normalizeAnalyticsEnvironment(value) {
+  const environment = String(value || "unknown").trim().toLowerCase();
+  if (["production", "development", "local", "unknown", "all"].includes(environment)) return environment;
+  return "unknown";
+}
+
+function normalizeStoredAnalyticsEnvironment(value) {
+  const environment = normalizeAnalyticsEnvironment(value);
+  return environment === "all" ? "unknown" : environment;
 }
 
 function normalizeTrackingId(value) {
@@ -455,6 +480,8 @@ function normalizeVisitorRow(row) {
     lastPath: String(row.last_path || ""),
     hasAdminEvents: Boolean(row.has_admin_events),
     isInternal: Boolean(row.is_internal),
+    lastHost: String(row.last_host || ""),
+    lastEnvironment: normalizeAnalyticsEnvironment(row.last_environment),
     internalReason: String(row.internal_reason || ""),
     internalMarkedAt: row.internal_marked_at || null
   };
@@ -469,6 +496,8 @@ function normalizeRecentEventRow(row) {
     path: String(row.path || ""),
     title: String(row.title || ""),
     metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
+    host: String(row.host || ""),
+    environment: normalizeAnalyticsEnvironment(row.environment),
     isAdmin: Boolean(row.is_admin),
     isInternal: Boolean(row.is_internal),
     createdAt: row.created_at || null
