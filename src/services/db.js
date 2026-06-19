@@ -355,6 +355,10 @@ export async function initDb() {
 
     create index if not exists map_dong_apartment_rank_lookup_idx
       on map_dong_apartment_rank_items(snapshot_id, dong_key, dong_rank);
+    create index if not exists map_dong_apartment_rank_sigungu_idx
+      on map_dong_apartment_rank_items(snapshot_id, sigungu_code, sigungu_rank);
+    create index if not exists map_dong_apartment_rank_country_idx
+      on map_dong_apartment_rank_items(snapshot_id, country_rank);
     create index if not exists map_dong_apartment_rank_apartment_idx
       on map_dong_apartment_rank_items(snapshot_id, apartment_id);
 

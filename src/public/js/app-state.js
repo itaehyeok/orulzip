@@ -70,6 +70,7 @@ const state = {
   mapApartmentMarkerRefs: new Map(),
   mapRankingMode: "viewport",
   mapRankingDongScope: null,
+  mapRankingScopes: null,
   mapRankingRequestId: 0,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,

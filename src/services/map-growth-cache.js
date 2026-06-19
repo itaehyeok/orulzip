@@ -45,13 +45,13 @@ export async function readCachedZoomMapSummary(filters) {
   if (!snapshot) return null;
 
   const level = zoomAggregationLevel(filters.zoom);
-  const scopedDongKey = level === "apartment" ? normalizedApartmentScopeKey(filters.dongKey) : "";
-  if (scopedDongKey) {
-    const scopedRanking = await readCachedDongApartmentRanking({
+  const rankingScope = level === "apartment" ? normalizedApartmentRankingScope(filters.rankingScope, filters) : null;
+  if (rankingScope) {
+    const scopedRanking = await readCachedApartmentRankingScope({
       snapshot,
       filters,
       source,
-      dongKey: scopedDongKey
+      scope: rankingScope
     }).catch((error) => {
       if (error?.code === "42P01") return null;
       throw error;
@@ -264,15 +264,40 @@ export async function readCachedZoomMapSummary(filters) {
   };
 }
 
-async function readCachedDongApartmentRanking({ snapshot, filters, source, dongKey }) {
+async function readCachedApartmentRankingScope({ snapshot, filters, source, scope }) {
+  const params = [snapshot.id];
+  let whereClause = "";
+  let orderField = "dong_rank";
+  let rankSource = "dong-apartment-rank";
+  let limit = 2000;
+
+  if (scope.type === "dong") {
+    params.push(scope.key);
+    whereClause = "and dong_key = $2";
+    orderField = "dong_rank";
+    rankSource = "dong-apartment-rank";
+  } else if (scope.type === "sigungu") {
+    params.push(scope.key);
+    whereClause = "and coalesce(nullif(sigungu_code, ''), substring(dong_key from 1 for 5)) = $2";
+    orderField = "sigungu_rank";
+    rankSource = "sigungu-apartment-rank";
+    limit = 5000;
+  } else if (scope.type === "country") {
+    orderField = "country_rank";
+    rankSource = "country-apartment-rank";
+    limit = 5000;
+  } else {
+    return null;
+  }
+
   const result = await query(`
     select *
     from map_dong_apartment_rank_items
     where snapshot_id = $1
-      and dong_key = $2
-    order by dong_rank asc
-    limit 2000
-  `, [snapshot.id, dongKey]);
+      ${whereClause}
+    order by ${orderField} asc
+    limit ${limit}
+  `, params);
   if (!result.rows.length) return null;
 
   return {
@@ -287,10 +312,30 @@ async function readCachedDongApartmentRanking({ snapshot, filters, source, dongK
       source,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
-      rankSource: "dong-apartment-rank"
+      rankSource,
+      rankingScope: scope.type
     },
     items: result.rows.map(serializeCachedDongApartmentRankItem)
   };
+}
+
+function normalizedApartmentRankingScope(value, filters) {
+  const requestedScope = String(value || "").trim();
+  const dongKey = normalizedApartmentScopeKey(filters.dongKey);
+  if ((requestedScope === "dong" || (!requestedScope && dongKey)) && dongKey) {
+    return { type: "dong", key: dongKey };
+  }
+
+  const sigunguCode = normalizedApartmentScopeKey(filters.sigunguCode);
+  if (requestedScope === "sigungu" && sigunguCode) {
+    return { type: "sigungu", key: sigunguCode };
+  }
+
+  if (requestedScope === "country") {
+    return { type: "country", key: "country" };
+  }
+
+  return null;
 }
 
 export async function refreshMolitMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS } = {}) {

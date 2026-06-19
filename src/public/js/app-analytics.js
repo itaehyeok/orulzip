@@ -214,6 +214,7 @@ function analyticsEventLabel(eventName) {
     page_view: "페이지뷰",
     apartment_detail_opened: "아파트 상세 열기",
     map_dong_ranking_opened: "동 순위 열기",
+    map_scoped_ranking_opened: "지역 순위 열기",
     map_ranking_mode_changed: "랭킹 탭 전환",
     map_search_selected: "지도 검색 선택"
   }[eventName] || eventName || "-";

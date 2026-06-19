@@ -548,6 +548,7 @@ function renderMapApartmentRanking(level, items) {
   if (level !== "apartment") {
     state.mapRankingRequestId += 1;
     state.mapRankingDongScope = null;
+    state.mapRankingScopes = null;
     els.mapApartmentRanking.classList.remove("ranking-active");
     els.mapApartmentRanking.hidden = true;
     els.mapRankingSection.hidden = true;
@@ -558,19 +559,20 @@ function renderMapApartmentRanking(level, items) {
   }
 
   const viewportRows = sortedMapRankingRows(items);
-  const dongScope = closestMapRankingDongScope(viewportRows);
-  state.mapRankingDongScope = dongScope;
-  if (state.mapRankingMode === "dong" && !dongScope) {
+  const scopes = closestMapRankingScopes(viewportRows);
+  state.mapRankingScopes = scopes;
+  state.mapRankingDongScope = scopes.dong;
+  if (!isMapRankingModeAvailable(state.mapRankingMode, scopes)) {
     state.mapRankingMode = "viewport";
   }
-  const mode = state.mapRankingMode === "dong" ? "dong" : "viewport";
+  const mode = state.mapRankingMode;
 
   els.mapApartmentRanking.classList.add("ranking-active");
   els.mapApartmentRanking.hidden = false;
   els.mapRankingSection.hidden = false;
-  renderMapRankingTabs(dongScope, mode);
-  if (mode === "dong" && dongScope) {
-    loadMapDongRankingRows(dongScope);
+  renderMapRankingTabs(scopes, mode);
+  if (mode !== "viewport" && scopes[mode]) {
+    loadMapScopedRankingRows(scopes[mode]);
     return;
   }
 
@@ -596,8 +598,12 @@ function compareMapRankingRows(a, b) {
 }
 
 function compareMapDongRankingRows(a, b) {
-  const rankA = Number(a.dongRank);
-  const rankB = Number(b.dongRank);
+  return compareMapScopeRankingRows(a, b, "dong");
+}
+
+function compareMapScopeRankingRows(a, b, rankMode) {
+  const rankA = Number(mapRankingRankValue(a, rankMode, Infinity));
+  const rankB = Number(mapRankingRankValue(b, rankMode, Infinity));
   if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankA !== rankB) return rankA - rankB;
   if (Number.isFinite(rankA) !== Number.isFinite(rankB)) return Number.isFinite(rankA) ? -1 : 1;
   return compareMapRankingRows(a, b);
@@ -608,7 +614,7 @@ function renderMapRankingRows(rows, { title, countText, emptyText, rankMode = "v
   els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
     ? rows.map((item, index) => {
-      const rank = rankMode === "dong" && Number.isFinite(Number(item.dongRank)) ? Number(item.dongRank) : index + 1;
+      const rank = mapRankingRankValue(item, rankMode, index + 1);
       return `
         <div class="map-ranking-row ${item.id === state.focusedMapApartmentId ? "selected" : ""}" role="button" tabindex="0" data-apartment-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 위치로 이동">
           <span class="map-ranking-rank">${formatInt(rank)}</span>
@@ -656,23 +662,34 @@ function bindMapRankingRowEvents(rows) {
   });
 }
 
-function renderMapRankingTabs(dongScope, mode) {
+function renderMapRankingTabs(scopes, mode) {
   if (!els.mapRankingTabs) return;
-  const dongLabel = dongScope?.label ? `${dongScope.label} 순위` : "동 순위";
+  const tabs = [
+    { mode: "viewport", label: "지도 내" },
+    scopes.dong,
+    scopes.sigungu,
+    scopes.country
+  ].filter(Boolean);
   els.mapRankingTabs.innerHTML = `
-    <button class="map-ranking-tab ${mode === "viewport" ? "active" : ""}" type="button" data-map-ranking-mode="viewport" role="tab" aria-selected="${mode === "viewport"}">지도 내</button>
-    ${dongScope ? `<button class="map-ranking-tab ${mode === "dong" ? "active" : ""}" type="button" data-map-ranking-mode="dong" role="tab" aria-selected="${mode === "dong"}">${escapeHtml(dongLabel)}</button>` : ""}
+    ${tabs.map((tab) => `
+      <button class="map-ranking-tab ${mode === tab.mode ? "active" : ""}" type="button" data-map-ranking-mode="${escapeHtml(tab.mode)}" role="tab" aria-selected="${mode === tab.mode}">${escapeHtml(tab.label)}</button>
+    `).join("")}
   `;
   els.mapRankingTabs.querySelectorAll("[data-map-ranking-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      const nextMode = button.dataset.mapRankingMode === "dong" && dongScope ? "dong" : "viewport";
+      const requestedMode = button.dataset.mapRankingMode || "viewport";
+      const nextMode = isMapRankingModeAvailable(requestedMode, scopes) ? requestedMode : "viewport";
       if (state.mapRankingMode === nextMode) return;
       state.mapRankingMode = nextMode;
+      const nextScope = scopes[nextMode] || null;
       if (typeof trackAnalyticsEvent === "function") {
         trackAnalyticsEvent("map_ranking_mode_changed", {
           rankMode: nextMode,
-          dongKey: dongScope?.key || "",
-          dongName: dongScope?.label || "",
+          dongKey: scopes.dong?.key || "",
+          dongName: scopes.dong?.scopeLabel || "",
+          sigunguCode: scopes.sigungu?.key || "",
+          sigunguName: scopes.sigungu?.scopeLabel || "",
+          scopeName: nextScope?.scopeLabel || "",
           mapSource: currentMapSource(),
           periodLabel: mapAnalyticsPeriodLabel()
         });
@@ -683,29 +700,30 @@ function renderMapRankingTabs(dongScope, mode) {
   });
 }
 
-async function loadMapDongRankingRows(dongScope) {
+async function loadMapScopedRankingRows(scope) {
   const requestId = ++state.mapRankingRequestId;
-  if (els.mapRankingTitle) els.mapRankingTitle.textContent = `${dongScope.label} 순위`;
+  if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
   els.mapRankingCount.textContent = "불러오는 중";
-  els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(dongScope.label)} 순위를 불러오는 중입니다.</div>`;
+  els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
 
   try {
     const params = new URLSearchParams();
     params.set("zoom", String(apartmentMapZoom));
-    params.set("dongKey", dongScope.key);
+    params.set("rankingScope", scope.mode);
+    if (scope.mode === "dong") params.set("dongKey", scope.key);
+    if (scope.mode === "sigungu") params.set("sigunguCode", scope.key);
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
-    if (requestId !== state.mapRankingRequestId || state.mapRankingMode !== "dong" || state.mapRankingDongScope?.key !== dongScope.key) return;
-    const rows = sortedMapRankingRows(data.items || [])
-      .filter((item) => mapApartmentDongKey(item) === dongScope.key)
-      .sort(compareMapDongRankingRows);
-    const rankTotal = mapDongRankingTotal(rows, dongScope);
+    if (requestId !== state.mapRankingRequestId || state.mapRankingMode !== scope.mode || state.mapRankingScopes?.[scope.mode]?.key !== scope.key) return;
+    const rows = scopedMapRankingRows(data.items || [], scope);
+    const rankTotal = mapScopedRankingTotal(rows, scope);
     if (typeof trackAnalyticsEvent === "function") {
-      trackAnalyticsEvent("map_dong_ranking_opened", {
-        dongKey: dongScope.key,
-        dongName: dongScope.label,
+      trackAnalyticsEvent("map_scoped_ranking_opened", {
+        rankMode: scope.mode,
+        scopeKey: scope.key,
+        scopeName: scope.scopeLabel,
         rowCount: rows.length,
         rankTotal,
         mapSource: currentMapSource(),
@@ -713,23 +731,24 @@ async function loadMapDongRankingRows(dongScope) {
       });
     }
     renderMapRankingRows(rows, {
-      title: `${dongScope.label} 순위`,
+      title: scope.title,
       countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
-      emptyText: `${dongScope.label}에 표시할 아파트가 없습니다.`,
-      rankMode: "dong",
+      emptyText: `${scope.scopeLabel}에 표시할 아파트가 없습니다.`,
+      rankMode: scope.mode,
       rankTotal: rankTotal || rows.length
     });
+    scrollFocusedMapRankingRow({ behavior: "auto" });
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
-    if (els.mapRankingTitle) els.mapRankingTitle.textContent = `${dongScope.label} 순위`;
+    if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
     els.mapRankingCount.textContent = "";
-    els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(dongScope.label)} 순위를 불러오지 못했습니다.</div>`;
+    els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
   }
 }
 
-function closestMapRankingDongScope(rows) {
-  const candidates = rows.filter((item) => mapApartmentDongKey(item) && mapApartmentDongLabel(item));
-  if (!candidates.length) return null;
+function closestMapRankingScopes(rows) {
+  const candidates = rows.filter((item) => item.id);
+  if (!candidates.length) return { dong: null, sigungu: null, country: null };
   const center = currentZoomMapCenter();
   const closest = center
     ? candidates.reduce((best, item) => {
@@ -737,11 +756,30 @@ function closestMapRankingDongScope(rows) {
       return distance < best.distance ? { item, distance } : best;
     }, { item: candidates[0], distance: Infinity }).item
     : candidates[0];
+  const dongKey = mapApartmentDongKey(closest);
+  const dongLabel = mapApartmentDongLabel(closest);
+  const sigunguCode = mapApartmentSigunguCode(closest);
+  const sigunguLabel = mapApartmentSigunguLabel(closest);
   return {
-    key: mapApartmentDongKey(closest),
-    label: mapApartmentDongLabel(closest),
-    total: Number(closest.dongRankTotal) || null
+    dong: dongKey && dongLabel ? mapRankingScope("dong", dongKey, dongLabel, closest.dongRankTotal) : null,
+    sigungu: sigunguCode && sigunguLabel ? mapRankingScope("sigungu", sigunguCode, sigunguLabel, closest.sigunguRankTotal) : null,
+    country: mapRankingScope("country", "country", "전국", closest.countryRankTotal)
   };
+}
+
+function mapRankingScope(mode, key, label, total = null) {
+  return {
+    mode,
+    key,
+    scopeLabel: label,
+    label: `${label} 순위`,
+    title: `${label} 순위`,
+    total: Number(total) || null
+  };
+}
+
+function isMapRankingModeAvailable(mode, scopes) {
+  return mode === "viewport" || Boolean(scopes?.[mode]);
 }
 
 function mapApartmentDongKey(item) {
@@ -750,6 +788,45 @@ function mapApartmentDongKey(item) {
 
 function mapApartmentDongLabel(item) {
   return String(item?.dongName || item?.neighborhoodName || "").trim();
+}
+
+function mapApartmentSigunguCode(item) {
+  return String(item?.sigunguCode || "").trim() || String(item?.dongKey || item?.legalDongCode || "").slice(0, 5);
+}
+
+function mapApartmentSigunguLabel(item) {
+  return shortZoomLabel(item?.sigunguName || item?.address || "", "sigungu") || String(item?.sigunguName || "").trim();
+}
+
+function scopedMapRankingRows(items, scope) {
+  return (items || [])
+    .filter((item) => item.type === "apartment" && item.id)
+    .filter((item) => {
+      if (scope.mode === "dong") return mapApartmentDongKey(item) === scope.key;
+      if (scope.mode === "sigungu") return mapApartmentSigunguCode(item) === scope.key;
+      return scope.mode === "country";
+    })
+    .sort((a, b) => compareMapScopeRankingRows(a, b, scope.mode));
+}
+
+function mapRankingRankValue(item, rankMode, fallbackRank) {
+  const rankField = {
+    dong: "dongRank",
+    sigungu: "sigunguRank",
+    country: "countryRank"
+  }[rankMode];
+  const rank = Number(rankField ? item?.[rankField] : fallbackRank);
+  return Number.isFinite(rank) ? rank : fallbackRank;
+}
+
+function mapRankingTotalValue(item, rankMode) {
+  const totalField = {
+    dong: "dongRankTotal",
+    sigungu: "sigunguRankTotal",
+    country: "countryRankTotal"
+  }[rankMode];
+  const total = Number(totalField ? item?.[totalField] : 0);
+  return Number.isFinite(total) && total > 0 ? total : null;
 }
 
 function mapCoordinateDistance(center, item) {
@@ -762,10 +839,14 @@ function mapCoordinateDistance(center, item) {
 }
 
 function mapDongRankingTotal(rows, fallbackScope) {
+  return mapScopedRankingTotal(rows, { mode: "dong", total: fallbackScope?.total });
+}
+
+function mapScopedRankingTotal(rows, scope) {
   const fromRows = rows
-    .map((item) => Number(item.dongRankTotal))
+    .map((item) => mapRankingTotalValue(item, scope.mode))
     .find((value) => Number.isFinite(value) && value > 0);
-  return fromRows || Number(fallbackScope?.total) || rows.length;
+  return fromRows || Number(scope?.total) || rows.length;
 }
 
 function mapAnalyticsPeriodLabel() {
@@ -800,8 +881,17 @@ function setFocusedMapApartment(item) {
   els.mapRankingRows?.querySelectorAll("[data-apartment-id]").forEach((row) => {
     row.classList.toggle("selected", row.dataset.apartmentId === state.focusedMapApartmentId);
   });
+  scrollFocusedMapRankingRow();
   updateFocusedMapApartmentMarker(previousId, false);
   updateFocusedMapApartmentMarker(nextId, true);
+}
+
+function scrollFocusedMapRankingRow({ behavior = "smooth" } = {}) {
+  if (!state.focusedMapApartmentId || !els.mapRankingRows) return;
+  const row = [...els.mapRankingRows.querySelectorAll("[data-apartment-id]")]
+    .find((item) => item.dataset.apartmentId === state.focusedMapApartmentId);
+  if (!row) return;
+  row.scrollIntoView({ block: "center", behavior });
 }
 
 function updateFocusedMapApartmentMarker(apartmentId, selected) {
