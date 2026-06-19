@@ -479,6 +479,14 @@ export async function initDb() {
       on analytics_sessions(visitor_id, last_seen_at desc);
     create index if not exists analytics_visitors_last_seen_idx
       on analytics_visitors(last_seen_at desc);
+
+    do $$
+    begin
+      if exists (select 1 from pg_roles where rolname = 'orulzip_readonly') then
+        grant select, insert, update on analytics_visitors, analytics_sessions, analytics_events to orulzip_readonly;
+        grant usage, select on sequence analytics_events_id_seq to orulzip_readonly;
+      end if;
+    end $$;
   `);
 }
 
