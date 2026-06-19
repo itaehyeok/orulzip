@@ -233,6 +233,23 @@ function currentZoomMapView() {
   };
 }
 
+function currentZoomMapCenter() {
+  if (state.zoomNaverMap && window.naver?.maps) {
+    const center = state.zoomNaverMap.getCenter();
+    return {
+      lat: naverCoordLat(center),
+      lng: naverCoordLng(center)
+    };
+  }
+
+  if (!state.zoomMap) return null;
+  const center = state.zoomMap.getCenter();
+  return {
+    lat: Number(center.lat),
+    lng: Number(center.lng)
+  };
+}
+
 function updateZoomMapLevelLabel(level = null) {
   const view = currentZoomMapView();
   if (!view) {
@@ -512,43 +529,88 @@ function updateMapSearchActiveDescendant() {
 function renderMapApartmentRanking(level, items) {
   if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
   if (level !== "apartment") {
+    state.mapRankingRequestId += 1;
+    state.mapRankingDongScope = null;
     els.mapApartmentRanking.classList.remove("ranking-active");
     els.mapApartmentRanking.hidden = true;
     els.mapRankingSection.hidden = true;
     els.mapRankingRows.innerHTML = "";
     els.mapRankingCount.textContent = "";
+    if (els.mapRankingTabs) els.mapRankingTabs.innerHTML = "";
     return;
   }
 
-  const rows = [...items]
-    .filter((item) => item.type === "apartment" && item.id)
-    .sort((a, b) => {
-      if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
-      const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
-      if (rateDiff) return rateDiff;
-      return String(a.name || "").localeCompare(String(b.name || ""), "ko");
-    });
+  const viewportRows = sortedMapRankingRows(items);
+  const dongScope = closestMapRankingDongScope(viewportRows);
+  state.mapRankingDongScope = dongScope;
+  if (state.mapRankingMode === "dong" && !dongScope) {
+    state.mapRankingMode = "viewport";
+  }
+  const mode = state.mapRankingMode === "dong" ? "dong" : "viewport";
 
   els.mapApartmentRanking.classList.add("ranking-active");
   els.mapApartmentRanking.hidden = false;
   els.mapRankingSection.hidden = false;
-  els.mapRankingCount.textContent = `${formatInt(rows.length)}개`;
-  els.mapRankingRows.innerHTML = rows.length
-    ? rows.map((item, index) => `
-      <div class="map-ranking-row ${item.id === state.focusedMapApartmentId ? "selected" : ""}" role="button" tabindex="0" data-apartment-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 위치로 이동">
-        <span class="map-ranking-rank">${index + 1}</span>
-        <span class="map-ranking-main">
-          <strong>${escapeHtml(item.name)}</strong>
-          <em>${escapeHtml(item.neighborhoodName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
-        </span>
-        <span class="map-ranking-actions">
-          <span class="map-ranking-rate ${rateClass(item.growthRate, index + 1, rows.length)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
-          <button class="map-ranking-detail-btn" type="button" data-apartment-detail-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 상세 보기">상세</button>
-        </span>
-      </div>
-    `).join("")
-    : `<div class="map-ranking-empty">현재 지도에 표시할 아파트가 없습니다.</div>`;
+  renderMapRankingTabs(dongScope, mode);
+  if (mode === "dong" && dongScope) {
+    loadMapDongRankingRows(dongScope);
+    return;
+  }
 
+  state.mapRankingRequestId += 1;
+  renderMapRankingRows(viewportRows, {
+    title: "현재 지도 랭킹",
+    countText: `${formatInt(viewportRows.length)}개`,
+    emptyText: "현재 지도에 표시할 아파트가 없습니다."
+  });
+}
+
+function sortedMapRankingRows(items) {
+  return [...items]
+    .filter((item) => item.type === "apartment" && item.id)
+    .sort(compareMapRankingRows);
+}
+
+function compareMapRankingRows(a, b) {
+  if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
+  const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
+  if (rateDiff) return rateDiff;
+  return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+}
+
+function compareMapDongRankingRows(a, b) {
+  const rankA = Number(a.dongRank);
+  const rankB = Number(b.dongRank);
+  if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankA !== rankB) return rankA - rankB;
+  if (Number.isFinite(rankA) !== Number.isFinite(rankB)) return Number.isFinite(rankA) ? -1 : 1;
+  return compareMapRankingRows(a, b);
+}
+
+function renderMapRankingRows(rows, { title, countText, emptyText, rankMode = "viewport", rankTotal = rows.length } = {}) {
+  if (els.mapRankingTitle) els.mapRankingTitle.textContent = title || "현재 지도 랭킹";
+  els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
+  els.mapRankingRows.innerHTML = rows.length
+    ? rows.map((item, index) => {
+      const rank = rankMode === "dong" && Number.isFinite(Number(item.dongRank)) ? Number(item.dongRank) : index + 1;
+      return `
+        <div class="map-ranking-row ${item.id === state.focusedMapApartmentId ? "selected" : ""}" role="button" tabindex="0" data-apartment-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 위치로 이동">
+          <span class="map-ranking-rank">${formatInt(rank)}</span>
+          <span class="map-ranking-main">
+            <strong>${escapeHtml(item.name)}</strong>
+            <em>${escapeHtml(item.neighborhoodName || item.dongName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
+          </span>
+          <span class="map-ranking-actions">
+            <span class="map-ranking-rate ${rateClass(item.growthRate, rank, rankTotal)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+            <button class="map-ranking-detail-btn" type="button" data-apartment-detail-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 상세 보기">상세</button>
+          </span>
+        </div>
+      `;
+    }).join("")
+    : `<div class="map-ranking-empty">${escapeHtml(emptyText || "표시할 아파트가 없습니다.")}</div>`;
+  bindMapRankingRowEvents(rows);
+}
+
+function bindMapRankingRowEvents(rows) {
   const itemById = new Map(rows.map((item) => [item.id, item]));
   els.mapRankingRows.querySelectorAll("[data-apartment-id]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -575,6 +637,99 @@ function renderMapApartmentRanking(level, items) {
       openMapApartmentDetail(item.id, item);
     });
   });
+}
+
+function renderMapRankingTabs(dongScope, mode) {
+  if (!els.mapRankingTabs) return;
+  const dongLabel = dongScope?.label ? `${dongScope.label} 순위` : "동 순위";
+  els.mapRankingTabs.innerHTML = `
+    <button class="map-ranking-tab ${mode === "viewport" ? "active" : ""}" type="button" data-map-ranking-mode="viewport" role="tab" aria-selected="${mode === "viewport"}">지도 내</button>
+    ${dongScope ? `<button class="map-ranking-tab ${mode === "dong" ? "active" : ""}" type="button" data-map-ranking-mode="dong" role="tab" aria-selected="${mode === "dong"}">${escapeHtml(dongLabel)}</button>` : ""}
+  `;
+  els.mapRankingTabs.querySelectorAll("[data-map-ranking-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextMode = button.dataset.mapRankingMode === "dong" && dongScope ? "dong" : "viewport";
+      if (state.mapRankingMode === nextMode) return;
+      state.mapRankingMode = nextMode;
+      const latest = state.latestZoomMapData;
+      renderMapApartmentRanking(latest?.level, latest?.items || []);
+    });
+  });
+}
+
+async function loadMapDongRankingRows(dongScope) {
+  const requestId = ++state.mapRankingRequestId;
+  if (els.mapRankingTitle) els.mapRankingTitle.textContent = `${dongScope.label} 순위`;
+  els.mapRankingCount.textContent = "불러오는 중";
+  els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(dongScope.label)} 순위를 불러오는 중입니다.</div>`;
+
+  try {
+    const params = new URLSearchParams();
+    params.set("zoom", String(apartmentMapZoom));
+    params.set("dongKey", dongScope.key);
+    if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
+    if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+    const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
+    const data = await api(`${endpoint}?${params}`);
+    if (requestId !== state.mapRankingRequestId || state.mapRankingMode !== "dong" || state.mapRankingDongScope?.key !== dongScope.key) return;
+    const rows = sortedMapRankingRows(data.items || [])
+      .filter((item) => mapApartmentDongKey(item) === dongScope.key)
+      .sort(compareMapDongRankingRows);
+    const rankTotal = mapDongRankingTotal(rows, dongScope);
+    renderMapRankingRows(rows, {
+      title: `${dongScope.label} 순위`,
+      countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
+      emptyText: `${dongScope.label}에 표시할 아파트가 없습니다.`,
+      rankMode: "dong",
+      rankTotal: rankTotal || rows.length
+    });
+  } catch (error) {
+    if (requestId !== state.mapRankingRequestId) return;
+    if (els.mapRankingTitle) els.mapRankingTitle.textContent = `${dongScope.label} 순위`;
+    els.mapRankingCount.textContent = "";
+    els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(dongScope.label)} 순위를 불러오지 못했습니다.</div>`;
+  }
+}
+
+function closestMapRankingDongScope(rows) {
+  const candidates = rows.filter((item) => mapApartmentDongKey(item) && mapApartmentDongLabel(item));
+  if (!candidates.length) return null;
+  const center = currentZoomMapCenter();
+  const closest = center
+    ? candidates.reduce((best, item) => {
+      const distance = mapCoordinateDistance(center, item);
+      return distance < best.distance ? { item, distance } : best;
+    }, { item: candidates[0], distance: Infinity }).item
+    : candidates[0];
+  return {
+    key: mapApartmentDongKey(closest),
+    label: mapApartmentDongLabel(closest),
+    total: Number(closest.dongRankTotal) || null
+  };
+}
+
+function mapApartmentDongKey(item) {
+  return String(item?.dongKey || item?.legalDongCode || "").trim();
+}
+
+function mapApartmentDongLabel(item) {
+  return String(item?.dongName || item?.neighborhoodName || "").trim();
+}
+
+function mapCoordinateDistance(center, item) {
+  const lat = Number(item.lat);
+  const lng = Number(item.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return Infinity;
+  const latDiff = lat - center.lat;
+  const lngDiff = lng - center.lng;
+  return latDiff * latDiff + lngDiff * lngDiff;
+}
+
+function mapDongRankingTotal(rows, fallbackScope) {
+  const fromRows = rows
+    .map((item) => Number(item.dongRankTotal))
+    .find((value) => Number.isFinite(value) && value > 0);
+  return fromRows || Number(fallbackScope?.total) || rows.length;
 }
 
 function focusMapApartmentFromRanking(item) {

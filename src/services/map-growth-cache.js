@@ -46,7 +46,8 @@ export async function readCachedZoomMapSummary(filters) {
 
   const level = zoomAggregationLevel(filters.zoom);
   const params = [snapshot.id, level];
-  const boundsClause = boundsWhereClause(filters, params);
+  const apartmentScopeClause = level === "apartment" ? apartmentScopeWhereClause(filters, params) : "";
+  const boundsClause = apartmentScopeClause ? "" : boundsWhereClause(filters, params);
   const itemsResult = level === "apartment"
     ? await query(`
       with ranked as (
@@ -102,6 +103,7 @@ export async function readCachedZoomMapSummary(filters) {
       select *
       from ranked
       where true
+        ${apartmentScopeClause}
         ${boundsClause}
       order by
         has_data desc,
@@ -1335,6 +1337,14 @@ function boundsWhereClause(filters, params) {
   const east = params.length - 1;
   const west = params.length;
   return `and lat <= $${north} and lat >= $${south} and lng <= $${east} and lng >= $${west}`;
+}
+
+function apartmentScopeWhereClause(filters, params) {
+  const dongKey = String(filters.dongKey || "").trim();
+  if (!dongKey) return "";
+  params.push(dongKey);
+  const paramIndex = params.length;
+  return `and coalesce(nullif(dong_key, ''), concat(address, ':', neighborhood_name)) = $${paramIndex}`;
 }
 
 function zoomAggregationLevel(zoom) {

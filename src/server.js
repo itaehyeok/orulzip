@@ -372,7 +372,8 @@ const server = createServer(async (req, res) => {
         north: optionalNumber(url.searchParams.get("north")),
         south: optionalNumber(url.searchParams.get("south")),
         east: optionalNumber(url.searchParams.get("east")),
-        west: optionalNumber(url.searchParams.get("west"))
+        west: optionalNumber(url.searchParams.get("west")),
+        dongKey: url.searchParams.get("dongKey") || ""
       };
       const cached = await readCachedZoomMapSummary(filters);
       if (cached) return json(res, cached);
@@ -393,7 +394,8 @@ const server = createServer(async (req, res) => {
         north: optionalNumber(url.searchParams.get("north")),
         south: optionalNumber(url.searchParams.get("south")),
         east: optionalNumber(url.searchParams.get("east")),
-        west: optionalNumber(url.searchParams.get("west"))
+        west: optionalNumber(url.searchParams.get("west")),
+        dongKey: url.searchParams.get("dongKey") || ""
       };
       const cached = await readCachedZoomMapSummary(filters);
       return json(res, cached || {
