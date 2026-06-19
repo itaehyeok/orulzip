@@ -145,7 +145,8 @@ function zoomGroupMarkerTextContext(item, level, design = activeRegionMarkerDesi
     countryRank: formatMarkerRankNumber(item.countryRank),
     countryRankTotal: formatMarkerRankNumber(item.countryRankTotal),
     countryTopPercent: formatMarkerTopPercent(item.countryRank, item.countryRankTotal),
-    countryTopPercentShort: formatMarkerTopPercentShort(item.countryRank, item.countryRankTotal)
+    countryTopPercentShort: formatMarkerTopPercentShort(item.countryRank, item.countryRankTotal),
+    countryTopPercentWithTopRankText: formatMarkerTopPercentWithTopRank(item.countryRank, item.countryRankTotal)
   };
 }
 
@@ -184,6 +185,15 @@ function renderRegionMarkerRankRow(value, context, fallbackRow) {
     value: text,
     text
   };
+}
+
+function formatMarkerTopPercentWithTopRank(rank, total) {
+  const percentText = formatMarkerTopPercentShort(rank, total);
+  const rankNumber = Number(rank);
+  if (!Number.isFinite(rankNumber) || rankNumber <= 0 || rankNumber > 20 || percentText === "-") {
+    return percentText;
+  }
+  return `${percentText}(${formatInt(rankNumber)}등)`;
 }
 
 function regionMarkerAutoLayoutInline(layout) {

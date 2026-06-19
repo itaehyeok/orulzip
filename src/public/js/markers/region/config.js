@@ -41,6 +41,7 @@ window.orulzipRegionMarkerConfig = {
       }
     },
     // 시군구 마커 문구: 예) 송파구 / 12.1% / 서울 12/59등 / 전국 35%
+    // 전국 20등 안이면 예) 전국 12%(1등)
     sigungu: {
       // 마커 맨 위 지역명입니다. 예: 송파구
       label: ({ sigunguName }) => sigunguName,
@@ -51,10 +52,10 @@ window.orulzipRegionMarkerConfig = {
       // 아래 순위 박스입니다. 시도 안에서는 등수/전체, 전국은 상위 퍼센트로 표시합니다.
       rankRows: {
         sido: ({ sidoName, sidoRankRatioText }) => ({ label: sidoName, value: sidoRankRatioText }),
-        national: ({ countryTopPercentShort }) => ({ label: "전국", value: countryTopPercentShort })
+        national: ({ countryTopPercentWithTopRankText }) => ({ label: "전국", value: countryTopPercentWithTopRankText })
       }
     },
-    // 시도 마커 문구: 예) 경기 / 10.2% / 1/10등
+    // 시도 마커 문구: 예) 경기 / 10.2% / 전국 1/10등
     sido: {
       // 마커 맨 위 지역명입니다. 예: 경기
       label: ({ sidoName }) => sidoName,
@@ -62,9 +63,9 @@ window.orulzipRegionMarkerConfig = {
       value: ({ growthRate }) => formatPercent(growthRate),
       // 상승률 바로 밑 괄호 문구입니다.
       valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
-      // 시도 마커는 전국 내 순위만 값으로 표시합니다.
+      // 시도 마커는 시군구 마커처럼 왼쪽에 "전국", 오른쪽에 전국 내 순위를 표시합니다.
       rankRows: {
-        national: ({ countryRankRatioText }) => ({ label: "", value: countryRankRatioText })
+        national: ({ countryRankRatioText }) => ({ label: "전국", value: countryRankRatioText })
       }
     }
   },
