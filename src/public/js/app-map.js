@@ -60,6 +60,7 @@ function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]
 }
 
 function openZoomNaverInfoWindow(position, html) {
+  cancelZoomNaverInfoWindowClose();
   if (!state.zoomNaverInfoWindow) {
     state.zoomNaverInfoWindow = new window.naver.maps.InfoWindow({
       borderWidth: 0,
@@ -69,6 +70,20 @@ function openZoomNaverInfoWindow(position, html) {
   }
   state.zoomNaverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
+}
+
+function cancelZoomNaverInfoWindowClose() {
+  if (!state.zoomNaverInfoWindowCloseTimer) return;
+  clearTimeout(state.zoomNaverInfoWindowCloseTimer);
+  state.zoomNaverInfoWindowCloseTimer = null;
+}
+
+function scheduleZoomNaverInfoWindowClose(delay = 120) {
+  cancelZoomNaverInfoWindowClose();
+  state.zoomNaverInfoWindowCloseTimer = setTimeout(() => {
+    state.zoomNaverInfoWindowCloseTimer = null;
+    if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
+  }, delay);
 }
 
 function shortRegionLabel(name) {
@@ -1130,6 +1145,7 @@ function clearZoomMapOverlays() {
 }
 
 function clearZoomNaverOverlays() {
+  cancelZoomNaverInfoWindowClose();
   for (const overlay of state.zoomNaverOverlays) {
     try {
       overlay.setMap(null);
@@ -1258,7 +1274,7 @@ function renderNaverZoomApartmentMarker(item) {
     openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
+    scheduleZoomNaverInfoWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();

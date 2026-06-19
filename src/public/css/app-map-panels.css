@@ -531,6 +531,7 @@
   font-size: 13px;
   line-height: 1.55;
   padding: 10px 12px;
+  pointer-events: none;
   white-space: nowrap;
 }
 

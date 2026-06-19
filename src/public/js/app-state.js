@@ -52,6 +52,7 @@ const state = {
   zoomNaverMap: null,
   zoomNaverOverlays: [],
   zoomNaverInfoWindow: null,
+  zoomNaverInfoWindowCloseTimer: null,
   mapTransitionTimer: null,
   userLocationMarker: null,
   userLocationNaverMarker: null,

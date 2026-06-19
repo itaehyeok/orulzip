@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260619-ranking-scopes";
+  const version = "20260619-stable-hover";
   const scripts = [
     "app-prelude",
     "app-state",
