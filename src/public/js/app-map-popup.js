@@ -5,6 +5,17 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
   const source = currentMapSource();
   const period = currentMapPeriodParams();
+  if (typeof trackAnalyticsEvent === "function") {
+    trackAnalyticsEvent("apartment_detail_opened", {
+      apartmentId,
+      apartmentName: seedItem?.name || "",
+      dongName: seedItem?.dongName || seedItem?.neighborhoodName || "",
+      mapSource: source,
+      periodStart: period.start,
+      periodEnd: period.end,
+      periodLabel: typeof mapAnalyticsPeriodLabel === "function" ? mapAnalyticsPeriodLabel() : ""
+    });
+  }
   const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}`;
   state.mapPopupDetail = null;
   state.mapPopupSelectedAreaTypeId = null;

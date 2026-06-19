@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260618-trade-growth-copy">
+    <link rel="stylesheet" href="/styles.css?v=20260619-analytics">
   </head>
   <body>
     <main class="app-shell">
@@ -66,6 +66,7 @@
             <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
             <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
             <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
+            <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
             <div class="tab-more-control" data-admin-only hidden>
               <span data-apartment-marker-mode-label>현재 아파트 마커</span>
               <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
@@ -815,6 +816,148 @@
         </section>
       </section>
 
+      <section id="analyticsView" class="view">
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>방문 요약</h2>
+            <span>IP 원문은 저장하지 않고 해시만 저장합니다.</span>
+          </div>
+          <div class="analytics-toolbar">
+            <label>
+              기간
+              <select id="analyticsDaysSelect">
+                <option value="1">최근 1일</option>
+                <option value="7" selected>최근 7일</option>
+                <option value="30">최근 30일</option>
+                <option value="90">최근 90일</option>
+              </select>
+            </label>
+            <label class="analytics-check">
+              <input id="analyticsIncludeAdminToggle" type="checkbox">
+              관리자 기록 포함
+            </label>
+          </div>
+          <div id="analyticsSummary" class="analytics-summary-grid">
+            <div class="analytics-empty">방문 분석 데이터를 불러오는 중입니다.</div>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>일별 추이</h2>
+            <span>방문자 · 세션 · 페이지뷰</span>
+          </div>
+          <div class="table-wrap">
+            <table class="analytics-table">
+              <thead>
+                <tr>
+                  <th>일자</th>
+                  <th>방문자</th>
+                  <th>세션</th>
+                  <th>페이지뷰</th>
+                  <th>이벤트</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsDailyRows">
+                <tr><td colspan="5" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>페이지별 방문</h2>
+            <span>페이지뷰 기준 상위 화면</span>
+          </div>
+          <div class="table-wrap">
+            <table class="analytics-table">
+              <thead>
+                <tr>
+                  <th>페이지</th>
+                  <th>제목</th>
+                  <th>페이지뷰</th>
+                  <th>방문자</th>
+                  <th>최근</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsPageRows">
+                <tr><td colspan="5" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>이벤트</h2>
+            <span>지도 상세 클릭과 동 순위 전환 포함</span>
+          </div>
+          <div class="table-wrap">
+            <table class="analytics-table">
+              <thead>
+                <tr>
+                  <th>이벤트</th>
+                  <th>횟수</th>
+                  <th>방문자</th>
+                  <th>최근</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsEventRows">
+                <tr><td colspan="4" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>최근 방문자</h2>
+            <span>쿠키 기준 동일 사용자 묶음</span>
+          </div>
+          <div class="table-wrap">
+            <table class="analytics-table">
+              <thead>
+                <tr>
+                  <th>방문자</th>
+                  <th>페이지뷰</th>
+                  <th>세션</th>
+                  <th>이벤트</th>
+                  <th>최근 페이지</th>
+                  <th>최근</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsVisitorRows">
+                <tr><td colspan="6" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
+            <h2>최근 이벤트 로그</h2>
+            <span>최근 50건</span>
+          </div>
+          <div class="table-wrap">
+            <table class="analytics-table">
+              <thead>
+                <tr>
+                  <th>시간</th>
+                  <th>이벤트</th>
+                  <th>페이지</th>
+                  <th>방문자</th>
+                  <th>상세</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsRecentEventRows">
+                <tr><td colspan="5" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
       <section id="crawlView" class="view">
         <section class="panel crawl-panel">
           <div class="panel-head">
@@ -981,6 +1124,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260618-period-dropdown"></script>
+    <script src="/app.js?v=20260619-analytics"></script>
   </body>
 </html>

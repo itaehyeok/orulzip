@@ -32,6 +32,11 @@ import {
 } from "./services/apartment-rank-cache.js";
 import { readPriceBandRankPage } from "./services/price-band-rank-cache.js";
 import {
+  readAnalyticsSummary,
+  readAnalyticsVisitors,
+  recordAnalyticsEvent
+} from "./services/analytics-store.js";
+import {
   buildApartmentAveragePyeongRankings,
   buildApartmentRankings,
   buildNeighborhoodChart,
@@ -46,8 +51,8 @@ const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl"]);
-const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
@@ -59,7 +64,9 @@ const protectedApiRoutes = new Set([
   "/api/formula-analysis",
   "/api/molit/status",
   "/api/molit/coordinate-audit",
-  "/api/molit/duplicate-audit"
+  "/api/molit/duplicate-audit",
+  "/api/analytics/summary",
+  "/api/analytics/visitors"
 ]);
 const writeApiRoutes = new Set(["/api/crawl/start", "/api/sync"]);
 const adminCookieName = "orulzip_admin";
@@ -69,6 +76,11 @@ const adminSessionSecret = process.env.ORULZIP_ADMIN_SESSION_SECRET
   || crypto.createHash("sha256").update(`orulzip-admin:${adminUser}:${adminPassword}`).digest("hex");
 const adminSessionMaxAgeSeconds = 60 * 60 * 24 * 30;
 const adminCookieSecure = process.env.ORULZIP_ADMIN_COOKIE_SECURE === "1";
+const analyticsVisitorCookieName = "orulzip_visitor_id";
+const analyticsSessionCookieName = "orulzip_session_id";
+const analyticsVisitorMaxAgeSeconds = 60 * 60 * 24 * 365;
+const analyticsSessionMaxAgeSeconds = 60 * 30;
+const analyticsHashSecret = process.env.ORULZIP_ANALYTICS_HASH_SECRET || adminSessionSecret;
 const deployedAtKst = process.env.ORULZIP_DEPLOYED_AT_KST || "local";
 const deployCommitSha = normalizeCommitSha(process.env.ORULZIP_COMMIT_SHA) || readLocalCommitSha() || "unknown";
 const deployVersionText = `v ${deployedAtKst} · ${deployCommitSha}`;
@@ -133,6 +145,12 @@ const routeSeo = new Map([
     description: "오를집 내부 수집 현황 화면입니다.",
     canonicalPath: "/crawl",
     robots: "noindex,nofollow"
+  }],
+  ["/analytics", {
+    title: "방문분석 - 오를집",
+    description: "오를집 내부 방문 분석 화면입니다.",
+    canonicalPath: "/analytics",
+    robots: "noindex,nofollow"
   }]
 ]);
 
@@ -150,6 +168,29 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/admin/session") {
       return json(res, { authenticated: isAdmin });
+    }
+
+    if (url.pathname === "/api/analytics/event" && req.method === "POST") {
+      const body = await readLimitedJsonBody(req, 16 * 1024);
+      const cookies = parseCookies(req.headers.cookie || "");
+      const result = await recordAnalyticsEvent({
+        visitorId: cookies[analyticsVisitorCookieName],
+        sessionId: cookies[analyticsSessionCookieName],
+        eventName: body.eventName,
+        path: body.path,
+        title: body.title,
+        referrer: body.referrer,
+        metadata: body.metadata,
+        ipHash: analyticsIpHash(req),
+        userAgent: req.headers["user-agent"] || "",
+        isAdmin
+      });
+      return json(res, { ok: true }, 200, {
+        "Set-Cookie": [
+          createAnalyticsCookie(analyticsVisitorCookieName, result.visitorId, analyticsVisitorMaxAgeSeconds),
+          createAnalyticsCookie(analyticsSessionCookieName, result.sessionId, analyticsSessionMaxAgeSeconds)
+        ]
+      });
     }
 
     if (url.pathname === "/admin-logout" || url.pathname === "/logout") {
@@ -197,6 +238,21 @@ const server = createServer(async (req, res) => {
 
     if (readOnlyMode && writeApiRoutes.has(url.pathname)) {
       return json(res, { error: "Read-only mode is enabled." }, 403);
+    }
+
+    if (url.pathname === "/api/analytics/summary") {
+      return json(res, await readAnalyticsSummary({
+        days: Number(url.searchParams.get("days") || 7),
+        includeAdmin: url.searchParams.get("includeAdmin") === "1"
+      }));
+    }
+
+    if (url.pathname === "/api/analytics/visitors") {
+      return json(res, await readAnalyticsVisitors({
+        days: Number(url.searchParams.get("days") || 7),
+        includeAdmin: url.searchParams.get("includeAdmin") === "1",
+        limit: Number(url.searchParams.get("limit") || 100)
+      }));
     }
 
     if (url.pathname === "/api/filters") {
@@ -430,7 +486,8 @@ const server = createServer(async (req, res) => {
 
     return await serveStatic(url.pathname, res);
   } catch (error) {
-    return json(res, { error: error.message }, 500);
+    const status = Number(error.statusCode || 500);
+    return json(res, { error: error.message }, status >= 400 && status < 600 ? status : 500);
   }
 });
 
@@ -1163,6 +1220,34 @@ function clearAdminCookie() {
   ].filter(Boolean).join("; ");
 }
 
+function createAnalyticsCookie(name, value, maxAgeSeconds) {
+  return [
+    `${name}=${encodeURIComponent(value)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAgeSeconds}`,
+    adminCookieSecure ? "Secure" : ""
+  ].filter(Boolean).join("; ");
+}
+
+function analyticsIpHash(req) {
+  const ip = clientIp(req);
+  if (!ip) return "";
+  return crypto
+    .createHmac("sha256", analyticsHashSecret)
+    .update(ip)
+    .digest("hex");
+}
+
+function clientIp(req) {
+  const forwarded = Array.isArray(req.headers["x-forwarded-for"])
+    ? req.headers["x-forwarded-for"][0]
+    : req.headers["x-forwarded-for"];
+  const firstForwarded = String(forwarded || "").split(",")[0].trim();
+  return firstForwarded || req.socket?.remoteAddress || "";
+}
+
 function signAdminPayload(payload) {
   return crypto.createHmac("sha256", adminSessionSecret).update(payload).digest("base64url");
 }
@@ -1245,8 +1330,8 @@ function html(res, body, status = 200) {
   res.end(body);
 }
 
-function json(res, payload, status = 200) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+function json(res, payload, status = 200, headers = {}) {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...headers });
   res.end(JSON.stringify(payload));
 }
 
@@ -1263,4 +1348,27 @@ async function readJsonBody(req) {
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : {};
+}
+
+async function readLimitedJsonBody(req, maxBytes) {
+  const chunks = [];
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > maxBytes) {
+      const error = new Error("Request body is too large.");
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const error = new Error("Invalid JSON body.");
+    error.statusCode = 400;
+    throw error;
+  }
 }

@@ -181,6 +181,14 @@ function bindEvents() {
     state.priceBandPage = 1;
     refresh();
   });
+  els.analyticsDaysSelect?.addEventListener("change", () => {
+    state.analyticsDays = Number(els.analyticsDaysSelect.value) || 7;
+    loadAnalyticsDashboard();
+  });
+  els.analyticsIncludeAdminToggle?.addEventListener("change", () => {
+    state.analyticsIncludeAdmin = Boolean(els.analyticsIncludeAdminToggle.checked);
+    loadAnalyticsDashboard();
+  });
   els.priceBandPagination?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-page]");
     if (!button) return;
@@ -394,6 +402,11 @@ async function refresh() {
     return;
   }
 
+  if (state.activeTab === "analytics") {
+    await loadAnalyticsDashboard();
+    return;
+  }
+
   if (!status.counts.monthlyPrices) {
     renderEmpty();
     return;
@@ -465,6 +478,11 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "analytics") {
+    await loadAnalyticsDashboard();
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     await loadCrawlTabData();
   }
@@ -513,6 +531,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#termsView").classList.toggle("active", nextTab === "terms");
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
+  document.querySelector("#analyticsView").classList.toggle("active", nextTab === "analytics");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   document.title = tabTitles[nextTab] || tabTitles.molitMap;
 
@@ -520,6 +539,7 @@ function setActiveTab(tab, { push = false } = {}) {
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
     window.history.pushState({ tab: nextTab }, "", nextRoute);
   }
+  if (typeof trackAnalyticsPageView === "function") trackAnalyticsPageView();
 }
 
 function tabFromLocation() {

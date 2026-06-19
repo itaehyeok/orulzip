@@ -429,6 +429,56 @@ export async function initDb() {
       created_at timestamptz not null default now(),
       refreshed_at timestamptz not null default now()
     );
+
+    create table if not exists analytics_visitors (
+      visitor_id text primary key,
+      first_seen_at timestamptz not null default now(),
+      last_seen_at timestamptz not null default now(),
+      event_count integer not null default 0,
+      page_view_count integer not null default 0,
+      last_ip_hash text,
+      last_user_agent text,
+      last_path text,
+      last_is_admin boolean not null default false
+    );
+
+    create table if not exists analytics_sessions (
+      session_id text primary key,
+      visitor_id text not null references analytics_visitors(visitor_id) on delete cascade,
+      started_at timestamptz not null default now(),
+      last_seen_at timestamptz not null default now(),
+      event_count integer not null default 0,
+      page_view_count integer not null default 0,
+      entry_path text,
+      exit_path text,
+      is_admin boolean not null default false
+    );
+
+    create table if not exists analytics_events (
+      id bigserial primary key,
+      visitor_id text not null references analytics_visitors(visitor_id) on delete cascade,
+      session_id text not null references analytics_sessions(session_id) on delete cascade,
+      event_name text not null,
+      path text,
+      title text,
+      referrer text,
+      metadata jsonb not null default '{}'::jsonb,
+      ip_hash text,
+      user_agent text,
+      is_admin boolean not null default false,
+      created_at timestamptz not null default now()
+    );
+
+    create index if not exists analytics_events_created_idx
+      on analytics_events(created_at desc);
+    create index if not exists analytics_events_name_path_idx
+      on analytics_events(event_name, path, created_at desc);
+    create index if not exists analytics_events_visitor_idx
+      on analytics_events(visitor_id, created_at desc);
+    create index if not exists analytics_sessions_visitor_idx
+      on analytics_sessions(visitor_id, last_seen_at desc);
+    create index if not exists analytics_visitors_last_seen_idx
+      on analytics_visitors(last_seen_at desc);
   `);
 }
 

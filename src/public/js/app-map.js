@@ -502,6 +502,14 @@ function setMapSearchActiveIndex(index, { scroll = true } = {}) {
 async function selectMapSearchResult(item) {
   els.mapSearchInput.value = item.name || "";
   hideMapSearchResults();
+  if (typeof trackAnalyticsEvent === "function") {
+    trackAnalyticsEvent("map_search_selected", {
+      targetType: item.type || item.targetType || "",
+      targetName: item.name || "",
+      targetZoom: Number(item.targetZoom || 0) || null,
+      mapSource: currentMapSource()
+    });
+  }
   if (!(await initZoomMap())) return;
   focusMapTarget(item, Number(item.targetZoom || 16));
 }
@@ -651,6 +659,15 @@ function renderMapRankingTabs(dongScope, mode) {
       const nextMode = button.dataset.mapRankingMode === "dong" && dongScope ? "dong" : "viewport";
       if (state.mapRankingMode === nextMode) return;
       state.mapRankingMode = nextMode;
+      if (typeof trackAnalyticsEvent === "function") {
+        trackAnalyticsEvent("map_ranking_mode_changed", {
+          rankMode: nextMode,
+          dongKey: dongScope?.key || "",
+          dongName: dongScope?.label || "",
+          mapSource: currentMapSource(),
+          periodLabel: mapAnalyticsPeriodLabel()
+        });
+      }
       const latest = state.latestZoomMapData;
       renderMapApartmentRanking(latest?.level, latest?.items || []);
     });
@@ -676,6 +693,16 @@ async function loadMapDongRankingRows(dongScope) {
       .filter((item) => mapApartmentDongKey(item) === dongScope.key)
       .sort(compareMapDongRankingRows);
     const rankTotal = mapDongRankingTotal(rows, dongScope);
+    if (typeof trackAnalyticsEvent === "function") {
+      trackAnalyticsEvent("map_dong_ranking_opened", {
+        dongKey: dongScope.key,
+        dongName: dongScope.label,
+        rowCount: rows.length,
+        rankTotal,
+        mapSource: currentMapSource(),
+        periodLabel: mapAnalyticsPeriodLabel()
+      });
+    }
     renderMapRankingRows(rows, {
       title: `${dongScope.label} 순위`,
       countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
@@ -730,6 +757,12 @@ function mapDongRankingTotal(rows, fallbackScope) {
     .map((item) => Number(item.dongRankTotal))
     .find((value) => Number.isFinite(value) && value > 0);
   return fromRows || Number(fallbackScope?.total) || rows.length;
+}
+
+function mapAnalyticsPeriodLabel() {
+  if (typeof activeMarkerPeriodLabel === "function") return activeMarkerPeriodLabel();
+  const months = typeof currentPeriodMonths === "function" ? currentPeriodMonths() : 12;
+  return months >= 12 ? `${Math.round(months / 12)}년` : `${months}개월`;
 }
 
 function focusMapApartmentFromRanking(item) {

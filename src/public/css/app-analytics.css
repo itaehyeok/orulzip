@@ -1,0 +1,134 @@
+.analytics-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.analytics-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.analytics-toolbar select {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.analytics-check input {
+  width: 16px;
+  height: 16px;
+}
+
+.analytics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.analytics-summary-card {
+  display: grid;
+  gap: 7px;
+  min-height: 98px;
+  padding: 14px;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.analytics-summary-card span,
+.analytics-summary-card em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.analytics-summary-card strong {
+  color: #1d3a8a;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.analytics-empty {
+  grid-column: 1 / -1;
+  padding: 24px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.analytics-empty.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.analytics-table th,
+.analytics-table td {
+  text-align: right;
+}
+
+.analytics-table td:first-child,
+.analytics-table th:first-child,
+.analytics-table td:nth-child(2),
+.analytics-table th:nth-child(2) {
+  text-align: left;
+}
+
+.analytics-table .empty {
+  text-align: center;
+}
+
+.analytics-event-name {
+  color: #273aa5;
+}
+
+.analytics-admin-badge {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff4ed;
+  color: #b54708;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+@media (max-width: 980px) {
+  .analytics-summary-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .analytics-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-summary-card {
+    min-height: 86px;
+    padding: 12px;
+  }
+
+  .analytics-summary-card strong {
+    font-size: 21px;
+  }
+}

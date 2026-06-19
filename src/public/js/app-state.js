@@ -7,7 +7,8 @@ const tabRoutes = {
   formula: "/formula",
   terms: "/terms",
   design: "/design",
-  crawl: "/crawl"
+  crawl: "/crawl",
+  analytics: "/analytics"
 };
 
 const routeTabs = {
@@ -21,7 +22,8 @@ const routeTabs = {
   "/formula": "formula",
   "/terms": "terms",
   "/design": "design",
-  "/crawl": "crawl"
+  "/crawl": "crawl",
+  "/analytics": "analytics"
 };
 
 const tabTitles = {
@@ -33,7 +35,8 @@ const tabTitles = {
   formula: "시세식 분석 - 오를집",
   terms: "용어 - 오를집",
   design: "디자인 - 오를집",
-  crawl: "수집현황 - 오를집"
+  crawl: "수집현황 - 오를집",
+  analytics: "방문분석 - 오를집"
 };
 
 const state = {
@@ -103,7 +106,12 @@ const state = {
   lastZoomMapRenderZoom: null,
   naverSdkPromise: null,
   latestStatus: null,
-  latestMolitStatus: null
+  latestMolitStatus: null,
+  analyticsDays: 7,
+  analyticsIncludeAdmin: false,
+  analyticsRequestId: 0,
+  analyticsLastPageKey: "",
+  analyticsLastPageTrackedAt: 0
 };
 
 const colors = ["#2367d1", "#c24132", "#16805f", "#9a5b13", "#7c3aed", "#0f766e", "#b42318", "#475467"];
@@ -411,5 +419,14 @@ const els = {
   priceBandCount: document.querySelector("#priceBandCount"),
   priceBandSummary: document.querySelector("#priceBandSummary"),
   priceBandPagination: document.querySelector("#priceBandPagination"),
-  priceBandPageSizeSelect: document.querySelector("#priceBandPageSizeSelect")
+  priceBandPageSizeSelect: document.querySelector("#priceBandPageSizeSelect"),
+  analyticsView: document.querySelector("#analyticsView"),
+  analyticsDaysSelect: document.querySelector("#analyticsDaysSelect"),
+  analyticsIncludeAdminToggle: document.querySelector("#analyticsIncludeAdminToggle"),
+  analyticsSummary: document.querySelector("#analyticsSummary"),
+  analyticsDailyRows: document.querySelector("#analyticsDailyRows"),
+  analyticsPageRows: document.querySelector("#analyticsPageRows"),
+  analyticsEventRows: document.querySelector("#analyticsEventRows"),
+  analyticsVisitorRows: document.querySelector("#analyticsVisitorRows"),
+  analyticsRecentEventRows: document.querySelector("#analyticsRecentEventRows")
 };
