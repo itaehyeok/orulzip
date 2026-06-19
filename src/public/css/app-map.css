@@ -364,10 +364,10 @@
 
 .map-ranking-tabs {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .map-ranking-tab {
@@ -377,14 +377,13 @@
   background: #ffffff;
   color: #344054;
   cursor: pointer;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
-  min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: 0 9px;
+  padding: 0 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
