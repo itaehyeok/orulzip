@@ -45,6 +45,20 @@ export async function readCachedZoomMapSummary(filters) {
   if (!snapshot) return null;
 
   const level = zoomAggregationLevel(filters.zoom);
+  const scopedDongKey = level === "apartment" ? normalizedApartmentScopeKey(filters.dongKey) : "";
+  if (scopedDongKey) {
+    const scopedRanking = await readCachedDongApartmentRanking({
+      snapshot,
+      filters,
+      source,
+      dongKey: scopedDongKey
+    }).catch((error) => {
+      if (error?.code === "42P01") return null;
+      throw error;
+    });
+    if (scopedRanking) return scopedRanking;
+  }
+
   const params = [snapshot.id, level];
   const apartmentScopeClause = level === "apartment" ? apartmentScopeWhereClause(filters, params) : "";
   const boundsClause = apartmentScopeClause ? "" : boundsWhereClause(filters, params);
@@ -247,6 +261,35 @@ export async function readCachedZoomMapSummary(filters) {
       periodYears: Number(snapshot.period_years)
     },
     items: itemsResult.rows.map((row) => serializeCachedItem(row, level))
+  };
+}
+
+async function readCachedDongApartmentRanking({ snapshot, filters, source, dongKey }) {
+  const result = await query(`
+    select *
+    from map_dong_apartment_rank_items
+    where snapshot_id = $1
+      and dong_key = $2
+    order by dong_rank asc
+    limit 2000
+  `, [snapshot.id, dongKey]);
+  if (!result.rows.length) return null;
+
+  return {
+    level: "apartment",
+    zoom: filters.zoom,
+    period: {
+      startMonth: snapshot.start_month,
+      endMonth: snapshot.end_month
+    },
+    cache: {
+      hit: true,
+      source,
+      updatedAt: snapshot.updated_at,
+      periodYears: Number(snapshot.period_years),
+      rankSource: "dong-apartment-rank"
+    },
+    items: result.rows.map(serializeCachedDongApartmentRankItem)
   };
 }
 
@@ -1077,6 +1120,7 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
           item.hasData !== false
         ]);
       }
+      const dongApartmentRankCount = await refreshDongApartmentRankItems(client, snapshot.id);
 
       await client.query("commit");
       return {
@@ -1088,6 +1132,7 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
         apartmentCount,
         areaCount,
         itemCount: items.length,
+        dongApartmentRankCount,
         updatedAt: snapshot.updated_at
       };
     } catch (error) {
@@ -1095,6 +1140,100 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
       throw error;
     }
   });
+}
+
+async function refreshDongApartmentRankItems(client, snapshotId) {
+  await client.query("delete from map_dong_apartment_rank_items where snapshot_id = $1", [snapshotId]);
+  const result = await client.query(`
+    insert into map_dong_apartment_rank_items (
+      snapshot_id, dong_key, dong_name, dong_rank, dong_rank_total,
+      sigungu_rank, sigungu_rank_total, sido_rank, sido_rank_total, country_rank, country_rank_total,
+      apartment_id, item_name, neighborhood_name, address,
+      sido_code, sido_name, sigungu_code, sigungu_name,
+      lat, lng, apartment_count, area_count, area_summary,
+      growth_rate, growth_amount, start_pyeong_price, end_pyeong_price, has_data, updated_at
+    )
+    select
+      snapshot_id,
+      resolved_dong_key as dong_key,
+      dong_name,
+      dong_rank,
+      dong_rank_total,
+      sigungu_rank,
+      sigungu_rank_total,
+      sido_rank,
+      sido_rank_total,
+      country_rank,
+      country_rank_total,
+      apartment_id,
+      item_name,
+      neighborhood_name,
+      address,
+      sido_code,
+      sido_name,
+      sigungu_code,
+      sigungu_name,
+      lat,
+      lng,
+      apartment_count,
+      area_count,
+      area_summary,
+      growth_rate,
+      growth_amount,
+      start_pyeong_price,
+      end_pyeong_price,
+      has_data,
+      now()
+    from (
+      select
+        mgi.*,
+        coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name)) as resolved_dong_key,
+        row_number() over (
+          partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as dong_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
+        )::int as dong_rank_total,
+        row_number() over (
+          partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as sigungu_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
+        )::int as sigungu_rank_total,
+        row_number() over (
+          partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as sido_rank,
+        count(*) over (
+          partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
+        )::int as sido_rank_total,
+        row_number() over (
+          order by
+            mgi.has_data desc,
+            mgi.growth_rate desc nulls last,
+            mgi.item_name asc
+        )::int as country_rank,
+        count(*) over ()::int as country_rank_total
+      from map_growth_items mgi
+      where mgi.snapshot_id = $1
+        and mgi.level = 'apartment'
+        and mgi.apartment_id is not null
+    ) ranked
+    where resolved_dong_key <> ''
+    order by resolved_dong_key, dong_rank
+  `, [snapshotId]);
+  return result.rowCount || 0;
 }
 
 function summarizeGroups(rows, level) {
@@ -1328,6 +1467,39 @@ function serializeCachedItem(row, level) {
   };
 }
 
+function serializeCachedDongApartmentRankItem(row) {
+  return {
+    lat: Number(row.lat),
+    lng: Number(row.lng),
+    areaCount: Number(row.area_count || 0),
+    growthRate: row.growth_rate === null ? null : Number(row.growth_rate),
+    growthAmount: row.growth_amount === null ? null : Number(row.growth_amount),
+    hasData: row.has_data,
+    type: "apartment",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
+    id: row.apartment_id,
+    name: row.item_name,
+    neighborhoodName: row.neighborhood_name || "",
+    address: row.address || "",
+    areaSummary: row.area_summary || "",
+    startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
+    endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
+    dongRank: row.dong_rank === null || row.dong_rank === undefined ? null : Number(row.dong_rank),
+    dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total),
+    sigunguRank: row.sigungu_rank === null || row.sigungu_rank === undefined ? null : Number(row.sigungu_rank),
+    sigunguRankTotal: row.sigungu_rank_total === null || row.sigungu_rank_total === undefined ? null : Number(row.sigungu_rank_total),
+    sidoRank: row.sido_rank === null || row.sido_rank === undefined ? null : Number(row.sido_rank),
+    sidoRankTotal: row.sido_rank_total === null || row.sido_rank_total === undefined ? null : Number(row.sido_rank_total),
+    countryRank: row.country_rank === null || row.country_rank === undefined ? null : Number(row.country_rank),
+    countryRankTotal: row.country_rank_total === null || row.country_rank_total === undefined ? null : Number(row.country_rank_total)
+  };
+}
+
 function boundsWhereClause(filters, params) {
   const hasBounds = [filters.north, filters.south, filters.east, filters.west].every(Number.isFinite);
   if (!hasBounds) return "";
@@ -1340,11 +1512,15 @@ function boundsWhereClause(filters, params) {
 }
 
 function apartmentScopeWhereClause(filters, params) {
-  const dongKey = String(filters.dongKey || "").trim();
+  const dongKey = normalizedApartmentScopeKey(filters.dongKey);
   if (!dongKey) return "";
   params.push(dongKey);
   const paramIndex = params.length;
   return `and coalesce(nullif(dong_key, ''), concat(address, ':', neighborhood_name)) = $${paramIndex}`;
+}
+
+function normalizedApartmentScopeKey(value) {
+  return String(value || "").trim();
 }
 
 function zoomAggregationLevel(zoom) {

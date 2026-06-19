@@ -354,6 +354,14 @@
   white-space: nowrap;
 }
 
+.map-ranking-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .map-ranking-tabs {
   display: flex;
   gap: 6px;
@@ -390,6 +398,42 @@
   border-color: var(--blue);
   background: #e8f0ff;
   color: var(--blue);
+}
+
+.map-ranking-period-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 30px;
+}
+
+.map-ranking-period-select select {
+  width: 78px;
+  height: 30px;
+  appearance: none;
+  border: 1px solid #d8e0ec;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #344054;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 24px 0 10px;
+}
+
+.map-ranking-period-select::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid #475467;
+  border-bottom: 2px solid #475467;
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
 }
 
 .map-ranking-rows {

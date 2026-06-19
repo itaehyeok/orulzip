@@ -299,6 +299,46 @@ export async function initDb() {
     create index if not exists map_growth_items_hierarchy_idx
       on map_growth_items(snapshot_id, level, sido_code, sigungu_code, dong_key);
 
+    create table if not exists map_dong_apartment_rank_items (
+      snapshot_id bigint not null references map_growth_snapshots(id) on delete cascade,
+      dong_key text not null,
+      dong_name text,
+      dong_rank integer not null,
+      dong_rank_total integer not null,
+      sigungu_rank integer,
+      sigungu_rank_total integer,
+      sido_rank integer,
+      sido_rank_total integer,
+      country_rank integer,
+      country_rank_total integer,
+      apartment_id text not null,
+      item_name text not null,
+      neighborhood_name text,
+      address text,
+      sido_code text,
+      sido_name text,
+      sigungu_code text,
+      sigungu_name text,
+      lat double precision,
+      lng double precision,
+      apartment_count integer not null default 1,
+      area_count integer not null default 0,
+      area_summary text,
+      growth_rate double precision,
+      growth_amount integer,
+      start_pyeong_price integer,
+      end_pyeong_price integer,
+      has_data boolean not null default true,
+      updated_at timestamptz not null default now(),
+      primary key(snapshot_id, dong_key, dong_rank),
+      unique(snapshot_id, dong_key, apartment_id)
+    );
+
+    create index if not exists map_dong_apartment_rank_lookup_idx
+      on map_dong_apartment_rank_items(snapshot_id, dong_key, dong_rank);
+    create index if not exists map_dong_apartment_rank_apartment_idx
+      on map_dong_apartment_rank_items(snapshot_id, apartment_id);
+
     create table if not exists apartment_rank_snapshots (
       id bigserial primary key,
       source text not null default 'kb',

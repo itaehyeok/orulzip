@@ -105,7 +105,19 @@
                     <strong id="mapRankingTitle">현재 지도 랭킹</strong>
                     <span id="mapRankingCount"></span>
                   </div>
-                  <div id="mapRankingTabs" class="map-ranking-tabs" role="tablist" aria-label="아파트 리스트 범위"></div>
+                  <div class="map-ranking-controls">
+                    <div id="mapRankingTabs" class="map-ranking-tabs" role="tablist" aria-label="아파트 리스트 범위"></div>
+                    <label class="map-ranking-period-select">
+                      <span class="sr-only">리스트 기준 기간</span>
+                      <select data-period-select aria-label="리스트 기준 기간">
+                        <option value="3">3개월</option>
+                        <option value="6">6개월</option>
+                        <option value="12" selected>1년</option>
+                        <option value="36">3년</option>
+                        <option value="60">5년</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
                 <div id="mapRankingRows" class="map-ranking-rows"></div>
               </div>
