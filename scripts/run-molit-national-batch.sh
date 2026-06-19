@@ -4,7 +4,8 @@ set -Eeuo pipefail
 ROOT_DIR="${ORULZIP_DATA_COLLECTOR_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 COMPOSE_FILE="${MOLIT_NATIONAL_BATCH_COMPOSE_FILE:-docker-compose.data-collector.yml}"
 SERVICE="${MOLIT_NATIONAL_BATCH_SERVICE:-molit-daily-collector}"
-TARGETS="${MOLIT_NATIONAL_BATCH_TARGETS:-gyeongnam,gyeongbuk,jeonnam,jeju,chungbuk,chungnam,jeonbuk}"
+TARGETS="${MOLIT_NATIONAL_BATCH_TARGETS:-all-sido}"
+RECENT_TARGETS="${MOLIT_NATIONAL_BATCH_RECENT_TARGETS:-all-sido}"
 LIMIT="${MOLIT_NATIONAL_BATCH_LIMIT:-20000}"
 DELAY_MS="${MOLIT_NATIONAL_BATCH_DELAY_MS:-500}"
 GEOCODE_LIMIT="${MOLIT_NATIONAL_BATCH_GEOCODE_LIMIT:-5000}"
@@ -25,6 +26,14 @@ log() {
   echo "[$(date -Is)] $*"
 }
 
+current_month() {
+  TZ=Asia/Seoul date +%Y%m
+}
+
+previous_month() {
+  TZ=Asia/Seoul date -d "$(TZ=Asia/Seoul date +%Y-%m-01) -1 month" +%Y%m
+}
+
 remaining_tasks() {
   docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
     node scripts/sync-molit-trades.js \
@@ -42,47 +51,70 @@ remaining_tasks() {
       '
 }
 
-remove_cron_if_done() {
-  if [[ "${MOLIT_NATIONAL_BATCH_REMOVE_CRON_ON_COMPLETE:-0}" != "1" ]]; then
-    return
+run_collection() {
+  local label="$1"
+  shift
+  log "Starting MOLIT collection stage: $label"
+  set +e
+  docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
+    node scripts/sync-molit-trades.js "$@"
+  local sync_status="$?"
+  set -e
+  if [[ "$sync_status" -eq 75 ]]; then
+    log "MOLIT collection stage stopped after quota exhaustion: $label"
+    return 75
   fi
-  if ! command -v crontab >/dev/null 2>&1; then
-    return
+  if [[ "$sync_status" -ne 0 ]]; then
+    log "MOLIT collection stage failed with exit code $sync_status: $label"
+    return "$sync_status"
   fi
-  local next_cron
-  next_cron="$(mktemp)"
-  crontab -l 2>/dev/null | grep -vF "$CRON_MARKER" > "$next_cron" || true
-  crontab "$next_cron"
-  rm -f "$next_cron"
-  log "Removed cron entries marked as: $CRON_MARKER"
+  return 0
 }
+
+RECENT_START_MONTH="${MOLIT_NATIONAL_BATCH_RECENT_START:-$(previous_month)}"
+RECENT_END_MONTH="${MOLIT_NATIONAL_BATCH_RECENT_END:-$(current_month)}"
+
+set +e
+run_collection "recent-2-months" \
+  --targets "$RECENT_TARGETS" \
+  --start "$RECENT_START_MONTH" \
+  --end "$RECENT_END_MONTH" \
+  --force \
+  --only-collected-targets \
+  --limit "$LIMIT" \
+  --delay-ms "$DELAY_MS" \
+  --skip-map-cache-refresh
+recent_status="$?"
+set -e
+
+if [[ "$recent_status" -eq 75 ]]; then
+  log "Quota exhausted during recent refresh; backfill and cache refresh will wait for the next scheduled run."
+  exit 0
+fi
+if [[ "$recent_status" -ne 0 ]]; then
+  exit "$recent_status"
+fi
 
 remaining_before="$(remaining_tasks)"
 log "MOLIT national batch remaining before run: $remaining_before"
-if [[ "$remaining_before" -le 0 ]]; then
-  log "No remaining MOLIT national tasks."
-  remove_cron_if_done
-  exit 0
-fi
 
-set +e
-docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
-  node scripts/sync-molit-trades.js \
+backfill_quota_exhausted=0
+if [[ "$remaining_before" -gt 0 ]]; then
+  set +e
+  run_collection "backfill" \
     --targets "$TARGETS" \
     --limit "$LIMIT" \
     --delay-ms "$DELAY_MS" \
     --skip-map-cache-refresh
-sync_status="$?"
-set -e
-
-if [[ "$sync_status" -eq 75 ]]; then
-  log "MOLIT collection stopped after quota exhaustion; next scheduled run will resume from the first unfinished fetch."
-  exit 0
-fi
-
-if [[ "$sync_status" -ne 0 ]]; then
-  log "MOLIT collection failed with exit code $sync_status."
-  exit "$sync_status"
+  backfill_status="$?"
+  set -e
+  if [[ "$backfill_status" -eq 75 ]]; then
+    backfill_quota_exhausted=1
+  elif [[ "$backfill_status" -ne 0 ]]; then
+    exit "$backfill_status"
+  fi
+else
+  log "No remaining MOLIT backfill tasks."
 fi
 
 docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
@@ -96,6 +128,6 @@ docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
 
 remaining_after="$(remaining_tasks)"
 log "MOLIT national batch remaining after run: $remaining_after"
-if [[ "$remaining_after" -le 0 ]]; then
-  remove_cron_if_done
+if [[ "$backfill_quota_exhausted" -eq 1 ]]; then
+  log "Backfill stopped on quota exhaustion; next scheduled run will continue after the recent refresh."
 fi

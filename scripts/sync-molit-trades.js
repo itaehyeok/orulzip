@@ -4,6 +4,7 @@ import { initDb } from "../src/services/db.js";
 import { MolitTradeProvider } from "../src/providers/molit-trade-provider.js";
 import {
   completedFetchSet,
+  completedLawdCdSet,
   fetchKey,
   latestKbPricePeriod,
   markTradeFetchCompleted,
@@ -125,6 +126,25 @@ const INCHEON_LAWD_CODES = [
 
 const GANGWON_LAWD_CODES = NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => lawdCd.startsWith("51"));
 const lawdCodesBySido = (...sidoCodes) => NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => sidoCodes.includes(lawdCd.slice(0, 2)));
+const ALL_SIDO_TARGET_IDS = [
+  "seoul",
+  "busan",
+  "daegu",
+  "incheon",
+  "gwangju",
+  "daejeon",
+  "ulsan",
+  "sejong",
+  "gyeonggi",
+  "gangwon",
+  "chungbuk",
+  "chungnam",
+  "jeonbuk",
+  "jeonnam",
+  "gyeongbuk",
+  "gyeongnam",
+  "jeju"
+];
 
 const TARGETS = {
   nationwide: {
@@ -135,6 +155,14 @@ const TARGETS = {
     id: "seoul",
     lawdCodes: SEOUL_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
+  busan: {
+    id: "busan",
+    lawdCodes: lawdCodesBySido("26").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  daegu: {
+    id: "daegu",
+    lawdCodes: lawdCodesBySido("27").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
   gyeonggi: {
     id: "gyeonggi",
     lawdCodes: GYEONGGI_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
@@ -142,6 +170,22 @@ const TARGETS = {
   incheon: {
     id: "incheon",
     lawdCodes: INCHEON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  gwangju: {
+    id: "gwangju",
+    lawdCodes: lawdCodesBySido("29").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  daejeon: {
+    id: "daejeon",
+    lawdCodes: lawdCodesBySido("30").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  ulsan: {
+    id: "ulsan",
+    lawdCodes: lawdCodesBySido("31").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+  },
+  sejong: {
+    id: "sejong",
+    lawdCodes: lawdCodesBySido("36").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   gangwon: {
     id: "gangwon",
@@ -193,7 +237,10 @@ await initDb();
 const kbPeriod = await latestKbPricePeriod();
 const startMonth = options.start || kbPeriod.startMonth || "201601";
 const endMonth = options.end || kbPeriod.endMonth || currentYearMonth();
-const targetIds = options.targets.split(",").map((item) => item.trim()).filter(Boolean);
+const requestedTargetIds = expandTargetIds(options.targets.split(",").map((item) => item.trim()).filter(Boolean));
+const targetIds = options.onlyCollectedTargets
+  ? await filterCollectedTargetIds(requestedTargetIds)
+  : requestedTargetIds;
 const provider = new MolitTradeProvider({
   serviceKey: process.env.MOLIT_APT_TRADE_SERVICE_KEY,
   numOfRows: options.numRows
@@ -201,7 +248,7 @@ const provider = new MolitTradeProvider({
 
 const tasks = buildTasks({ targetIds, startMonth, endMonth });
 const completed = await completedFetchSet();
-const runnableTasks = tasks.filter((task) => options.force || !completed.has(fetchKey(task.target.id, task.lawdCd, task.yearMonth)));
+const runnableTasks = tasks.filter((task) => options.force || !completed.has(fetchKey(task.lawdCd, task.yearMonth)));
 
 if (options.plan || !process.env.MOLIT_APT_TRADE_SERVICE_KEY) {
   console.log(JSON.stringify({
@@ -210,6 +257,7 @@ if (options.plan || !process.env.MOLIT_APT_TRADE_SERVICE_KEY) {
       ? "Plan only. Remove --plan to collect."
       : "Set MOLIT_APT_TRADE_SERVICE_KEY in .env or pass it to docker compose run before collecting.",
     period: { startMonth, endMonth },
+    requestedTargets: requestedTargetIds,
     targets: targetIds,
     taskCount: tasks.length,
     estimatedRequests: tasks.length,
@@ -384,7 +432,8 @@ function parseArgs(args) {
     numRows: 1000,
     force: false,
     plan: false,
-    skipMapCacheRefresh: false
+    skipMapCacheRefresh: false,
+    onlyCollectedTargets: false
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -397,6 +446,7 @@ function parseArgs(args) {
     else if (arg === "--force") parsed.force = true;
     else if (arg === "--plan") parsed.plan = true;
     else if (arg === "--skip-map-cache-refresh") parsed.skipMapCacheRefresh = true;
+    else if (arg === "--only-collected-targets") parsed.onlyCollectedTargets = true;
   }
   return parsed;
 }
@@ -419,6 +469,20 @@ function isQuotaExceededError(error) {
     || message.includes("limited_number_of_service_requests")
     || message.includes("limit exceeded")
     || message.includes("too many requests");
+}
+
+function expandTargetIds(targetIds) {
+  return targetIds.flatMap((targetId) => targetId === "all-sido" ? ALL_SIDO_TARGET_IDS : [targetId]);
+}
+
+async function filterCollectedTargetIds(targetIds) {
+  const completedLawdCodes = await completedLawdCdSet();
+  return targetIds.filter((targetId) => {
+    const target = TARGETS[targetId];
+    if (!target) throw new Error(`Unknown target: ${targetId}`);
+    return target.lawdCodes.length > 0
+      && target.lawdCodes.every(({ lawdCd }) => completedLawdCodes.has(lawdCd));
+  });
 }
 
 function currentYearMonth() {

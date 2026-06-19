@@ -15,11 +15,20 @@ export async function latestKbPricePeriod() {
 
 export async function completedFetchSet() {
   const result = await query(`
-    select target_region_id, lawd_cd, year_month
+    select lawd_cd, year_month
     from molit_trade_fetches
     where status = 'completed'
   `);
-  return new Set(result.rows.map((row) => fetchKey(row.target_region_id, row.lawd_cd, row.year_month)));
+  return new Set(result.rows.map((row) => fetchKey(row.lawd_cd, row.year_month)));
+}
+
+export async function completedLawdCdSet() {
+  const result = await query(`
+    select distinct lawd_cd
+    from molit_trade_fetches
+    where status = 'completed'
+  `);
+  return new Set(result.rows.map((row) => row.lawd_cd));
 }
 
 export async function markTradeFetchStarted({ targetRegionId, lawdCd, lawdName, yearMonth }) {
@@ -255,8 +264,8 @@ export async function tradeCollectionStatus({ limit = 20 } = {}) {
   };
 }
 
-export function fetchKey(targetRegionId, lawdCd, yearMonth) {
-  return `${targetRegionId}:${lawdCd}:${yearMonth}`;
+export function fetchKey(lawdCd, yearMonth) {
+  return `${lawdCd}:${yearMonth}`;
 }
 
 function normalizeTradeDeal({ targetRegionId, lawdCd, yearMonth, deal }) {
