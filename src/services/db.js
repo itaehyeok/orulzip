@@ -2,8 +2,14 @@ import pg from "pg";
 
 const { Pool } = pg;
 
+const defaultDatabaseUrl = "postgres://orulzip:orulzip@127.0.0.1:5432/orulzip";
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://orulzip:orulzip@127.0.0.1:5432/orulzip"
+  connectionString: process.env.DATABASE_URL || defaultDatabaseUrl
+});
+
+const analyticsPool = new Pool({
+  connectionString: process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL || defaultDatabaseUrl
 });
 
 export async function query(sql, params = []) {
@@ -12,6 +18,19 @@ export async function query(sql, params = []) {
 
 export async function withClient(callback) {
   const client = await pool.connect();
+  try {
+    return await callback(client);
+  } finally {
+    client.release();
+  }
+}
+
+export async function analyticsQuery(sql, params = []) {
+  return analyticsPool.query(sql, params);
+}
+
+export async function withAnalyticsClient(callback) {
+  const client = await analyticsPool.connect();
   try {
     return await callback(client);
   } finally {
@@ -429,8 +448,14 @@ export async function initDb() {
       created_at timestamptz not null default now(),
       refreshed_at timestamptz not null default now()
     );
+  `);
+}
 
-    create table if not exists analytics_visitors (
+export async function initAnalyticsDb() {
+  await analyticsQuery(`
+    create schema if not exists analytics;
+
+    create table if not exists analytics.visitors (
       visitor_id text primary key,
       first_seen_at timestamptz not null default now(),
       last_seen_at timestamptz not null default now(),
@@ -442,9 +467,9 @@ export async function initDb() {
       last_is_admin boolean not null default false
     );
 
-    create table if not exists analytics_sessions (
+    create table if not exists analytics.sessions (
       session_id text primary key,
-      visitor_id text not null references analytics_visitors(visitor_id) on delete cascade,
+      visitor_id text not null references analytics.visitors(visitor_id) on delete cascade,
       started_at timestamptz not null default now(),
       last_seen_at timestamptz not null default now(),
       event_count integer not null default 0,
@@ -454,10 +479,10 @@ export async function initDb() {
       is_admin boolean not null default false
     );
 
-    create table if not exists analytics_events (
+    create table if not exists analytics.events (
       id bigserial primary key,
-      visitor_id text not null references analytics_visitors(visitor_id) on delete cascade,
-      session_id text not null references analytics_sessions(session_id) on delete cascade,
+      visitor_id text not null references analytics.visitors(visitor_id) on delete cascade,
+      session_id text not null references analytics.sessions(session_id) on delete cascade,
       event_name text not null,
       path text,
       title text,
@@ -470,26 +495,125 @@ export async function initDb() {
     );
 
     create index if not exists analytics_events_created_idx
-      on analytics_events(created_at desc);
+      on analytics.events(created_at desc);
     create index if not exists analytics_events_name_path_idx
-      on analytics_events(event_name, path, created_at desc);
+      on analytics.events(event_name, path, created_at desc);
     create index if not exists analytics_events_visitor_idx
-      on analytics_events(visitor_id, created_at desc);
+      on analytics.events(visitor_id, created_at desc);
     create index if not exists analytics_sessions_visitor_idx
-      on analytics_sessions(visitor_id, last_seen_at desc);
+      on analytics.sessions(visitor_id, last_seen_at desc);
     create index if not exists analytics_visitors_last_seen_idx
-      on analytics_visitors(last_seen_at desc);
+      on analytics.visitors(last_seen_at desc);
 
     do $$
     begin
-      if exists (select 1 from pg_roles where rolname = 'orulzip_readonly') then
-        grant select, insert, update on analytics_visitors, analytics_sessions, analytics_events to orulzip_readonly;
-        grant usage, select on sequence analytics_events_id_seq to orulzip_readonly;
+      if to_regclass('public.analytics_visitors') is not null then
+        insert into analytics.visitors (
+          visitor_id,
+          first_seen_at,
+          last_seen_at,
+          event_count,
+          page_view_count,
+          last_ip_hash,
+          last_user_agent,
+          last_path,
+          last_is_admin
+        )
+        select
+          visitor_id,
+          first_seen_at,
+          last_seen_at,
+          event_count,
+          page_view_count,
+          last_ip_hash,
+          last_user_agent,
+          last_path,
+          last_is_admin
+        from public.analytics_visitors
+        on conflict (visitor_id) do nothing;
       end if;
+
+      if to_regclass('public.analytics_sessions') is not null then
+        insert into analytics.sessions (
+          session_id,
+          visitor_id,
+          started_at,
+          last_seen_at,
+          event_count,
+          page_view_count,
+          entry_path,
+          exit_path,
+          is_admin
+        )
+        select
+          session_id,
+          visitor_id,
+          started_at,
+          last_seen_at,
+          event_count,
+          page_view_count,
+          entry_path,
+          exit_path,
+          is_admin
+        from public.analytics_sessions
+        on conflict (session_id) do nothing;
+      end if;
+
+      if to_regclass('public.analytics_events') is not null then
+        insert into analytics.events (
+          id,
+          visitor_id,
+          session_id,
+          event_name,
+          path,
+          title,
+          referrer,
+          metadata,
+          ip_hash,
+          user_agent,
+          is_admin,
+          created_at
+        )
+        select
+          id,
+          visitor_id,
+          session_id,
+          event_name,
+          path,
+          title,
+          referrer,
+          metadata,
+          ip_hash,
+          user_agent,
+          is_admin,
+          created_at
+        from public.analytics_events
+        on conflict (id) do nothing;
+
+        perform setval(
+          'analytics.events_id_seq',
+          greatest((select coalesce(max(id), 0) from analytics.events), 1),
+          true
+        );
+      end if;
+    end $$;
+
+    do $$
+    begin
+      if exists (select 1 from pg_roles where rolname = 'orulzip_analytics_writer') then
+        grant usage on schema analytics to orulzip_analytics_writer;
+        grant select, insert, update on analytics.visitors, analytics.sessions, analytics.events to orulzip_analytics_writer;
+        grant usage, select on sequence analytics.events_id_seq to orulzip_analytics_writer;
+      end if;
+    exception when insufficient_privilege then
+      null;
     end $$;
   `);
 }
 
 export async function closeDb() {
-  await pool.end();
+  await Promise.all([
+    pool.end(),
+    analyticsPool.end()
+  ]);
 }

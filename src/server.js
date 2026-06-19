@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import { initDb } from "./services/db.js";
+import { initAnalyticsDb, initDb } from "./services/db.js";
 import {
   createCrawlJob,
   crawlDetails,
@@ -156,6 +156,7 @@ const routeSeo = new Map([
 
 if (shouldInitDb) {
   await initDb();
+  await initAnalyticsDb();
 } else {
   console.log("Skipping database initialization because ORULZIP_DB_INIT=0");
 }

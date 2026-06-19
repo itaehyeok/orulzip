@@ -18,7 +18,8 @@
     "refresh:price-band-cache:loop": "node scripts/refresh-price-band-cache-loop.js",
     "refresh:molit-map-cache": "node scripts/refresh-molit-map-cache.js",
     "check": "node scripts/check.js",
-    "check:analytics": "node scripts/check-analytics.js"
+    "check:analytics": "node scripts/check-analytics.js",
+    "migrate:analytics": "node scripts/migrate-analytics-db.js"
   },
   "dependencies": {
     "pg": "^8.13.1"

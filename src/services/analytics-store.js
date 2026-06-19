@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { query, withClient } from "./db.js";
+import { analyticsQuery, withAnalyticsClient } from "./db.js";
 
 const sessionTimeoutMinutes = 30;
 
@@ -20,11 +20,11 @@ export async function recordAnalyticsEvent(input = {}) {
     isAdmin: Boolean(input.isAdmin)
   };
 
-  return await withClient(async (client) => {
+  return await withAnalyticsClient(async (client) => {
     await client.query("begin");
     try {
       await client.query(`
-        insert into analytics_visitors (
+        insert into analytics.visitors as visitors (
           visitor_id,
           first_seen_at,
           last_seen_at,
@@ -38,8 +38,8 @@ export async function recordAnalyticsEvent(input = {}) {
         values ($1, now(), now(), 1, $2, $3, $4, $5, $6)
         on conflict (visitor_id) do update set
           last_seen_at = now(),
-          event_count = analytics_visitors.event_count + 1,
-          page_view_count = analytics_visitors.page_view_count + $2,
+          event_count = visitors.event_count + 1,
+          page_view_count = visitors.page_view_count + $2,
           last_ip_hash = excluded.last_ip_hash,
           last_user_agent = excluded.last_user_agent,
           last_path = excluded.last_path,
@@ -62,7 +62,7 @@ export async function recordAnalyticsEvent(input = {}) {
       });
 
       const event = await client.query(`
-        insert into analytics_events (
+        insert into analytics.events (
           visitor_id,
           session_id,
           event_name,
@@ -116,55 +116,55 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
     recentVisitors,
     recentEvents
   ] = await Promise.all([
-    query(`
+    analyticsQuery(`
       select
         count(*)::integer as events,
         count(*) filter (where event_name = 'page_view')::integer as page_views,
         count(distinct visitor_id)::integer as visitors,
         count(distinct session_id)::integer as sessions,
         count(distinct path) filter (where event_name = 'page_view' and coalesce(path, '') <> '')::integer as pages
-      from analytics_events
+      from analytics.events
       where ${eventWhere}
     `, params),
-    query(`
+    analyticsQuery(`
       select
         date_trunc('day', created_at)::date as day,
         count(*)::integer as events,
         count(*) filter (where event_name = 'page_view')::integer as page_views,
         count(distinct visitor_id)::integer as visitors,
         count(distinct session_id)::integer as sessions
-      from analytics_events
+      from analytics.events
       where ${eventWhere}
       group by 1
       order by 1 desc
       limit 31
     `, params),
-    query(`
+    analyticsQuery(`
       select
         coalesce(path, '-') as path,
         (array_agg(title order by created_at desc))[1] as title,
         count(*)::integer as page_views,
         count(distinct visitor_id)::integer as visitors,
         max(created_at) as last_seen_at
-      from analytics_events
+      from analytics.events
       where ${eventWhere} and event_name = 'page_view'
       group by coalesce(path, '-')
       order by page_views desc, visitors desc, last_seen_at desc
       limit 30
     `, params),
-    query(`
+    analyticsQuery(`
       select
         event_name,
         count(*)::integer as events,
         count(distinct visitor_id)::integer as visitors,
         max(created_at) as last_seen_at
-      from analytics_events
+      from analytics.events
       where ${eventWhere}
       group by event_name
       order by events desc, visitors desc, last_seen_at desc
       limit 30
     `, params),
-    query(`
+    analyticsQuery(`
       select
         e.visitor_id,
         min(v.first_seen_at) as first_seen_at,
@@ -175,14 +175,14 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
         count(distinct e.session_id)::integer as period_sessions,
         (array_agg(e.path order by e.created_at desc))[1] as last_path,
         bool_or(e.is_admin)::boolean as has_admin_events
-      from analytics_events e
-      join analytics_visitors v on v.visitor_id = e.visitor_id
+      from analytics.events e
+      join analytics.visitors v on v.visitor_id = e.visitor_id
       where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin)
       group by e.visitor_id
       order by max(e.created_at) desc
       limit 30
     `, params),
-    query(`
+    analyticsQuery(`
       select
         id,
         visitor_id,
@@ -193,7 +193,7 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
         metadata,
         is_admin,
         created_at
-      from analytics_events
+      from analytics.events
       where ${eventWhere}
       order by created_at desc
       limit 50
@@ -214,7 +214,7 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
 export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, limit = 100 } = {}) {
   const filters = normalizedAnalyticsFilters({ days, includeAdmin });
   const normalizedLimit = Math.max(10, Math.min(Number(limit) || 100, 300));
-  const result = await query(`
+  const result = await analyticsQuery(`
     select
       e.visitor_id,
       min(v.first_seen_at) as first_seen_at,
@@ -225,8 +225,8 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, li
       count(distinct e.session_id)::integer as period_sessions,
       (array_agg(e.path order by e.created_at desc))[1] as last_path,
       bool_or(e.is_admin)::boolean as has_admin_events
-    from analytics_events e
-    join analytics_visitors v on v.visitor_id = e.visitor_id
+    from analytics.events e
+    join analytics.visitors v on v.visitor_id = e.visitor_id
     where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin)
     group by e.visitor_id
     order by max(e.created_at) desc
@@ -243,7 +243,7 @@ async function activeOrNewSessionId(client, { requestedSessionId, visitorId, pat
   if (requestedSessionId) {
     const active = await client.query(`
       select session_id
-      from analytics_sessions
+      from analytics.sessions
       where session_id = $1
         and visitor_id = $2
         and last_seen_at >= now() - ($3::int * interval '1 minute')
@@ -252,7 +252,7 @@ async function activeOrNewSessionId(client, { requestedSessionId, visitorId, pat
 
     if (active.rows[0]?.session_id) {
       await client.query(`
-        update analytics_sessions
+        update analytics.sessions
         set
           last_seen_at = now(),
           event_count = event_count + 1,
@@ -267,7 +267,7 @@ async function activeOrNewSessionId(client, { requestedSessionId, visitorId, pat
 
   const sessionId = crypto.randomUUID();
   await client.query(`
-    insert into analytics_sessions (
+    insert into analytics.sessions (
       session_id,
       visitor_id,
       started_at,

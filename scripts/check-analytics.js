@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { closeDb, initDb, query } from "../src/services/db.js";
+import { analyticsQuery, closeDb, initAnalyticsDb } from "../src/services/db.js";
 import {
   readAnalyticsSummary,
   recordAnalyticsEvent
@@ -9,7 +9,9 @@ const checkId = `analytics-check-${Date.now()}`;
 const visitorId = crypto.randomUUID();
 
 try {
-  await initDb();
+  if (process.env.ORULZIP_ANALYTICS_DB_INIT === "1") {
+    await initAnalyticsDb();
+  }
   const first = await recordAnalyticsEvent({
     visitorId,
     eventName: "page_view",
@@ -33,9 +35,9 @@ try {
   });
 
   const summary = await readAnalyticsSummary({ days: 1, includeAdmin: true });
-  const count = await query(`
+  const count = await analyticsQuery(`
     select count(*)::integer as count
-    from analytics_events
+    from analytics.events
     where visitor_id = $1
   `, [visitorId]);
 
