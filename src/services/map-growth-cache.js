@@ -192,6 +192,32 @@ export async function readCachedZoomMapSummary(filters) {
           apartment_count desc,
           item_name asc
       `, params)
+    : level === "sido"
+      ? await query(`
+        with ranked as (
+          select
+            mgi.*,
+            row_number() over (
+              order by
+                mgi.has_data desc,
+                mgi.growth_rate desc nulls last,
+                mgi.item_name asc
+            )::int as country_rank,
+            count(*) over ()::int as country_rank_total
+          from map_growth_items mgi
+          where mgi.snapshot_id = $1
+            and mgi.level = $2
+        )
+        select *
+        from ranked
+        where true
+          ${boundsClause}
+        order by
+          has_data desc,
+          growth_rate desc nulls last,
+          apartment_count desc,
+          item_name asc
+      `, params)
     : await query(`
       select *
       from map_growth_items
