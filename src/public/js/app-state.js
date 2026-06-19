@@ -57,6 +57,7 @@ const state = {
   userLocationNaverMarker: null,
   zoomMarkerTopZIndex: 10000,
   zoomMapTimer: null,
+  zoomMapLoadSuppressedUntil: 0,
   zoomMapRequestId: 0,
   mapLocateInProgress: false,
   mapLocateResetTimer: null,

@@ -180,7 +180,16 @@ function initLeafletZoomMap() {
 function scheduleZoomMapLoad() {
   if (!isMapTab()) return;
   clearTimeout(state.zoomMapTimer);
+  if (shouldSuppressZoomMapLoad()) return;
   state.zoomMapTimer = setTimeout(loadZoomMapSummary, 180);
+}
+
+function shouldSuppressZoomMapLoad() {
+  const suppressedUntil = Number(state.zoomMapLoadSuppressedUntil || 0);
+  if (!suppressedUntil) return false;
+  if (Date.now() < suppressedUntil) return true;
+  state.zoomMapLoadSuppressedUntil = 0;
+  return false;
 }
 
 async function loadZoomMapSummary() {
@@ -772,7 +781,16 @@ function focusMapApartmentFromRanking(item) {
 }
 
 function focusMapApartment(item) {
+  suppressZoomMapReloadForVisibleApartment(item);
   moveZoomMapTo(item, apartmentMapZoom);
+}
+
+function suppressZoomMapReloadForVisibleApartment(item) {
+  if (!item?.id || !state.mapApartmentMarkerRefs.has(item.id)) return;
+  clearTimeout(state.zoomMapTimer);
+  state.zoomMapTimer = null;
+  state.zoomMapRequestId += 1;
+  state.zoomMapLoadSuppressedUntil = Date.now() + Math.round(animatedMapMoveDuration * 1000) + 700;
 }
 
 function setFocusedMapApartment(item) {
