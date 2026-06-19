@@ -32,6 +32,7 @@ import {
 } from "./services/apartment-rank-cache.js";
 import { readPriceBandRankPage } from "./services/price-band-rank-cache.js";
 import {
+  markAnalyticsVisitorInternal,
   readAnalyticsSummary,
   readAnalyticsVisitors,
   recordAnalyticsEvent
@@ -171,6 +172,18 @@ const server = createServer(async (req, res) => {
       return json(res, { authenticated: isAdmin });
     }
 
+    if (url.pathname === "/analytics/exclude-me") {
+      const cookies = parseCookies(req.headers.cookie || "");
+      const visitorId = analyticsVisitorId(cookies);
+      await markAnalyticsVisitorInternal(visitorId, { reason: "manual_exclude" });
+      res.writeHead(302, {
+        "Set-Cookie": createAnalyticsCookie(analyticsVisitorCookieName, visitorId, analyticsVisitorMaxAgeSeconds),
+        Location: "/map"
+      });
+      res.end();
+      return;
+    }
+
     if (url.pathname === "/api/analytics/event" && req.method === "POST") {
       const body = await readLimitedJsonBody(req, 16 * 1024);
       const cookies = parseCookies(req.headers.cookie || "");
@@ -208,8 +221,14 @@ const server = createServer(async (req, res) => {
         const body = await readFormBody(req);
         const nextPath = safeNextPath(body.next || url.searchParams.get("next") || "/map");
         if (isValidAdminLogin(body.username, body.password)) {
+          const cookies = parseCookies(req.headers.cookie || "");
+          const visitorId = analyticsVisitorId(cookies);
+          await markAnalyticsVisitorInternal(visitorId, { reason: "admin_login" });
           res.writeHead(302, {
-            "Set-Cookie": createAdminCookie(),
+            "Set-Cookie": [
+              createAdminCookie(),
+              createAnalyticsCookie(analyticsVisitorCookieName, visitorId, analyticsVisitorMaxAgeSeconds)
+            ],
             Location: nextPath
           });
           res.end();
@@ -244,7 +263,8 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/analytics/summary") {
       return json(res, await readAnalyticsSummary({
         days: Number(url.searchParams.get("days") || 7),
-        includeAdmin: url.searchParams.get("includeAdmin") === "1"
+        includeAdmin: url.searchParams.get("includeAdmin") === "1",
+        includeInternal: url.searchParams.get("includeInternal") === "1"
       }));
     }
 
@@ -252,6 +272,7 @@ const server = createServer(async (req, res) => {
       return json(res, await readAnalyticsVisitors({
         days: Number(url.searchParams.get("days") || 7),
         includeAdmin: url.searchParams.get("includeAdmin") === "1",
+        includeInternal: url.searchParams.get("includeInternal") === "1",
         limit: Number(url.searchParams.get("limit") || 100)
       }));
     }
@@ -1230,6 +1251,14 @@ function createAnalyticsCookie(name, value, maxAgeSeconds) {
     `Max-Age=${maxAgeSeconds}`,
     adminCookieSecure ? "Secure" : ""
   ].filter(Boolean).join("; ");
+}
+
+function analyticsVisitorId(cookies) {
+  const value = String(cookies?.[analyticsVisitorCookieName] || "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return value;
+  }
+  return crypto.randomUUID();
 }
 
 function analyticsIpHash(req) {

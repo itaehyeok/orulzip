@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260619-analytics";
+  const version = "20260619-analytics-internal";
   const scripts = [
     "app-prelude",
     "app-state",

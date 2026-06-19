@@ -38,14 +38,17 @@ async function loadAnalyticsDashboard() {
   const requestId = ++state.analyticsRequestId;
   const days = Number(els.analyticsDaysSelect?.value || state.analyticsDays || 7);
   const includeAdmin = Boolean(els.analyticsIncludeAdminToggle?.checked);
+  const includeInternal = Boolean(els.analyticsIncludeInternalToggle?.checked);
   state.analyticsDays = days;
   state.analyticsIncludeAdmin = includeAdmin;
+  state.analyticsIncludeInternal = includeInternal;
   renderAnalyticsLoading();
 
   try {
     const params = new URLSearchParams({
       days: String(days),
-      includeAdmin: includeAdmin ? "1" : "0"
+      includeAdmin: includeAdmin ? "1" : "0",
+      includeInternal: includeInternal ? "1" : "0"
     });
     const data = await api(`/api/analytics/summary?${params}`);
     if (requestId !== state.analyticsRequestId) return;
@@ -161,6 +164,7 @@ function renderAnalyticsVisitorRows(rows) {
           <strong class="table-main">${escapeHtml(shortAnalyticsId(row.visitorId))}</strong>
           ${row.lastIpHash ? `<span class="muted-cell">IP ${escapeHtml(shortAnalyticsHash(row.lastIpHash))}</span>` : ""}
           ${row.hasAdminEvents ? `<span class="analytics-admin-badge">관리자 포함</span>` : ""}
+          ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
         </td>
         <td>${formatInt(row.periodPageViews)}</td>
         <td>${formatInt(row.periodSessions)}</td>
@@ -181,7 +185,10 @@ function renderAnalyticsRecentEventRows(rows) {
         <td><strong class="analytics-event-name">${escapeHtml(analyticsEventLabel(row.eventName))}</strong></td>
         <td>${escapeHtml(row.path || "-")}</td>
         <td>${escapeHtml(shortAnalyticsId(row.visitorId))}</td>
-        <td>${escapeHtml(formatAnalyticsMetadata(row.metadata))}</td>
+        <td>
+          ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
+          ${escapeHtml(formatAnalyticsMetadata(row.metadata))}
+        </td>
       </tr>
     `).join("")
     : emptyAnalyticsRow(5, "선택 기간에 이벤트 로그가 없습니다.");

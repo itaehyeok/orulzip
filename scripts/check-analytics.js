@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { analyticsQuery, closeDb, initAnalyticsDb } from "../src/services/db.js";
 import {
+  markAnalyticsVisitorInternal,
   readAnalyticsSummary,
   recordAnalyticsEvent
 } from "../src/services/analytics-store.js";
@@ -12,6 +13,7 @@ try {
   if (process.env.ORULZIP_ANALYTICS_DB_INIT === "1") {
     await initAnalyticsDb();
   }
+  await markAnalyticsVisitorInternal(visitorId, { reason: "analytics_check" });
   const first = await recordAnalyticsEvent({
     visitorId,
     eventName: "page_view",

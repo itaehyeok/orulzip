@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260619-analytics">
+    <link rel="stylesheet" href="/styles.css?v=20260619-analytics-internal">
   </head>
   <body>
     <main class="app-shell">
@@ -836,6 +836,10 @@
               <input id="analyticsIncludeAdminToggle" type="checkbox">
               관리자 기록 포함
             </label>
+            <label class="analytics-check">
+              <input id="analyticsIncludeInternalToggle" type="checkbox">
+              내부 방문 포함
+            </label>
           </div>
           <div id="analyticsSummary" class="analytics-summary-grid">
             <div class="analytics-empty">방문 분석 데이터를 불러오는 중입니다.</div>
@@ -1124,6 +1128,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260619-analytics"></script>
+    <script src="/app.js?v=20260619-analytics-internal"></script>
   </body>
 </html>

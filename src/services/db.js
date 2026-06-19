@@ -464,8 +464,16 @@ export async function initAnalyticsDb() {
       last_ip_hash text,
       last_user_agent text,
       last_path text,
-      last_is_admin boolean not null default false
+      last_is_admin boolean not null default false,
+      is_internal boolean not null default false,
+      internal_reason text,
+      internal_marked_at timestamptz
     );
+
+    alter table analytics.visitors
+      add column if not exists is_internal boolean not null default false,
+      add column if not exists internal_reason text,
+      add column if not exists internal_marked_at timestamptz;
 
     create table if not exists analytics.sessions (
       session_id text primary key,
@@ -491,8 +499,12 @@ export async function initAnalyticsDb() {
       ip_hash text,
       user_agent text,
       is_admin boolean not null default false,
+      is_internal boolean not null default false,
       created_at timestamptz not null default now()
     );
+
+    alter table analytics.events
+      add column if not exists is_internal boolean not null default false;
 
     create index if not exists analytics_events_created_idx
       on analytics.events(created_at desc);
@@ -517,7 +529,10 @@ export async function initAnalyticsDb() {
           last_ip_hash,
           last_user_agent,
           last_path,
-          last_is_admin
+          last_is_admin,
+          is_internal,
+          internal_reason,
+          internal_marked_at
         )
         select
           visitor_id,
@@ -528,7 +543,10 @@ export async function initAnalyticsDb() {
           last_ip_hash,
           last_user_agent,
           last_path,
-          last_is_admin
+          last_is_admin,
+          false,
+          null,
+          null
         from public.analytics_visitors
         on conflict (visitor_id) do nothing;
       end if;
@@ -572,6 +590,7 @@ export async function initAnalyticsDb() {
           ip_hash,
           user_agent,
           is_admin,
+          is_internal,
           created_at
         )
         select
@@ -586,6 +605,7 @@ export async function initAnalyticsDb() {
           ip_hash,
           user_agent,
           is_admin,
+          false,
           created_at
         from public.analytics_events
         on conflict (id) do nothing;

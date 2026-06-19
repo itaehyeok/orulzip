@@ -109,6 +109,7 @@ const state = {
   latestMolitStatus: null,
   analyticsDays: 7,
   analyticsIncludeAdmin: false,
+  analyticsIncludeInternal: false,
   analyticsRequestId: 0,
   analyticsLastPageKey: "",
   analyticsLastPageTrackedAt: 0
@@ -423,6 +424,7 @@ const els = {
   analyticsView: document.querySelector("#analyticsView"),
   analyticsDaysSelect: document.querySelector("#analyticsDaysSelect"),
   analyticsIncludeAdminToggle: document.querySelector("#analyticsIncludeAdminToggle"),
+  analyticsIncludeInternalToggle: document.querySelector("#analyticsIncludeInternalToggle"),
   analyticsSummary: document.querySelector("#analyticsSummary"),
   analyticsDailyRows: document.querySelector("#analyticsDailyRows"),
   analyticsPageRows: document.querySelector("#analyticsPageRows"),

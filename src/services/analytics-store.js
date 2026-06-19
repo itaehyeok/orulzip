@@ -53,6 +53,14 @@ export async function recordAnalyticsEvent(input = {}) {
         payload.isAdmin
       ]);
 
+      const internalStatus = await client.query(`
+        select is_internal
+        from analytics.visitors
+        where visitor_id = $1
+        limit 1
+      `, [payload.visitorId]);
+      const isInternal = Boolean(internalStatus.rows[0]?.is_internal);
+
       const sessionId = await activeOrNewSessionId(client, {
         requestedSessionId,
         visitorId: payload.visitorId,
@@ -72,9 +80,10 @@ export async function recordAnalyticsEvent(input = {}) {
           metadata,
           ip_hash,
           user_agent,
-          is_admin
+          is_admin,
+          is_internal
         )
-        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
+        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
         returning id, created_at
       `, [
         payload.visitorId,
@@ -86,7 +95,8 @@ export async function recordAnalyticsEvent(input = {}) {
         JSON.stringify(payload.metadata),
         payload.ipHash,
         payload.userAgent,
-        payload.isAdmin
+        payload.isAdmin,
+        isInternal
       ]);
 
       await client.query("commit");
@@ -94,7 +104,8 @@ export async function recordAnalyticsEvent(input = {}) {
         visitorId: payload.visitorId,
         sessionId,
         eventId: Number(event.rows[0]?.id || 0),
-        createdAt: event.rows[0]?.created_at || null
+        createdAt: event.rows[0]?.created_at || null,
+        isInternal
       };
     } catch (error) {
       await client.query("rollback");
@@ -103,10 +114,55 @@ export async function recordAnalyticsEvent(input = {}) {
   });
 }
 
-export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = {}) {
-  const filters = normalizedAnalyticsFilters({ days, includeAdmin });
-  const params = [filters.days, filters.includeAdmin];
-  const eventWhere = `created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not is_admin)`;
+export async function markAnalyticsVisitorInternal(visitorId, { reason = "admin_login" } = {}) {
+  const normalizedVisitorId = normalizeTrackingId(visitorId);
+  if (!normalizedVisitorId) return { marked: false, visitorId: "" };
+
+  await withAnalyticsClient(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(`
+        insert into analytics.visitors (
+          visitor_id,
+          first_seen_at,
+          last_seen_at,
+          is_internal,
+          internal_reason,
+          internal_marked_at
+        )
+        values ($1, now(), now(), true, $2, now())
+        on conflict (visitor_id) do update set
+          is_internal = true,
+          internal_reason = excluded.internal_reason,
+          internal_marked_at = now()
+      `, [normalizedVisitorId, truncateText(reason, 120)]);
+      await client.query(`
+        update analytics.visitors
+        set
+          is_internal = true,
+          internal_reason = $2,
+          internal_marked_at = now()
+        where visitor_id = $1
+      `, [normalizedVisitorId, truncateText(reason, 120)]);
+      await client.query(`
+        update analytics.events
+        set is_internal = true
+        where visitor_id = $1
+      `, [normalizedVisitorId]);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+
+  return { marked: true, visitorId: normalizedVisitorId };
+}
+
+export async function readAnalyticsSummary({ days = 7, includeAdmin = false, includeInternal = false } = {}) {
+  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal });
+  const params = [filters.days, filters.includeAdmin, filters.includeInternal];
+  const eventWhere = `created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not is_admin) and ($3::boolean or not is_internal)`;
 
   const [
     overview,
@@ -174,10 +230,13 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
         count(*) filter (where e.event_name = 'page_view')::integer as period_page_views,
         count(distinct e.session_id)::integer as period_sessions,
         (array_agg(e.path order by e.created_at desc))[1] as last_path,
-        bool_or(e.is_admin)::boolean as has_admin_events
+        bool_or(e.is_admin)::boolean as has_admin_events,
+        bool_or(e.is_internal)::boolean as is_internal,
+        max(v.internal_reason) as internal_reason,
+        max(v.internal_marked_at) as internal_marked_at
       from analytics.events e
       join analytics.visitors v on v.visitor_id = e.visitor_id
-      where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin)
+      where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal)
       group by e.visitor_id
       order by max(e.created_at) desc
       limit 30
@@ -192,6 +251,7 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
         title,
         metadata,
         is_admin,
+        is_internal,
         created_at
       from analytics.events
       where ${eventWhere}
@@ -211,8 +271,8 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false } = 
   };
 }
 
-export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, limit = 100 } = {}) {
-  const filters = normalizedAnalyticsFilters({ days, includeAdmin });
+export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, includeInternal = false, limit = 100 } = {}) {
+  const filters = normalizedAnalyticsFilters({ days, includeAdmin, includeInternal });
   const normalizedLimit = Math.max(10, Math.min(Number(limit) || 100, 300));
   const result = await analyticsQuery(`
     select
@@ -224,14 +284,17 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, li
       count(*) filter (where e.event_name = 'page_view')::integer as period_page_views,
       count(distinct e.session_id)::integer as period_sessions,
       (array_agg(e.path order by e.created_at desc))[1] as last_path,
-      bool_or(e.is_admin)::boolean as has_admin_events
+      bool_or(e.is_admin)::boolean as has_admin_events,
+      bool_or(e.is_internal)::boolean as is_internal,
+      max(v.internal_reason) as internal_reason,
+      max(v.internal_marked_at) as internal_marked_at
     from analytics.events e
     join analytics.visitors v on v.visitor_id = e.visitor_id
-    where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin)
+    where e.created_at >= now() - ($1::int * interval '1 day') and ($2::boolean or not e.is_admin) and ($3::boolean or not e.is_internal)
     group by e.visitor_id
     order by max(e.created_at) desc
-    limit $3
-  `, [filters.days, filters.includeAdmin, normalizedLimit]);
+    limit $4
+  `, [filters.days, filters.includeAdmin, filters.includeInternal, normalizedLimit]);
 
   return {
     filters: { ...filters, limit: normalizedLimit },
@@ -283,10 +346,11 @@ async function activeOrNewSessionId(client, { requestedSessionId, visitorId, pat
   return sessionId;
 }
 
-function normalizedAnalyticsFilters({ days = 7, includeAdmin = false } = {}) {
+function normalizedAnalyticsFilters({ days = 7, includeAdmin = false, includeInternal = false } = {}) {
   return {
     days: Math.max(1, Math.min(Number(days) || 7, 90)),
-    includeAdmin: Boolean(includeAdmin)
+    includeAdmin: Boolean(includeAdmin),
+    includeInternal: Boolean(includeInternal)
   };
 }
 
@@ -389,7 +453,10 @@ function normalizeVisitorRow(row) {
     periodPageViews: Number(row.period_page_views || 0),
     periodSessions: Number(row.period_sessions || 0),
     lastPath: String(row.last_path || ""),
-    hasAdminEvents: Boolean(row.has_admin_events)
+    hasAdminEvents: Boolean(row.has_admin_events),
+    isInternal: Boolean(row.is_internal),
+    internalReason: String(row.internal_reason || ""),
+    internalMarkedAt: row.internal_marked_at || null
   };
 }
 
@@ -403,6 +470,7 @@ function normalizeRecentEventRow(row) {
     title: String(row.title || ""),
     metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
     isAdmin: Boolean(row.is_admin),
+    isInternal: Boolean(row.is_internal),
     createdAt: row.created_at || null
   };
 }

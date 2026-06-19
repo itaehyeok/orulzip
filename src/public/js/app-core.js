@@ -189,6 +189,10 @@ function bindEvents() {
     state.analyticsIncludeAdmin = Boolean(els.analyticsIncludeAdminToggle.checked);
     loadAnalyticsDashboard();
   });
+  els.analyticsIncludeInternalToggle?.addEventListener("change", () => {
+    state.analyticsIncludeInternal = Boolean(els.analyticsIncludeInternalToggle.checked);
+    loadAnalyticsDashboard();
+  });
   els.priceBandPagination?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-page]");
     if (!button) return;
