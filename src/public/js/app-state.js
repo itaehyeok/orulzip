@@ -66,6 +66,7 @@ const state = {
   mapSearchItems: [],
   mapSearchActiveIndex: -1,
   mapApartmentDetails: new Map(),
+  mapApartmentMarkerRefs: new Map(),
   mapRankingMode: "viewport",
   mapRankingDongScope: null,
   mapRankingRequestId: 0,

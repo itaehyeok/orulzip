@@ -776,13 +776,37 @@ function focusMapApartment(item) {
 }
 
 function setFocusedMapApartment(item) {
-  state.focusedMapApartmentId = item?.id || null;
+  const previousId = state.focusedMapApartmentId;
+  const nextId = item?.id || null;
+  state.focusedMapApartmentId = nextId;
   els.mapRankingRows?.querySelectorAll("[data-apartment-id]").forEach((row) => {
     row.classList.toggle("selected", row.dataset.apartmentId === state.focusedMapApartmentId);
   });
-  document.querySelectorAll("[data-map-apartment-marker-id]").forEach((marker) => {
-    marker.classList.toggle("selected", marker.dataset.mapApartmentMarkerId === state.focusedMapApartmentId);
-  });
+  updateFocusedMapApartmentMarker(previousId, false);
+  updateFocusedMapApartmentMarker(nextId, true);
+}
+
+function updateFocusedMapApartmentMarker(apartmentId, selected) {
+  if (!apartmentId) return;
+  const ref = state.mapApartmentMarkerRefs.get(apartmentId);
+  if (!ref) return;
+  if (ref.provider === "leaflet") {
+    const markerElement = ref.marker.getElement?.();
+    markerElement?.querySelector(".apartment-map-marker")?.classList.toggle("selected", selected);
+    ref.marker.setZIndexOffset(selected ? nextZoomMarkerTopZIndex() : ref.baseZIndex);
+    return;
+  }
+  if (ref.provider === "naver") {
+    if (typeof ref.marker.setIcon === "function") {
+      ref.marker.setIcon(naverLabelIcon(
+        apartmentMarkerHtml(ref.item, ref.design),
+        ref.size[0],
+        ref.size[1],
+        apartmentMarkerIconAnchor(ref.size, ref.design)
+      ));
+    }
+    setNaverMarkerZIndex(ref.marker, selected ? nextZoomMarkerTopZIndex() : ref.baseZIndex);
+  }
 }
 
 function moveZoomMapTo(item, zoom, { exactZoom = false } = {}) {
@@ -989,6 +1013,7 @@ function nextZoomMarkerTopZIndex() {
 
 function clearZoomMapOverlays() {
   state.zoomMarkerTopZIndex = 10000;
+  state.mapApartmentMarkerRefs.clear();
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
     return;
@@ -1052,6 +1077,13 @@ function renderZoomApartmentMarker(item) {
       iconAnchor: apartmentMarkerIconAnchor([width, height], design)
     })
   }).addTo(state.zoomMapLayer);
+  registerMapApartmentMarkerRef(item, {
+    provider: "leaflet",
+    marker,
+    item,
+    design,
+    baseZIndex
+  });
   marker.bindTooltip(apartmentHoverHtml(item), {
     className: "apartment-hover-tooltip",
     direction: "top",
@@ -1062,6 +1094,7 @@ function renderZoomApartmentMarker(item) {
   marker.on("click", (event) => {
     suppressMapPopupClose();
     stopLeafletClick(event);
+    setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });
 }
@@ -1104,6 +1137,14 @@ function renderNaverZoomApartmentMarker(item) {
     zIndex: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
     icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, apartmentMarkerIconAnchor([width, height], design))
   });
+  registerMapApartmentMarkerRef(item, {
+    provider: "naver",
+    marker,
+    item,
+    design,
+    size: [width, height],
+    baseZIndex
+  });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
     openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
@@ -1113,9 +1154,15 @@ function renderNaverZoomApartmentMarker(item) {
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });
   state.zoomNaverOverlays.push(marker);
+}
+
+function registerMapApartmentMarkerRef(item, ref) {
+  if (!item?.id) return;
+  state.mapApartmentMarkerRefs.set(item.id, ref);
 }
 
 function suppressMapPopupClose() {

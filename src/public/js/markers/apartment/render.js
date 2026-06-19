@@ -17,7 +17,7 @@ function apartmentMarkerLegacyHtml(item, design = activeApartmentMarkerDesign())
     display.rate ? `<strong class="apartment-marker-rate-row ${growthRateToneClass(item.growthRate, item.countryRank, item.countryRankTotal)}" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
   ].filter(Boolean).join("");
   return `
-    <div class="apartment-map-marker apartment-rank-marker ${escapeHtml(design.className)} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-apartment-marker-border="${style.borderEnabled ? "on" : "off"}" data-apartment-marker-shadow="${style.shadowEnabled ? "on" : "off"}" style="--marker-color:${growthColor(item.growthRate)}; ${apartmentMarkerStyleInline(design)}">
+    <div class="apartment-map-marker apartment-rank-marker ${escapeHtml(design.className)} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="${style.borderEnabled ? "on" : "off"}" data-apartment-marker-shadow="${style.shadowEnabled ? "on" : "off"}" style="--marker-color:${growthColor(item.growthRate)}; ${apartmentMarkerStyleInline(design)}">
       ${detailRows}
       ${rankLines.length ? `
         <span class="apartment-marker-rank-list">
@@ -52,7 +52,7 @@ function apartmentMarkerRegionLikeHtml(item, design = activeApartmentMarkerDesig
     display.rate ? `<strong class="apartment-marker-rate-row ${hasData ? growthRateToneClass(item.growthRate, item.countryRank, item.countryRankTotal) : ""}" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
   ].filter(Boolean).join("");
   return `
-    <div class="${markerClasses}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="--marker-color:${growthColor(item.growthRate)}; ${apartmentMarkerRegionStyleInline(item, design)}">
+    <div class="${markerClasses}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="--marker-color:${growthColor(item.growthRate)}; ${apartmentMarkerRegionStyleInline(item, design)}">
       ${detailRows}
       ${rankLines.length ? `
         <span class="apartment-marker-rank-list">
