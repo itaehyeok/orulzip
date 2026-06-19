@@ -364,13 +364,10 @@
 
 .map-ranking-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.map-ranking-tabs::-webkit-scrollbar {
-  display: none;
+  min-width: 0;
+  overflow: visible;
 }
 
 .map-ranking-tab {
@@ -384,7 +381,11 @@
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
   padding: 0 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .map-ranking-tab:hover,
