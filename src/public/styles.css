@@ -1,6 +1,6 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
 @import url("/css/app-base.css?v=20260617-deploy-version-test");
-@import url("/css/app-map.css?v=20260619-ranking-tabs-wrap");
+@import url("/css/app-map.css?v=20260619-ranking-period-row");
 @import url("/css/app-map-panels.css?v=20260618-trade-growth-copy");
 @import url("/css/app-design.css?v=20260617-deploy-version-test");
 @import url("/css/app-analytics.css?v=20260619-analytics-env");
