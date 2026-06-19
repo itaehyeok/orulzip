@@ -1327,6 +1327,76 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
   return result.rowCount || 0;
 }
 
+export async function backfillMapDongApartmentRankItems({ source = "molit", onlyMissing = true } = {}) {
+  return withClient(async (client) => {
+    const params = [];
+    const filters = [];
+    if (source) {
+      params.push(source);
+      filters.push(`s.source = $${params.length}`);
+    }
+    if (onlyMissing) {
+      filters.push(`
+        not exists (
+          select 1
+          from map_dong_apartment_rank_items ranks
+          where ranks.snapshot_id = s.id
+          limit 1
+        )
+      `);
+    }
+
+    const snapshotResult = await client.query(`
+      select
+        s.id,
+        s.source,
+        s.period_years,
+        s.start_month,
+        s.end_month
+      from map_growth_snapshots s
+      where exists (
+        select 1
+        from map_growth_items items
+        where items.snapshot_id = s.id
+          and items.level = 'apartment'
+          and items.apartment_id is not null
+        limit 1
+      )
+        ${filters.length ? `and ${filters.join("\n        and ")}` : ""}
+      order by s.source asc, s.end_month desc, s.start_month desc, s.period_years asc
+    `, params);
+
+    const snapshots = [];
+    for (const snapshot of snapshotResult.rows) {
+      await client.query("begin");
+      try {
+        const rowCount = await refreshDongApartmentRankItems(client, snapshot.id);
+        await client.query("commit");
+        snapshots.push({
+          id: Number(snapshot.id),
+          source: snapshot.source,
+          periodYears: Number(snapshot.period_years),
+          startMonth: snapshot.start_month,
+          endMonth: snapshot.end_month,
+          rowCount
+        });
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    }
+
+    return {
+      refreshedAt: new Date().toISOString(),
+      onlyMissing,
+      source: source || "all",
+      snapshotCount: snapshots.length,
+      rowCount: snapshots.reduce((sum, snapshot) => sum + snapshot.rowCount, 0),
+      snapshots
+    };
+  });
+}
+
 function summarizeGroups(rows, level) {
   const groups = new Map();
   for (const row of rows) {
