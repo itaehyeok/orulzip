@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260620-popup-ranking-links";
+  const version = "20260620-mobile-ranking-overlay";
   const scripts = [
     "app-prelude",
     "app-state",

@@ -394,6 +394,7 @@ const els = {
   mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingTitle: document.querySelector("#mapRankingTitle"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
+  mapRankingCloseBtn: document.querySelector("#mapRankingCloseBtn"),
   mapRankingTabs: document.querySelector("#mapRankingTabs"),
   mapRankingRows: document.querySelector("#mapRankingRows"),
   mapRankingToggleBtn: document.querySelector("#mapRankingToggleBtn"),

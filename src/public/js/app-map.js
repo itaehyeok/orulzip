@@ -632,7 +632,7 @@ function setMobileMapRankingOpen(open, { overPopup = false } = {}) {
 function updateMobileMapRankingToggle(available) {
   if (!els.mapRankingToggleBtn) return;
   els.mapRankingToggleBtn.hidden = !available;
-  els.mapRankingToggleBtn.textContent = state.mapRankingMobileOpen ? "랭킹 접기" : "랭킹 보기";
+  els.mapRankingToggleBtn.textContent = "랭킹 보기";
   els.mapRankingToggleBtn.setAttribute("aria-expanded", String(state.mapRankingMobileOpen));
   syncMapRankingOverlayClasses(available);
 }
@@ -642,6 +642,7 @@ function syncMapRankingOverlayClasses(available) {
   const isOverPopup = Boolean(isOpen && state.mapRankingOverPopup);
   els.mapApartmentRanking?.classList.toggle("ranking-open", isOpen);
   els.mapApartmentRanking?.classList.toggle("ranking-over-popup", isOverPopup);
+  els.mapRankingToggleBtn?.classList.toggle("ranking-open", isOpen);
   els.mapRankingToggleBtn?.classList.toggle("ranking-over-popup", isOverPopup);
 }
 

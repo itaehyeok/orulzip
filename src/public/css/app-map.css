@@ -393,6 +393,30 @@
   white-space: nowrap;
 }
 
+.map-ranking-close {
+  align-items: center;
+  display: none;
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d8e0ec;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d2939;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.map-ranking-close:hover,
+.map-ranking-close:focus-visible {
+  border-color: rgba(35, 103, 209, 0.45);
+  color: var(--blue);
+  outline: 0;
+}
+
 .map-ranking-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

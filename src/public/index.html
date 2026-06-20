@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260620-popup-ranking-links">
+    <link rel="stylesheet" href="/styles.css?v=20260620-mobile-ranking-overlay">
   </head>
   <body>
     <main class="app-shell">
@@ -105,6 +105,7 @@
                   <div class="map-ranking-title">
                     <strong id="mapRankingTitle">현재 지도 랭킹</strong>
                     <span id="mapRankingCount"></span>
+                    <button id="mapRankingCloseBtn" class="map-ranking-close" type="button" aria-label="랭킹 닫기">×</button>
                   </div>
                   <div class="map-ranking-controls">
                     <div id="mapRankingTabs" class="map-ranking-tabs" role="tablist" aria-label="아파트 리스트 범위"></div>
@@ -1123,6 +1124,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260620-popup-ranking-links"></script>
+    <script src="/app.js?v=20260620-mobile-ranking-overlay"></script>
   </body>
 </html>
