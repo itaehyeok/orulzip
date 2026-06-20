@@ -197,6 +197,10 @@ const server = createServer(async (req, res) => {
         title: body.title,
         referrer: body.referrer,
         metadata: body.metadata,
+        userInfo: {
+          ...(body.userInfo && typeof body.userInfo === "object" && !Array.isArray(body.userInfo) ? body.userInfo : {}),
+          ...analyticsRequestUserInfo(req)
+        },
         host: requestAnalyticsHost,
         environment: requestAnalyticsEnvironment,
         ipHash: analyticsIpHash(req),
@@ -1326,6 +1330,61 @@ function analyticsIpHash(req) {
     .createHmac("sha256", analyticsHashSecret)
     .update(ip)
     .digest("hex");
+}
+
+function analyticsRequestUserInfo(req) {
+  return compactAnalyticsObject({
+    country: firstGeoHeader(req, [
+      "cf-ipcountry",
+      "cloudfront-viewer-country",
+      "x-vercel-ip-country",
+      "x-appengine-country",
+      "x-geoip-country",
+      "x-country-code",
+      "x-forwarded-country"
+    ]),
+    region: firstGeoHeader(req, [
+      "cloudfront-viewer-country-region",
+      "x-vercel-ip-country-region",
+      "x-geoip-region",
+      "x-region-code",
+      "x-forwarded-region"
+    ]),
+    city: firstGeoHeader(req, [
+      "x-vercel-ip-city",
+      "x-geoip-city",
+      "x-city",
+      "x-forwarded-city"
+    ]),
+    timezone: firstGeoHeader(req, [
+      "cloudfront-viewer-time-zone",
+      "x-vercel-ip-timezone",
+      "x-timezone"
+    ]),
+    acceptLanguage: firstHeaderValue(req.headers["accept-language"])
+  });
+}
+
+function firstGeoHeader(req, names) {
+  for (const name of names) {
+    const value = decodeHeaderValue(firstHeaderValue(req.headers[name]));
+    if (value) return value;
+  }
+  return "";
+}
+
+function decodeHeaderValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  try {
+    return decodeURIComponent(text.replace(/\+/g, "%20"));
+  } catch {
+    return text;
+  }
+}
+
+function compactAnalyticsObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => String(entryValue || "").trim()));
 }
 
 function clientIp(req) {

@@ -471,6 +471,7 @@ export async function initAnalyticsDb() {
       last_user_agent text,
       last_path text,
       last_is_admin boolean not null default false,
+      last_user_info jsonb not null default '{}'::jsonb,
       is_internal boolean not null default false,
       internal_reason text,
       internal_marked_at timestamptz
@@ -479,7 +480,8 @@ export async function initAnalyticsDb() {
     alter table analytics.visitors
       add column if not exists is_internal boolean not null default false,
       add column if not exists internal_reason text,
-      add column if not exists internal_marked_at timestamptz;
+      add column if not exists internal_marked_at timestamptz,
+      add column if not exists last_user_info jsonb not null default '{}'::jsonb;
 
     create table if not exists analytics.sessions (
       session_id text primary key,
@@ -502,6 +504,7 @@ export async function initAnalyticsDb() {
       title text,
       referrer text,
       metadata jsonb not null default '{}'::jsonb,
+      user_info jsonb not null default '{}'::jsonb,
       host text,
       environment text not null default 'unknown',
       ip_hash text,
@@ -514,7 +517,8 @@ export async function initAnalyticsDb() {
     alter table analytics.events
       add column if not exists host text,
       add column if not exists environment text not null default 'unknown',
-      add column if not exists is_internal boolean not null default false;
+      add column if not exists is_internal boolean not null default false,
+      add column if not exists user_info jsonb not null default '{}'::jsonb;
 
     create index if not exists analytics_events_created_idx
       on analytics.events(created_at desc);
@@ -544,6 +548,7 @@ export async function initAnalyticsDb() {
           last_user_agent,
           last_path,
           last_is_admin,
+          last_user_info,
           is_internal,
           internal_reason,
           internal_marked_at
@@ -558,6 +563,7 @@ export async function initAnalyticsDb() {
           last_user_agent,
           last_path,
           last_is_admin,
+          '{}'::jsonb,
           false,
           null,
           null
@@ -601,6 +607,7 @@ export async function initAnalyticsDb() {
           title,
           referrer,
           metadata,
+          user_info,
           host,
           environment,
           ip_hash,
@@ -618,6 +625,7 @@ export async function initAnalyticsDb() {
           title,
           referrer,
           metadata,
+          '{}'::jsonb,
           null,
           'unknown',
           ip_hash,

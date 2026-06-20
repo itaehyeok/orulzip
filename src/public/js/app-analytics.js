@@ -18,6 +18,7 @@ function trackAnalyticsEvent(eventName, metadata = {}) {
     path: window.location.pathname,
     title: document.title,
     referrer: document.referrer || "",
+    userInfo: buildAnalyticsUserInfo(),
     metadata: {
       ...metadata,
       activeTab: state.activeTab
@@ -31,6 +32,43 @@ function trackAnalyticsEvent(eventName, metadata = {}) {
     keepalive: true,
     body
   }).catch(() => {});
+}
+
+function buildAnalyticsUserInfo() {
+  const nav = window.navigator || {};
+  const userAgentData = nav.userAgentData || null;
+  const utm = analyticsUtmParams();
+  return {
+    language: nav.language || "",
+    languages: Array.isArray(nav.languages) ? nav.languages.slice(0, 5) : [],
+    timezone: analyticsTimezone(),
+    platform: nav.platform || userAgentData?.platform || "",
+    deviceType: userAgentData?.mobile ? "mobile" : "",
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    screenWidth: window.screen?.width || 0,
+    screenHeight: window.screen?.height || 0,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    touchSupported: Number(nav.maxTouchPoints || 0) > 0 || "ontouchstart" in window,
+    ...utm
+  };
+}
+
+function analyticsTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+function analyticsUtmParams() {
+  const params = new URLSearchParams(window.location.search || "");
+  return {
+    utmSource: params.get("utm_source") || "",
+    utmMedium: params.get("utm_medium") || "",
+    utmCampaign: params.get("utm_campaign") || ""
+  };
 }
 
 async function loadAnalyticsDashboard() {
@@ -69,7 +107,8 @@ function renderAnalyticsLoading() {
   setAnalyticsRows(els.analyticsDailyRows, 5, "불러오는 중입니다.");
   setAnalyticsRows(els.analyticsPageRows, 5, "불러오는 중입니다.");
   setAnalyticsRows(els.analyticsEventRows, 4, "불러오는 중입니다.");
-  setAnalyticsRows(els.analyticsVisitorRows, 6, "불러오는 중입니다.");
+  setAnalyticsUserInfoRows("불러오는 중입니다.");
+  setAnalyticsRows(els.analyticsVisitorRows, 7, "불러오는 중입니다.");
   setAnalyticsRows(els.analyticsRecentEventRows, 5, "불러오는 중입니다.");
 }
 
@@ -81,12 +120,14 @@ function renderAnalyticsError(error) {
   setAnalyticsRows(els.analyticsDailyRows, 5, message);
   setAnalyticsRows(els.analyticsPageRows, 5, message);
   setAnalyticsRows(els.analyticsEventRows, 4, message);
-  setAnalyticsRows(els.analyticsVisitorRows, 6, message);
+  setAnalyticsUserInfoRows(message);
+  setAnalyticsRows(els.analyticsVisitorRows, 7, message);
   setAnalyticsRows(els.analyticsRecentEventRows, 5, message);
 }
 
 function renderAnalyticsDashboard(data) {
   renderAnalyticsSummary(data.overview || {}, data.filters || {});
+  renderAnalyticsUserInfo(data.userInfo || {});
   renderAnalyticsDailyRows(data.daily || []);
   renderAnalyticsPageRows(data.pages || []);
   renderAnalyticsEventRows(data.events || []);
@@ -113,6 +154,37 @@ function renderAnalyticsSummary(overview, filters) {
       <em>${escapeHtml(meta)}</em>
     </div>
   `).join("");
+}
+
+function renderAnalyticsUserInfo(userInfo) {
+  renderAnalyticsUserInfoRows(els.analyticsLocationRows, userInfo.locations || []);
+  renderAnalyticsUserInfoRows(els.analyticsDeviceRows, userInfo.devices || []);
+  renderAnalyticsUserInfoRows(els.analyticsBrowserRows, userInfo.browsers || []);
+  renderAnalyticsUserInfoRows(els.analyticsOsRows, userInfo.operatingSystems || []);
+  renderAnalyticsUserInfoRows(els.analyticsLanguageRows, userInfo.languages || []);
+}
+
+function renderAnalyticsUserInfoRows(tbody, rows) {
+  if (!tbody) return;
+  tbody.innerHTML = rows.length
+    ? rows.map((row) => `
+      <tr>
+        <td><strong>${escapeHtml(row.label || "미확인")}</strong></td>
+        <td>${formatInt(row.visitors)}</td>
+        <td>${formatInt(row.events)}</td>
+      </tr>
+    `).join("")
+    : emptyAnalyticsRow(3, "선택 기간에 사용자 정보가 없습니다.");
+}
+
+function setAnalyticsUserInfoRows(message) {
+  [
+    els.analyticsLocationRows,
+    els.analyticsDeviceRows,
+    els.analyticsBrowserRows,
+    els.analyticsOsRows,
+    els.analyticsLanguageRows
+  ].forEach((tbody) => setAnalyticsRows(tbody, 3, message));
 }
 
 function renderAnalyticsDailyRows(rows) {
@@ -171,6 +243,7 @@ function renderAnalyticsVisitorRows(rows) {
           ${row.hasAdminEvents ? `<span class="analytics-admin-badge">관리자 포함</span>` : ""}
           ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
         </td>
+        <td>${analyticsUserInfoHtml(row.lastUserInfo)}</td>
         <td>${formatInt(row.periodPageViews)}</td>
         <td>${formatInt(row.periodSessions)}</td>
         <td>${formatInt(row.periodEvents)}</td>
@@ -178,7 +251,7 @@ function renderAnalyticsVisitorRows(rows) {
         <td>${escapeHtml(formatDateTime(row.lastSeenAt))}</td>
       </tr>
     `).join("")
-    : emptyAnalyticsRow(6, "선택 기간에 방문자가 없습니다.");
+    : emptyAnalyticsRow(7, "선택 기간에 방문자가 없습니다.");
 }
 
 function renderAnalyticsRecentEventRows(rows) {
@@ -193,6 +266,7 @@ function renderAnalyticsRecentEventRows(rows) {
         <td>
           ${row.isInternal ? `<span class="analytics-internal-badge">내부</span>` : ""}
           ${row.environment ? `<span class="muted-cell">${escapeHtml(analyticsEnvironmentLabel(row.environment))}${row.host ? ` · ${escapeHtml(row.host)}` : ""}</span>` : ""}
+          ${analyticsUserInfoHtml(row.userInfo)}
           ${escapeHtml(formatAnalyticsMetadata(row.metadata))}
         </td>
       </tr>
@@ -265,4 +339,35 @@ function formatAnalyticsMetadata(metadata) {
   const keys = Object.keys(metadata).filter((key) => metadata[key] !== "");
   if (!keys.length) return "-";
   return keys.slice(0, 3).map((key) => `${key}:${String(metadata[key]).slice(0, 40)}`).join(" · ");
+}
+
+function analyticsUserInfoHtml(userInfo) {
+  const info = userInfo && typeof userInfo === "object" ? userInfo : {};
+  const values = [
+    analyticsLocationLabel(info),
+    analyticsDeviceLabel(info),
+    info.timezone,
+    info.language
+  ].filter(Boolean);
+  if (!values.length) return `<span class="muted-cell">미확인</span>`;
+  return values.slice(0, 4).map((value) => `<span class="muted-cell">${escapeHtml(value)}</span>`).join("");
+}
+
+function analyticsLocationLabel(info) {
+  return [info.country, info.region, info.city].filter(Boolean).join(" ");
+}
+
+function analyticsDeviceLabel(info) {
+  const device = [analyticsDeviceTypeLabel(info.deviceType), info.os, info.browser].filter(Boolean).join(" · ");
+  const size = info.viewportWidth && info.viewportHeight ? `${formatInt(info.viewportWidth)}x${formatInt(info.viewportHeight)}` : "";
+  return [device, size].filter(Boolean).join(" · ");
+}
+
+function analyticsDeviceTypeLabel(deviceType) {
+  return {
+    desktop: "데스크탑",
+    mobile: "모바일",
+    tablet: "태블릿",
+    bot: "봇"
+  }[deviceType] || deviceType || "";
 }

@@ -844,6 +844,70 @@
 
         <section class="panel analytics-panel">
           <div class="panel-head">
+            <h2>사용자 정보</h2>
+            <span>권한 요청 없이 자동 제공되는 브라우저·요청 정보</span>
+          </div>
+          <div class="analytics-user-info-grid">
+            <article class="analytics-user-info-card">
+              <h3>지역</h3>
+              <table class="analytics-mini-table">
+                <thead>
+                  <tr><th>구분</th><th>방문자</th><th>이벤트</th></tr>
+                </thead>
+                <tbody id="analyticsLocationRows">
+                  <tr><td colspan="3" class="empty">불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="analytics-user-info-card">
+              <h3>기기</h3>
+              <table class="analytics-mini-table">
+                <thead>
+                  <tr><th>구분</th><th>방문자</th><th>이벤트</th></tr>
+                </thead>
+                <tbody id="analyticsDeviceRows">
+                  <tr><td colspan="3" class="empty">불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="analytics-user-info-card">
+              <h3>브라우저</h3>
+              <table class="analytics-mini-table">
+                <thead>
+                  <tr><th>구분</th><th>방문자</th><th>이벤트</th></tr>
+                </thead>
+                <tbody id="analyticsBrowserRows">
+                  <tr><td colspan="3" class="empty">불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="analytics-user-info-card">
+              <h3>OS</h3>
+              <table class="analytics-mini-table">
+                <thead>
+                  <tr><th>구분</th><th>방문자</th><th>이벤트</th></tr>
+                </thead>
+                <tbody id="analyticsOsRows">
+                  <tr><td colspan="3" class="empty">불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </article>
+            <article class="analytics-user-info-card">
+              <h3>언어</h3>
+              <table class="analytics-mini-table">
+                <thead>
+                  <tr><th>구분</th><th>방문자</th><th>이벤트</th></tr>
+                </thead>
+                <tbody id="analyticsLanguageRows">
+                  <tr><td colspan="3" class="empty">불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel analytics-panel">
+          <div class="panel-head">
             <h2>일별 추이</h2>
             <span>방문자 · 세션 · 페이지뷰</span>
           </div>
@@ -916,22 +980,23 @@
             <span>쿠키 기준 동일 사용자 묶음</span>
           </div>
           <div class="table-wrap">
-            <table class="analytics-table">
-              <thead>
-                <tr>
-                  <th>방문자</th>
-                  <th>페이지뷰</th>
-                  <th>세션</th>
-                  <th>이벤트</th>
-                  <th>최근 페이지</th>
-                  <th>최근</th>
-                </tr>
-              </thead>
-              <tbody id="analyticsVisitorRows">
-                <tr><td colspan="6" class="empty">불러오는 중입니다.</td></tr>
-              </tbody>
-            </table>
-          </div>
+	            <table class="analytics-table">
+	              <thead>
+	                <tr>
+	                  <th>방문자</th>
+	                  <th>사용자 정보</th>
+	                  <th>페이지뷰</th>
+	                  <th>세션</th>
+	                  <th>이벤트</th>
+	                  <th>최근 페이지</th>
+	                  <th>최근</th>
+	                </tr>
+	              </thead>
+	              <tbody id="analyticsVisitorRows">
+	                <tr><td colspan="7" class="empty">불러오는 중입니다.</td></tr>
+	              </tbody>
+	            </table>
+	          </div>
         </section>
 
         <section class="panel analytics-panel">

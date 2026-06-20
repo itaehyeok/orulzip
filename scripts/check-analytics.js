@@ -20,10 +20,24 @@ try {
     path: "/analytics-check",
     title: "Analytics check",
     metadata: { checkId, step: "page_view" },
+    userInfo: {
+      country: "KR",
+      region: "Seoul",
+      city: "Seoul",
+      timezone: "Asia/Seoul",
+      language: "ko-KR",
+      viewportWidth: 390,
+      viewportHeight: 844,
+      screenWidth: 390,
+      screenHeight: 844,
+      devicePixelRatio: 3,
+      touchSupported: true,
+      utmSource: "analytics-check"
+    },
     host: "analytics-check.local",
     environment: "local",
     ipHash: "check-ip-hash",
-    userAgent: "orulzip-analytics-check",
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
     isAdmin: true
   });
   await recordAnalyticsEvent({
@@ -33,10 +47,17 @@ try {
     path: "/analytics-check",
     title: "Analytics check",
     metadata: { checkId, step: "event" },
+    userInfo: {
+      country: "KR",
+      region: "Seoul",
+      city: "Seoul",
+      timezone: "Asia/Seoul",
+      language: "ko-KR"
+    },
     host: "analytics-check.local",
     environment: "local",
     ipHash: "check-ip-hash",
-    userAgent: "orulzip-analytics-check",
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
     isAdmin: true
   });
 
@@ -46,6 +67,13 @@ try {
     from analytics.events
     where visitor_id = $1
   `, [visitorId]);
+  const userInfo = await analyticsQuery(`
+    select user_info
+    from analytics.events
+    where visitor_id = $1
+    order by created_at desc
+    limit 1
+  `, [visitorId]);
 
   console.log(JSON.stringify({
     ok: true,
@@ -53,7 +81,9 @@ try {
     visitorId,
     sessionId: first.sessionId,
     insertedEvents: Number(count.rows[0]?.count || 0),
-    summary: summary.overview
+    latestUserInfo: userInfo.rows[0]?.user_info || {},
+    summary: summary.overview,
+    userInfoSummary: summary.userInfo
   }, null, 2));
 } finally {
   await closeDb();

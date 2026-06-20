@@ -15,6 +15,7 @@ export async function recordAnalyticsEvent(input = {}) {
     title: truncateText(input.title, 240),
     referrer: truncateText(input.referrer, 640),
     metadata: sanitizeMetadata(input.metadata),
+    userInfo: sanitizeUserInfo(input.userInfo, input.userAgent),
     host: truncateText(input.host, 240),
     environment: normalizeStoredAnalyticsEnvironment(input.environment),
     ipHash: truncateText(input.ipHash, 128),
@@ -35,9 +36,10 @@ export async function recordAnalyticsEvent(input = {}) {
           last_ip_hash,
           last_user_agent,
           last_path,
-          last_is_admin
+          last_is_admin,
+          last_user_info
         )
-        values ($1, now(), now(), 1, $2, $3, $4, $5, $6)
+        values ($1, now(), now(), 1, $2, $3, $4, $5, $6, $7::jsonb)
         on conflict (visitor_id) do update set
           last_seen_at = now(),
           event_count = visitors.event_count + 1,
@@ -45,14 +47,16 @@ export async function recordAnalyticsEvent(input = {}) {
           last_ip_hash = excluded.last_ip_hash,
           last_user_agent = excluded.last_user_agent,
           last_path = excluded.last_path,
-          last_is_admin = excluded.last_is_admin
+          last_is_admin = excluded.last_is_admin,
+          last_user_info = excluded.last_user_info
       `, [
         payload.visitorId,
         pageViewIncrement,
         payload.ipHash,
         payload.userAgent,
         payload.path,
-        payload.isAdmin
+        payload.isAdmin,
+        JSON.stringify(payload.userInfo)
       ]);
 
       const internalStatus = await client.query(`
@@ -80,6 +84,7 @@ export async function recordAnalyticsEvent(input = {}) {
           title,
           referrer,
           metadata,
+          user_info,
           host,
           environment,
           ip_hash,
@@ -87,7 +92,7 @@ export async function recordAnalyticsEvent(input = {}) {
           is_admin,
           is_internal
         )
-        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
+        values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11, $12, $13, $14)
         returning id, created_at
       `, [
         payload.visitorId,
@@ -97,6 +102,7 @@ export async function recordAnalyticsEvent(input = {}) {
         payload.title,
         payload.referrer,
         JSON.stringify(payload.metadata),
+        JSON.stringify(payload.userInfo),
         payload.host,
         payload.environment,
         payload.ipHash,
@@ -176,6 +182,11 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
     daily,
     pages,
     events,
+    locations,
+    devices,
+    browsers,
+    operatingSystems,
+    languages,
     recentVisitors,
     recentEvents
   ] = await Promise.all([
@@ -229,6 +240,70 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
     `, params),
     analyticsQuery(`
       select
+        coalesce(nullif(concat_ws(' ',
+          nullif(user_info->>'country', ''),
+          nullif(user_info->>'region', ''),
+          nullif(user_info->>'city', '')
+        ), ''), '미확인') as label,
+        count(*)::integer as events,
+        count(distinct visitor_id)::integer as visitors,
+        max(created_at) as last_seen_at
+      from analytics.events
+      where ${eventWhere}
+      group by 1
+      order by visitors desc, events desc, last_seen_at desc
+      limit 12
+    `, params),
+    analyticsQuery(`
+      select
+        coalesce(nullif(user_info->>'deviceType', ''), '미확인') as label,
+        count(*)::integer as events,
+        count(distinct visitor_id)::integer as visitors,
+        max(created_at) as last_seen_at
+      from analytics.events
+      where ${eventWhere}
+      group by 1
+      order by visitors desc, events desc, last_seen_at desc
+      limit 12
+    `, params),
+    analyticsQuery(`
+      select
+        coalesce(nullif(user_info->>'browser', ''), '미확인') as label,
+        count(*)::integer as events,
+        count(distinct visitor_id)::integer as visitors,
+        max(created_at) as last_seen_at
+      from analytics.events
+      where ${eventWhere}
+      group by 1
+      order by visitors desc, events desc, last_seen_at desc
+      limit 12
+    `, params),
+    analyticsQuery(`
+      select
+        coalesce(nullif(user_info->>'os', ''), '미확인') as label,
+        count(*)::integer as events,
+        count(distinct visitor_id)::integer as visitors,
+        max(created_at) as last_seen_at
+      from analytics.events
+      where ${eventWhere}
+      group by 1
+      order by visitors desc, events desc, last_seen_at desc
+      limit 12
+    `, params),
+    analyticsQuery(`
+      select
+        coalesce(nullif(user_info->>'language', ''), '미확인') as label,
+        count(*)::integer as events,
+        count(distinct visitor_id)::integer as visitors,
+        max(created_at) as last_seen_at
+      from analytics.events
+      where ${eventWhere}
+      group by 1
+      order by visitors desc, events desc, last_seen_at desc
+      limit 12
+    `, params),
+    analyticsQuery(`
+      select
         e.visitor_id,
         min(v.first_seen_at) as first_seen_at,
         max(e.created_at) as last_seen_at,
@@ -241,6 +316,7 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
         bool_or(e.is_internal)::boolean as is_internal,
         (array_agg(e.host order by e.created_at desc))[1] as last_host,
         (array_agg(e.environment order by e.created_at desc))[1] as last_environment,
+        (array_agg(v.last_user_info order by e.created_at desc))[1] as last_user_info,
         max(v.internal_reason) as internal_reason,
         max(v.internal_marked_at) as internal_marked_at
       from analytics.events e
@@ -259,6 +335,7 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
         path,
         title,
         metadata,
+        user_info,
         host,
         environment,
         is_admin,
@@ -277,6 +354,13 @@ export async function readAnalyticsSummary({ days = 7, includeAdmin = false, inc
     daily: daily.rows.map(normalizeDailyRow),
     pages: pages.rows.map(normalizePageRow),
     events: events.rows.map(normalizeEventRow),
+    userInfo: {
+      locations: locations.rows.map(normalizeUserInfoSummaryRow),
+      devices: devices.rows.map(normalizeUserInfoSummaryRow),
+      browsers: browsers.rows.map(normalizeUserInfoSummaryRow),
+      operatingSystems: operatingSystems.rows.map(normalizeUserInfoSummaryRow),
+      languages: languages.rows.map(normalizeUserInfoSummaryRow)
+    },
     recentVisitors: recentVisitors.rows.map(normalizeVisitorRow),
     recentEvents: recentEvents.rows.map(normalizeRecentEventRow)
   };
@@ -299,6 +383,7 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, in
       bool_or(e.is_internal)::boolean as is_internal,
       (array_agg(e.host order by e.created_at desc))[1] as last_host,
       (array_agg(e.environment order by e.created_at desc))[1] as last_environment,
+      (array_agg(v.last_user_info order by e.created_at desc))[1] as last_user_info,
       max(v.internal_reason) as internal_reason,
       max(v.internal_marked_at) as internal_marked_at
     from analytics.events e
@@ -426,6 +511,114 @@ function sanitizeMetadataValue(value) {
   return String(value).slice(0, 200);
 }
 
+function sanitizeUserInfo(value, userAgent = "") {
+  const input = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const parsed = parseUserAgent(userAgent);
+  return compactObject({
+    country: truncateText(input.country || input.countryCode || input.geoCountry, 80),
+    region: truncateText(input.region || input.regionName || input.geoRegion, 120),
+    city: truncateText(input.city || input.geoCity, 120),
+    timezone: truncateText(input.timezone, 120),
+    language: truncateText(input.language || firstLanguage(input.acceptLanguage), 40),
+    languages: normalizeStringArray(input.languages, 5, 40),
+    browser: truncateText(input.browser || parsed.browser, 80),
+    browserVersion: truncateText(input.browserVersion || parsed.browserVersion, 40),
+    os: truncateText(input.os || parsed.os, 80),
+    osVersion: truncateText(input.osVersion || parsed.osVersion, 40),
+    deviceType: truncateText(input.deviceType || parsed.deviceType, 40),
+    platform: truncateText(input.platform, 80),
+    viewportWidth: boundedInteger(input.viewportWidth, 0, 10000),
+    viewportHeight: boundedInteger(input.viewportHeight, 0, 10000),
+    screenWidth: boundedInteger(input.screenWidth, 0, 10000),
+    screenHeight: boundedInteger(input.screenHeight, 0, 10000),
+    devicePixelRatio: boundedNumber(input.devicePixelRatio, 0, 10),
+    touchSupported: typeof input.touchSupported === "boolean" ? input.touchSupported : null,
+    utmSource: truncateText(input.utmSource, 120),
+    utmMedium: truncateText(input.utmMedium, 120),
+    utmCampaign: truncateText(input.utmCampaign, 160)
+  });
+}
+
+function compactObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => {
+    if (entryValue === null || entryValue === undefined || entryValue === "") return false;
+    if (Array.isArray(entryValue) && !entryValue.length) return false;
+    return true;
+  }));
+}
+
+function normalizeStringArray(value, maxItems, maxLength) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => truncateText(item, maxLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function boundedInteger(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(min, Math.min(Math.round(number), max));
+}
+
+function boundedNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(min, Math.min(Number(number.toFixed(2)), max));
+}
+
+function firstLanguage(value) {
+  return String(value || "").split(",")[0].trim();
+}
+
+function parseUserAgent(userAgent = "") {
+  const ua = String(userAgent || "");
+  const lower = ua.toLowerCase();
+  const browserMatch = [
+    ["Edge", /\bedg(?:e|ios|a)?\/([\d.]+)/i],
+    ["Samsung Internet", /samsungbrowser\/([\d.]+)/i],
+    ["Naver Whale", /whale\/([\d.]+)/i],
+    ["KakaoTalk", /kakaotalk\/([\d.]+)/i],
+    ["Chrome", /(?:chrome|crios)\/([\d.]+)/i],
+    ["Firefox", /(?:firefox|fxios)\/([\d.]+)/i],
+    ["Safari", /version\/([\d.]+).*safari/i]
+  ].find(([, pattern]) => pattern.test(ua));
+
+  let os = "Unknown";
+  let osVersion = "";
+  if (/iphone|ipad|ipod/i.test(ua)) {
+    os = "iOS";
+    osVersion = versionFromMatch(ua.match(/os ([\d_]+)/i), "_");
+  } else if (/android/i.test(ua)) {
+    os = "Android";
+    osVersion = versionFromMatch(ua.match(/android ([\d.]+)/i));
+  } else if (/windows nt/i.test(ua)) {
+    os = "Windows";
+    osVersion = versionFromMatch(ua.match(/windows nt ([\d.]+)/i));
+  } else if (/mac os x/i.test(ua)) {
+    os = "macOS";
+    osVersion = versionFromMatch(ua.match(/mac os x ([\d_]+)/i), "_");
+  } else if (/linux/i.test(ua)) {
+    os = "Linux";
+  }
+
+  let deviceType = /bot|crawler|spider|slurp/i.test(ua) ? "bot" : "desktop";
+  if (/ipad|tablet|android(?!.*mobile)/i.test(ua)) deviceType = "tablet";
+  if (/mobi|iphone|ipod|android.*mobile/i.test(lower)) deviceType = "mobile";
+
+  return {
+    browser: browserMatch ? browserMatch[0] : "Unknown",
+    browserVersion: browserMatch ? versionFromMatch(ua.match(browserMatch[1])) : "",
+    os,
+    osVersion,
+    deviceType
+  };
+}
+
+function versionFromMatch(match, separator = ".") {
+  return match?.[1] ? String(match[1]).replaceAll(separator, ".") : "";
+}
+
 function normalizeOverviewRow(row = {}) {
   const events = Number(row.events || 0);
   const visitors = Number(row.visitors || 0);
@@ -468,6 +661,15 @@ function normalizeEventRow(row) {
   };
 }
 
+function normalizeUserInfoSummaryRow(row) {
+  return {
+    label: String(row.label || "미확인"),
+    visitors: Number(row.visitors || 0),
+    events: Number(row.events || 0),
+    lastSeenAt: row.last_seen_at || null
+  };
+}
+
 function normalizeVisitorRow(row) {
   return {
     visitorId: String(row.visitor_id || ""),
@@ -482,6 +684,7 @@ function normalizeVisitorRow(row) {
     isInternal: Boolean(row.is_internal),
     lastHost: String(row.last_host || ""),
     lastEnvironment: normalizeAnalyticsEnvironment(row.last_environment),
+    lastUserInfo: normalizeStoredUserInfo(row.last_user_info),
     internalReason: String(row.internal_reason || ""),
     internalMarkedAt: row.internal_marked_at || null
   };
@@ -496,10 +699,16 @@ function normalizeRecentEventRow(row) {
     path: String(row.path || ""),
     title: String(row.title || ""),
     metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
+    userInfo: normalizeStoredUserInfo(row.user_info),
     host: String(row.host || ""),
     environment: normalizeAnalyticsEnvironment(row.environment),
     isAdmin: Boolean(row.is_admin),
     isInternal: Boolean(row.is_internal),
     createdAt: row.created_at || null
   };
+}
+
+function normalizeStoredUserInfo(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value;
 }
