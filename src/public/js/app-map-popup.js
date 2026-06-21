@@ -378,12 +378,30 @@ function renderMapPopupTradeHistory(item) {
   }
   const trades = [...(item.trades || [])].sort(compareMolitTradesDesc);
   const rows = trades.map((trade) => renderMapPopupTradeRow(item, trade)).join("");
+  const comparisonLabel = mapPopupTradeHeaderComparisonLabel(item, trades);
   els.mapPopupTradeHistory.innerHTML = `
     <div class="map-popup-trade-head">
       <strong>거래기록</strong>
-      <span>${mapPopupTradeHeaderComparisonLabel(item, trades)}</span>
     </div>
+    ${rows ? renderMapPopupTradeColumnHeader(comparisonLabel) : ""}
     ${rows || `<div class="map-popup-trade-empty">선택 평형의 거래기록이 없습니다.</div>`}
+  `;
+}
+
+function renderMapPopupTradeColumnHeader(comparisonLabel) {
+  return `
+    <div class="map-popup-trade-column-head" aria-hidden="true">
+      <span class="map-popup-trade-date">날짜</span>
+      <strong class="map-popup-trade-summary">
+        <span class="map-popup-trade-floor">층</span>
+        <span class="map-popup-trade-deal">거래가</span>
+        <span class="map-popup-trade-delta">
+          <span>상승액</span>
+          <small>${escapeHtml(comparisonLabel)}</small>
+        </span>
+        <span class="map-popup-trade-growth">상승률</span>
+      </strong>
+    </div>
   `;
 }
 
@@ -395,7 +413,7 @@ function renderMapPopupTradeRow(item, trade) {
       <span class="map-popup-trade-date">${escapeHtml(mapPopupTradeDateLabel(trade))}</span>
       <strong class="map-popup-trade-summary">
         <span class="map-popup-trade-floor">${escapeHtml(floorLabel)}</span>
-        <span class="map-popup-trade-deal">거래가 ${escapeHtml(formatKoreanPrice(trade.dealAmount))}</span>
+        <span class="map-popup-trade-deal">${escapeHtml(formatKoreanPrice(trade.dealAmount))}</span>
         ${renderMapPopupTradeGrowth(comparison)}
       </strong>
     </div>
@@ -412,7 +430,6 @@ function renderMapPopupTradeGrowth(comparison) {
   if (!comparison || !Number.isFinite(comparison.growthRate)) {
     return `
       <b class="map-popup-trade-delta no-data">-</b>
-      <span class="map-popup-trade-baseline">기준 평균가 없음</span>
       <b class="map-popup-trade-growth no-data">-</b>
     `;
   }
@@ -421,7 +438,6 @@ function renderMapPopupTradeGrowth(comparison) {
     <b class="map-popup-trade-delta ${tone}" title="${escapeHtml(formatMonth(comparison.baseMonth))} 기준 평균가 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
       ${escapeHtml(mapPopupSignedKoreanPrice(comparison.growthAmount))}
     </b>
-    <span class="map-popup-trade-baseline">(기준 평균가 대비)</span>
     <b class="map-popup-trade-growth ${tone}">
       ${escapeHtml(mapPopupTradeGrowthText(comparison.growthRate))}
     </b>
