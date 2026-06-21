@@ -338,14 +338,15 @@ function buildMolitPriceBandRankings(rows, {
       if (!start || !end || !start.saleMid || !end.saleMid || !start.pyeongPrice || !end.pyeongPrice) return null;
       if (!isMolitPriceFreshForMonth(start, startMonth, freshness.startGapMonths)) return null;
       if (!isMolitPriceFreshForMonth(end, endMonth, freshness.endGapMonths)) return null;
-      return { type, start, end };
-    }).filter(Boolean);
+      return molitPriceBandAreaSummary(type, start, end);
+    }).filter(Boolean).sort(compareAreaSummaryGrowth);
     if (!typeSummaries.length) continue;
 
-    const startSalePrice = average(typeSummaries.map((item) => item.start.saleMid));
-    const endSalePrice = average(typeSummaries.map((item) => item.end.saleMid));
-    const startPyeongPrice = average(typeSummaries.map((item) => item.start.pyeongPrice));
-    const endPyeongPrice = average(typeSummaries.map((item) => item.end.pyeongPrice));
+    const representative = typeSummaries[0];
+    const startSalePrice = representative.startSalePrice;
+    const endSalePrice = representative.endSalePrice;
+    const startPyeongPrice = representative.startPyeongPrice;
+    const endPyeongPrice = representative.endPyeongPrice;
     if (!startSalePrice || !endSalePrice || !startPyeongPrice || !endPyeongPrice) continue;
 
     const band = priceBand(basis === "end" ? endSalePrice : startSalePrice);
@@ -361,8 +362,6 @@ function buildMolitPriceBandRankings(rows, {
     }
 
     const group = groups.get(band.key);
-    const growthAmount = endPyeongPrice - startPyeongPrice;
-    const growthRate = startPyeongPrice ? growthAmount / startPyeongPrice : 0;
     group.apartments.push({
       apartmentId: apartmentGroup.apartment.id,
       apartmentName: apartmentGroup.apartment.name,
@@ -371,7 +370,8 @@ function buildMolitPriceBandRankings(rows, {
       address: apartmentGroup.apartment.address,
       householdCount: 0,
       areaTypeCount: typeSummaries.length,
-      areaLabel: `${typeSummaries.length}개 타입`,
+      areaLabel: representative.areaLabel,
+      areaSummaries: typeSummaries,
       bandKey: band.key,
       bandLabel: band.label,
       basis,
@@ -379,8 +379,8 @@ function buildMolitPriceBandRankings(rows, {
       endSalePrice: Math.round(endSalePrice),
       startPyeongPrice: Math.round(startPyeongPrice),
       endPyeongPrice: Math.round(endPyeongPrice),
-      growthAmount: Math.round(growthAmount),
-      growthRate
+      growthAmount: representative.growthAmount,
+      growthRate: representative.growthRate
     });
     group.startSalePrices.push(startSalePrice);
     group.endSalePrices.push(endSalePrice);
@@ -466,7 +466,7 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
     const chunk = rows.slice(start, start + chunkSize);
     const params = [];
     const values = chunk.map((row, index) => {
-      const offset = index * 17;
+      const offset = index * 18;
       params.push(
         snapshotId,
         row.bandKey,
@@ -484,12 +484,13 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
         row.startPyeongPrice ?? null,
         row.endPyeongPrice ?? null,
         row.growthAmount ?? null,
-        row.growthRate ?? null
+        row.growthRate ?? null,
+        JSON.stringify(Array.isArray(row.areaSummaries) ? row.areaSummaries : [])
       );
       return `(
         $${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4},$${offset + 5},$${offset + 6},
         $${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},$${offset + 11},
-        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},now()
+        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},$${offset + 18}::jsonb,now()
       )`;
     });
 
@@ -498,7 +499,7 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
         snapshot_id, band_key, band_label, rank, apartment_id, apartment_name,
         neighborhood_name, legal_dong_code, address, area_type_count, area_label,
         start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
-        growth_amount, growth_rate, updated_at
+        growth_amount, growth_rate, area_summaries, updated_at
       ) values ${values.join(",")}
     `, params);
   }
@@ -574,7 +575,8 @@ function serializePriceBandItem(row, basis) {
     startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
     endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
     growthAmount: row.growth_amount === null ? null : Number(row.growth_amount),
-    growthRate: row.growth_rate === null ? null : Number(row.growth_rate)
+    growthRate: row.growth_rate === null ? null : Number(row.growth_rate),
+    areaSummaries: normalizeAreaSummaries(row.area_summaries)
   };
 }
 
@@ -609,6 +611,7 @@ function groupMolitRows(rows, recentByType = new Map()) {
     if (!apartment.types.has(typeKey)) {
       apartment.types.set(typeKey, {
         typeKey,
+        exclusiveAreaM2: Number(row.exclusive_area_m2),
         recentPrice: recentByType.get(molitTypeKey(apartmentId, row.exclusive_area_m2)) || null,
         monthly: new Map()
       });
@@ -653,6 +656,74 @@ function serializeMolitPrice(row) {
     pyeongPrice: Number(row.pyeong_price || 0),
     dealCount: Number(row.deal_count || 0)
   };
+}
+
+function molitPriceBandAreaSummary(type, start, end) {
+  const startSalePrice = Number(start.saleMid || 0);
+  const endSalePrice = Number(end.saleMid || 0);
+  const startPyeongPrice = Number(start.pyeongPrice || 0);
+  const endPyeongPrice = Number(end.pyeongPrice || 0);
+  const growthAmount = endSalePrice - startSalePrice;
+  const growthRate = startSalePrice ? growthAmount / startSalePrice : 0;
+  const pyeongGrowthAmount = endPyeongPrice - startPyeongPrice;
+  const pyeongGrowthRate = startPyeongPrice ? pyeongGrowthAmount / startPyeongPrice : 0;
+
+  return {
+    typeKey: type.typeKey,
+    exclusiveAreaM2: Number(type.exclusiveAreaM2 || 0),
+    areaLabel: molitAreaLabel(type.exclusiveAreaM2),
+    startMonth: start.yearMonth || "",
+    endMonth: end.yearMonth || "",
+    startSalePrice: Math.round(startSalePrice),
+    endSalePrice: Math.round(endSalePrice),
+    startPyeongPrice: Math.round(startPyeongPrice),
+    endPyeongPrice: Math.round(endPyeongPrice),
+    growthAmount: Math.round(growthAmount),
+    growthRate,
+    pyeongGrowthAmount: Math.round(pyeongGrowthAmount),
+    pyeongGrowthRate,
+    startDealCount: Number(start.dealCount || 0),
+    endDealCount: Number(end.dealCount || 0)
+  };
+}
+
+function normalizeAreaSummaries(value) {
+  const summaries = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? safeJsonArray(value)
+      : [];
+  return summaries.map((item) => ({
+    typeKey: item.typeKey || "",
+    exclusiveAreaM2: Number(item.exclusiveAreaM2 || 0),
+    areaLabel: item.areaLabel || molitAreaLabel(item.exclusiveAreaM2),
+    startMonth: item.startMonth || "",
+    endMonth: item.endMonth || "",
+    startSalePrice: nullableNumber(item.startSalePrice),
+    endSalePrice: nullableNumber(item.endSalePrice),
+    startPyeongPrice: nullableNumber(item.startPyeongPrice),
+    endPyeongPrice: nullableNumber(item.endPyeongPrice),
+    growthAmount: nullableNumber(item.growthAmount),
+    growthRate: nullableNumber(item.growthRate),
+    pyeongGrowthAmount: nullableNumber(item.pyeongGrowthAmount),
+    pyeongGrowthRate: nullableNumber(item.pyeongGrowthRate),
+    startDealCount: Number(item.startDealCount || 0),
+    endDealCount: Number(item.endDealCount || 0)
+  })).filter((item) => item.areaLabel);
+}
+
+function safeJsonArray(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function nullableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function molitPriceFreshnessRule(startMonth, endMonth) {
@@ -701,6 +772,21 @@ function compareApartmentGrowth(a, b) {
     || b.growthAmount - a.growthAmount
     || b.endPyeongPrice - a.endPyeongPrice
     || String(a.apartmentName || "").localeCompare(String(b.apartmentName || ""), "ko");
+}
+
+function compareAreaSummaryGrowth(a, b) {
+  return b.growthRate - a.growthRate
+    || b.growthAmount - a.growthAmount
+    || b.endSalePrice - a.endSalePrice
+    || a.exclusiveAreaM2 - b.exclusiveAreaM2;
+}
+
+function molitAreaLabel(exclusiveAreaM2) {
+  const area = Number(exclusiveAreaM2);
+  if (!Number.isFinite(area) || area <= 0) return "전용 -";
+  const pyeong = area / 3.305785;
+  const rounded = pyeong >= 10 ? Math.round(pyeong) : Math.round(pyeong * 10) / 10;
+  return `전용 ${rounded}평`;
 }
 
 function priceBand(price) {

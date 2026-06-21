@@ -240,14 +240,11 @@ function renderPriceBandTable(result, basisBands = null) {
           </span>
         </td>
         <td>${escapeHtml(formatPriceBandLocation(row))}</td>
-        <td>${formatKoreanPrice(row.startSalePrice)}</td>
-        <td>${formatKoreanPrice(row.endSalePrice)}</td>
-        <td>${formatMoney(row.startPyeongPrice)}</td>
-        <td>${formatMoney(row.endPyeongPrice)}</td>
-        <td class="${row.growthRate >= 0 ? "positive" : "negative"}">${formatPercent(row.growthRate)}</td>
+        <td>${renderPriceBandChangeCell(row)}</td>
+        <td>${renderPriceBandGrowthCell(row)}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
+    : `<tr><td colspan="5" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
 }
 
@@ -260,7 +257,7 @@ function renderPriceBandLoadingState() {
   if (els.priceBandRows) {
     els.priceBandRows.innerHTML = `
       <tr>
-        <td colspan="8" class="empty price-band-loading-cell">
+        <td colspan="5" class="empty price-band-loading-cell">
           <div class="price-band-loading">
             <span class="price-band-loading-spinner" aria-hidden="true"></span>
             <strong>랭킹을 불러오는 중입니다.</strong>
@@ -358,6 +355,115 @@ function priceBandApartmentMeta(row) {
     parts.push(`${formatInt(households)}세대`);
   }
   return parts.join(" · ");
+}
+
+function renderPriceBandChangeCell(row) {
+  const summaries = priceBandAreaSummaries(row);
+  const primary = summaries[0];
+  const secondary = summaries[1];
+  const hidden = summaries.slice(2);
+  if (!primary) return "-";
+
+  return `
+    <div class="price-band-area-stack price-band-change-stack">
+      ${renderPriceBandChangeLine(primary, "primary")}
+      ${secondary ? renderPriceBandChangeLine(secondary, "secondary") : ""}
+      ${hidden.length ? `
+        <details class="price-band-area-more">
+          <summary>외 ${formatInt(hidden.length)}개 평형</summary>
+          <div>
+            ${hidden.map((item) => renderPriceBandChangeLine(item, "secondary")).join("")}
+          </div>
+        </details>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderPriceBandGrowthCell(row) {
+  const summaries = priceBandAreaSummaries(row);
+  const primary = summaries[0];
+  const secondary = summaries[1];
+  const hidden = summaries.slice(2);
+  if (!primary) return "-";
+
+  return `
+    <div class="price-band-area-stack price-band-growth-stack">
+      ${renderPriceBandGrowthLine(primary, "primary")}
+      ${secondary ? renderPriceBandGrowthLine(secondary, "secondary") : ""}
+      ${hidden.length ? `
+        <details class="price-band-area-more compact">
+          <summary>외 ${formatInt(hidden.length)}개</summary>
+          <div>
+            ${hidden.map((item) => renderPriceBandGrowthLine(item, "secondary")).join("")}
+          </div>
+        </details>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderPriceBandChangeLine(item, tone) {
+  const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
+  return `
+    <div class="price-band-area-line ${tone}">
+      <strong>
+        <span>${escapeHtml(item.areaLabel || "-")}</span>
+        <b class="${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b>
+      </strong>
+      <em>${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</em>
+    </div>
+  `;
+}
+
+function renderPriceBandGrowthLine(item, tone) {
+  const growthTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
+  return `
+    <div class="price-band-growth-line ${tone}">
+      <span>${escapeHtml(item.areaLabel || "-")}</span>
+      <strong class="${growthTone}">${formatPercent(item.growthRate)}</strong>
+    </div>
+  `;
+}
+
+function priceBandAreaSummaries(row) {
+  const summaries = Array.isArray(row.areaSummaries) && row.areaSummaries.length
+    ? row.areaSummaries
+    : [fallbackPriceBandAreaSummary(row)];
+  return summaries
+    .map((item) => ({
+      areaLabel: item.areaLabel || row.areaLabel || "-",
+      startSalePrice: nullableNumber(item.startSalePrice),
+      endSalePrice: nullableNumber(item.endSalePrice),
+      growthAmount: nullableNumber(item.growthAmount),
+      growthRate: nullableNumber(item.growthRate)
+    }))
+    .filter((item) => item.areaLabel && item.startSalePrice !== null && item.endSalePrice !== null);
+}
+
+function fallbackPriceBandAreaSummary(row) {
+  const startSalePrice = nullableNumber(row.startSalePrice);
+  const endSalePrice = nullableNumber(row.endSalePrice);
+  const growthAmount = startSalePrice !== null && endSalePrice !== null ? endSalePrice - startSalePrice : nullableNumber(row.growthAmount);
+  return {
+    areaLabel: row.areaLabel || `${formatInt(row.areaTypeCount || 0)}개 면적`,
+    startSalePrice,
+    endSalePrice,
+    growthAmount,
+    growthRate: nullableNumber(row.growthRate)
+  };
+}
+
+function nullableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatSignedKoreanPriceWithPlus(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  if (number === 0) return "0만";
+  return `${number > 0 ? "+" : ""}${formatSignedKoreanPrice(number)}`;
 }
 
 function compactSearchQuery(parts) {
@@ -660,5 +766,5 @@ function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
   els.apartmentRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
-  if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
+  if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="5" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
 }

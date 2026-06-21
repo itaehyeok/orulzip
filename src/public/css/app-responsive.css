@@ -50,7 +50,91 @@ td:nth-child(4) {
 
 .price-band-table th:nth-child(4),
 .price-band-table td:nth-child(4) {
+  text-align: left;
+}
+
+.price-band-table th:nth-child(5),
+.price-band-table td:nth-child(5) {
   text-align: right;
+}
+
+.price-band-area-stack {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.price-band-area-line {
+  display: grid;
+  gap: 2px;
+}
+
+.price-band-area-line strong,
+.price-band-growth-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.price-band-area-line.primary strong,
+.price-band-growth-line.primary strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.price-band-area-line.secondary strong,
+.price-band-growth-line.secondary {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.price-band-area-line em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.price-band-area-more {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.price-band-area-more summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.price-band-area-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.price-band-area-more summary::after {
+  content: " 펼치기";
+  color: var(--blue);
+}
+
+.price-band-area-more[open] summary::after {
+  content: " 접기";
+}
+
+.price-band-area-more > div {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.price-band-growth-stack {
+  min-width: 120px;
+}
+
+.price-band-growth-line span {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .clickable-row {

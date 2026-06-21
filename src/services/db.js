@@ -443,6 +443,8 @@ export async function initDb() {
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
     alter table price_band_rank_items
       add column if not exists address text;
+    alter table price_band_rank_items
+      add column if not exists area_summaries jsonb;
     create index if not exists price_band_rank_items_band_idx
       on price_band_rank_items(snapshot_id, band_key, rank);
     create index if not exists price_band_rank_items_apartment_idx
