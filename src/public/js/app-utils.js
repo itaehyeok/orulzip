@@ -77,8 +77,37 @@ function formatPercent(value) {
 function growthRankPercentile(rank, total) {
   const rankNumber = Number(rank);
   const totalNumber = Number(total);
-  if (!Number.isFinite(rankNumber) || !Number.isFinite(totalNumber) || totalNumber <= 0) return null;
+  if (!Number.isFinite(rankNumber) || rankNumber <= 0 || !Number.isFinite(totalNumber) || totalNumber <= 0) return null;
   return (rankNumber / totalNumber) * 100;
+}
+
+function formatTopPercentile(percentile, {
+  prefix = "",
+  maxFractionDigits = 4,
+  minVisiblePercent = 0.0001
+} = {}) {
+  const number = Number(percentile);
+  if (!Number.isFinite(number)) return "-";
+  if (number === 0) return `${prefix}0%`;
+  if (number > 0 && number < minVisiblePercent) return `${prefix}<${trimPercentFixed(minVisiblePercent, maxFractionDigits)}%`;
+
+  const absNumber = Math.abs(number);
+  const digits = absNumber >= 10
+    ? 0
+    : absNumber >= 0.1
+      ? 1
+      : Math.min(maxFractionDigits, Math.max(2, Math.ceil(-Math.log10(absNumber))));
+  return `${prefix}${trimPercentFixed(number, digits)}%`;
+}
+
+function formatRankTopPercent(rank, total, options = {}) {
+  const percentile = growthRankPercentile(rank, total);
+  return percentile === null ? "-" : formatTopPercentile(percentile, options);
+}
+
+function trimPercentFixed(value, digits) {
+  const fixed = Number(value).toFixed(Math.max(0, Number(digits) || 0));
+  return fixed.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
 }
 
 function growthRateTone(rate, rank = null, total = null) {

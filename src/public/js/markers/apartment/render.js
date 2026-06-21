@@ -123,20 +123,11 @@ function apartmentRankPercentRow(key, label, rank, total) {
 }
 
 function formatApartmentRankPercent(rank, total) {
-  const rankNumber = Number(rank);
-  const totalNumber = Number(total);
-  if (!Number.isFinite(rankNumber) || !Number.isFinite(totalNumber) || totalNumber <= 0) return "-";
-  const percent = (rankNumber / totalNumber) * 100;
-  const formatted = percent < 0.1 ? "<0.1" : percent < 10 ? percent.toFixed(1) : String(Math.round(percent));
-  return `상위 ${formatted}%`;
+  return formatRankTopPercent(rank, total, { prefix: "상위 " });
 }
 
 function formatApartmentRankPercentShort(rank, total) {
-  const rankNumber = Number(rank);
-  const totalNumber = Number(total);
-  if (!Number.isFinite(rankNumber) || !Number.isFinite(totalNumber) || rankNumber <= 0 || totalNumber <= 0) return "-";
-  const percent = (rankNumber / totalNumber) * 100;
-  return percent < 0.1 ? "<0.1%" : `${Math.round(percent)}%`;
+  return formatRankTopPercent(rank, total);
 }
 
 function apartmentMarkerAreaLabel(item = {}) {

@@ -53,8 +53,7 @@ function formatMarkerRankNumber(value) {
 }
 
 function formatMarkerTopPercent(rank, total) {
-  const percentile = growthRankPercentile(rank, total);
-  return percentile === null ? "-" : `상위 ${percentile.toFixed(1)}%`;
+  return formatRankTopPercent(rank, total, { prefix: "상위 " });
 }
 
 function compactRankLabel(label, shortLabel, design = activeRegionMarkerDesign()) {
@@ -111,8 +110,7 @@ function formatMarkerRankRatioText(rank, total) {
 }
 
 function formatMarkerTopPercentShort(rank, total) {
-  const percentile = growthRankPercentile(rank, total);
-  return percentile === null ? "-" : `${Math.round(percentile)}%`;
+  return formatRankTopPercent(rank, total);
 }
 
 function markerRankWidthExtra(scope = "region") {
