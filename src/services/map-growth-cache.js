@@ -6,6 +6,13 @@ import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.j
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
+const MOLIT_PRICE_FRESHNESS_RULES = [
+  { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
+  { maxPeriodMonths: 6, startGapMonths: 2, endGapMonths: 2 },
+  { maxPeriodMonths: 12, startGapMonths: 3, endGapMonths: 3 },
+  { maxPeriodMonths: 36, startGapMonths: 6, endGapMonths: 3 },
+  { maxPeriodMonths: Infinity, startGapMonths: 12, endGapMonths: 3 }
+];
 
 export async function readMapGrowthCacheOverview() {
   const result = await query(`
@@ -957,6 +964,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
       select
         apartment_id,
         exclusive_area_m2,
+        to_char($1::date, 'YYYYMM') as deal_year_month,
         round(avg(deal_amount))::int as sale_mid,
         min(deal_amount)::int as sale_low,
         max(deal_amount)::int as sale_high,
@@ -975,6 +983,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
 
 function buildMolitCacheItems(rows, { startMonth, endMonth, recentByType = new Map() }) {
   const apartments = groupMolitRows(rows, recentByType);
+  const freshness = molitPriceFreshnessRule(startMonth, endMonth);
   const duplicateResolution = resolveMolitDuplicateGroups([...apartments.values()].map((group) => group.apartment));
   const hiddenDuplicateIds = duplicateResolution.hiddenIds;
   const rankingRows = [];
@@ -985,6 +994,8 @@ function buildMolitCacheItems(rows, { startMonth, endMonth, recentByType = new M
       const start = carriedMolitPriceAtOrBefore(type.monthly, startMonth);
       const end = type.recentPrice || carriedMolitPriceAtOrBefore(type.monthly, endMonth);
       if (!start || !end || !start.pyeongPrice) return null;
+      if (!isMolitPriceFreshForMonth(start, startMonth, freshness.startGapMonths)) return null;
+      if (!isMolitPriceFreshForMonth(end, endMonth, freshness.endGapMonths)) return null;
       return { type, start, end };
     }).filter(Boolean);
     if (!typeSummaries.length) continue;
@@ -1109,19 +1120,35 @@ function molitApartmentFromRow(row) {
 }
 
 function carriedMolitPriceAtOrBefore(monthly, yearMonth) {
-  return [...monthly.entries()]
+  const result = [...monthly.entries()]
     .filter(([month]) => month <= yearMonth)
-    .sort(([a], [b]) => b.localeCompare(a))[0]?.[1] || null;
+    .sort(([a], [b]) => b.localeCompare(a))[0];
+  if (!result) return null;
+  const [month, price] = result;
+  return { ...price, yearMonth: month };
 }
 
 function serializeMolitPrice(row) {
   return {
+    yearMonth: row.deal_year_month || "",
     saleMid: Number(row.sale_mid || 0),
     saleLow: Number(row.sale_low || 0),
     saleHigh: Number(row.sale_high || 0),
     pyeongPrice: Number(row.pyeong_price || 0),
     dealCount: Number(row.deal_count || 0)
   };
+}
+
+function molitPriceFreshnessRule(startMonth, endMonth) {
+  const periodMonths = monthsBetween(startMonth, endMonth);
+  if (!Number.isFinite(periodMonths)) return MOLIT_PRICE_FRESHNESS_RULES.at(-1);
+  return MOLIT_PRICE_FRESHNESS_RULES.find((rule) => periodMonths <= rule.maxPeriodMonths)
+    || MOLIT_PRICE_FRESHNESS_RULES.at(-1);
+}
+
+function isMolitPriceFreshForMonth(price, targetMonth, maxGapMonths) {
+  const gapMonths = monthsBetween(price?.yearMonth, targetMonth);
+  return Number.isFinite(gapMonths) && gapMonths >= 0 && gapMonths <= maxGapMonths;
 }
 
 function groupMolitTradesByType(rows) {
@@ -1714,6 +1741,29 @@ function addMonths(month, delta) {
   const date = new Date(Number(month.slice(0, 4)), Number(month.slice(4, 6)) - 1, 1);
   date.setMonth(date.getMonth() + delta);
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthsBetween(startMonth, endMonth) {
+  if (!/^\d{6}$/.test(String(startMonth || "")) || !/^\d{6}$/.test(String(endMonth || ""))) {
+    return Number.NaN;
+  }
+  const startYear = Number(startMonth.slice(0, 4));
+  const startMonthNumber = Number(startMonth.slice(4, 6));
+  const endYear = Number(endMonth.slice(0, 4));
+  const endMonthNumber = Number(endMonth.slice(4, 6));
+  if (
+    !Number.isFinite(startYear)
+    || !Number.isFinite(startMonthNumber)
+    || !Number.isFinite(endYear)
+    || !Number.isFinite(endMonthNumber)
+    || startMonthNumber < 1
+    || startMonthNumber > 12
+    || endMonthNumber < 1
+    || endMonthNumber > 12
+  ) {
+    return Number.NaN;
+  }
+  return (endYear - startYear) * 12 + (endMonthNumber - startMonthNumber);
 }
 
 function monthRange(startMonth, endMonth) {
