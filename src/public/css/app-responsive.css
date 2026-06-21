@@ -61,9 +61,9 @@ td:nth-child(4) {
 
 .price-band-area-breakdown-line {
   display: grid;
-  grid-template-columns: minmax(76px, max-content) minmax(210px, 1fr) minmax(112px, max-content) minmax(72px, max-content);
+  grid-template-columns: minmax(76px, max-content) minmax(210px, 1fr) max-content;
   align-items: baseline;
-  gap: 18px;
+  gap: 12px;
 }
 
 .price-band-area-breakdown-line.primary {
@@ -74,19 +74,20 @@ td:nth-child(4) {
 
 .price-band-area-breakdown-line.secondary {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 760;
 }
 
 .price-band-area-label,
 .price-band-area-range,
 .price-band-area-amount,
-.price-band-area-rate {
+.price-band-area-rate,
+.price-band-area-metric-chip {
   white-space: nowrap;
 }
 
 .price-band-area-range {
-  color: #667085;
+  color: #344054;
 }
 
 .price-band-area-amount,
@@ -94,15 +95,47 @@ td:nth-child(4) {
   text-align: right;
 }
 
+.price-band-area-metric-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-self: end;
+  border-radius: 999px;
+  background: #fff1ee;
+  padding: 4px 9px;
+}
+
+.price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-amount,
+.price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-rate {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-label,
+.price-band-area-breakdown-line.secondary .price-band-area-range,
+.price-band-area-breakdown-line.secondary .price-band-area-amount,
+.price-band-area-breakdown-line.secondary .price-band-area-rate {
+  color: #667085;
+}
+
 .price-band-area-more {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .price-band-area-more summary {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  margin-top: 2px;
+  border: 1px solid #d6e2f3;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--blue);
   cursor: pointer;
   list-style: none;
+  padding: 0 9px;
 }
 
 .price-band-area-more summary::-webkit-details-marker {
@@ -110,8 +143,7 @@ td:nth-child(4) {
 }
 
 .price-band-area-more summary::after {
-  content: " 펼치기";
-  color: var(--blue);
+  content: " 보기";
 }
 
 .price-band-area-more[open] summary::after {

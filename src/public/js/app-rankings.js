@@ -369,7 +369,7 @@ function renderPriceBandAreaBreakdownCell(row) {
       ${secondary ? renderPriceBandAreaBreakdownLine(secondary, "secondary") : ""}
       ${hidden.length ? `
         <details class="price-band-area-more">
-          <summary>외 ${formatInt(hidden.length)}개 평형</summary>
+          <summary><span>다른 ${formatInt(hidden.length)}개 평형</span></summary>
           <div>
             ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
           </div>
@@ -382,12 +382,14 @@ function renderPriceBandAreaBreakdownCell(row) {
 function renderPriceBandAreaBreakdownLine(item, tone) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
   const rateTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
+  const metricMarkup = tone === "primary"
+    ? `<span class="price-band-area-metric-chip"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong></span>`
+    : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
   return `
     <div class="price-band-area-breakdown-line ${tone}">
       <strong class="price-band-area-label">${escapeHtml(item.areaLabel || "-")}</strong>
       <span class="price-band-area-range">${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</span>
-      <b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b>
-      <strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>
+      ${metricMarkup}
     </div>
   `;
 }
