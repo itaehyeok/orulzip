@@ -963,3 +963,12 @@
 .apartment-hover-ranks b {
   font-weight: 800;
 }
+
+.region-hover-count {
+  border-top: 1px solid rgba(16, 24, 40, 0.1);
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 6px;
+  padding-top: 6px;
+}

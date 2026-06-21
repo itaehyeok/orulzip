@@ -1,6 +1,6 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
 @import url("/css/app-base.css?v=20260617-deploy-version-test");
-@import url("/css/app-map.css?v=20260620-mobile-ranking-overlay");
+@import url("/css/app-map.css?v=20260621-region-hover-tooltip");
 @import url("/css/app-map-panels.css?v=20260620-popup-ranking-links");
 @import url("/css/app-design.css?v=20260617-deploy-version-test");
 @import url("/css/app-analytics.css?v=20260621-analytics-user-info");

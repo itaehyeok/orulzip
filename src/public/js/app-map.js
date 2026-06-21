@@ -59,8 +59,9 @@ function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]
   };
 }
 
-function openZoomNaverInfoWindow(position, html) {
+function openZoomNaverInfoWindow(position, html, { pinned = false } = {}) {
   cancelZoomNaverInfoWindowClose();
+  state.zoomNaverInfoWindowPinned = Boolean(pinned);
   if (!state.zoomNaverInfoWindow) {
     state.zoomNaverInfoWindow = new window.naver.maps.InfoWindow({
       borderWidth: 0,
@@ -82,6 +83,7 @@ function scheduleZoomNaverInfoWindowClose(delay = 120) {
   cancelZoomNaverInfoWindowClose();
   state.zoomNaverInfoWindowCloseTimer = setTimeout(() => {
     state.zoomNaverInfoWindowCloseTimer = null;
+    if (state.zoomNaverInfoWindowPinned) return;
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   }, delay);
 }
@@ -1260,6 +1262,7 @@ function clearZoomNaverOverlays() {
     }
   }
   state.zoomNaverOverlays = [];
+  state.zoomNaverInfoWindowPinned = false;
   if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
 }
 
@@ -1281,6 +1284,12 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
+  marker.bindTooltip(regionHoverHtml(item, level), {
+    className: "apartment-hover-tooltip region-hover-tooltip",
+    direction: "top",
+    opacity: 1,
+    sticky: true
+  });
   marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
   marker.on("click", (event) => {
     suppressMapPopupClose();
@@ -1346,11 +1355,16 @@ function renderNaverZoomGroupMarker(item, level) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
+    openZoomNaverInfoWindow(position, regionHoverHtml(item, level));
+  });
+  window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    scheduleZoomNaverInfoWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    cancelZoomNaverInfoWindowClose();
     closeMapApartmentPopup();
-    openZoomNaverInfoWindow(position, zoomGroupPopup(item));
+    openZoomNaverInfoWindow(position, zoomGroupPopup(item), { pinned: true });
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomNaverMap.getZoom()), { exactZoom: true });
   });
   state.zoomNaverOverlays.push(marker);
@@ -1436,6 +1450,77 @@ function apartmentHoverHtml(item) {
     상승률 ${hasData ? renderGrowthRateText(item.growthRate, item.countryRank, item.countryRankTotal) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
     ${rankHtml}
   `;
+}
+
+function regionHoverHtml(item, level = "") {
+  const hasData = item.hasData !== false;
+  const rankRows = regionHoverRankRows(item, level);
+  const rankHtml = rankRows.length
+    ? `
+      <div class="apartment-hover-ranks">
+        ${rankRows.map((row) => `
+          <span>
+            <b>${escapeHtml(row.label)}</b>
+            ${escapeHtml(row.rank)}
+          </span>
+        `).join("")}
+      </div>
+    `
+    : "";
+  const parent = regionHoverParentLabel(item, level);
+  return `
+    <strong>${escapeHtml(regionHoverTitle(item, level))}</strong><br>
+    ${escapeHtml([parent, `${mapAnalyticsPeriodLabel()} 상승률`].filter(Boolean).join(" · "))}<br>
+    상승률 ${hasData ? renderGrowthRateText(item.growthRate, ...regionHoverToneRank(item, level)) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
+    ${rankHtml}
+    ${Number(item.apartmentCount) > 0 ? `<div class="region-hover-count">아파트 ${formatInt(item.apartmentCount)}개</div>` : ""}
+  `;
+}
+
+function regionHoverTitle(item = {}, level = "") {
+  return zoomGroupCurrentLabel(item, level) || item.name || "지역";
+}
+
+function regionHoverParentLabel(item = {}, level = "") {
+  if (level === "sido") return "";
+  if (level === "sigungu") return zoomRankSidoLabel(item);
+  if (level === "dong") {
+    return [zoomRankSidoLabel(item), zoomRankSigunguLabel(item)]
+      .filter((part) => part && !["시도", "시군구"].includes(part))
+      .join(" ");
+  }
+  return "";
+}
+
+function regionHoverRankRows(item = {}, level = "") {
+  const rows = level === "sido" ? [
+    regionHoverRankRow("전국", item.countryRank, item.countryRankTotal)
+  ] : level === "sigungu" ? [
+    regionHoverRankRow(zoomRankSidoLabel(item), item.sidoRank, item.sidoRankTotal),
+    regionHoverRankRow("전국", item.countryRank, item.countryRankTotal)
+  ] : level === "dong" ? [
+    regionHoverRankRow(zoomRankSigunguLabel(item), item.sigunguRank, item.sigunguRankTotal),
+    regionHoverRankRow(zoomRankSidoLabel(item), item.sidoRank, item.sidoRankTotal),
+    regionHoverRankRow("전국", item.countryRank, item.countryRankTotal, { includePercent: true })
+  ] : [];
+  return rows.filter(Boolean);
+}
+
+function regionHoverRankRow(label, rank, total, { includePercent = false } = {}) {
+  const rankText = formatRankText(rank, total);
+  if (rankText === "-") return null;
+  const percentText = includePercent ? formatMarkerTopPercentShort(rank, total) : "";
+  return {
+    label: label || "순위",
+    rank: percentText && percentText !== "-" ? `${rankText}(${percentText})` : rankText
+  };
+}
+
+function regionHoverToneRank(item = {}, level = "") {
+  if (level === "sido") return [item.countryRank, item.countryRankTotal];
+  if (level === "sigungu") return [item.sidoRank, item.sidoRankTotal];
+  if (level === "dong") return [item.sigunguRank, item.sigunguRankTotal];
+  return [item.countryRank, item.countryRankTotal];
 }
 
 function apartmentRegionPath(item = {}) {

@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260621-analytics-user-info";
+  const version = "20260621-region-hover-tooltip";
   const scripts = [
     "app-prelude",
     "app-state",
