@@ -279,7 +279,11 @@ body:not(.map-shell-mode) .map-top-search-panel {
   min-width: 0;
 }
 
-.map-top-search-panel input {
+.map-top-header .map-top-search-panel {
+  padding: 0;
+}
+
+.map-top-header .map-top-search-panel input {
   height: 42px;
   border-radius: 10px;
   font-size: 15px;
