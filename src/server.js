@@ -41,8 +41,7 @@ import {
   buildApartmentAveragePyeongRankings,
   buildApartmentRankings,
   buildNeighborhoodChart,
-  buildNeighborhoodRankings,
-  buildPriceBandRankings
+  buildNeighborhoodRankings
 } from "./services/price-calculator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -103,8 +102,8 @@ const routeSeo = new Map([
     canonicalPath: "/map"
   }],
   ["/price-bands", {
-    title: "가격대별 아파트 상승률 랭킹 - 오를집",
-    description: "3개월, 6개월, 1년, 3년, 5년 기준으로 가격대별 아파트 평균 평당가 상승률 랭킹을 확인하세요.",
+    title: "실거래가 가격대별 아파트 상승률 랭킹 - 오를집",
+    description: "3개월, 6개월, 1년, 3년, 5년 기준으로 실거래가 가격대별 아파트 평균 평당가 상승률 랭킹을 확인하세요.",
     canonicalPath: "/price-bands"
   }],
   ["/apartments", {
@@ -428,27 +427,15 @@ const server = createServer(async (req, res) => {
       const bandKey = url.searchParams.get("bandKey") || "";
       const page = Number(url.searchParams.get("page") || 1);
       const pageSize = Number(url.searchParams.get("pageSize") || 50);
-      const cached = await readPriceBandRankPage({
-        source: "kb",
+      return json(res, await readPriceBandRankPage({
+        source: "molit",
         basis,
         startMonth: filters.start,
         endMonth: filters.end,
         bandKey,
         page,
         pageSize
-      });
-      if (cached.cache.hit) return json(res, cached);
-      const dataset = await readDatasetFromDb();
-      return json(res, {
-        ...buildPriceBandRankings(dataset, {
-          ...filters,
-          basis,
-          bandKey,
-          page,
-          pageSize
-        }),
-        cache: cached.cache
-      });
+      }));
     }
 
     if (url.pathname === "/api/zoom-map-summary") {

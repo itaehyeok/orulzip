@@ -149,7 +149,7 @@ function formatMapCacheLabel(cache) {
 
 function formatPriceBandCacheLabel(cache) {
   if (!cache) return "";
-  if (cache.hit === false) return "실시간 계산";
+  if (cache.hit === false) return "실거래가 캐시 없음";
   if (!cache.updatedAt) return "";
   const updatedAt = new Date(cache.updatedAt);
   const today = new Date();
