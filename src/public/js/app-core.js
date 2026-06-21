@@ -430,6 +430,7 @@ async function loadActiveViewData() {
   const params = queryParams();
 
   if (isMapTab()) {
+    if (await prepareMapApartmentFocusFromUrl()) return;
     await loadZoomMapSummary();
     return;
   }

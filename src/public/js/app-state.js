@@ -78,6 +78,7 @@ const state = {
   mapRankingPreserveUntil: 0,
   mapRankingMobileOpen: false,
   mapRankingOverPopup: false,
+  pendingMapApartmentFocus: null,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
   mapPopupCloseSuppressedUntil: 0,

@@ -235,6 +235,7 @@ function renderPriceBandTable(result, basisBands = null) {
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
+            <a href="${escapeHtml(priceBandMapApartmentLink(row))}" data-price-band-map-link data-apartment-id="${escapeHtml(row.apartmentId || "")}">지도에서 보기</a>
             <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
             <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
           </span>
@@ -246,6 +247,7 @@ function renderPriceBandTable(result, basisBands = null) {
     : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
   bindPriceBandAreaMoreToggles();
+  bindPriceBandMapLinks();
 }
 
 function bindPriceBandAreaMoreToggles() {
@@ -260,6 +262,19 @@ function bindPriceBandAreaMoreToggles() {
       button.setAttribute("aria-expanded", isOpen ? "false" : "true");
       const action = button.querySelector(".price-band-area-more-action");
       if (action) action.textContent = isOpen ? "보기" : "접기";
+    });
+  });
+}
+
+function bindPriceBandMapLinks() {
+  els.priceBandRows?.querySelectorAll("[data-price-band-map-link]").forEach((link) => {
+    link.addEventListener("click", async (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      const apartmentId = link.dataset.apartmentId || "";
+      if (!apartmentId) return;
+      event.preventDefault();
+      window.history.pushState({ tab: "molitMap" }, "", priceBandMapApartmentLink({ apartmentId }));
+      await activateTab("molitMap", { push: false });
     });
   });
 }
@@ -354,6 +369,12 @@ function formatPriceBandLocation(row) {
 function naverApartmentLink(row) {
   const query = compactSearchQuery([row.address, row.apartmentName]) || row.apartmentName || "";
   return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
+
+function priceBandMapApartmentLink(row) {
+  const params = new URLSearchParams();
+  if (row.apartmentId) params.set("focusApartmentId", row.apartmentId);
+  return `/map?${params}`;
 }
 
 function hogangnonoApartmentLink(row) {

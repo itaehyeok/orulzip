@@ -209,6 +209,75 @@ function shouldSuppressZoomMapLoad() {
   return false;
 }
 
+async function prepareMapApartmentFocusFromUrl() {
+  if (!isMapTab() || currentMapSource() !== "molit") return false;
+  const focus = mapApartmentFocusFromUrl();
+  if (!focus?.apartmentId) return false;
+  if (state.pendingMapApartmentFocus?.id === focus.apartmentId && !state.pendingMapApartmentFocus.resolved) {
+    return false;
+  }
+
+  const params = new URLSearchParams({
+    apartmentId: focus.apartmentId
+  });
+  if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
+  if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+
+  const detail = await api(`/api/molit-apartment-detail?${params}`).catch(() => null);
+  const apartment = detail?.apartment;
+  if (!apartment || !Number.isFinite(Number(apartment.lat)) || !Number.isFinite(Number(apartment.lng))) {
+    clearMapApartmentFocusUrl();
+    return false;
+  }
+
+  const item = {
+    ...apartment,
+    id: apartment.id || focus.apartmentId,
+    name: apartment.name || focus.apartmentId,
+    lat: Number(apartment.lat),
+    lng: Number(apartment.lng)
+  };
+  state.pendingMapApartmentFocus = {
+    id: item.id,
+    item,
+    resolved: false
+  };
+
+  if (!(await initZoomMap())) return false;
+  closeMapApartmentPopup();
+  setFocusedMapApartment(item);
+  moveZoomMapTo(item, apartmentMapZoom, { exactZoom: true });
+  setTimeout(() => {
+    if (state.pendingMapApartmentFocus?.id === item.id && !state.pendingMapApartmentFocus.resolved && isMapTab()) {
+      loadZoomMapSummary();
+    }
+  }, Math.round(animatedMapMoveDuration * 1000) + 300);
+  return true;
+}
+
+function mapApartmentFocusFromUrl() {
+  const params = new URLSearchParams(window.location.search || "");
+  const apartmentId = String(params.get("focusApartmentId") || "").trim();
+  return apartmentId ? { apartmentId } : null;
+}
+
+function resolvePendingMapApartmentFocus(items = []) {
+  const pending = state.pendingMapApartmentFocus;
+  if (!pending?.id || pending.resolved) return;
+  const item = items.find((entry) => entry?.id === pending.id) || pending.item;
+  if (!item || !state.mapApartmentMarkerRefs.has(pending.id)) return;
+  setFocusedMapApartment(item);
+  state.pendingMapApartmentFocus = { ...pending, item, resolved: true };
+  clearMapApartmentFocusUrl();
+}
+
+function clearMapApartmentFocusUrl() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("focusApartmentId")) return;
+  url.searchParams.delete("focusApartmentId");
+  window.history.replaceState({ tab: state.activeTab }, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 async function loadZoomMapSummary() {
   if (!(await initZoomMap())) return;
   const requestId = ++state.zoomMapRequestId;
@@ -326,6 +395,8 @@ function renderZoomMapSummary(data) {
   const renderZoom = Number(currentZoomMapView()?.zoom);
   const transitionMode = mapTransitionModeForRender(data.level);
   renderZoomMapItemsWithTransition(items, data.level, { mode: transitionMode });
+  const focusResolveDelay = transitionMode === "current" ? 0 : 340;
+  setTimeout(() => resolvePendingMapApartmentFocus(items), focusResolveDelay);
   state.lastZoomMapRenderZoom = Number.isFinite(renderZoom) ? renderZoom : null;
   state.lastZoomMapRenderLevel = data.level || null;
 }
