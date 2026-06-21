@@ -240,11 +240,10 @@ function renderPriceBandTable(result, basisBands = null) {
           </span>
         </td>
         <td>${escapeHtml(formatPriceBandLocation(row))}</td>
-        <td>${renderPriceBandChangeCell(row)}</td>
-        <td>${renderPriceBandGrowthCell(row)}</td>
+        <td>${renderPriceBandAreaBreakdownCell(row)}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="5" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
+    : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
 }
 
@@ -257,7 +256,7 @@ function renderPriceBandLoadingState() {
   if (els.priceBandRows) {
     els.priceBandRows.innerHTML = `
       <tr>
-        <td colspan="5" class="empty price-band-loading-cell">
+        <td colspan="4" class="empty price-band-loading-cell">
           <div class="price-band-loading">
             <span class="price-band-loading-spinner" aria-hidden="true"></span>
             <strong>랭킹을 불러오는 중입니다.</strong>
@@ -357,7 +356,7 @@ function priceBandApartmentMeta(row) {
   return parts.join(" · ");
 }
 
-function renderPriceBandChangeCell(row) {
+function renderPriceBandAreaBreakdownCell(row) {
   const summaries = priceBandAreaSummaries(row);
   const primary = summaries[0];
   const secondary = summaries[1];
@@ -365,14 +364,14 @@ function renderPriceBandChangeCell(row) {
   if (!primary) return "-";
 
   return `
-    <div class="price-band-area-stack price-band-change-stack">
-      ${renderPriceBandChangeLine(primary, "primary")}
-      ${secondary ? renderPriceBandChangeLine(secondary, "secondary") : ""}
+    <div class="price-band-area-breakdown">
+      ${renderPriceBandAreaBreakdownLine(primary, "primary")}
+      ${secondary ? renderPriceBandAreaBreakdownLine(secondary, "secondary") : ""}
       ${hidden.length ? `
         <details class="price-band-area-more">
           <summary>외 ${formatInt(hidden.length)}개 평형</summary>
           <div>
-            ${hidden.map((item) => renderPriceBandChangeLine(item, "secondary")).join("")}
+            ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
           </div>
         </details>
       ` : ""}
@@ -380,48 +379,15 @@ function renderPriceBandChangeCell(row) {
   `;
 }
 
-function renderPriceBandGrowthCell(row) {
-  const summaries = priceBandAreaSummaries(row);
-  const primary = summaries[0];
-  const secondary = summaries[1];
-  const hidden = summaries.slice(2);
-  if (!primary) return "-";
-
-  return `
-    <div class="price-band-area-stack price-band-growth-stack">
-      ${renderPriceBandGrowthLine(primary, "primary")}
-      ${secondary ? renderPriceBandGrowthLine(secondary, "secondary") : ""}
-      ${hidden.length ? `
-        <details class="price-band-area-more compact">
-          <summary>외 ${formatInt(hidden.length)}개</summary>
-          <div>
-            ${hidden.map((item) => renderPriceBandGrowthLine(item, "secondary")).join("")}
-          </div>
-        </details>
-      ` : ""}
-    </div>
-  `;
-}
-
-function renderPriceBandChangeLine(item, tone) {
+function renderPriceBandAreaBreakdownLine(item, tone) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
+  const rateTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
   return `
-    <div class="price-band-area-line ${tone}">
-      <strong>
-        <span>${escapeHtml(item.areaLabel || "-")}</span>
-        <b class="${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b>
-      </strong>
-      <em>${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</em>
-    </div>
-  `;
-}
-
-function renderPriceBandGrowthLine(item, tone) {
-  const growthTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
-  return `
-    <div class="price-band-growth-line ${tone}">
-      <span>${escapeHtml(item.areaLabel || "-")}</span>
-      <strong class="${growthTone}">${formatPercent(item.growthRate)}</strong>
+    <div class="price-band-area-breakdown-line ${tone}">
+      <strong class="price-band-area-label">${escapeHtml(item.areaLabel || "-")}</strong>
+      <span class="price-band-area-range">${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</span>
+      <b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b>
+      <strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>
     </div>
   `;
 }
@@ -766,5 +732,5 @@ function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
   els.apartmentRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
-  if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="5" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
+  if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="4" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
 }

@@ -53,49 +53,45 @@ td:nth-child(4) {
   text-align: left;
 }
 
-.price-band-table th:nth-child(5),
-.price-band-table td:nth-child(5) {
-  text-align: right;
-}
-
-.price-band-area-stack {
+.price-band-area-breakdown {
   display: grid;
-  gap: 6px;
-  min-width: 180px;
+  gap: 8px;
+  min-width: 680px;
 }
 
-.price-band-area-line {
+.price-band-area-breakdown-line {
   display: grid;
-  gap: 2px;
-}
-
-.price-band-area-line strong,
-.price-band-growth-line {
-  display: flex;
+  grid-template-columns: minmax(76px, max-content) minmax(210px, 1fr) minmax(112px, max-content) minmax(72px, max-content);
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 18px;
 }
 
-.price-band-area-line.primary strong,
-.price-band-growth-line.primary strong {
+.price-band-area-breakdown-line.primary {
   color: var(--text);
   font-size: 14px;
   font-weight: 900;
 }
 
-.price-band-area-line.secondary strong,
-.price-band-growth-line.secondary {
+.price-band-area-breakdown-line.secondary {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
 
-.price-band-area-line em {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
+.price-band-area-label,
+.price-band-area-range,
+.price-band-area-amount,
+.price-band-area-rate {
+  white-space: nowrap;
+}
+
+.price-band-area-range {
+  color: #667085;
+}
+
+.price-band-area-amount,
+.price-band-area-rate {
+  text-align: right;
 }
 
 .price-band-area-more {
@@ -124,17 +120,8 @@ td:nth-child(4) {
 
 .price-band-area-more > div {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin-top: 6px;
-}
-
-.price-band-growth-stack {
-  min-width: 120px;
-}
-
-.price-band-growth-line span {
-  color: var(--muted);
-  font-weight: 800;
 }
 
 .clickable-row {
