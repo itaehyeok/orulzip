@@ -176,11 +176,13 @@ function bindEvents() {
     state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
     state.priceBandKey = button.dataset.priceBandKey || "";
     state.priceBandPage = 1;
+    renderPriceBandLoadingState();
     refresh();
   });
   els.priceBandPageSizeSelect?.addEventListener("change", () => {
     state.priceBandPageSize = Number(els.priceBandPageSizeSelect.value) || 50;
     state.priceBandPage = 1;
+    renderPriceBandLoadingState();
     refresh();
   });
   els.analyticsDaysSelect?.addEventListener("change", () => {
@@ -203,6 +205,7 @@ function bindEvents() {
     const button = event.target.closest("[data-price-band-page]");
     if (!button) return;
     state.priceBandPage = Number(button.dataset.priceBandPage) || 1;
+    renderPriceBandLoadingState();
     refresh();
   });
 
@@ -457,6 +460,8 @@ async function loadActiveViewData() {
   }
 
   if (state.activeTab === "priceBands") {
+    const requestId = ++state.priceBandRequestId;
+    renderPriceBandLoadingState();
     const priceBandParams = new URLSearchParams(params);
     priceBandParams.set("basis", state.priceBandBasis);
     if (state.priceBandKey !== "") priceBandParams.set("bandKey", state.priceBandKey);
@@ -471,6 +476,7 @@ async function loadActiveViewData() {
       api(`/api/price-band-rankings?${priceBandParams}`),
       api(`/api/price-band-rankings?${otherPriceBandParams}`)
     ]);
+    if (state.activeTab !== "priceBands" || requestId !== state.priceBandRequestId) return;
     renderPriceBandTable(result, {
       start: result.basis === "start" ? result.bands : otherResult.bands,
       end: result.basis === "end" ? result.bands : otherResult.bands

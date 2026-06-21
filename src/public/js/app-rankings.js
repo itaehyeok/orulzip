@@ -205,6 +205,7 @@ function renderApartmentPagination(pagination) {
 
 function renderPriceBandTable(result, basisBands = null) {
   syncPriceBandBasisButtons();
+  els.priceBandView?.removeAttribute("aria-busy");
   if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
   state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
     ? ""
@@ -257,6 +258,28 @@ function renderPriceBandTable(result, basisBands = null) {
   renderPriceBandPagination(pagination);
 }
 
+function renderPriceBandLoadingState() {
+  syncPriceBandBasisButtons();
+  updatePriceBandSummaryActiveState(state.priceBandBasis, state.priceBandKey);
+  const basisLabel = state.priceBandBasis === "end" ? "현재 가격대" : "과거 가격대";
+  const selectedBandLabel = currentPriceBandChipLabel() || "가격대";
+  if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
+  if (els.priceBandCount) els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · 불러오는 중`;
+  if (els.priceBandRows) {
+    els.priceBandRows.innerHTML = `
+      <tr>
+        <td colspan="8" class="empty price-band-loading-cell">
+          <div class="price-band-loading">
+            <span class="price-band-loading-spinner" aria-hidden="true"></span>
+            <strong>랭킹을 불러오는 중입니다.</strong>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+  if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
+}
+
 function renderPriceBandSummary(basisBands, selectedBasis, selectedBandKey) {
   if (!els.priceBandSummary) return;
   const groups = [
@@ -285,12 +308,32 @@ function renderPriceBandChip(band, group, selectedBasis, selectedBandKey) {
       class="price-band-chip ${isActive ? "active" : ""}"
       data-price-band-basis="${group.basis}"
       data-price-band-key="${escapeHtml(band.bandKey)}"
+      aria-pressed="${isActive ? "true" : "false"}"
     >
       <strong>${group.prefix} ${escapeHtml(band.bandLabel)}</strong>
       <span>${formatInt(band.apartmentCount)}개</span>
       <em>최고 ${formatPercent(band.topGrowthRate)}</em>
     </button>
   `;
+}
+
+function updatePriceBandSummaryActiveState(selectedBasis, selectedBandKey) {
+  if (!els.priceBandSummary) return;
+  els.priceBandSummary.querySelectorAll("[data-price-band-key]").forEach((button) => {
+    const isActive = button.dataset.priceBandBasis === selectedBasis
+      && String(button.dataset.priceBandKey || "") === String(selectedBandKey || "");
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function currentPriceBandChipLabel() {
+  if (!els.priceBandSummary) return "";
+  const activeButton = [...els.priceBandSummary.querySelectorAll("[data-price-band-key]")]
+    .find((button) => button.dataset.priceBandBasis === state.priceBandBasis
+      && String(button.dataset.priceBandKey || "") === String(state.priceBandKey || ""));
+  const label = activeButton?.querySelector("strong")?.textContent?.trim() || "";
+  return label.replace(/^(과거|현재)\s+/, "");
 }
 
 function formatPriceBandLocation(row) {

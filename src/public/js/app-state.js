@@ -103,6 +103,7 @@ const state = {
   priceBandKey: "",
   priceBandPage: 1,
   priceBandPageSize: 50,
+  priceBandRequestId: 0,
   markerLineGapPx: null,
   regionMarkerDesignByLevel: null,
   regionMarkerDisplayByLevel: null,
