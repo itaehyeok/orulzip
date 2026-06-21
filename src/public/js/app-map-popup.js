@@ -245,8 +245,8 @@ function mapPopupRankRows(rankSummary, apartment = {}) {
       total: rankSummary.sigunguRankTotal
     },
     {
-      mode: "",
-      key: "",
+      mode: "sido",
+      key: mapPopupApartmentSidoCode(apartment),
       label: shortRegionLabel(rankSummary.sidoName || apartment?.sidoName || "") || "시",
       rank: rankSummary.sidoRank,
       total: rankSummary.sidoRankTotal
@@ -303,6 +303,10 @@ function mapPopupApartmentDongKey(apartment = {}) {
 
 function mapPopupApartmentSigunguCode(apartment = {}) {
   return String(apartment?.sigunguCode || apartment?.legalDongCode || "").slice(0, 5);
+}
+
+function mapPopupApartmentSidoCode(apartment = {}) {
+  return String(apartment?.sidoCode || apartment?.sigunguCode || apartment?.legalDongCode || apartment?.dongKey || "").slice(0, 2);
 }
 
 function averagePyeongAtMonth(series, yearMonth) {
