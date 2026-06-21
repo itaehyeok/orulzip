@@ -1033,7 +1033,7 @@ function updateFocusedMapApartmentMarker(apartmentId, selected) {
         apartmentMarkerHtml(ref.item, ref.design),
         ref.size[0],
         ref.size[1],
-        apartmentMarkerIconAnchor(ref.size, ref.design)
+        apartmentMarkerIconAnchor(ref.size, ref.design, ref.item)
       ));
     }
     setNaverMarkerZIndex(ref.marker, selected ? nextZoomMarkerTopZIndex() : ref.baseZIndex);
@@ -1313,7 +1313,7 @@ function renderZoomApartmentMarker(item) {
       className: "apartment-map-marker-shell",
       html: apartmentMarkerHtml(item, design),
       iconSize: [width, height],
-      iconAnchor: apartmentMarkerIconAnchor([width, height], design)
+      iconAnchor: apartmentMarkerIconAnchor([width, height], design, item)
     })
   }).addTo(state.zoomMapLayer);
   registerMapApartmentMarkerRef(item, {
@@ -1379,7 +1379,7 @@ function renderNaverZoomApartmentMarker(item) {
     position,
     map: state.zoomNaverMap,
     zIndex: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
-    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, apartmentMarkerIconAnchor([width, height], design))
+    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, apartmentMarkerIconAnchor([width, height], design, item))
   });
   registerMapApartmentMarkerRef(item, {
     provider: "naver",

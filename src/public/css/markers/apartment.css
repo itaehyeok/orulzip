@@ -145,6 +145,46 @@
   --rank-badge-text: #ffffff;
 }
 
+.apartment-rank-marker.apartment-marker-no-data {
+  display: inline-grid;
+  place-items: center;
+  gap: 1px;
+  width: 56px;
+  min-width: 56px;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  background: var(--rank-bg);
+  box-shadow: 0 8px 16px rgba(16, 24, 40, 0.18);
+  color: var(--rank-text);
+  line-height: 1.05;
+  padding: 5px 6px;
+  text-align: center;
+}
+
+.apartment-rank-marker.apartment-marker-no-data::before {
+  display: none;
+}
+
+.apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-period,
+.apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-message {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  color: currentColor;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-period {
+  font-size: 8.5px;
+}
+
+.apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-message {
+  font-size: 9px;
+}
+
 .apartment-rank-marker.selected {
   box-shadow: none;
   filter: none;

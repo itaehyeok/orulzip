@@ -5,6 +5,7 @@ function apartmentMarkerHtml(item, design = activeApartmentMarkerDesign()) {
 
 function apartmentMarkerLegacyHtml(item, design = activeApartmentMarkerDesign()) {
   const hasData = item.hasData !== false;
+  if (!hasData) return apartmentMarkerNoDataHtml(item);
   const display = activeApartmentMarkerDisplay();
   const style = activeApartmentMarkerStyle(design);
   const rankLines = apartmentMarkerRankLines(item);
@@ -32,6 +33,7 @@ function apartmentMarkerLegacyHtml(item, design = activeApartmentMarkerDesign())
 
 function apartmentMarkerRegionLikeHtml(item, design = activeApartmentMarkerDesign()) {
   const hasData = item.hasData !== false;
+  if (!hasData) return apartmentMarkerNoDataHtml(item);
   const display = activeApartmentMarkerDisplay();
   const style = activeApartmentMarkerStyle(design);
   const rankLines = hasData ? apartmentMarkerRankLines(item) : [];
@@ -66,6 +68,22 @@ function apartmentMarkerRegionLikeHtml(item, design = activeApartmentMarkerDesig
       ` : ""}
     </div>
   `;
+}
+
+function apartmentMarkerNoDataHtml(item = {}) {
+  const isSelected = item.id && item.id === state.focusedMapApartmentId;
+  const name = String(item.name || "").trim();
+  return `
+    <div class="apartment-map-marker apartment-rank-marker apartment-marker-no-data no-data ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="--marker-color:${growthColor(item.growthRate)};">
+      <span class="apartment-marker-no-data-period">${escapeHtml(apartmentMarkerNoDataPeriodLabel())}</span>
+      <strong class="apartment-marker-no-data-message">거래 없음</strong>
+    </div>
+  `;
+}
+
+function apartmentMarkerNoDataPeriodLabel() {
+  const label = typeof activeMarkerPeriodLabel === "function" ? activeMarkerPeriodLabel() : "1년";
+  return `${String(label || "1년").replace(/전$/, "")}전`;
 }
 
 function apartmentMarkerRankLines(item) {
@@ -127,6 +145,7 @@ function apartmentMarkerAreaLabel(item = {}) {
 }
 
 function apartmentMarkerIconSize(design = activeApartmentMarkerDesign(), item = null) {
+  if (item?.hasData === false) return apartmentMarkerNoDataIconSize();
   if (activeApartmentMarkerMode() !== "legacy") return apartmentMarkerRegionIconSize(item, design);
   const style = activeApartmentMarkerStyle(design);
   const display = activeApartmentMarkerDisplay();
@@ -144,12 +163,17 @@ function apartmentMarkerIconSize(design = activeApartmentMarkerDesign(), item = 
   return [style.outerBoxWidth + markerRankWidthExtra("apartment"), Math.max(52, height)];
 }
 
-function apartmentMarkerIconAnchor(size, design = activeApartmentMarkerDesign()) {
+function apartmentMarkerIconAnchor(size, design = activeApartmentMarkerDesign(), item = null) {
+  if (item?.hasData === false) return [size[0] / 2, size[1] / 2];
   if (activeApartmentMarkerMode() !== "legacy") return [size[0] / 2, size[1] / 2];
   const style = activeApartmentMarkerStyle(design);
   const [, height] = size;
   const y = Math.max(10, Math.min(height - 4, height - 18 + style.tailOffset));
   return [0, y];
+}
+
+function apartmentMarkerNoDataIconSize() {
+  return [68, 38];
 }
 
 function apartmentMarkerRegionStyleInline(item, design = activeApartmentMarkerDesign()) {
