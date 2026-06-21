@@ -1,5 +1,4 @@
 const mapPopupTradeComparisonMonths = [3, 6, 12, 36, 60];
-const mapPopupVisibleTradeComparisonMonth = 12;
 
 async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
@@ -389,14 +388,16 @@ function renderMapPopupTradeHistory(item) {
 }
 
 function renderMapPopupTradeRow(item, trade) {
-  const comparison = mapPopupTradeGrowthComparison(item, trade, mapPopupVisibleTradeComparisonMonth);
+  const comparison = mapPopupTradeGrowthComparison(item, trade, mapPopupVisibleTradeComparisonMonth());
   const floorLabel = Number.isFinite(Number(trade.floor)) ? `${formatInt(trade.floor)}층` : "-";
   return `
     <div class="map-popup-trade-row">
-      <span>${escapeHtml(mapPopupTradeDateLabel(trade))}</span>
-      <strong>${formatKoreanPrice(trade.dealAmount)}</strong>
-      <em>${escapeHtml(floorLabel)}</em>
-      ${renderMapPopupTradeGrowth(comparison)}
+      <span class="map-popup-trade-date">${escapeHtml(mapPopupTradeDateLabel(trade))}</span>
+      <strong class="map-popup-trade-summary">
+        <span class="map-popup-trade-floor">${escapeHtml(floorLabel)}</span>
+        <span class="map-popup-trade-deal">거래가 ${escapeHtml(formatKoreanPrice(trade.dealAmount))}</span>
+        ${renderMapPopupTradeGrowth(comparison)}
+      </strong>
     </div>
   `;
 }
@@ -409,11 +410,14 @@ function mapPopupTradeDateLabel(trade) {
 
 function renderMapPopupTradeGrowth(comparison) {
   if (!comparison || !Number.isFinite(comparison.growthRate)) {
-    return `<b class="map-popup-trade-growth no-data">1년전 없음</b>`;
+    return `<b class="map-popup-trade-growth no-data">기준 평균가 없음</b>`;
   }
   const tone = mapPopupTradeGrowthTone(comparison.growthRate);
   return `
-    <b class="map-popup-trade-growth ${tone}" title="${escapeHtml(formatMonth(comparison.baseMonth))} 월평균 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
+    <b class="map-popup-trade-delta ${tone}" title="${escapeHtml(formatMonth(comparison.baseMonth))} 기준 평균가 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
+      ${escapeHtml(mapPopupSignedKoreanPrice(comparison.growthAmount))}<span>(기준 평균가 대비)</span>
+    </b>
+    <b class="map-popup-trade-growth ${tone}">
       ${escapeHtml(mapPopupTradeGrowthText(comparison.growthRate))}
     </b>
   `;
@@ -421,10 +425,16 @@ function renderMapPopupTradeGrowth(comparison) {
 
 function mapPopupTradeHeaderComparisonLabel(item, trades) {
   const latestTrade = trades[0];
-  if (!latestTrade) return "1년전 대비";
-  const comparison = mapPopupTradeGrowthComparison(item, latestTrade, mapPopupVisibleTradeComparisonMonth);
-  const month = comparison?.requestedMonth || shiftCompactMonth(latestTrade.yearMonth, -mapPopupVisibleTradeComparisonMonth);
-  return month ? `1년전(${formatKoreanYearMonth(month)}) 대비` : "1년전 대비";
+  const monthCount = mapPopupVisibleTradeComparisonMonth();
+  if (!latestTrade) return "기준 평균가 대비";
+  const comparison = mapPopupTradeGrowthComparison(item, latestTrade, monthCount);
+  const month = comparison?.requestedMonth || shiftCompactMonth(latestTrade.yearMonth, -monthCount);
+  return month ? `기준 평균가(${formatKoreanYearMonth(month)}) 대비` : "기준 평균가 대비";
+}
+
+function mapPopupVisibleTradeComparisonMonth() {
+  const months = typeof currentPeriodMonths === "function" ? Number(currentPeriodMonths()) : 12;
+  return mapPopupTradeComparisonMonths.includes(months) ? months : 12;
 }
 
 function mapPopupTradeGrowthTone(rate) {
@@ -440,6 +450,13 @@ function mapPopupTradeGrowthText(rate) {
   if (value > 0) return `${percent} 상승`;
   if (value < 0) return `${percent} 하락`;
   return percent;
+}
+
+function mapPopupSignedKoreanPrice(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  if (number === 0) return "0만";
+  return `${number > 0 ? "+" : ""}${formatSignedKoreanPrice(number)}`;
 }
 
 function formatKoreanYearMonth(yearMonth) {
@@ -466,6 +483,8 @@ function mapPopupTradeGrowthComparisons(item, trade) {
       requestedMonth: baseMonth,
       baseMonth: base.yearMonth,
       baseSaleMid,
+      dealAmount,
+      growthAmount: dealAmount - baseSaleMid,
       growthRate: (dealAmount - baseSaleMid) / baseSaleMid
     }];
   }));
