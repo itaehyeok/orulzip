@@ -124,6 +124,7 @@
 
 .price-band-design-area b,
 .price-band-design-area span,
+.price-band-design-area i,
 .price-band-design-area em,
 .price-band-design-area strong,
 .price-band-design-area button {
@@ -150,13 +151,9 @@
 .price-band-design-area.secondary span,
 .price-band-design-area.secondary em,
 .price-band-design-area.secondary strong {
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.price-band-design-area.secondary b,
-.price-band-design-area.secondary span {
   color: #667085;
+  font-size: 11.5px;
+  font-weight: 800;
 }
 
 .price-band-design-area button {
@@ -171,68 +168,70 @@
   padding: 0 9px;
 }
 
-.price-band-design-grouped .price-band-design-area {
-  grid-template-columns: 78px minmax(210px, max-content) max-content max-content;
+.variant-01-a .price-band-design-area.secondary {
+  margin-top: 6px;
 }
 
-.price-band-design-grouped .price-band-design-area i {
+.variant-01-b .price-band-design-area.secondary {
+  margin-top: 5px;
+}
+
+.variant-01-b .price-band-design-area.secondary b,
+.variant-01-b .price-band-design-area.secondary span,
+.variant-01-b .price-band-design-area.secondary em,
+.variant-01-b .price-band-design-area.secondary strong {
+  font-size: 10.5px;
+  font-weight: 760;
+}
+
+.variant-01-c .price-band-design-area.secondary {
+  margin-top: 5px;
+}
+
+.variant-01-c .price-band-design-area.secondary b,
+.variant-01-c .price-band-design-area.secondary span,
+.variant-01-c .price-band-design-area.secondary em,
+.variant-01-c .price-band-design-area.secondary strong {
+  color: #98a2b3;
+  font-size: 10.5px;
+  font-weight: 720;
+}
+
+.price-band-design-main-chip .price-band-design-area {
+  grid-template-columns: 80px minmax(210px, max-content) max-content max-content;
+}
+
+.price-band-design-main-chip .price-band-design-area.primary i {
   display: inline-flex;
   gap: 8px;
   align-items: baseline;
   justify-content: flex-end;
   border-radius: 999px;
-  background: #fff5f3;
-  padding: 4px 8px;
-}
-
-.price-band-design-grouped .price-band-design-area i em,
-.price-band-design-grouped .price-band-design-area i strong {
-  font-size: 12px;
-}
-
-.price-band-design-plain .price-band-design-area {
-  grid-template-columns: 80px minmax(210px, max-content) minmax(94px, max-content) minmax(58px, max-content) max-content;
-}
-
-.price-band-design-plain .price-band-design-area em,
-.price-band-design-plain .price-band-design-area strong {
-  color: #344054;
-}
-
-.price-band-design-chip .price-band-design-area em,
-.price-band-design-chip .price-band-design-area strong {
-  border-radius: 999px;
   background: #fff1ee;
-  padding: 4px 8px;
+  padding: 4px 9px;
 }
 
-.price-band-design-aside .price-band-design-area {
-  grid-template-columns: 80px minmax(210px, max-content) minmax(94px, max-content) minmax(58px, max-content) minmax(96px, 1fr);
-}
-
-.price-band-design-aside .price-band-design-area button {
-  justify-self: end;
-}
-
-.price-band-design-dense th,
-.price-band-design-dense td {
-  padding-top: 9px;
-  padding-bottom: 9px;
-}
-
-.price-band-design-dense .price-band-design-area {
-  gap: 8px;
-}
-
-.price-band-design-dense .price-band-design-area + .price-band-design-area {
-  margin-top: 4px;
-}
-
-.price-band-design-dense .price-band-design-area b,
-.price-band-design-dense .price-band-design-area span,
-.price-band-design-dense .price-band-design-area em,
-.price-band-design-dense .price-band-design-area strong {
+.price-band-design-main-chip .price-band-design-area.primary i em,
+.price-band-design-main-chip .price-band-design-area.primary i strong {
   font-size: 12px;
+}
+
+.price-band-design-main-chip .price-band-design-area.secondary em,
+.price-band-design-main-chip .price-band-design-area.secondary strong {
+  background: transparent;
+  padding: 0;
+}
+
+.variant-02-b .price-band-design-area.secondary b,
+.variant-02-b .price-band-design-area.secondary span,
+.variant-02-b .price-band-design-area.secondary em,
+.variant-02-b .price-band-design-area.secondary strong {
+  font-size: 10.5px;
+  font-weight: 760;
+}
+
+.variant-02-b .price-band-design-area + .price-band-design-area {
+  margin-top: 5px;
 }
 
 .map-header-design-grid,
