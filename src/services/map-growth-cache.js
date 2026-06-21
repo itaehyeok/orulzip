@@ -335,6 +335,12 @@ async function readCachedApartmentRankingScope({ snapshot, filters, source, scop
     orderField = "sigungu_rank";
     rankSource = "sigungu-apartment-rank";
     limit = 5000;
+  } else if (scope.type === "sido") {
+    params.push(scope.key);
+    whereClause = "and coalesce(nullif(sido_code, ''), substring(dong_key from 1 for 2)) = $2";
+    orderField = "sido_rank";
+    rankSource = "sido-apartment-rank";
+    limit = 10000;
   } else if (scope.type === "country") {
     orderField = "country_rank";
     rankSource = "country-apartment-rank";
@@ -382,6 +388,11 @@ function normalizedApartmentRankingScope(value, filters) {
   const sigunguCode = normalizedApartmentScopeKey(filters.sigunguCode);
   if (requestedScope === "sigungu" && sigunguCode) {
     return { type: "sigungu", key: sigunguCode };
+  }
+
+  const sidoCode = normalizedApartmentScopeKey(filters.sidoCode);
+  if (requestedScope === "sido" && sidoCode) {
+    return { type: "sido", key: sidoCode };
   }
 
   if (requestedScope === "country") {

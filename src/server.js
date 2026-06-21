@@ -450,6 +450,7 @@ const server = createServer(async (req, res) => {
         west: optionalNumber(url.searchParams.get("west")),
         dongKey: url.searchParams.get("dongKey") || "",
         sigunguCode: url.searchParams.get("sigunguCode") || "",
+        sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || ""
       };
       const cached = await readCachedZoomMapSummary(filters);
@@ -474,6 +475,7 @@ const server = createServer(async (req, res) => {
         west: optionalNumber(url.searchParams.get("west")),
         dongKey: url.searchParams.get("dongKey") || "",
         sigunguCode: url.searchParams.get("sigunguCode") || "",
+        sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || ""
       };
       const cached = await readCachedZoomMapSummary(filters);

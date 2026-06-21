@@ -649,7 +649,7 @@ function syncMapRankingOverlayClasses(available) {
 }
 
 function openMapRankingFromPopupScope({ mode, key, label, total } = {}) {
-  const normalizedMode = ["dong", "sigungu", "country"].includes(mode) ? mode : "";
+  const normalizedMode = ["dong", "sigungu", "sido", "country"].includes(mode) ? mode : "";
   const normalizedKey = normalizedMode === "country" ? "country" : String(key || "").trim();
   if (!normalizedMode || !normalizedKey || !els.mapApartmentRanking || !els.mapRankingSection) return;
 
@@ -775,6 +775,7 @@ function renderMapRankingTabs(scopes, mode) {
     { mode: "viewport", label: "지도 내" },
     scopes.dong,
     scopes.sigungu,
+    scopes.sido,
     scopes.country
   ].filter(Boolean);
   els.mapRankingTabs.innerHTML = `
@@ -796,6 +797,8 @@ function renderMapRankingTabs(scopes, mode) {
           dongName: scopes.dong?.scopeLabel || "",
           sigunguCode: scopes.sigungu?.key || "",
           sigunguName: scopes.sigungu?.scopeLabel || "",
+          sidoCode: scopes.sido?.key || "",
+          sidoName: scopes.sido?.scopeLabel || "",
           scopeName: nextScope?.scopeLabel || "",
           mapSource: currentMapSource(),
           periodLabel: mapAnalyticsPeriodLabel()
@@ -819,6 +822,7 @@ async function loadMapScopedRankingRows(scope) {
     params.set("rankingScope", scope.mode);
     if (scope.mode === "dong") params.set("dongKey", scope.key);
     if (scope.mode === "sigungu") params.set("sigunguCode", scope.key);
+    if (scope.mode === "sido") params.set("sidoCode", scope.key);
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
@@ -855,7 +859,7 @@ async function loadMapScopedRankingRows(scope) {
 
 function closestMapRankingScopes(rows) {
   const candidates = rows.filter((item) => item.id);
-  if (!candidates.length) return { dong: null, sigungu: null, country: null };
+  if (!candidates.length) return { dong: null, sigungu: null, sido: null, country: null };
   const center = currentZoomMapCenter();
   const closest = center
     ? candidates.reduce((best, item) => {
@@ -867,9 +871,12 @@ function closestMapRankingScopes(rows) {
   const dongLabel = mapApartmentDongLabel(closest);
   const sigunguCode = mapApartmentSigunguCode(closest);
   const sigunguLabel = mapApartmentSigunguLabel(closest);
+  const sidoCode = mapApartmentSidoCode(closest);
+  const sidoLabel = mapApartmentSidoLabel(closest);
   return {
     dong: dongKey && dongLabel ? mapRankingScope("dong", dongKey, dongLabel, closest.dongRankTotal) : null,
     sigungu: sigunguCode && sigunguLabel ? mapRankingScope("sigungu", sigunguCode, sigunguLabel, closest.sigunguRankTotal) : null,
+    sido: sidoCode && sidoLabel ? mapRankingScope("sido", sidoCode, sidoLabel, closest.sidoRankTotal) : null,
     country: mapRankingScope("country", "country", "전국", closest.countryRankTotal)
   };
 }
@@ -905,12 +912,22 @@ function mapApartmentSigunguLabel(item) {
   return shortZoomLabel(item?.sigunguName || item?.address || "", "sigungu") || String(item?.sigunguName || "").trim();
 }
 
+function mapApartmentSidoCode(item) {
+  return String(item?.sidoCode || "").trim()
+    || String(item?.sigunguCode || item?.dongKey || item?.legalDongCode || "").slice(0, 2);
+}
+
+function mapApartmentSidoLabel(item) {
+  return shortRegionLabel(item?.sidoName || "") || String(item?.sidoName || "").trim();
+}
+
 function scopedMapRankingRows(items, scope) {
   return (items || [])
     .filter((item) => item.type === "apartment" && item.id)
     .filter((item) => {
       if (scope.mode === "dong") return mapApartmentDongKey(item) === scope.key;
       if (scope.mode === "sigungu") return mapApartmentSigunguCode(item) === scope.key;
+      if (scope.mode === "sido") return mapApartmentSidoCode(item) === scope.key;
       return scope.mode === "country";
     })
     .sort((a, b) => compareMapScopeRankingRows(a, b, scope.mode));
@@ -920,6 +937,7 @@ function mapRankingRankValue(item, rankMode, fallbackRank) {
   const rankField = {
     dong: "dongRank",
     sigungu: "sigunguRank",
+    sido: "sidoRank",
     country: "countryRank"
   }[rankMode];
   const rank = Number(rankField ? item?.[rankField] : fallbackRank);
@@ -930,6 +948,7 @@ function mapRankingTotalValue(item, rankMode) {
   const totalField = {
     dong: "dongRankTotal",
     sigungu: "sigunguRankTotal",
+    sido: "sidoRankTotal",
     country: "countryRankTotal"
   }[rankMode];
   const total = Number(totalField ? item?.[totalField] : 0);
