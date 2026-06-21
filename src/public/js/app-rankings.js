@@ -362,35 +362,41 @@ function renderPriceBandAreaBreakdownCell(row) {
   const secondary = summaries[1];
   const hidden = summaries.slice(2);
   if (!primary) return "-";
+  const primaryMarkup = hidden.length
+    ? `
+      <details class="price-band-area-more">
+        <summary>${renderPriceBandAreaBreakdownLine(primary, "primary", { moreCount: hidden.length })}</summary>
+        <div class="price-band-area-more-rows">
+          ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
+        </div>
+      </details>
+    `
+    : renderPriceBandAreaBreakdownLine(primary, "primary");
 
   return `
     <div class="price-band-area-breakdown">
-      ${renderPriceBandAreaBreakdownLine(primary, "primary")}
+      ${primaryMarkup}
       ${secondary ? renderPriceBandAreaBreakdownLine(secondary, "secondary") : ""}
-      ${hidden.length ? `
-        <details class="price-band-area-more">
-          <summary><span>다른 ${formatInt(hidden.length)}개 평형</span></summary>
-          <div>
-            ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
-          </div>
-        </details>
-      ` : ""}
     </div>
   `;
 }
 
-function renderPriceBandAreaBreakdownLine(item, tone) {
+function renderPriceBandAreaBreakdownLine(item, tone, options = {}) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
   const rateTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
   const metricMarkup = tone === "primary"
     ? `<span class="price-band-area-metric-chip"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong></span>`
     : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
+  const moreMarkup = options.moreCount
+    ? `<span class="price-band-area-more-label">다른 ${formatInt(options.moreCount)}개 평형</span>`
+    : "";
   return `
-    <div class="price-band-area-breakdown-line ${tone}">
+    <span class="price-band-area-breakdown-line ${tone}">
       <strong class="price-band-area-label">${escapeHtml(item.areaLabel || "-")}</strong>
       <span class="price-band-area-range">${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</span>
       ${metricMarkup}
-    </div>
+      ${moreMarkup}
+    </span>
   `;
 }
 

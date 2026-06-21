@@ -61,9 +61,11 @@ td:nth-child(4) {
 
 .price-band-area-breakdown-line {
   display: grid;
-  grid-template-columns: minmax(76px, max-content) minmax(210px, 1fr) max-content;
+  grid-template-columns: minmax(76px, max-content) minmax(210px, max-content) max-content max-content;
   align-items: baseline;
   gap: 12px;
+  width: max-content;
+  max-width: 100%;
 }
 
 .price-band-area-breakdown-line.primary {
@@ -125,35 +127,39 @@ td:nth-child(4) {
 }
 
 .price-band-area-more summary {
-  display: inline-flex;
-  height: 24px;
-  align-items: center;
-  margin-top: 2px;
-  border: 1px solid #d6e2f3;
-  border-radius: 999px;
-  background: #f8fbff;
-  color: var(--blue);
+  display: block;
   cursor: pointer;
   list-style: none;
-  padding: 0 9px;
 }
 
 .price-band-area-more summary::-webkit-details-marker {
   display: none;
 }
 
-.price-band-area-more summary::after {
+.price-band-area-more-label {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  border: 1px solid #d6e2f3;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--blue);
+  padding: 0 9px;
+  white-space: nowrap;
+}
+
+.price-band-area-more-label::after {
   content: " 보기";
 }
 
-.price-band-area-more[open] summary::after {
+.price-band-area-more[open] .price-band-area-more-label::after {
   content: " 접기";
 }
 
-.price-band-area-more > div {
+.price-band-area-more-rows {
   display: grid;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .clickable-row {
