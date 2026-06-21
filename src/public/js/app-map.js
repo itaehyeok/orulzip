@@ -1233,6 +1233,10 @@ function zoomMarkerBaseZIndex(level) {
   }[level] || 100;
 }
 
+function zoomApartmentMarkerBaseZIndex(item) {
+  return item?.hasData === false ? 350 : zoomMarkerBaseZIndex("apartment");
+}
+
 function setNaverMarkerZIndex(marker, zIndex) {
   if (typeof marker.setZIndex === "function") marker.setZIndex(zIndex);
 }
@@ -1306,7 +1310,7 @@ function renderZoomApartmentMarker(item) {
   }
   const design = activeApartmentMarkerDesign();
   const [width, height] = apartmentMarkerIconSize(design, item);
-  const baseZIndex = zoomMarkerBaseZIndex("apartment");
+  const baseZIndex = zoomApartmentMarkerBaseZIndex(item);
   const marker = L.marker([item.lat, item.lng], {
     zIndexOffset: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
     icon: L.divIcon({
@@ -1374,7 +1378,7 @@ function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeApartmentMarkerDesign();
   const [width, height] = apartmentMarkerIconSize(design, item);
-  const baseZIndex = zoomMarkerBaseZIndex("apartment");
+  const baseZIndex = zoomApartmentMarkerBaseZIndex(item);
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
