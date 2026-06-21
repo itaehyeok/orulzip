@@ -18,7 +18,7 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260621-price-band-inline-area-rows">
+    <link rel="stylesheet" href="/styles.css?v=20260621-price-band-design-concepts">
   </head>
   <body>
     <main class="app-shell">
@@ -372,6 +372,166 @@
       </section>
 
       <section id="designView" class="view">
+        <section class="panel design-panel price-band-design-lab">
+          <div class="panel-head">
+            <h2>아파트 랭킹 표 시안</h2>
+            <span>평형 · 가격변화 · 증가액 · 상승률 배치 비교</span>
+          </div>
+          <div class="price-band-design-grid">
+            <article class="price-band-design-concept preferred">
+              <div class="price-band-design-head">
+                <strong>01 요청안 · 밀착 한 줄형</strong>
+                <span>펼치기 버튼을 오른쪽으로 분리</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-inline">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td>
+                      <td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td>
+                      <td>대전광역시 중구 선화동</td>
+                      <td>
+                        <div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><em>+1억 5,170만</em><strong>113.8%</strong><button>외 3개 평형</button></div>
+                        <div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><em>+1억 900만</em><strong>31.5%</strong></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>2</td>
+                      <td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td>
+                      <td>대구광역시 북구 칠성동2가</td>
+                      <td>
+                        <div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><em>+1억 4,500만</em><strong>93.5%</strong><button>외 5개 평형</button></div>
+                        <div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><em>+3,900만</em><strong>11.5%</strong></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>3</td>
+                      <td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td>
+                      <td>용인시 처인구 양지읍</td>
+                      <td>
+                        <div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><em>+8,700만</em><strong>79.1%</strong></div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="price-band-design-concept grouped">
+              <div class="price-band-design-head">
+                <strong>02 메트릭 묶음형</strong>
+                <span>가격 옆에 변화량과 상승률을 작은 블록으로 묶음</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-grouped">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td>
+                      <td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td>
+                      <td>대전광역시 중구 선화동</td>
+                      <td><div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><i><em>+1억 5,170만</em><strong>113.8%</strong></i><button>외 3개</button></div><div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><i><em>+1억 900만</em><strong>31.5%</strong></i></div></td>
+                    </tr>
+                    <tr>
+                      <td>2</td>
+                      <td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td>
+                      <td>대구광역시 북구 칠성동2가</td>
+                      <td><div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><i><em>+1억 4,500만</em><strong>93.5%</strong></i><button>외 5개</button></div><div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><i><em>+3,900만</em><strong>11.5%</strong></i></div></td>
+                    </tr>
+                    <tr>
+                      <td>3</td>
+                      <td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td>
+                      <td>용인시 처인구 양지읍</td>
+                      <td><div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><i><em>+8,700만</em><strong>79.1%</strong></i></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="price-band-design-concept plain">
+              <div class="price-band-design-head">
+                <strong>03 담백 행형</strong>
+                <span>색을 줄이고 같은 행의 정보 연결감 우선</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-plain">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>1</td><td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td><td>대전광역시 중구 선화동</td><td><div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><em>+1억 5,170만</em><strong>113.8%</strong><button>외 3개 평형</button></div><div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><em>+1억 900만</em><strong>31.5%</strong></div></td></tr>
+                    <tr><td>2</td><td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td><td>대구광역시 북구 칠성동2가</td><td><div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><em>+1억 4,500만</em><strong>93.5%</strong><button>외 5개 평형</button></div><div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><em>+3,900만</em><strong>11.5%</strong></div></td></tr>
+                    <tr><td>3</td><td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td><td>용인시 처인구 양지읍</td><td><div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><em>+8,700만</em><strong>79.1%</strong></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="price-band-design-concept chip">
+              <div class="price-band-design-head">
+                <strong>04 칩형</strong>
+                <span>증가액과 상승률을 칩으로 묶어 강조</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-chip">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>1</td><td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td><td>대전광역시 중구 선화동</td><td><div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><em>+1억 5,170만</em><strong>113.8%</strong><button>외 3개</button></div><div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><em>+1억 900만</em><strong>31.5%</strong></div></td></tr>
+                    <tr><td>2</td><td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td><td>대구광역시 북구 칠성동2가</td><td><div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><em>+1억 4,500만</em><strong>93.5%</strong><button>외 5개</button></div><div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><em>+3,900만</em><strong>11.5%</strong></div></td></tr>
+                    <tr><td>3</td><td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td><td>용인시 처인구 양지읍</td><td><div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><em>+8,700만</em><strong>79.1%</strong></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="price-band-design-concept aside">
+              <div class="price-band-design-head">
+                <strong>05 우측 접기형</strong>
+                <span>펼치기 버튼을 행 끝 고정 영역으로 분리</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-aside">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>1</td><td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td><td>대전광역시 중구 선화동</td><td><div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><em>+1억 5,170만</em><strong>113.8%</strong><button>외 3개 평형</button></div><div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><em>+1억 900만</em><strong>31.5%</strong></div></td></tr>
+                    <tr><td>2</td><td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td><td>대구광역시 북구 칠성동2가</td><td><div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><em>+1억 4,500만</em><strong>93.5%</strong><button>외 5개 평형</button></div><div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><em>+3,900만</em><strong>11.5%</strong></div></td></tr>
+                    <tr><td>3</td><td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td><td>용인시 처인구 양지읍</td><td><div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><em>+8,700만</em><strong>79.1%</strong></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="price-band-design-concept dense">
+              <div class="price-band-design-head">
+                <strong>06 초밀도형</strong>
+                <span>행 높이를 줄이고 숫자 스캔성 우선</span>
+              </div>
+              <div class="price-band-design-table-wrap">
+                <table class="price-band-design-table price-band-design-dense">
+                  <thead>
+                    <tr><th>순위</th><th>아파트</th><th>지역</th><th>평형별 변화</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>1</td><td><strong>대전해모로더센트라</strong><span>전용 12평 · 5개 면적</span></td><td>대전광역시 중구 선화동</td><td><div class="price-band-design-area primary"><b>전용 12평</b><span>1억 3,330만 → 2억 8,500만</span><em>+1억 5,170만</em><strong>113.8%</strong><button>외 3개</button></div><div class="price-band-design-area secondary"><b>전용 18평</b><span>3억 4,600만 → 4억 5,500만</span><em>+1억 900만</em><strong>31.5%</strong></div></td></tr>
+                    <tr><td>2</td><td><strong>대구역 서희스타힐스</strong><span>전용 18평 · 7개 면적</span></td><td>대구광역시 북구 칠성동2가</td><td><div class="price-band-design-area primary"><b>전용 18평</b><span>1억 5,500만 → 3억</span><em>+1억 4,500만</em><strong>93.5%</strong><button>외 5개</button></div><div class="price-band-design-area secondary"><b>전용 23평</b><span>3억 3,800만 → 3억 7,700만</span><em>+3,900만</em><strong>11.5%</strong></div></td></tr>
+                    <tr><td>3</td><td><strong>그린빌리지</strong><span>전용 37평 · 1개 면적</span></td><td>용인시 처인구 양지읍</td><td><div class="price-band-design-area primary"><b>전용 37평</b><span>1억 1,000만 → 1억 9,700만</span><em>+8,700만</em><strong>79.1%</strong></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <section class="panel design-panel growth-rate-color-panel">
           <div class="panel-head">
             <h2>상승률 색상 시안</h2>
