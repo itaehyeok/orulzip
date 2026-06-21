@@ -410,13 +410,18 @@ function mapPopupTradeDateLabel(trade) {
 
 function renderMapPopupTradeGrowth(comparison) {
   if (!comparison || !Number.isFinite(comparison.growthRate)) {
-    return `<b class="map-popup-trade-growth no-data">기준 평균가 없음</b>`;
+    return `
+      <b class="map-popup-trade-delta no-data">-</b>
+      <span class="map-popup-trade-baseline">기준 평균가 없음</span>
+      <b class="map-popup-trade-growth no-data">-</b>
+    `;
   }
   const tone = mapPopupTradeGrowthTone(comparison.growthRate);
   return `
     <b class="map-popup-trade-delta ${tone}" title="${escapeHtml(formatMonth(comparison.baseMonth))} 기준 평균가 ${escapeHtml(formatKoreanPrice(comparison.baseSaleMid))}">
-      ${escapeHtml(mapPopupSignedKoreanPrice(comparison.growthAmount))}<span>(기준 평균가 대비)</span>
+      ${escapeHtml(mapPopupSignedKoreanPrice(comparison.growthAmount))}
     </b>
+    <span class="map-popup-trade-baseline">(기준 평균가 대비)</span>
     <b class="map-popup-trade-growth ${tone}">
       ${escapeHtml(mapPopupTradeGrowthText(comparison.growthRate))}
     </b>

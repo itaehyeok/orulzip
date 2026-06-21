@@ -389,7 +389,7 @@
 }
 
 .map-popup-trade-row {
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 100px minmax(0, 1fr);
   min-width: 0;
   padding: 7px 8px;
   border: 1px solid #e4e7ec;
@@ -415,10 +415,11 @@
 }
 
 .map-popup-trade-summary {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 42px minmax(128px, 1.05fr) minmax(86px, 0.7fr) 84px minmax(88px, 0.6fr);
   min-width: 0;
   align-items: baseline;
-  gap: 7px;
+  gap: 8px;
   color: #1d2939;
   font-weight: 850;
 }
@@ -427,17 +428,25 @@
   color: #1d2939;
 }
 
+.map-popup-trade-floor {
+  text-align: right;
+}
+
 .map-popup-trade-delta,
 .map-popup-trade-growth {
-  flex: 0 1 auto;
   font-style: normal;
 }
 
-.map-popup-trade-delta span {
-  margin-left: 1px;
+.map-popup-trade-delta,
+.map-popup-trade-growth {
+  text-align: right;
+}
+
+.map-popup-trade-baseline {
   color: #667085;
   font-size: 10px;
   font-weight: 800;
+  text-align: left;
 }
 
 .map-popup-trade-delta.positive,
@@ -455,6 +464,7 @@
   color: #667085;
 }
 
+.map-popup-trade-delta.no-data,
 .map-popup-trade-growth.no-data {
   color: #98a2b3;
   font-size: 11px;
