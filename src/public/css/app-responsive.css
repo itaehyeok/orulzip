@@ -53,6 +53,10 @@ td:nth-child(4) {
   text-align: left;
 }
 
+.price-band-table tbody td {
+  vertical-align: top;
+}
+
 .price-band-area-breakdown {
   display: grid;
   gap: 8px;
@@ -120,46 +124,43 @@ td:nth-child(4) {
   color: #667085;
 }
 
-.price-band-area-more {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.price-band-area-more summary {
-  display: block;
-  cursor: pointer;
-  list-style: none;
-}
-
-.price-band-area-more summary::-webkit-details-marker {
-  display: none;
-}
-
-.price-band-area-more-label {
+.price-band-area-more-slot {
   display: inline-flex;
-  height: 24px;
   align-items: center;
+}
+
+.price-band-area-more-toggle {
+  display: inline-flex;
+  height: 22px;
+  min-width: 112px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   border: 1px solid #d6e2f3;
   border-radius: 999px;
   background: #f8fbff;
   color: var(--blue);
-  padding: 0 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+  padding: 0 8px;
   white-space: nowrap;
 }
 
-.price-band-area-more-label::after {
-  content: " 보기";
-}
-
-.price-band-area-more[open] .price-band-area-more-label::after {
-  content: " 접기";
+.price-band-area-more-toggle:hover {
+  background: #eff6ff;
 }
 
 .price-band-area-more-rows {
   display: grid;
   gap: 8px;
   margin-top: 8px;
+}
+
+.price-band-area-more-rows[hidden] {
+  display: none;
 }
 
 .clickable-row {

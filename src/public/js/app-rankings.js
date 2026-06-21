@@ -245,6 +245,23 @@ function renderPriceBandTable(result, basisBands = null) {
     `).join("")
     : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
+  bindPriceBandAreaMoreToggles();
+}
+
+function bindPriceBandAreaMoreToggles() {
+  els.priceBandRows?.querySelectorAll(".price-band-area-more-toggle").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rows = button.closest(".price-band-area-breakdown")?.querySelector(".price-band-area-more-rows");
+      if (!rows) return;
+      const isOpen = button.getAttribute("aria-expanded") === "true";
+      rows.hidden = isOpen;
+      button.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      const action = button.querySelector(".price-band-area-more-action");
+      if (action) action.textContent = isOpen ? "보기" : "접기";
+    });
+  });
 }
 
 function renderPriceBandLoadingState() {
@@ -362,21 +379,16 @@ function renderPriceBandAreaBreakdownCell(row) {
   const secondary = summaries[1];
   const hidden = summaries.slice(2);
   if (!primary) return "-";
-  const primaryMarkup = hidden.length
-    ? `
-      <details class="price-band-area-more">
-        <summary>${renderPriceBandAreaBreakdownLine(primary, "primary", { moreCount: hidden.length })}</summary>
-        <div class="price-band-area-more-rows">
-          ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
-        </div>
-      </details>
-    `
-    : renderPriceBandAreaBreakdownLine(primary, "primary");
 
   return `
     <div class="price-band-area-breakdown">
-      ${primaryMarkup}
+      ${renderPriceBandAreaBreakdownLine(primary, "primary", { moreCount: hidden.length })}
       ${secondary ? renderPriceBandAreaBreakdownLine(secondary, "secondary") : ""}
+      ${hidden.length ? `
+        <div class="price-band-area-more-rows" hidden>
+          ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -388,7 +400,13 @@ function renderPriceBandAreaBreakdownLine(item, tone, options = {}) {
     ? `<span class="price-band-area-metric-chip"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong></span>`
     : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
   const moreMarkup = options.moreCount
-    ? `<span class="price-band-area-more-label">다른 ${formatInt(options.moreCount)}개 평형</span>`
+    ? `
+      <span class="price-band-area-more-slot">
+        <button type="button" class="price-band-area-more-toggle" aria-expanded="false">
+          <span>다른 ${formatInt(options.moreCount)}개 평형</span><span class="price-band-area-more-action">보기</span>
+        </button>
+      </span>
+    `
     : "";
   return `
     <span class="price-band-area-breakdown-line ${tone}">

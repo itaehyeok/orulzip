@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260621-price-band-variant-02b-align";
+  const version = "20260621-price-band-more-toggle";
   const scripts = [
     "app-prelude",
     "app-state",
