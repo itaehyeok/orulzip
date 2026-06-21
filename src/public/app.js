@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260621-rank-percent-precision";
+  const version = "20260621-ranking-tab-labels";
   const scripts = [
     "app-prelude",
     "app-state",

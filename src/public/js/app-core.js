@@ -179,12 +179,6 @@ function bindEvents() {
     renderPriceBandLoadingState();
     refresh();
   });
-  els.priceBandPageSizeSelect?.addEventListener("change", () => {
-    state.priceBandPageSize = Number(els.priceBandPageSizeSelect.value) || 50;
-    state.priceBandPage = 1;
-    renderPriceBandLoadingState();
-    refresh();
-  });
   els.analyticsDaysSelect?.addEventListener("change", () => {
     state.analyticsDays = Number(els.analyticsDaysSelect.value) || 7;
     loadAnalyticsDashboard();

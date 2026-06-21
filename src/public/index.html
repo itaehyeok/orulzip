@@ -44,8 +44,8 @@
       </header>
 
       <nav class="tabs top-tabs" aria-label="보기 전환">
-        <a class="active" data-tab="molitMap" href="/map" aria-current="page">지도</a>
-        <a data-tab="priceBands" href="/price-bands">가격대별</a>
+        <a class="active" data-tab="molitMap" href="/map" aria-current="page">아파트 상승률 지도</a>
+        <a data-tab="priceBands" href="/price-bands">아파트 랭킹</a>
         <label class="top-period-select">
           <span class="sr-only">기준 기간</span>
           <select data-period-select aria-label="기준 기간">
@@ -249,16 +249,6 @@
           <div class="panel-head">
             <h2>실거래가 가격대별 상승 랭킹</h2>
             <span id="priceBandCount"></span>
-          </div>
-          <div class="ranking-controls">
-            <label class="page-size-control" for="priceBandPageSizeSelect">
-              <span>페이지당</span>
-              <select id="priceBandPageSizeSelect">
-                <option value="25">25개</option>
-                <option value="50" selected>50개</option>
-                <option value="100">100개</option>
-              </select>
-            </label>
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">
@@ -1182,6 +1172,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260621-rank-percent-precision"></script>
+    <script src="/app.js?v=20260621-ranking-tab-labels"></script>
   </body>
 </html>

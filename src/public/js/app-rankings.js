@@ -39,12 +39,6 @@ function syncApartmentRankModeButtons() {
   }
 }
 
-function syncPriceBandBasisButtons() {
-  if (els.priceBandPageSizeSelect && Number(els.priceBandPageSizeSelect.value) !== state.priceBandPageSize) {
-    els.priceBandPageSizeSelect.value = String(state.priceBandPageSize);
-  }
-}
-
 function currentPeriodMonths() {
   if (!els.startInput.value || !els.endInput.value) return 12;
   const start = new Date(`${els.startInput.value}-01`);
@@ -204,7 +198,6 @@ function renderApartmentPagination(pagination) {
 }
 
 function renderPriceBandTable(result, basisBands = null) {
-  syncPriceBandBasisButtons();
   els.priceBandView?.removeAttribute("aria-busy");
   if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
   state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
@@ -259,7 +252,6 @@ function renderPriceBandTable(result, basisBands = null) {
 }
 
 function renderPriceBandLoadingState() {
-  syncPriceBandBasisButtons();
   updatePriceBandSummaryActiveState(state.priceBandBasis, state.priceBandKey);
   const basisLabel = state.priceBandBasis === "end" ? "현재 가격대" : "과거 가격대";
   const selectedBandLabel = currentPriceBandChipLabel() || "가격대";

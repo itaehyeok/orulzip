@@ -433,7 +433,6 @@ const els = {
   priceBandCount: document.querySelector("#priceBandCount"),
   priceBandSummary: document.querySelector("#priceBandSummary"),
   priceBandPagination: document.querySelector("#priceBandPagination"),
-  priceBandPageSizeSelect: document.querySelector("#priceBandPageSizeSelect"),
   analyticsView: document.querySelector("#analyticsView"),
   analyticsDaysSelect: document.querySelector("#analyticsDaysSelect"),
   analyticsEnvironmentSelect: document.querySelector("#analyticsEnvironmentSelect"),
