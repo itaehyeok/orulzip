@@ -723,9 +723,11 @@ function updateMapSearchActiveDescendant() {
 function renderMapApartmentRanking(level, items) {
   if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
   if (isMapGroupRankingLevel(level)) {
+    clearMapScopedRankingSignatures();
     renderMapGroupRanking(level, items);
     return;
   }
+  clearMapGroupRankingSignatures();
   if (level !== "apartment") {
     state.mapRankingRequestId += 1;
     state.mapRankingDongScope = null;
@@ -759,10 +761,13 @@ function renderMapApartmentRanking(level, items) {
   updateMobileMapRankingToggle(true);
   renderMapRankingTabs(scopes, mode);
   if (mode !== "viewport" && scopes[mode]) {
-    loadMapScopedRankingRows(scopes[mode]);
+    const signature = mapScopedRankingSignature(scopes[mode]);
+    if (shouldReuseMapScopedRanking(signature)) return;
+    loadMapScopedRankingRows(scopes[mode], signature);
     return;
   }
 
+  clearMapScopedRankingSignatures();
   state.mapRankingRequestId += 1;
   renderMapRankingRows(viewportRows, {
     title: "현재 지도 랭킹",
@@ -788,10 +793,13 @@ function renderMapGroupRanking(level, items) {
   renderMapGroupRankingTabs(scopes, state.mapGroupRankingMode, level);
 
   if (scope) {
-    loadMapGroupRankingRows(level, scope);
+    const signature = mapGroupRankingSignature(level, scope);
+    if (shouldReuseMapGroupRanking(signature)) return;
+    loadMapGroupRankingRows(level, scope, signature);
     return;
   }
 
+  clearMapGroupRankingSignatures();
   state.mapRankingRequestId += 1;
   renderMapGroupRankingRows([], level, {
     title: `${mapGroupRankingLevelLabel(level)} 상승률 랭킹`,
@@ -1108,8 +1116,9 @@ function renderMapGroupRankingTabs(scopes, mode, level) {
   });
 }
 
-async function loadMapScopedRankingRows(scope) {
+async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSignature(scope)) {
   const requestId = ++state.mapRankingRequestId;
+  state.mapScopedRankingPendingSignature = signature;
   if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
@@ -1125,7 +1134,13 @@ async function loadMapScopedRankingRows(scope) {
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
-    if (requestId !== state.mapRankingRequestId || state.mapRankingMode !== scope.mode || state.mapRankingScopes?.[scope.mode]?.key !== scope.key) return;
+    if (
+      requestId !== state.mapRankingRequestId
+      || state.latestZoomMapData?.level !== "apartment"
+      || state.mapRankingMode !== scope.mode
+      || state.mapRankingScopes?.[scope.mode]?.key !== scope.key
+      || signature !== mapScopedRankingSignature(scope)
+    ) return;
     const rows = scopedMapRankingRows(data.items || [], scope);
     const rankTotal = mapScopedRankingTotal(rows, scope);
     if (typeof trackAnalyticsEvent === "function") {
@@ -1146,17 +1161,21 @@ async function loadMapScopedRankingRows(scope) {
       rankMode: scope.mode,
       rankTotal: rankTotal || rows.length
     });
+    state.mapScopedRankingActiveSignature = signature;
+    if (state.mapScopedRankingPendingSignature === signature) state.mapScopedRankingPendingSignature = "";
     scrollFocusedMapRankingRow({ behavior: "auto" });
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
+    if (state.mapScopedRankingPendingSignature === signature) state.mapScopedRankingPendingSignature = "";
     if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
   }
 }
 
-async function loadMapGroupRankingRows(level, scope) {
+async function loadMapGroupRankingRows(level, scope, signature = mapGroupRankingSignature(level, scope)) {
   const requestId = ++state.mapRankingRequestId;
+  state.mapGroupRankingPendingSignature = signature;
   if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
@@ -1175,6 +1194,7 @@ async function loadMapGroupRankingRows(level, scope) {
       || state.mapGroupRankingMode !== scope.mode
       || activeScope?.key !== scope.key
       || activeScope?.targetLevel !== level
+      || signature !== mapGroupRankingSignature(level, scope)
     ) return;
 
     const rows = scopedMapGroupRankingRows(data.items || [], level, scope);
@@ -1198,8 +1218,11 @@ async function loadMapGroupRankingRows(level, scope) {
       rankMode: scope.mode,
       rankTotal: rankTotal || rows.length
     });
+    state.mapGroupRankingActiveSignature = signature;
+    if (state.mapGroupRankingPendingSignature === signature) state.mapGroupRankingPendingSignature = "";
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
+    if (state.mapGroupRankingPendingSignature === signature) state.mapGroupRankingPendingSignature = "";
     if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
@@ -1303,6 +1326,60 @@ function mapGroupRankingTabLabel(mode, targetLevel) {
 
 function isMapRankingModeAvailable(mode, scopes) {
   return mode === "viewport" || Boolean(scopes?.[mode]);
+}
+
+function mapRankingPeriodSignature() {
+  return {
+    source: currentMapSource(),
+    start: els.startInput.value || "",
+    end: els.endInput.value || ""
+  };
+}
+
+function mapScopedRankingSignature(scope) {
+  if (!scope) return "";
+  return JSON.stringify({
+    kind: "apartment",
+    mode: scope.mode,
+    key: scope.key,
+    ...mapRankingPeriodSignature()
+  });
+}
+
+function mapGroupRankingSignature(level, scope) {
+  if (!scope) return "";
+  return JSON.stringify({
+    kind: "group",
+    level,
+    mode: scope.mode,
+    key: scope.key,
+    targetLevel: scope.targetLevel || level,
+    ...mapRankingPeriodSignature()
+  });
+}
+
+function shouldReuseMapScopedRanking(signature) {
+  return Boolean(signature && (
+    state.mapScopedRankingActiveSignature === signature
+    || state.mapScopedRankingPendingSignature === signature
+  ));
+}
+
+function shouldReuseMapGroupRanking(signature) {
+  return Boolean(signature && (
+    state.mapGroupRankingActiveSignature === signature
+    || state.mapGroupRankingPendingSignature === signature
+  ));
+}
+
+function clearMapScopedRankingSignatures() {
+  state.mapScopedRankingActiveSignature = "";
+  state.mapScopedRankingPendingSignature = "";
+}
+
+function clearMapGroupRankingSignatures() {
+  state.mapGroupRankingActiveSignature = "";
+  state.mapGroupRankingPendingSignature = "";
 }
 
 function isMapGroupRankingLevel(level) {
