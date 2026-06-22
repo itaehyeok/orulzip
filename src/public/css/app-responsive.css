@@ -226,10 +226,34 @@ td:nth-child(4) {
   }
 
   .map-top-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 8px 10px;
+    margin: -10px -10px 0;
+    padding: 8px 10px 0;
+    min-height: 0;
+    background: #ffffff;
+  }
+
+  .map-shell-mode .map-top-header {
+    margin: 0;
+  }
+
+  .map-top-left {
+    grid-column: 1 / 3;
     gap: 8px;
-    margin-bottom: 0;
-    padding: 10px 12px;
-    background: var(--map-header-bg);
+    width: 100%;
+  }
+
+  .map-top-right {
+    grid-column: 3;
+    align-self: start;
+    min-height: 40px;
+  }
+
+  .map-menu-button {
+    width: 36px;
+    height: 36px;
   }
 
   .map-top-header .orulzip-logo {
@@ -240,18 +264,19 @@ td:nth-child(4) {
   }
 
   .map-top-header .orulzip-logo-mark {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     background: transparent;
   }
 
   .map-top-header .orulzip-logo-mark svg {
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
   }
 
   .map-top-header .orulzip-logo-word {
-    display: none;
+    display: inline;
+    font-size: 19px;
   }
 
   .map-top-header .logo-accent {
@@ -262,12 +287,17 @@ td:nth-child(4) {
     fill: var(--map-header-text);
   }
 
+  .map-top-search-panel {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
   .map-top-search-panel input {
-    height: 42px;
+    height: 38px;
     border: 0;
-    background: var(--map-header-search-bg);
+    background: #f3f5f8;
     color: var(--map-header-search-text);
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .map-top-search-panel input::placeholder {
@@ -286,19 +316,22 @@ td:nth-child(4) {
     gap: 6px;
   }
 
+  .map-top-header .top-tabs,
   .map-shell-mode .top-tabs {
+    grid-column: 1 / -1;
+    justify-self: center;
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 4px;
     overflow-x: auto;
     margin-bottom: 0;
-    padding: 10px 12px;
-    background: var(--map-header-period-bg);
+    padding: 0;
+    background: transparent;
     scrollbar-width: none;
   }
 
   .map-shell-mode .tab-more-menu[open] .tab-more-list {
     position: fixed;
-    top: var(--tab-more-top, 112px);
+    top: var(--tab-more-top, 58px);
     left: var(--tab-more-left, auto);
     right: auto;
     z-index: 2000;
@@ -317,26 +350,29 @@ td:nth-child(4) {
     font-size: 15px;
   }
 
+  .map-top-header .top-tabs a,
   .map-shell-mode .top-tabs a,
   .map-shell-mode .top-tabs summary {
-    height: 36px;
-    padding: 0 14px;
-    border-radius: 10px;
-    background: var(--map-header-chip-bg);
-    box-shadow: 0 1px 5px rgba(16, 24, 40, 0.08);
+    height: 42px;
+    min-width: 118px;
+    padding: 0 10px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
-  .map-shell-mode .top-period-select,
-  .map-shell-mode .top-period-select select {
-    height: 36px;
+  .map-floating-period-select,
+  .map-floating-period-select select {
+    height: 38px;
   }
 
-  .map-shell-mode .top-period-select select {
+  .map-floating-period-select {
+    top: 10px;
+  }
+
+  .map-floating-period-select select {
     width: 136px;
-    border-radius: 999px;
-    background-color: #ffffff;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.1);
+    font-size: 13px;
   }
 
   .map-period-bar {
@@ -364,13 +400,17 @@ td:nth-child(4) {
     font-size: 13px;
   }
 
-  .map-shell-mode .top-tabs a.active,
-  .map-shell-mode .top-tabs button.active,
   .map-shell-mode .tab-more-menu.active summary,
   .map-period-bar .period-buttons button.active {
     border-color: var(--map-header-chip-active-border);
     background: var(--map-header-chip-active-bg);
     color: var(--map-header-chip-active-text);
+  }
+
+  .map-top-header .top-tabs a.active {
+    border-color: #0aa36e;
+    background: transparent;
+    color: #111827;
   }
 
   .map-period-meta {
