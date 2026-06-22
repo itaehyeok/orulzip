@@ -46,6 +46,11 @@
 }
 
 .apartment-rank-marker {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", Roboto, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
   --rank-bg: #ffffff;
   --rank-border: #5262d6;
   --rank-text: #2939a8;
