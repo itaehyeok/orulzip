@@ -2,6 +2,9 @@ function useNaverMap() {
   return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
 }
 
+const naverHoverWindowMarginPx = 12;
+const naverHoverWindowOffsetPx = 14;
+
 async function hasNaverAuthFailure(container = els.zoomMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
   return container.textContent.includes("네이버 지도 Open API 인증이 실패");
@@ -75,6 +78,66 @@ function openZoomNaverInfoWindow(position, html, { pinned = false, disableAutoPa
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
 }
 
+function openZoomNaverHoverWindow(position, html) {
+  cancelZoomNaverHoverWindowClose();
+  const anchor = naverHoverWindowAnchorPoint(position);
+  if (!anchor) {
+    openZoomNaverInfoWindow(position, html, { disableAutoPan: true });
+    return;
+  }
+  if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) {
+    state.zoomNaverInfoWindow.close();
+  }
+  const hoverWindow = ensureZoomNaverHoverWindow();
+  hoverWindow.innerHTML = `<div class="naver-info-window">${html}</div>`;
+  hoverWindow.hidden = false;
+  hoverWindow.style.left = "0px";
+  hoverWindow.style.top = "0px";
+  hoverWindow.dataset.placement = "top";
+
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  const hoverRect = hoverWindow.getBoundingClientRect();
+  const width = Math.ceil(hoverRect.width);
+  const height = Math.ceil(hoverRect.height);
+  const maxLeft = Math.max(naverHoverWindowMarginPx, wrapRect.width - width - naverHoverWindowMarginPx);
+  const maxTop = Math.max(naverHoverWindowMarginPx, wrapRect.height - height - naverHoverWindowMarginPx);
+  const left = clampNumber(anchor.x - width / 2, naverHoverWindowMarginPx, maxLeft);
+  let top = anchor.y - height - naverHoverWindowOffsetPx;
+
+  if (top < naverHoverWindowMarginPx) {
+    top = anchor.y + naverHoverWindowOffsetPx;
+    hoverWindow.dataset.placement = "bottom";
+  }
+  top = clampNumber(top, naverHoverWindowMarginPx, maxTop);
+
+  hoverWindow.style.left = `${Math.round(left)}px`;
+  hoverWindow.style.top = `${Math.round(top)}px`;
+}
+
+function ensureZoomNaverHoverWindow() {
+  if (state.zoomNaverHoverWindow?.isConnected) return state.zoomNaverHoverWindow;
+  const hoverWindow = document.createElement("div");
+  hoverWindow.className = "naver-hover-info-window";
+  hoverWindow.hidden = true;
+  els.mapCanvasWrap.appendChild(hoverWindow);
+  state.zoomNaverHoverWindow = hoverWindow;
+  return hoverWindow;
+}
+
+function naverHoverWindowAnchorPoint(position) {
+  const map = state.zoomNaverMap;
+  const projection = map?.getProjection?.();
+  if (!projection?.fromCoordToOffset || !els.zoomMap || !els.mapCanvasWrap) return null;
+  const offset = projection.fromCoordToOffset(position);
+  if (!offset || !Number.isFinite(Number(offset.x)) || !Number.isFinite(Number(offset.y))) return null;
+  const mapRect = els.zoomMap.getBoundingClientRect();
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  return {
+    x: Number(offset.x) + mapRect.left - wrapRect.left,
+    y: Number(offset.y) + mapRect.top - wrapRect.top
+  };
+}
+
 function cancelZoomNaverInfoWindowClose() {
   if (!state.zoomNaverInfoWindowCloseTimer) return;
   clearTimeout(state.zoomNaverInfoWindowCloseTimer);
@@ -88,6 +151,27 @@ function scheduleZoomNaverInfoWindowClose(delay = 120) {
     if (state.zoomNaverInfoWindowPinned) return;
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   }, delay);
+}
+
+function cancelZoomNaverHoverWindowClose() {
+  if (!state.zoomNaverHoverWindowCloseTimer) return;
+  clearTimeout(state.zoomNaverHoverWindowCloseTimer);
+  state.zoomNaverHoverWindowCloseTimer = null;
+}
+
+function scheduleZoomNaverHoverWindowClose(delay = 120) {
+  cancelZoomNaverHoverWindowClose();
+  state.zoomNaverHoverWindowCloseTimer = setTimeout(() => {
+    state.zoomNaverHoverWindowCloseTimer = null;
+    if (state.zoomNaverHoverWindow) state.zoomNaverHoverWindow.hidden = true;
+    if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) state.zoomNaverInfoWindow.close();
+  }, delay);
+}
+
+function closeZoomNaverHoverWindow() {
+  cancelZoomNaverHoverWindowClose();
+  if (state.zoomNaverHoverWindow) state.zoomNaverHoverWindow.hidden = true;
+  if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) state.zoomNaverInfoWindow.close();
 }
 
 function shortRegionLabel(name) {
@@ -1350,6 +1434,7 @@ function clearZoomMapOverlays() {
 
 function clearZoomNaverOverlays() {
   cancelZoomNaverInfoWindowClose();
+  closeZoomNaverHoverWindow();
   for (const overlay of state.zoomNaverOverlays) {
     try {
       overlay.setMap(null);
@@ -1451,13 +1536,14 @@ function renderNaverZoomGroupMarker(item, level) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverInfoWindow(position, regionHoverHtml(item, level));
+    openZoomNaverHoverWindow(position, regionHoverHtml(item, level));
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    scheduleZoomNaverInfoWindowClose();
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    closeZoomNaverHoverWindow();
     cancelZoomNaverInfoWindowClose();
     closeMapApartmentPopup();
     openZoomNaverInfoWindow(position, zoomGroupPopup(item), { pinned: true });
@@ -1487,13 +1573,14 @@ function renderNaverZoomApartmentMarker(item) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
+    openZoomNaverHoverWindow(position, apartmentHoverHtml(item));
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    scheduleZoomNaverInfoWindowClose();
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    closeZoomNaverHoverWindow();
     setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });

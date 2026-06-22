@@ -619,6 +619,16 @@
   white-space: nowrap;
 }
 
+.naver-hover-info-window {
+  position: absolute;
+  z-index: 760;
+  pointer-events: none;
+}
+
+.naver-hover-info-window[hidden] {
+  display: none;
+}
+
 .zoom-cluster-marker {
   background: transparent;
   border: 0;

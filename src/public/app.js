@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260622-hover-infowindow-autopan";
+  const version = "20260622-hover-tooltip-clamp";
   const scripts = [
     "app-prelude",
     "app-state",

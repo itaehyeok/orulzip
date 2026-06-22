@@ -2,7 +2,7 @@
 @import url("/css/app-base.css?v=20260622-global-map-header");
 @import url("/css/app-header.css?v=20260622-global-map-header");
 @import url("/css/app-map.css?v=20260621-region-hover-tooltip");
-@import url("/css/app-map-panels.css?v=20260622-popup-price-chart-speed");
+@import url("/css/app-map-panels.css?v=20260622-hover-tooltip-clamp");
 @import url("/css/app-design.css?v=20260621-price-band-design-variants");
 @import url("/css/app-analytics.css?v=20260621-analytics-user-info");
 @import url("/css/markers/region.css?v=20260618-rank-row-align");
