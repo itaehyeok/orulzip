@@ -284,6 +284,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         select
           c.id as apartment_id,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
+          d.deal_year_month,
           d.deal_amount,
           d.pyeong_price
         from molit_trade_deals d
@@ -304,6 +305,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         apartment_id,
         exclusive_area_m2,
         to_char($1::date, 'YYYYMM') as deal_year_month,
+        max(deal_year_month) as source_year_month,
         round(avg(deal_amount))::int as sale_mid,
         round(avg(pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
@@ -652,6 +654,7 @@ function carriedPriceAtOrBefore(monthly, yearMonth) {
 function serializeMolitPrice(row) {
   return {
     yearMonth: row.deal_year_month || "",
+    sourceMonth: row.source_year_month || row.deal_year_month || "",
     saleMid: Number(row.sale_mid || 0),
     pyeongPrice: Number(row.pyeong_price || 0),
     dealCount: Number(row.deal_count || 0)
@@ -734,7 +737,7 @@ function molitPriceFreshnessRule(startMonth, endMonth) {
 }
 
 function isMolitPriceFreshForMonth(price, targetMonth, maxGapMonths) {
-  const gapMonths = monthsBetween(price?.yearMonth, targetMonth);
+  const gapMonths = monthsBetween(price?.sourceMonth || price?.yearMonth, targetMonth);
   return Number.isFinite(gapMonths) && gapMonths >= 0 && gapMonths <= maxGapMonths;
 }
 
