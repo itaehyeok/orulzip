@@ -5,6 +5,8 @@ import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const DEFAULT_MIN_HOUSEHOLD_COUNTS = [0, 100];
+export const DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT = 100;
 const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
 const MOLIT_APARTMENT_DETAIL_GRAPH_MONTHS = 60;
 const MOLIT_APARTMENT_DETAIL_COMPARISON_MONTHS = 60;
@@ -42,6 +44,7 @@ export async function readCachedZoomMapSummary(filters) {
   const endMonth = filters.end || "";
   if (!startMonth || !endMonth) return null;
   const source = filters.source || "kb";
+  const minHouseholdCount = normalizeMinHouseholdCount(filters.minHouseholdCount);
 
   const snapshotResult = await query(`
     select *
@@ -49,9 +52,10 @@ export async function readCachedZoomMapSummary(filters) {
     where source = $3
       and start_month = $1
       and end_month = $2
+      and min_household_count = $4
     order by updated_at desc
     limit 1
-  `, [startMonth, endMonth, source]);
+  `, [startMonth, endMonth, source, minHouseholdCount]);
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
 
@@ -281,7 +285,8 @@ export async function readCachedZoomMapSummary(filters) {
       hit: true,
       source,
       updatedAt: snapshot.updated_at,
-      periodYears: Number(snapshot.period_years)
+      periodYears: Number(snapshot.period_years),
+      minHouseholdCount: Number(snapshot.min_household_count || 0)
     },
     items: itemsResult.rows.map((row) => serializeCachedItem(row, level))
   };
@@ -315,6 +320,7 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
       source,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
+      minHouseholdCount: Number(snapshot.min_household_count || 0),
       rankSource: "apartment-rank-bounds"
     },
     items: result.rows.map(serializeCachedDongApartmentRankItem)
@@ -375,6 +381,7 @@ async function readCachedApartmentRankingScope({ snapshot, filters, source, scop
       source,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
+      minHouseholdCount: Number(snapshot.min_household_count || 0),
       rankSource,
       rankingScope: scope.type
     },
@@ -406,25 +413,37 @@ function normalizedApartmentRankingScope(value, filters) {
   return null;
 }
 
-export async function refreshMolitMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS } = {}) {
+export async function refreshMolitMapGrowthCache({
+  periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS,
+  minHouseholdCounts = DEFAULT_MIN_HOUSEHOLD_COUNTS
+} = {}) {
   const today = todayKstDateString();
   const endMonth = today.slice(0, 7).replace("-", "");
   const snapshots = [];
+  const householdFilters = normalizeMinHouseholdCounts(minHouseholdCounts);
   for (const period of normalizedPeriods(periodYears)) {
     const startMonth = addMonths(endMonth, -period.months);
     const data = await readMolitMatchedMonthlyRows(today, { startMonth, endMonth });
     if (!data.rows.length) continue;
-    const items = buildMolitCacheItems(data.rows, { startMonth, endMonth, recentByType: data.recentByType });
-    const snapshot = await saveSnapshot({
-      source: "molit",
-      periodYears: period.storageYears,
-      startMonth,
-      endMonth,
-      apartmentCount: items.apartmentCount,
-      areaCount: items.areaCount,
-      items: items.rows
-    });
-    snapshots.push(snapshot);
+    for (const minHouseholdCount of householdFilters) {
+      const items = buildMolitCacheItems(data.rows, {
+        startMonth,
+        endMonth,
+        recentByType: data.recentByType,
+        minHouseholdCount
+      });
+      const snapshot = await saveSnapshot({
+        source: "molit",
+        periodYears: period.storageYears,
+        startMonth,
+        endMonth,
+        minHouseholdCount,
+        apartmentCount: items.apartmentCount,
+        areaCount: items.areaCount,
+        items: items.rows
+      });
+      snapshots.push(snapshot);
+    }
   }
 
   return {
@@ -438,9 +457,11 @@ export async function readApartmentMapRankSummary({
   source = "kb",
   apartmentId,
   startMonth = "",
-  endMonth = ""
+  endMonth = "",
+  minHouseholdCount = 0
 } = {}) {
   if (!apartmentId || !startMonth || !endMonth) return null;
+  const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
   const result = await query(`
     with snapshot as (
       select id
@@ -448,6 +469,7 @@ export async function readApartmentMapRankSummary({
       where source = $1
         and start_month = $2
         and end_month = $3
+        and min_household_count = $5
       order by updated_at desc
       limit 1
     ),
@@ -499,13 +521,14 @@ export async function readApartmentMapRankSummary({
     from ranked
     where apartment_id = $4
     limit 1
-  `, [source, startMonth, endMonth, apartmentId]);
+  `, [source, startMonth, endMonth, apartmentId, normalizedMinHouseholdCount]);
   const row = result.rows[0];
   if (!row) return null;
   return {
     source,
     startMonth,
     endMonth,
+    minHouseholdCount: normalizedMinHouseholdCount,
     hasData: row.has_data,
     growthRate: row.growth_rate === null ? null : Number(row.growth_rate),
     dongName: row.dong_name || row.neighborhood_name || "",
@@ -849,6 +872,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           c.last_month,
           c.lat,
           c.lng,
+          coalesce(a.household_count, 0) as household_count,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_year_month,
           d.deal_amount,
@@ -859,6 +883,8 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
          and c.legal_dong = coalesce(trim(d.legal_dong), '')
          and c.jibun = coalesce(trim(d.jibun), '')
          and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
+        left join apartments a
+          on a.id = c.matched_apartment_id
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
@@ -886,6 +912,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           last_month,
           lat,
           lng,
+          household_count,
           exclusive_area_m2,
           deal_year_month,
           round(avg(deal_amount))::int as sale_mid,
@@ -896,7 +923,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         from matched
         group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
                  sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
-                 build_year, apartment_deal_count, first_month, last_month, lat, lng, exclusive_area_m2, deal_year_month
+                 build_year, apartment_deal_count, first_month, last_month, lat, lng, household_count, exclusive_area_m2, deal_year_month
       ),
       start_rows as (
         select *
@@ -944,6 +971,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         last_month,
         lat,
         lng,
+        household_count,
         exclusive_area_m2,
         deal_year_month,
         sale_mid,
@@ -971,6 +999,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         last_month,
         lat,
         lng,
+        household_count,
         exclusive_area_m2,
         deal_year_month,
         sale_mid,
@@ -1024,14 +1053,21 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
   };
 }
 
-function buildMolitCacheItems(rows, { startMonth, endMonth, recentByType = new Map() }) {
+function buildMolitCacheItems(rows, {
+  startMonth,
+  endMonth,
+  recentByType = new Map(),
+  minHouseholdCount = 0
+}) {
   const apartments = groupMolitRows(rows, recentByType);
+  const eligibleApartments = [...apartments.values()]
+    .filter((apartmentGroup) => Number(apartmentGroup.apartment?.householdCount || 0) >= minHouseholdCount);
   const freshness = molitPriceFreshnessRule(startMonth, endMonth);
-  const duplicateResolution = resolveMolitDuplicateGroups([...apartments.values()].map((group) => group.apartment));
+  const duplicateResolution = resolveMolitDuplicateGroups(eligibleApartments.map((group) => group.apartment));
   const hiddenDuplicateIds = duplicateResolution.hiddenIds;
   const rankingRows = [];
 
-  for (const apartmentGroup of apartments.values()) {
+  for (const apartmentGroup of eligibleApartments) {
     if (hiddenDuplicateIds.has(apartmentGroup.apartment.id)) continue;
     const typeSummaries = [...apartmentGroup.types.values()].map((type) => {
       const start = carriedMolitPriceAtOrBefore(type.monthly, startMonth);
@@ -1079,7 +1115,7 @@ function buildMolitCacheItems(rows, { startMonth, endMonth, recentByType = new M
     hasData: true
   }));
   const includedIds = new Set(apartmentItems.map((item) => item.apartmentId));
-  const noDataApartmentItems = [...apartments.values()]
+  const noDataApartmentItems = eligibleApartments
     .filter((apartmentGroup) => {
       const apartment = apartmentGroup.apartment;
       return apartment?.legalDongCode && Number.isFinite(apartment.lat) && Number.isFinite(apartment.lng);
@@ -1155,6 +1191,7 @@ function molitApartmentFromRow(row) {
     dongName: row.dong_name || "",
     buildYear: row.build_year === null ? null : Number(row.build_year),
     dealCount: Number(row.apartment_deal_count || 0),
+    householdCount: Number(row.household_count || 0),
     firstMonth: row.first_month || "",
     lastMonth: row.last_month || "",
     lat: Number(row.lat),
@@ -1229,20 +1266,29 @@ function molitTypeKey(apartmentId, exclusiveAreaM2) {
   return `${apartmentId}:${Number(exclusiveAreaM2).toFixed(2)}`;
 }
 
-async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, apartmentCount, areaCount, items }) {
+async function saveSnapshot({
+  source = "kb",
+  periodYears,
+  startMonth,
+  endMonth,
+  minHouseholdCount = 0,
+  apartmentCount,
+  areaCount,
+  items
+}) {
   return withClient(async (client) => {
     await client.query("begin");
     try {
       const snapshotResult = await client.query(`
         insert into map_growth_snapshots (
-          source, period_years, start_month, end_month, apartment_count, area_count, updated_at
-        ) values ($1, $2, $3, $4, $5, $6, now())
-        on conflict (source, period_years, start_month, end_month) do update set
+          source, period_years, start_month, end_month, min_household_count, apartment_count, area_count, updated_at
+        ) values ($1, $2, $3, $4, $5, $6, $7, now())
+        on conflict (source, period_years, start_month, end_month, min_household_count) do update set
           apartment_count = excluded.apartment_count,
           area_count = excluded.area_count,
           updated_at = now()
         returning *
-      `, [source, periodYears, startMonth, endMonth, apartmentCount, areaCount]);
+      `, [source, periodYears, startMonth, endMonth, minHouseholdCount, apartmentCount, areaCount]);
       const snapshot = snapshotResult.rows[0];
       await client.query("delete from map_growth_items where snapshot_id = $1", [snapshot.id]);
 
@@ -1291,6 +1337,7 @@ async function saveSnapshot({ source = "kb", periodYears, startMonth, endMonth, 
         periodYears,
         startMonth,
         endMonth,
+        minHouseholdCount,
         apartmentCount,
         areaCount,
         itemCount: items.length,
@@ -1775,6 +1822,18 @@ function normalizedPeriods(values) {
     });
   return [...new Map(periods.map((period) => [period.months, period])).values()]
     .sort((a, b) => a.months - b.months);
+}
+
+function normalizeMinHouseholdCounts(values) {
+  const source = Array.isArray(values) ? values : [values];
+  const normalized = source.map(normalizeMinHouseholdCount);
+  return [...new Set(normalized)].sort((a, b) => a - b);
+}
+
+function normalizeMinHouseholdCount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  return Math.floor(number);
 }
 
 function addYears(month, delta) {

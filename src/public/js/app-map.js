@@ -425,6 +425,7 @@ async function prepareMapApartmentFocusFromUrl() {
   });
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+  appendHouseholdFilterParam(params);
 
   const detail = await api(`/api/molit-apartment-detail?${params}`).catch(() => null);
   const apartment = detail?.apartment;
@@ -495,6 +496,7 @@ async function loadZoomMapSummary() {
   params.set("west", String(bounds.west));
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+  appendHouseholdFilterParam(params);
 
   const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
   const data = await api(`${endpoint}?${params}`);
@@ -1249,6 +1251,7 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
     if (scope.mode === "sido") params.set("sidoCode", scope.key);
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+    appendHouseholdFilterParam(params);
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
     if (
@@ -1302,6 +1305,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
     params.set("zoom", String(mapGroupRankingRequestZoom(level)));
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+    appendHouseholdFilterParam(params);
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
     const activeScope = state.mapRankingScopes?.[scope.mode];

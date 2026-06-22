@@ -368,18 +368,26 @@ td:nth-child(4) {
     box-shadow: none;
   }
 
+  .map-floating-controls,
   .map-floating-period-select,
   .map-floating-period-select select {
     height: 38px;
   }
 
-  .map-floating-period-select {
+  .map-floating-controls {
     top: 10px;
+    gap: 6px;
   }
 
   .map-floating-period-select select {
     width: 136px;
     font-size: 13px;
+  }
+
+  .household-filter-toggle {
+    height: 38px;
+    font-size: 12px;
+    padding: 0 10px;
   }
 
   .map-period-bar {

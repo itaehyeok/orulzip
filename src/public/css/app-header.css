@@ -213,13 +213,21 @@
   color: #111827;
 }
 
-.map-floating-period-select {
+.map-floating-controls {
   position: absolute;
   top: 14px;
   left: 50%;
   z-index: 630;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   height: 42px;
   transform: translateX(-50%);
+}
+
+.map-floating-period-select {
+  position: relative;
+  height: 42px;
 }
 
 .map-floating-period-select select {
@@ -236,4 +244,34 @@
 
 .map-floating-period-select::after {
   right: 15px;
+}
+
+.household-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  border: 1px solid rgba(16, 24, 40, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #344054;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 14px;
+  white-space: nowrap;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.household-filter-toggle:hover {
+  border-color: rgba(47, 111, 237, 0.34);
+  color: var(--blue);
+}
+
+.household-filter-toggle.active,
+.household-filter-toggle[aria-pressed="true"] {
+  border-color: rgba(47, 111, 237, 0.42);
+  background: #e8f0ff;
+  color: var(--blue);
 }

@@ -11,11 +11,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://orulzip.com/apartments</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://orulzip.com/neighborhood</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>

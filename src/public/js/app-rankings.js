@@ -30,15 +30,6 @@ function syncPeriodButtons(activeMonths = currentPeriodMonths()) {
   });
 }
 
-function syncApartmentRankModeButtons() {
-  document.querySelectorAll("[data-apartment-rank-mode]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.apartmentRankMode === state.apartmentRankMode);
-  });
-  if (els.apartmentPageSizeSelect && Number(els.apartmentPageSizeSelect.value) !== state.apartmentRankPageSize) {
-    els.apartmentPageSizeSelect.value = String(state.apartmentRankPageSize);
-  }
-}
-
 function currentPeriodMonths() {
   if (!els.startInput.value || !els.endInput.value) return 12;
   const start = new Date(`${els.startInput.value}-01`);
@@ -102,101 +93,6 @@ function renderNeighborhoodTable(result) {
     : `<tr><td colspan="7" class="empty">표시할 동네 데이터가 없습니다.</td></tr>`;
 }
 
-function renderApartmentTable(result) {
-  syncApartmentRankModeButtons();
-  const pagination = result.pagination || {
-    page: 1,
-    pageSize: result.rows.length || state.apartmentRankPageSize,
-    totalRows: result.rows.length,
-    totalPages: 1
-  };
-  state.apartmentRankPage = pagination.page;
-  const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
-  const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
-  const periodLabel = result.period?.startMonth && result.period?.endMonth
-    ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
-    : "";
-  const metricLabel = state.apartmentRankMode === "averagePyeong" ? "평균평당가" : "상승률";
-  els.apartmentCount.textContent = `${metricLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}`;
-  renderApartmentTableHead();
-  els.apartmentRows.innerHTML = result.rows.length
-    ? result.rows.map((row) => state.apartmentRankMode === "averagePyeong" ? `
-      <tr class="clickable-row" data-apartment-id="${escapeHtml(row.apartmentId)}">
-        <td>${row.rank}</td>
-        <td>${escapeHtml(row.apartmentName)}</td>
-        <td>${escapeHtml(row.neighborhoodName)}</td>
-        <td>${escapeHtml(row.areaLabel)}</td>
-        <td>${formatMoney(row.averagePyeongPrice)}</td>
-        <td>${formatMoney(row.endPyeongPrice)}</td>
-        <td>${formatInt(row.observedMonthCount)}개월</td>
-        <td>${renderGrowthRateText(row.growthRate)}</td>
-      </tr>
-    ` : `
-      <tr class="clickable-row" data-apartment-id="${escapeHtml(row.apartmentId)}">
-        <td>${row.rank}</td>
-        <td>${escapeHtml(row.apartmentName)}</td>
-        <td>${escapeHtml(row.neighborhoodName)}</td>
-        <td>${escapeHtml(row.areaLabel)}</td>
-        <td>${formatMoney(row.startPyeongPrice)}</td>
-        <td>${formatMoney(row.endPyeongPrice)}</td>
-        <td class="${row.growthAmount >= 0 ? "positive" : "negative"}">${formatMoney(row.growthAmount)}</td>
-        <td>${renderGrowthRateText(row.growthRate, row.rank, pagination.totalRows)}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="8" class="empty">표시할 아파트 데이터가 없습니다.</td></tr>`;
-  renderApartmentPagination(pagination);
-
-  els.apartmentRows.querySelectorAll("[data-apartment-id]").forEach((row) => {
-    row.addEventListener("click", () => loadApartmentDetail(row.dataset.apartmentId));
-  });
-}
-
-function renderApartmentTableHead() {
-  if (!els.apartmentHeadRow) return;
-  els.apartmentHeadRow.innerHTML = state.apartmentRankMode === "averagePyeong"
-    ? `
-      <th>순위</th>
-      <th>아파트</th>
-      <th>동</th>
-      <th>면적 구성</th>
-      <th>평균 평당가</th>
-      <th>현재 평당가</th>
-      <th>조사월</th>
-      <th>상승률</th>
-    `
-    : `
-      <th>순위</th>
-      <th>아파트</th>
-      <th>동</th>
-      <th>면적 구성</th>
-      <th>시작 평당가</th>
-      <th>현재 평당가</th>
-      <th>상승액</th>
-      <th>상승률</th>
-    `;
-}
-
-function renderApartmentPagination(pagination) {
-  if (!els.apartmentPagination) return;
-  if (!pagination || pagination.totalPages <= 1) {
-    els.apartmentPagination.innerHTML = "";
-    return;
-  }
-  const page = Number(pagination.page || 1);
-  const totalPages = Number(pagination.totalPages || 1);
-  const pageNumbers = visiblePageNumbers(page, totalPages);
-  els.apartmentPagination.innerHTML = `
-    <button type="button" data-apartment-page="1" ${page <= 1 ? "disabled" : ""}>처음</button>
-    <button type="button" data-apartment-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>이전</button>
-    ${pageNumbers.map((item) => item === "..."
-      ? `<span>...</span>`
-      : `<button type="button" data-apartment-page="${item}" class="${item === page ? "active" : ""}">${item}</button>`
-    ).join("")}
-    <button type="button" data-apartment-page="${page + 1}" ${page >= totalPages ? "disabled" : ""}>다음</button>
-    <button type="button" data-apartment-page="${totalPages}" ${page >= totalPages ? "disabled" : ""}>마지막</button>
-  `;
-}
-
 function renderPriceBandTable(result, basisBands = null) {
   els.priceBandView?.removeAttribute("aria-busy");
   if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
@@ -225,7 +121,8 @@ function renderPriceBandTable(result, basisBands = null) {
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
   const cacheLabel = formatPriceBandCacheLabel(result.cache);
-  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
+  const householdLabel = householdFilterLabel();
+  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
   renderPriceBandSummary(summaryBands, state.priceBandBasis, state.priceBandKey);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
@@ -504,109 +401,6 @@ function renderPriceBandPagination(pagination) {
   `;
 }
 
-async function loadApartmentDetail(apartmentId) {
-  const detail = await api(`/api/apartment-detail?apartmentId=${encodeURIComponent(apartmentId)}`);
-  renderApartmentDetail(detail);
-}
-
-function renderApartmentDetail(detail) {
-  if (!detail.apartment) return;
-
-  els.apartmentDetailPanel.hidden = false;
-  els.detailTitle.textContent = `${detail.apartment.name} KB 월별 시세`;
-  els.detailMeta.textContent = `${detail.apartment.neighborhoodName || "-"} / ${detail.areaTypes.length}개 면적`;
-
-  const series = detail.areaTypes
-    .filter((areaType) => areaType.prices.length)
-    .slice(0, 6)
-    .map((areaType, index) => ({
-      ...areaType,
-      color: colors[index % colors.length]
-    }));
-
-  if (!series.length) {
-    els.detailChart.innerHTML = `<div class="empty">표시할 시세 데이터가 없습니다.</div>`;
-    return;
-  }
-
-  const width = 1120;
-  const height = 360;
-  const padding = { top: 20, right: 40, bottom: 46, left: 82 };
-  const months = detail.months;
-  const prices = series.flatMap((item) => item.prices.map((price) => price.saleMid).filter(Number.isFinite));
-  const yMin = Math.floor(Math.min(...prices) / 5000) * 5000;
-  const yMax = Math.ceil(Math.max(...prices) / 5000) * 5000;
-
-  const x = (month) => {
-    const index = months.indexOf(month);
-    if (months.length <= 1) return padding.left;
-    return padding.left + (index / (months.length - 1)) * (width - padding.left - padding.right);
-  };
-  const y = (value) => {
-    return padding.top + (1 - (value - yMin) / (yMax - yMin || 1)) * (height - padding.top - padding.bottom);
-  };
-
-  const gridValues = [yMin, Math.round((yMin + yMax) / 2), yMax];
-  const grid = gridValues.map((value) => `
-    <line x1="${padding.left}" y1="${y(value)}" x2="${width - padding.right}" y2="${y(value)}" stroke="#e5e8ef"></line>
-    <text x="${padding.left - 10}" y="${y(value) + 4}" text-anchor="end" font-size="12" fill="#667085">${formatKoreanPrice(value)}</text>
-  `).join("");
-
-  const lines = series.map((item) => {
-    const commands = item.prices
-      .map((price, index) => `${index === 0 ? "M" : "L"} ${x(price.yearMonth).toFixed(1)} ${y(price.saleMid).toFixed(1)}`)
-      .join(" ");
-    return `<path d="${commands}" fill="none" stroke="${item.color}" stroke-width="2.5"></path>`;
-  }).join("");
-
-  const hitPoints = series.flatMap((item) => item.prices.map((price) => `
-    <circle
-      class="detail-point"
-      cx="${x(price.yearMonth).toFixed(1)}"
-      cy="${y(price.saleMid).toFixed(1)}"
-      r="10"
-      fill="transparent"
-      data-label="${escapeHtml(item.label || "-")}"
-      data-month="${escapeHtml(formatMonth(price.yearMonth))}"
-      data-sale-mid="${escapeHtml(formatKoreanPrice(price.saleMid))}"
-      data-sale-low="${escapeHtml(formatKoreanPrice(price.saleLow))}"
-      data-sale-high="${escapeHtml(formatKoreanPrice(price.saleHigh))}"
-      data-pyeong="${escapeHtml(formatMoney(price.pyeongPrice))}"
-    ></circle>
-  `)).join("");
-  const hoverLine = `
-    <line class="chart-hover-line detail-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" hidden></line>
-    <rect class="chart-hover-hit" x="${padding.left}" y="${padding.top}" width="${width - padding.left - padding.right}" height="${height - padding.top - padding.bottom}" fill="transparent"></rect>
-  `;
-
-  const xLabels = months.filter((_, index) => index === 0 || index === months.length - 1 || index % Math.ceil(months.length / 6) === 0)
-    .map((month) => `<text x="${x(month)}" y="${height - 10}" text-anchor="middle" font-size="12" fill="#667085">${formatMonth(month)}</text>`)
-    .join("");
-
-  const legend = series.map((item) => `
-    <span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")}</span>
-  `).join("");
-
-  els.detailChart.innerHTML = `
-    <div class="detail-chart-scroll">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="KB 월별 시세 그래프">
-        ${grid}
-        ${lines}
-        ${hitPoints}
-        ${xLabels}
-        <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
-        <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="#98a2b3"></line>
-        ${hoverLine}
-      </svg>
-    </div>
-    <div class="legend">${legend}</div>
-  `;
-
-  bindDetailChartHover({ width, height, padding, months, series, x });
-
-  els.apartmentDetailPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 function renderChart(result) {
   els.chartPeriod.textContent = result.period.startMonth && result.period.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
@@ -706,37 +500,6 @@ function bindNeighborhoodChartHover({ width, padding, months, series, x }) {
   });
 }
 
-function bindDetailChartHover({ width, padding, months, series, x }) {
-  const svg = els.detailChart.querySelector("svg");
-  const hit = els.detailChart.querySelector(".chart-hover-hit");
-  const line = els.detailChart.querySelector(".detail-hover-line");
-  if (!svg || !hit || !line || !els.detailTooltip || !months.length) return;
-
-  hit.addEventListener("mousemove", (event) => {
-    const month = nearestMonthFromEvent(event, svg, width, months, x);
-    const xPos = x(month);
-    line.setAttribute("x1", xPos);
-    line.setAttribute("x2", xPos);
-    line.hidden = false;
-
-    const rows = series.map((item) => {
-      const price = item.prices.find((entry) => entry.yearMonth === month);
-      if (!price) return "";
-      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} 일반가 ${formatKoreanPrice(price.saleMid)}</span>`;
-    }).filter(Boolean).join("");
-
-    showFloatingTooltip(els.detailChart, els.detailTooltip, event, `
-      <strong>${formatMonth(month)}</strong>
-      ${rows || "<span>데이터 없음</span>"}
-    `);
-  });
-
-  hit.addEventListener("mouseleave", () => {
-    line.hidden = true;
-    els.detailTooltip.hidden = true;
-  });
-}
-
 function nearestMonthFromEvent(event, svg, width, months, x) {
   return nearestMonthFromSvgX(svgPointFromEvent(event, svg, width).x, months, x);
 }
@@ -778,6 +541,5 @@ function showFloatingTooltip(container, tooltip, event, html) {
 function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
-  els.apartmentRows.innerHTML = `<tr><td colspan="8" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
   if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="4" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
 }

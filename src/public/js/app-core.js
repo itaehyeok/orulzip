@@ -33,6 +33,7 @@ async function init() {
     loadAdminSession()
   ]);
   renderAdminNavigation();
+  syncHouseholdFilterToggles();
   await refresh();
   setInterval(refreshStatusOnly, 5000);
 }
@@ -135,7 +136,6 @@ function bindEvents() {
 
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.apartmentRankPage = 1;
       state.priceBandKey = "";
       state.priceBandPage = 1;
       setPeriodMonths(periodButtonMonths(button));
@@ -144,31 +144,22 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-period-select]").forEach((select) => {
     select.addEventListener("change", () => {
-      state.apartmentRankPage = 1;
       state.priceBandKey = "";
       state.priceBandPage = 1;
       setPeriodMonths(Number(select.value) || 12);
       refresh();
     });
   });
-  document.querySelectorAll("[data-apartment-rank-mode]").forEach((button) => {
+  els.householdFilterToggles?.forEach((button) => {
     button.addEventListener("click", () => {
-      state.apartmentRankMode = button.dataset.apartmentRankMode || "averagePyeong";
-      state.apartmentRankPage = 1;
-      syncApartmentRankModeButtons();
+      state.minHouseholdCount = activeMinHouseholdCount() > 0 ? 0 : 100;
+      state.priceBandKey = "";
+      state.priceBandPage = 1;
+      state.mapApartmentDetails.clear();
+      syncHouseholdFilterToggles();
+      if (state.activeTab === "priceBands") renderPriceBandLoadingState();
       refresh();
     });
-  });
-  els.apartmentPageSizeSelect?.addEventListener("change", () => {
-    state.apartmentRankPageSize = Number(els.apartmentPageSizeSelect.value) || 50;
-    state.apartmentRankPage = 1;
-    refresh();
-  });
-  els.apartmentPagination?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-apartment-page]");
-    if (!button) return;
-    state.apartmentRankPage = Number(button.dataset.apartmentPage) || 1;
-    refresh();
   });
   els.priceBandSummary?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-key]");
@@ -445,15 +436,6 @@ async function loadActiveViewData() {
     return;
   }
 
-  if (state.activeTab === "apartment") {
-    const apartmentParams = new URLSearchParams(params);
-    apartmentParams.set("rankMode", state.apartmentRankMode);
-    apartmentParams.set("page", String(state.apartmentRankPage));
-    apartmentParams.set("pageSize", String(state.apartmentRankPageSize));
-    renderApartmentTable(await api(`/api/apartment-rankings?${apartmentParams}`));
-    return;
-  }
-
   if (state.activeTab === "priceBands") {
     const requestId = ++state.priceBandRequestId;
     renderPriceBandLoadingState();
@@ -540,7 +522,6 @@ function setActiveTab(tab, { push = false } = {}) {
 
   document.querySelector("#mapView").classList.toggle("active", isMapTab(nextTab));
   document.querySelector("#neighborhoodView").classList.toggle("active", nextTab === "neighborhood");
-  document.querySelector("#apartmentView").classList.toggle("active", nextTab === "apartment");
   document.querySelector("#priceBandView").classList.toggle("active", nextTab === "priceBands");
   document.querySelector("#formulaView").classList.toggle("active", nextTab === "formula");
   document.querySelector("#termsView").classList.toggle("active", nextTab === "terms");

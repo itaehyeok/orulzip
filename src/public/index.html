@@ -97,16 +97,19 @@
           <h2 id="zoomMapTitle" class="sr-only">지도</h2>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
-            <label class="top-period-select map-floating-period-select">
-              <span class="sr-only">기준 기간</span>
-              <select data-period-select aria-label="기준 기간">
-                <option value="3">3개월전 기준</option>
-                <option value="6">6개월전 기준</option>
-                <option value="12" selected>1년전 기준</option>
-                <option value="36">3년전 기준</option>
-                <option value="60">5년전 기준</option>
-              </select>
-            </label>
+            <div class="map-floating-controls">
+              <label class="top-period-select map-floating-period-select">
+                <span class="sr-only">기준 기간</span>
+                <select data-period-select aria-label="기준 기간">
+                  <option value="3">3개월전 기준</option>
+                  <option value="6">6개월전 기준</option>
+                  <option value="12" selected>1년전 기준</option>
+                  <option value="36">3년전 기준</option>
+                  <option value="60">5년전 기준</option>
+                </select>
+              </label>
+              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
+            </div>
             <div id="mapTransitionStatus" class="map-transition-status" hidden>마커 전환 중...</div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
               <div id="mapRankingSection" class="map-ranking-section" hidden>
@@ -194,70 +197,14 @@
         </section>
       </section>
 
-      <section id="apartmentView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>아파트별 통합 랭킹</h2>
-            <span id="apartmentCount"></span>
-          </div>
-          <div class="ranking-controls">
-            <div class="segmented-buttons" aria-label="아파트 랭킹 기준">
-              <button class="active" type="button" data-apartment-rank-mode="averagePyeong">평균평당가</button>
-              <button type="button" data-apartment-rank-mode="growth">상승률</button>
-            </div>
-            <div class="period-buttons" aria-label="아파트 랭킹 기준 기간">
-              <button data-period-months="3">3개월전 기준</button>
-              <button data-period-months="6">6개월전 기준</button>
-              <button class="active" data-period-months="12">1년전 기준</button>
-              <button data-period-months="36">3년전 기준</button>
-              <button data-period-months="60">5년전 기준</button>
-            </div>
-            <label class="page-size-control" for="apartmentPageSizeSelect">
-              <span>페이지당</span>
-              <select id="apartmentPageSizeSelect">
-                <option value="25">25개</option>
-                <option value="50" selected>50개</option>
-                <option value="100">100개</option>
-              </select>
-            </label>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr id="apartmentHeadRow">
-                  <th>순위</th>
-                  <th>아파트</th>
-                  <th>동</th>
-                  <th>면적 구성</th>
-                  <th>시작 평당가</th>
-                  <th>현재 평당가</th>
-                  <th>상승액</th>
-                  <th>상승률</th>
-                </tr>
-              </thead>
-              <tbody id="apartmentRows"></tbody>
-            </table>
-          </div>
-          <div id="apartmentPagination" class="pagination"></div>
-        </section>
-
-        <section id="apartmentDetailPanel" class="panel detail-panel" hidden>
-          <div class="panel-head">
-            <h2 id="detailTitle">KB 월별 시세</h2>
-            <span id="detailMeta"></span>
-          </div>
-          <div class="detail-body">
-            <div id="detailChart" class="detail-chart"></div>
-            <div id="detailTooltip" class="chart-tooltip" hidden></div>
-          </div>
-        </section>
-      </section>
-
       <section id="priceBandView" class="view">
         <section class="panel">
           <div class="panel-head">
             <h2>실거래가 가격대별 상승 랭킹</h2>
             <span id="priceBandCount"></span>
+          </div>
+          <div class="ranking-controls price-band-controls">
+            <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">

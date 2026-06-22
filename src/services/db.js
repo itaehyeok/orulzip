@@ -280,12 +280,41 @@ export async function initDb() {
       period_years integer not null,
       start_month text not null,
       end_month text not null,
+      min_household_count integer not null default 0,
       apartment_count integer not null default 0,
       area_count integer not null default 0,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       unique(source, period_years, start_month, end_month)
     );
+
+    alter table map_growth_snapshots
+      add column if not exists min_household_count integer not null default 0;
+
+    do $$
+    declare
+      constraint_name text;
+    begin
+      select con.conname
+        into constraint_name
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace nsp on nsp.oid = rel.relnamespace
+      where nsp.nspname = current_schema()
+        and rel.relname = 'map_growth_snapshots'
+        and con.contype = 'u'
+        and array(
+          select att.attname
+          from unnest(con.conkey) with ordinality keys(attnum, ord)
+          join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
+          order by keys.ord
+        ) = array['source', 'period_years', 'start_month', 'end_month']
+      limit 1;
+
+      if constraint_name is not null then
+        execute format('alter table map_growth_snapshots drop constraint %I', constraint_name);
+      end if;
+    end $$;
 
     create table if not exists map_growth_items (
       snapshot_id bigint not null references map_growth_snapshots(id) on delete cascade,
@@ -325,6 +354,10 @@ export async function initDb() {
 
     create index if not exists map_growth_snapshots_period_idx
       on map_growth_snapshots(source, start_month, end_month, updated_at desc);
+    create unique index if not exists map_growth_snapshots_household_filter_uidx
+      on map_growth_snapshots(source, period_years, start_month, end_month, min_household_count);
+    create index if not exists map_growth_snapshots_filter_lookup_idx
+      on map_growth_snapshots(source, start_month, end_month, min_household_count, updated_at desc);
     create index if not exists map_growth_items_lookup_idx
       on map_growth_items(snapshot_id, level, lat, lng);
     create index if not exists map_growth_items_hierarchy_idx
@@ -424,12 +457,41 @@ export async function initDb() {
       period_months integer not null,
       start_month text not null,
       end_month text not null,
+      min_household_count integer not null default 0,
       band_count integer not null default 0,
       item_count integer not null default 0,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       unique(source, basis, start_month, end_month)
     );
+
+    alter table price_band_rank_snapshots
+      add column if not exists min_household_count integer not null default 0;
+
+    do $$
+    declare
+      constraint_name text;
+    begin
+      select con.conname
+        into constraint_name
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace nsp on nsp.oid = rel.relnamespace
+      where nsp.nspname = current_schema()
+        and rel.relname = 'price_band_rank_snapshots'
+        and con.contype = 'u'
+        and array(
+          select att.attname
+          from unnest(con.conkey) with ordinality keys(attnum, ord)
+          join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
+          order by keys.ord
+        ) = array['source', 'basis', 'start_month', 'end_month']
+      limit 1;
+
+      if constraint_name is not null then
+        execute format('alter table price_band_rank_snapshots drop constraint %I', constraint_name);
+      end if;
+    end $$;
 
     create table if not exists price_band_rank_items (
       snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
@@ -455,6 +517,10 @@ export async function initDb() {
 
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
+    create unique index if not exists price_band_rank_snapshots_household_filter_uidx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count);
+    create index if not exists price_band_rank_snapshots_filter_lookup_idx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, updated_at desc);
     alter table price_band_rank_items
       add column if not exists address text;
     alter table price_band_rank_items

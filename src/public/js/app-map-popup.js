@@ -4,6 +4,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
   const source = currentMapSource();
   const period = currentMapPeriodParams();
+  const minHouseholdCount = activeMinHouseholdCount();
   if (typeof trackAnalyticsEvent === "function") {
     trackAnalyticsEvent("apartment_detail_opened", {
       apartmentId,
@@ -15,7 +16,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
       periodLabel: typeof mapAnalyticsPeriodLabel === "function" ? mapAnalyticsPeriodLabel() : ""
     });
   }
-  const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}`;
+  const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}:${minHouseholdCount}`;
   state.mapPopupDetail = null;
   state.mapPopupSelectedAreaTypeId = null;
   if (state.mapApartmentDetails.has(cacheKey)) {
@@ -30,7 +31,8 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
     const params = new URLSearchParams({
       apartmentId,
       start: period.start,
-      end: period.end
+      end: period.end,
+      minHouseholdCount: String(minHouseholdCount)
     });
     const detail = await api(`${endpoint}?${params}`);
     if (requestId !== state.mapPopupRequestId) return;
