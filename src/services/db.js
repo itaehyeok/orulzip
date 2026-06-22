@@ -304,11 +304,11 @@ export async function initDb() {
         and rel.relname = 'map_growth_snapshots'
         and con.contype = 'u'
         and array(
-          select att.attname
+          select att.attname::text
           from unnest(con.conkey) with ordinality keys(attnum, ord)
           join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
           order by keys.ord
-        ) = array['source', 'period_years', 'start_month', 'end_month']
+        ) = array['source', 'period_years', 'start_month', 'end_month']::text[]
       limit 1;
 
       if constraint_name is not null then
@@ -481,11 +481,11 @@ export async function initDb() {
         and rel.relname = 'price_band_rank_snapshots'
         and con.contype = 'u'
         and array(
-          select att.attname
+          select att.attname::text
           from unnest(con.conkey) with ordinality keys(attnum, ord)
           join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
           order by keys.ord
-        ) = array['source', 'basis', 'start_month', 'end_month']
+        ) = array['source', 'basis', 'start_month', 'end_month']::text[]
       limit 1;
 
       if constraint_name is not null then
