@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260622-popup-price-chart-speed";
+  const version = "20260622-hover-infowindow-autopan";
   const scripts = [
     "app-prelude",
     "app-state",

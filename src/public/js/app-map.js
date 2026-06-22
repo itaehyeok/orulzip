@@ -59,16 +59,18 @@ function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]
   };
 }
 
-function openZoomNaverInfoWindow(position, html, { pinned = false } = {}) {
+function openZoomNaverInfoWindow(position, html, { pinned = false, disableAutoPan = !pinned } = {}) {
   cancelZoomNaverInfoWindowClose();
   state.zoomNaverInfoWindowPinned = Boolean(pinned);
   if (!state.zoomNaverInfoWindow) {
     state.zoomNaverInfoWindow = new window.naver.maps.InfoWindow({
       borderWidth: 0,
       backgroundColor: "transparent",
-      disableAnchor: false
+      disableAnchor: false,
+      disableAutoPan
     });
   }
+  state.zoomNaverInfoWindow.setOptions({ disableAutoPan });
   state.zoomNaverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
 }
