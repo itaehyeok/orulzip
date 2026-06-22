@@ -508,6 +508,7 @@
   padding: 8px;
   place-items: center;
   text-align: center;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .dong-rank-demo > small,
@@ -739,6 +740,16 @@
   --rank-badge-bg: #ffffff;
   --rank-badge-text: #111827;
   --rank-default-width: 130px;
+}
+
+.dong-rank-demo:hover {
+  --rank-bg: #f4f8ff;
+  --rank-border: #307aff;
+}
+
+.dong-rank-demo.rank-chip-dark:hover {
+  --rank-bg: #1f2937;
+  --rank-border: #93c5fd;
 }
 
 .rank-chip-region {
