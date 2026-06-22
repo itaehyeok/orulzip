@@ -56,23 +56,24 @@
 
 .map-apartment-ranking {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 0;
+  left: 0;
   z-index: 610;
   display: grid;
   grid-template-rows: auto;
   width: 330px;
-  max-height: calc(100% - 28px);
+  max-height: 100%;
   overflow: hidden;
-  border: 1px solid rgba(16, 24, 40, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.22);
-  backdrop-filter: blur(8px);
+  border: 0;
+  border-right: 1px solid rgba(16, 24, 40, 0.14);
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: 8px 0 24px rgba(16, 24, 40, 0.12);
+  pointer-events: auto;
 }
 
 .map-apartment-ranking.ranking-active {
-  bottom: 14px;
+  bottom: 0;
   grid-template-rows: auto minmax(0, 1fr);
 }
 
