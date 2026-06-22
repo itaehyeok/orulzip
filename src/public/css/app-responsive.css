@@ -517,6 +517,7 @@ td:nth-child(4) {
 
   .map-apartment-ranking.ranking-active.ranking-open {
     inset: 0;
+    z-index: 1400;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     height: auto;
