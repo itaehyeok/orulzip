@@ -459,6 +459,19 @@
   padding: 28px 12px;
 }
 
+.zoom-cluster-marker,
+.zoom-cluster-marker *,
+.zoom-cluster-content,
+.zoom-cluster-content *,
+.region-data-marker,
+.region-data-marker *,
+.dong-rank-demo,
+.dong-rank-demo * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .dong-rank-demo {
   --rank-bg: #ffffff;
   --rank-border: #5262d6;

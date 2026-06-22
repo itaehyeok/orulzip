@@ -36,6 +36,15 @@
   display: none;
 }
 
+.apartment-map-marker,
+.apartment-map-marker *,
+.apartment-rank-marker,
+.apartment-rank-marker * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .apartment-rank-marker {
   --rank-bg: #ffffff;
   --rank-border: #5262d6;
