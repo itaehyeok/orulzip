@@ -177,6 +177,18 @@ export async function initDb() {
       on molit_trade_deals(lawd_cd, deal_year_month);
     create index if not exists molit_trade_deals_apt_idx
       on molit_trade_deals(apt_name, legal_dong);
+    create index if not exists molit_trade_deals_complex_match_idx
+      on molit_trade_deals (
+        lawd_cd,
+        (coalesce(trim(legal_dong), '')),
+        (coalesce(trim(jibun), '')),
+        (regexp_replace(lower(coalesce(apt_name, '')), '[^0-9a-z가-힣]', '', 'g')),
+        deal_year_month,
+        exclusive_area_m2
+      )
+      where exclusive_area_m2 is not null
+        and deal_amount is not null
+        and coalesce(cancel_type, '') = '';
 
     create table if not exists molit_complexes (
       id text primary key,

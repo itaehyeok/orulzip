@@ -6,6 +6,10 @@ import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.j
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
+const MOLIT_APARTMENT_DETAIL_GRAPH_MONTHS = 60;
+const MOLIT_APARTMENT_DETAIL_COMPARISON_MONTHS = 60;
+const MOLIT_APARTMENT_DETAIL_MONTH_LOOKBACK = MOLIT_APARTMENT_DETAIL_GRAPH_MONTHS + MOLIT_APARTMENT_DETAIL_COMPARISON_MONTHS;
+const MOLIT_APARTMENT_DETAIL_TRADE_LIMIT_PER_TYPE = 80;
 const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
   { maxPeriodMonths: 6, startGapMonths: 2, endGapMonths: 2 },
@@ -518,10 +522,19 @@ export async function readApartmentMapRankSummary({
   };
 }
 
-export async function buildMolitApartmentDetail(apartmentId) {
+export async function buildMolitApartmentDetail(apartmentId, {
+  monthLookback = MOLIT_APARTMENT_DETAIL_MONTH_LOOKBACK,
+  tradeLimitPerType = MOLIT_APARTMENT_DETAIL_TRADE_LIMIT_PER_TYPE
+} = {}) {
   const normalizedApartmentId = normalizeApartmentPrimaryId(apartmentId);
   const today = todayKstDateString();
   const currentMonth = today.slice(0, 7).replace("-", "");
+  const safeMonthLookback = Math.max(
+    MOLIT_APARTMENT_DETAIL_GRAPH_MONTHS,
+    Math.min(Number(monthLookback) || MOLIT_APARTMENT_DETAIL_MONTH_LOOKBACK, MOLIT_APARTMENT_DETAIL_MONTH_LOOKBACK)
+  );
+  const detailStartMonth = addMonths(currentMonth, -safeMonthLookback);
+  const safeTradeLimit = Math.max(10, Math.min(Number(tradeLimitPerType) || MOLIT_APARTMENT_DETAIL_TRADE_LIMIT_PER_TYPE, 200));
   const [complexResult, monthlyResult, recentResult, tradeResult] = await Promise.all([
     query(`
       select id, apt_name, legal_dong, lawd_cd, address,
@@ -537,7 +550,6 @@ export async function buildMolitApartmentDetail(apartmentId) {
         round(avg(d.deal_amount))::int as sale_mid,
         min(d.deal_amount)::int as sale_low,
         max(d.deal_amount)::int as sale_high,
-        round(avg(d.pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
       from molit_trade_deals d
       join molit_complexes c
@@ -548,11 +560,11 @@ export async function buildMolitApartmentDetail(apartmentId) {
        and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
       where d.exclusive_area_m2 is not null
         and d.deal_amount is not null
-        and d.pyeong_price is not null
+        and d.deal_year_month between $2 and $3
         and coalesce(d.cancel_type, '') = ''
       group by round(d.exclusive_area_m2::numeric, 2), d.deal_year_month
       order by exclusive_area_m2, d.deal_year_month
-    `, [normalizedApartmentId]),
+    `, [normalizedApartmentId, detailStartMonth, currentMonth]),
     query(`
       select
         round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
@@ -560,7 +572,6 @@ export async function buildMolitApartmentDetail(apartmentId) {
         round(avg(d.deal_amount))::int as sale_mid,
         min(d.deal_amount)::int as sale_low,
         max(d.deal_amount)::int as sale_high,
-        round(avg(d.pyeong_price))::int as pyeong_price,
         count(*)::int as deal_count
       from molit_trade_deals d
       join molit_complexes c
@@ -571,37 +582,55 @@ export async function buildMolitApartmentDetail(apartmentId) {
        and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
       where d.exclusive_area_m2 is not null
         and d.deal_amount is not null
-        and d.pyeong_price is not null
         and coalesce(d.cancel_type, '') = ''
         and make_date(d.deal_year, d.deal_month, d.deal_day) between $2::date - interval '30 days' and $2::date
       group by round(d.exclusive_area_m2::numeric, 2)
     `, [normalizedApartmentId, today]),
     query(`
       select
-        d.id,
-        round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
-        d.deal_year_month,
-        d.deal_year,
-        d.deal_month,
-        d.deal_day,
-        d.deal_amount,
-        d.floor
-      from molit_trade_deals d
-      join molit_complexes c
-        on c.id = $1
-       and c.lawd_cd = d.lawd_cd
-       and c.legal_dong = coalesce(trim(d.legal_dong), '')
-       and c.jibun = coalesce(trim(d.jibun), '')
-       and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
-      where d.exclusive_area_m2 is not null
-        and d.deal_amount is not null
-        and d.deal_year_month is not null
-        and coalesce(d.cancel_type, '') = ''
-      order by d.deal_year desc nulls last,
-               d.deal_month desc nulls last,
-               d.deal_day desc nulls last,
-               d.id desc
-    `, [normalizedApartmentId])
+        id,
+        exclusive_area_m2,
+        deal_year_month,
+        deal_year,
+        deal_month,
+        deal_day,
+        deal_amount,
+        floor
+      from (
+        select
+          d.id,
+          round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
+          d.deal_year_month,
+          d.deal_year,
+          d.deal_month,
+          d.deal_day,
+          d.deal_amount,
+          d.floor,
+          row_number() over (
+            partition by round(d.exclusive_area_m2::numeric, 2)
+            order by d.deal_year desc nulls last,
+                     d.deal_month desc nulls last,
+                     d.deal_day desc nulls last,
+                     d.id desc
+          ) as rn
+        from molit_trade_deals d
+        join molit_complexes c
+          on c.id = $1
+         and c.lawd_cd = d.lawd_cd
+         and c.legal_dong = coalesce(trim(d.legal_dong), '')
+         and c.jibun = coalesce(trim(d.jibun), '')
+         and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
+        where d.exclusive_area_m2 is not null
+          and d.deal_amount is not null
+          and d.deal_year_month is not null
+          and coalesce(d.cancel_type, '') = ''
+      ) ranked_trades
+      where rn <= $2
+      order by deal_year desc nulls last,
+               deal_month desc nulls last,
+               deal_day desc nulls last,
+               id desc
+    `, [normalizedApartmentId, safeTradeLimit])
   ]);
 
   const apartment = serializeMolitComplexRow(complexResult.rows[0]);
@@ -651,7 +680,6 @@ export async function buildMolitApartmentDetail(apartmentId) {
         saleLow: price.saleLow,
         saleMid: price.saleMid,
         saleHigh: price.saleHigh,
-        pyeongPrice: price.pyeongPrice,
         dealCount: price.dealCount
       });
     }
