@@ -107,21 +107,21 @@ window.orulzipRegionMarkerConfig = {
   },
   defaultStyle: {
     // 지역명 글자 크기입니다. 예: 송파구, 태평동, 경기
-    labelFontSize: 8,
+    labelFontSize: 9,
     // 상승률 위에 별도 문구를 넣을 때 쓰는 글자 크기입니다.
-    valuePrefixFontSize: 9,
+    valuePrefixFontSize: 10,
     // 상승률 숫자 글자 크기입니다. 예: 12.1%
-    valueFontSize: 14,
+    valueFontSize: 15,
     // 상승률 밑 괄호 문구 글자 크기입니다. 예: (1년 상승률)
-    valueSuffixFontSize: 8,
+    valueSuffixFontSize: 9,
     // 순위 박스의 라벨 글자 크기입니다. 예: 수정구
-    sigunguFontSize: 8,
+    sigunguFontSize: 9,
     // 순위 박스의 라벨 글자 크기입니다. 예: 서울
-    sidoFontSize: 8,
+    sidoFontSize: 9,
     // 순위 박스의 라벨 글자 크기입니다. 예: 전국
-    nationalFontSize: 8,
+    nationalFontSize: 9,
     // 순위 박스의 값 글자 크기입니다. 예: 1/12등, 35%
-    rankValueFontSize: 8,
+    rankValueFontSize: 9,
     // 지역명과 상승률 사이 간격입니다.
     labelRateGap: 5,
     // 상승률과 밑 괄호 문구 사이 간격입니다.
@@ -133,7 +133,7 @@ window.orulzipRegionMarkerConfig = {
     // 미니 테이블 디자인일 때 순위 행간입니다.
     tableRankRowGap: 0,
     // 순위 박스 한 줄의 높이입니다.
-    rankRowHeight: 17,
+    rankRowHeight: 18,
     // 지역명 색상입니다.
     labelColor: "#667085",
     // 상승률 숫자 색상입니다.

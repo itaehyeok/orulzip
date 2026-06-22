@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260622-stable-map-rankings";
+  const version = "20260622-marker-font-size";
   const scripts = [
     "app-prelude",
     "app-state",

@@ -527,7 +527,7 @@
   max-width: calc(var(--region-marker-outer-width, var(--rank-default-width)) - 16px);
   overflow: hidden;
   color: var(--region-marker-label-color, var(--rank-muted));
-  font-size: var(--region-marker-label-font-size, 10px);
+  font-size: var(--region-marker-label-font-size, 11px);
   font-weight: 950;
   line-height: 1.05;
   margin-bottom: var(--region-marker-label-rate-gap, 5px);
@@ -544,7 +544,7 @@
   place-items: center;
   justify-self: stretch;
   color: var(--region-marker-value-color, var(--rank-text));
-  font-size: var(--region-marker-value-font-size, 25px);
+  font-size: var(--region-marker-value-font-size, 26px);
   font-weight: 950;
   letter-spacing: 0;
   line-height: 0.96;
@@ -568,21 +568,21 @@
 
 .dong-rank-demo .region-marker-value-prefix {
   color: var(--region-marker-value-suffix-color, var(--rank-muted));
-  font-size: var(--region-marker-value-prefix-font-size, 9px);
+  font-size: var(--region-marker-value-prefix-font-size, 10px);
   font-weight: 900;
   line-height: 1.05;
 }
 
 .dong-rank-demo .region-marker-value-rate {
   color: var(--region-marker-value-color, var(--rank-text));
-  font-size: var(--region-marker-value-font-size, 25px);
+  font-size: var(--region-marker-value-font-size, 26px);
   font-weight: 950;
   line-height: 0.96;
 }
 
 .dong-rank-demo .region-marker-value-suffix {
   color: var(--region-marker-value-suffix-color, var(--rank-muted));
-  font-size: var(--region-marker-value-suffix-font-size, 9px);
+  font-size: var(--region-marker-value-suffix-font-size, 10px);
   font-weight: 900;
   line-height: 1.05;
   margin-top: var(--region-marker-value-suffix-gap, 2px);
@@ -609,11 +609,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
   box-sizing: border-box;
   width: 100%;
-  min-height: var(--region-marker-rank-row-height, 18px);
+  min-height: var(--region-marker-rank-row-height, 19px);
   border-radius: 999px;
   background: var(--rank-badge-bg);
   color: var(--rank-badge-text);
-  font-size: var(--region-marker-rank-value-font-size, 10px);
+  font-size: var(--region-marker-rank-value-font-size, 11px);
   font-style: normal;
   font-weight: 950;
   line-height: 1;
@@ -631,7 +631,7 @@
 
 .dong-rank-demo b {
   color: currentColor;
-  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-label-font-size, 9px));
+  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-label-font-size, 10px));
   font-weight: 950;
   justify-self: start;
   min-width: 0;
@@ -645,7 +645,7 @@
 .dong-rank-demo .region-marker-rank-value {
   color: currentColor;
   display: block;
-  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-value-font-size, 10px));
+  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-value-font-size, 11px));
   font-weight: 950;
   justify-self: end;
   line-height: 1;
@@ -663,15 +663,15 @@
 }
 
 .dong-rank-demo em[data-rank-level="sigungu"] b {
-  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-label-font-size, 9px)));
+  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-sigungu-font-size, var(--region-marker-rank-label-font-size, 10px)));
 }
 
 .dong-rank-demo em[data-rank-level="sido"] b {
-  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-sido-font-size, var(--region-marker-rank-label-font-size, 9px)));
+  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-sido-font-size, var(--region-marker-rank-label-font-size, 10px)));
 }
 
 .dong-rank-demo em[data-rank-level="national"] b {
-  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-national-font-size, var(--region-marker-rank-label-font-size, 9px)));
+  font-size: var(--region-marker-row-font-size, var(--region-marker-rank-national-font-size, var(--region-marker-rank-label-font-size, 10px)));
 }
 
 .rank-chip-white {

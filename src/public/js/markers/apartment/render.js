@@ -179,20 +179,20 @@ function apartmentMarkerRegionStyleVars(item, design = activeApartmentMarkerDesi
   return {
     "--apartment-marker-outer-width": `${layout.outerBoxWidth}px`,
     "--apartment-marker-rank-box-width": `${layout.rankBoxWidth}px`,
-    "--apartment-marker-name-font-size": "8px",
-    "--apartment-marker-area-font-size": "7px",
-    "--apartment-marker-value-font-size": "14px",
-    "--apartment-marker-rank-dong-font-size": "8px",
-    "--apartment-marker-rank-sigungu-font-size": "8px",
-    "--apartment-marker-rank-sido-font-size": "8px",
-    "--apartment-marker-rank-national-font-size": "8px",
-    "--apartment-marker-rank-national-percent-font-size": "8px",
-    "--apartment-marker-rank-value-font-size": "8px",
+    "--apartment-marker-name-font-size": "9px",
+    "--apartment-marker-area-font-size": "8px",
+    "--apartment-marker-value-font-size": "15px",
+    "--apartment-marker-rank-dong-font-size": "9px",
+    "--apartment-marker-rank-sigungu-font-size": "9px",
+    "--apartment-marker-rank-sido-font-size": "9px",
+    "--apartment-marker-rank-national-font-size": "9px",
+    "--apartment-marker-rank-national-percent-font-size": "9px",
+    "--apartment-marker-rank-value-font-size": "9px",
     "--apartment-marker-name-area-gap": "2px",
     "--apartment-marker-area-rate-gap": "4px",
     "--apartment-marker-value-rank-gap": "5px",
     "--apartment-marker-rank-row-gap": "3px",
-    "--apartment-marker-rank-row-height": "17px"
+    "--apartment-marker-rank-row-height": "18px"
   };
 }
 
@@ -202,9 +202,9 @@ function apartmentMarkerRegionLayout(item, style = activeApartmentMarkerStyle())
   const rows = hasData ? apartmentMarkerRankLines(item) : [];
   const rateText = hasData ? formatPercent(item?.growthRate) : "데이터없음";
   const topTextWidth = Math.max(
-    display.name ? estimateRegionMarkerTextWidth(String(item?.name || ""), 8) : 0,
-    display.area ? estimateRegionMarkerTextWidth(apartmentMarkerAreaLabel(item), 7) : 0,
-    display.rate ? estimateRegionMarkerTextWidth(rateText, 14) : 0
+    display.name ? estimateRegionMarkerTextWidth(String(item?.name || ""), 9) : 0,
+    display.area ? estimateRegionMarkerTextWidth(apartmentMarkerAreaLabel(item), 8) : 0,
+    display.rate ? estimateRegionMarkerTextWidth(rateText, 15) : 0
   );
   const rankBoxWidth = apartmentMarkerRegionRankBoxWidth(rows, style);
   const outerBoxWidth = clampNumber(Math.ceil(Math.max(topTextWidth + 16, rankBoxWidth + 16)), 88, 126);
@@ -216,19 +216,19 @@ function apartmentMarkerRegionLayout(item, style = activeApartmentMarkerStyle())
 
 function apartmentMarkerRegionRankBoxWidth(rows, style) {
   const rowWidth = Math.max(0, ...rows.map((row) => {
-    const labelWidth = estimateRegionMarkerTextWidth(row.label, 8);
-    const valueWidth = estimateRegionMarkerTextWidth(row.rank, 8);
+    const labelWidth = estimateRegionMarkerTextWidth(row.label, 9);
+    const valueWidth = estimateRegionMarkerTextWidth(row.rank, 9);
     return labelWidth + valueWidth + (row.label ? 5 : 0) + 18;
   }));
   return clampNumber(Math.ceil(rowWidth), 62, 128);
 }
 
 function apartmentMarkerRankRowStyle(line, style) {
-  const rowWidth = estimateRegionMarkerTextWidth(line.label, 8) + estimateRegionMarkerTextWidth(line.rank, 8) + (line.label ? 5 : 0);
+  const rowWidth = estimateRegionMarkerTextWidth(line.label, 9) + estimateRegionMarkerTextWidth(line.rank, 9) + (line.label ? 5 : 0);
   const availableWidth = Math.max(1, apartmentMarkerRegionRankBoxWidth([line], style) - 12);
   const fontSize = rowWidth > availableWidth
-    ? clampNumber(Math.floor((8 * availableWidth / rowWidth) * 10) / 10, 5, 8)
-    : 8;
+    ? clampNumber(Math.floor((9 * availableWidth / rowWidth) * 10) / 10, 5, 9)
+    : 9;
   return `--apartment-marker-row-font-size:${fontSize}px`;
 }
 
@@ -236,10 +236,10 @@ function apartmentMarkerRegionIconSize(item, design = activeApartmentMarkerDesig
   const layout = apartmentMarkerRegionLayout(item, activeApartmentMarkerStyle(design));
   const display = activeApartmentMarkerDisplay();
   const rankCount = item?.hasData === false ? 0 : apartmentMarkerRankLines(item || {}).length;
-  const nameHeight = display.name ? 10 : 0;
-  const areaHeight = display.area ? 9 : 0;
-  const rateHeight = display.rate ? 14 : 0;
-  const rankHeight = rankCount ? 5 + (rankCount * 17) + Math.max(0, rankCount - 1) * 3 : 0;
+  const nameHeight = display.name ? 11 : 0;
+  const areaHeight = display.area ? 10 : 0;
+  const rateHeight = display.rate ? 15 : 0;
+  const rankHeight = rankCount ? 5 + (rankCount * 18) + Math.max(0, rankCount - 1) * 3 : 0;
   const height = Math.max(54, Math.ceil(20 + nameHeight + areaHeight + rateHeight + rankHeight + 18));
   return [layout.outerBoxWidth + 22, height];
 }
