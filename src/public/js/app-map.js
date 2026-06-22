@@ -1849,6 +1849,12 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
+  marker.bindTooltip(regionHoverHtml(item, level), {
+    className: "apartment-hover-tooltip region-hover-tooltip",
+    direction: "top",
+    opacity: 1,
+    sticky: true
+  });
   marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
   marker.on("click", (event) => {
     suppressMapPopupClose();
@@ -1882,6 +1888,12 @@ function renderZoomApartmentMarker(item) {
     design,
     baseZIndex
   });
+  marker.bindTooltip(apartmentHoverHtml(item), {
+    className: "apartment-hover-tooltip",
+    direction: "top",
+    opacity: 1,
+    sticky: true
+  });
   marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
   marker.on("click", (event) => {
     suppressMapPopupClose();
@@ -1908,6 +1920,10 @@ function renderNaverZoomGroupMarker(item, level) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
+    openZoomNaverHoverWindow(position, regionHoverHtml(item, level));
+  });
+  window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
@@ -1941,6 +1957,10 @@ function renderNaverZoomApartmentMarker(item) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
+    openZoomNaverHoverWindow(position, apartmentHoverHtml(item));
+  });
+  window.naver.maps.Event.addListener(marker, "mouseout", () => {
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
