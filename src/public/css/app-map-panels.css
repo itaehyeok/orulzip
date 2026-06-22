@@ -741,8 +741,8 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  height: calc(100dvh - 124px);
-  min-height: 520px;
+  height: calc(100dvh - var(--map-global-header-height));
+  min-height: 0;
 }
 
 .map-panel {
@@ -751,6 +751,11 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
+}
+
+.map-shell-mode .map-panel {
+  border: 0;
+  border-radius: 0;
 }
 
 .map-panel .growth-map {
