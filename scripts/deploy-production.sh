@@ -8,6 +8,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 DOCKER_NETWORK_NAME="${DOCKER_NETWORK_NAME:-${ORULZIP_DOCKER_NETWORK:-}}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost:3050/map}"
 LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/orulzip-production-deploy.lock}"
+POST_DEPLOY_MOLIT_MAP_CACHE_YEARS="${POST_DEPLOY_MOLIT_MAP_CACHE_YEARS:-}"
 ASKPASS_FILE=""
 
 log() {
@@ -41,6 +42,14 @@ ASKPASS
   fi
 
   GIT_TERMINAL_PROMPT=0 git fetch origin "+$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
+}
+
+run_post_deploy_tasks() {
+  if [ -n "$POST_DEPLOY_MOLIT_MAP_CACHE_YEARS" ]; then
+    log "refreshing MOLIT map cache for years: $POST_DEPLOY_MOLIT_MAP_CACHE_YEARS"
+    docker compose -p "$COMPOSE_PROJECT_NAME" run --rm web \
+      npm run refresh:molit-map-cache -- --years="$POST_DEPLOY_MOLIT_MAP_CACHE_YEARS" --skip-complex-sync
+  fi
 }
 
 exec 9>"$LOCK_FILE"
@@ -96,6 +105,7 @@ for attempt in $(seq 1 20); do
   if curl -fsS "$HEALTHCHECK_URL" >/dev/null; then
     log "healthcheck passed"
     docker compose -p "$COMPOSE_PROJECT_NAME" ps
+    run_post_deploy_tasks
     exit 0
   fi
   log "healthcheck attempt $attempt failed; retrying"

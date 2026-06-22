@@ -17,7 +17,7 @@ jobs:
   deploy:
     name: Deploy to development folder
     runs-on: [self-hosted, linux, orulzip-production]
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Checkout deploy scripts
@@ -32,6 +32,7 @@ jobs:
           DOCKER_NETWORK_NAME: orulzip-shared
           DEPLOY_LOCK_FILE: /tmp/orulzip-development-deploy.lock
           HEALTHCHECK_URL: http://localhost:3051/map
+          POST_DEPLOY_MOLIT_MAP_CACHE_YEARS: 0.25,0.5,1,3,5
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./scripts/deploy-production.sh
