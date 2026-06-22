@@ -2,8 +2,8 @@ function useNaverMap() {
   return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
 }
 
-const naverHoverWindowMarginPx = 12;
-const naverHoverWindowOffsetPx = 14;
+const markerHoverWindowMarginPx = 12;
+const markerHoverWindowOffsetPx = 12;
 
 async function hasNaverAuthFailure(container = els.zoomMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -78,8 +78,7 @@ function openZoomNaverInfoWindow(position, html, { pinned = false, disableAutoPa
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
 }
 
-function openZoomNaverHoverWindow(position, html) {
-  cancelZoomNaverHoverWindowClose();
+function openZoomNaverHoverWindow(position, html, options = {}) {
   const anchor = naverHoverWindowAnchorPoint(position);
   if (!anchor) {
     openZoomNaverInfoWindow(position, html, { disableAutoPan: true });
@@ -88,30 +87,37 @@ function openZoomNaverHoverWindow(position, html) {
   if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) {
     state.zoomNaverInfoWindow.close();
   }
+  openZoomMarkerHoverWindow(html, markerHoverRectFromAnchorPoint(anchor, options.size, options.anchor));
+}
+
+function openLeafletMarkerHoverWindow(marker, html) {
+  const markerRect = leafletMarkerHoverRect(marker);
+  if (!markerRect) return;
+  openZoomMarkerHoverWindow(html, markerRect);
+}
+
+function openZoomMarkerHoverWindow(html, markerRect) {
+  cancelZoomNaverHoverWindowClose();
   const hoverWindow = ensureZoomNaverHoverWindow();
   hoverWindow.innerHTML = `<div class="naver-info-window">${html}</div>`;
   hoverWindow.hidden = false;
   hoverWindow.style.left = "0px";
   hoverWindow.style.top = "0px";
+  hoverWindow.style.maxWidth = "";
   hoverWindow.dataset.placement = "top";
 
-  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  const bounds = zoomMarkerHoverBounds();
+  if (bounds) {
+    hoverWindow.style.maxWidth = `${Math.max(160, Math.floor(bounds.right - bounds.left))}px`;
+  }
   const hoverRect = hoverWindow.getBoundingClientRect();
   const width = Math.ceil(hoverRect.width);
   const height = Math.ceil(hoverRect.height);
-  const maxLeft = Math.max(naverHoverWindowMarginPx, wrapRect.width - width - naverHoverWindowMarginPx);
-  const maxTop = Math.max(naverHoverWindowMarginPx, wrapRect.height - height - naverHoverWindowMarginPx);
-  const left = clampNumber(anchor.x - width / 2, naverHoverWindowMarginPx, maxLeft);
-  let top = anchor.y - height - naverHoverWindowOffsetPx;
+  const placement = zoomMarkerHoverPlacement(markerRect, width, height);
+  hoverWindow.dataset.placement = placement.placement;
 
-  if (top < naverHoverWindowMarginPx) {
-    top = anchor.y + naverHoverWindowOffsetPx;
-    hoverWindow.dataset.placement = "bottom";
-  }
-  top = clampNumber(top, naverHoverWindowMarginPx, maxTop);
-
-  hoverWindow.style.left = `${Math.round(left)}px`;
-  hoverWindow.style.top = `${Math.round(top)}px`;
+  hoverWindow.style.left = `${Math.round(placement.left)}px`;
+  hoverWindow.style.top = `${Math.round(placement.top)}px`;
 }
 
 function ensureZoomNaverHoverWindow() {
@@ -135,6 +141,117 @@ function naverHoverWindowAnchorPoint(position) {
   return {
     x: Number(offset.x) + mapRect.left - wrapRect.left,
     y: Number(offset.y) + mapRect.top - wrapRect.top
+  };
+}
+
+function markerHoverRectFromAnchorPoint(point, size = null, anchor = null) {
+  const width = Math.max(1, Number(size?.[0]) || 1);
+  const height = Math.max(1, Number(size?.[1]) || 1);
+  const anchorX = Number.isFinite(Number(anchor?.[0])) ? Number(anchor[0]) : width / 2;
+  const anchorY = Number.isFinite(Number(anchor?.[1])) ? Number(anchor[1]) : height / 2;
+  const left = Number(point.x) - anchorX;
+  const top = Number(point.y) - anchorY;
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height
+  };
+}
+
+function leafletMarkerHoverRect(marker) {
+  const element = marker?.getElement?.();
+  if (!element || !els.mapCanvasWrap) return null;
+  const markerRect = element.getBoundingClientRect();
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  return {
+    left: markerRect.left - wrapRect.left,
+    top: markerRect.top - wrapRect.top,
+    right: markerRect.right - wrapRect.left,
+    bottom: markerRect.bottom - wrapRect.top
+  };
+}
+
+function zoomMarkerHoverBounds() {
+  if (!els.mapCanvasWrap || !els.zoomMap) return null;
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  const mapRect = els.zoomMap.getBoundingClientRect();
+  let left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
+  let right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
+  const top = mapRect.top - wrapRect.top + markerHoverWindowMarginPx;
+  const bottom = mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx;
+  const rankingRect = visibleMapRankingRect();
+
+  if (rankingRect && rankingRect.bottom > mapRect.top && rankingRect.top < mapRect.bottom) {
+    const overlapsLeftMapEdge = rankingRect.left <= mapRect.left + 4 && rankingRect.right > mapRect.left;
+    if (overlapsLeftMapEdge) {
+      left = Math.max(left, rankingRect.right - wrapRect.left + markerHoverWindowMarginPx);
+    }
+  }
+
+  if (right <= left) {
+    left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
+    right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
+  }
+
+  return { left, right, top, bottom };
+}
+
+function visibleMapRankingRect() {
+  const ranking = els.mapApartmentRanking;
+  if (!ranking || ranking.hidden) return null;
+  const style = window.getComputedStyle(ranking);
+  if (style.display === "none" || style.visibility === "hidden") return null;
+  const rect = ranking.getBoundingClientRect();
+  if (rect.width <= 1 || rect.height <= 1) return null;
+  return rect;
+}
+
+function zoomMarkerHoverPlacement(markerRect, width, height) {
+  const bounds = zoomMarkerHoverBounds();
+  if (!bounds || !markerRect) {
+    return {
+      left: markerHoverWindowMarginPx,
+      top: markerHoverWindowMarginPx,
+      placement: "top"
+    };
+  }
+  const clampWithin = (value, min, max) => max < min ? min : clampNumber(value, min, max);
+  const maxLeft = bounds.right - width;
+  const maxTop = bounds.bottom - height;
+  const markerCenterX = (markerRect.left + markerRect.right) / 2;
+  const markerCenterY = (markerRect.top + markerRect.bottom) / 2;
+  const topPlacementTop = markerRect.top - height - markerHoverWindowOffsetPx;
+  const centeredLeft = markerCenterX - width / 2;
+
+  if (topPlacementTop >= bounds.top) {
+    return {
+      left: clampWithin(centeredLeft, bounds.left, maxLeft),
+      top: clampWithin(topPlacementTop, bounds.top, maxTop),
+      placement: "top"
+    };
+  }
+
+  const bottomPlacementTop = markerRect.bottom + markerHoverWindowOffsetPx;
+  if (bottomPlacementTop + height <= bounds.bottom) {
+    return {
+      left: clampWithin(centeredLeft, bounds.left, maxLeft),
+      top: clampWithin(bottomPlacementTop, bounds.top, maxTop),
+      placement: "bottom"
+    };
+  }
+
+  const rightSpace = bounds.right - markerRect.right - markerHoverWindowOffsetPx;
+  const leftSpace = markerRect.left - bounds.left - markerHoverWindowOffsetPx;
+  const useRight = rightSpace >= width || rightSpace >= leftSpace;
+  const sideLeft = useRight
+    ? markerRect.right + markerHoverWindowOffsetPx
+    : markerRect.left - width - markerHoverWindowOffsetPx;
+
+  return {
+    left: clampWithin(sideLeft, bounds.left, maxLeft),
+    top: clampWithin(markerCenterY - height / 2, bounds.top, maxTop),
+    placement: useRight ? "right" : "left"
   };
 }
 
@@ -1809,6 +1926,7 @@ function nextZoomMarkerTopZIndex() {
 function clearZoomMapOverlays() {
   state.zoomMarkerTopZIndex = 10000;
   state.mapApartmentMarkerRefs.clear();
+  closeZoomNaverHoverWindow();
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
     return;
@@ -1849,16 +1967,15 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
-  marker.bindTooltip(regionHoverHtml(item, level), {
-    className: "apartment-hover-tooltip region-hover-tooltip",
-    direction: "top",
-    opacity: 1,
-    sticky: true
+  marker.on("mouseover", () => {
+    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
+    openLeafletMarkerHoverWindow(marker, regionHoverHtml(item, level));
   });
-  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
+  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
   marker.on("click", (event) => {
     suppressMapPopupClose();
     stopLeafletClick(event);
+    closeZoomNaverHoverWindow();
     closeMapApartmentPopup();
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
@@ -1888,16 +2005,15 @@ function renderZoomApartmentMarker(item) {
     design,
     baseZIndex
   });
-  marker.bindTooltip(apartmentHoverHtml(item), {
-    className: "apartment-hover-tooltip",
-    direction: "top",
-    opacity: 1,
-    sticky: true
+  marker.on("mouseover", () => {
+    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
+    openLeafletMarkerHoverWindow(marker, apartmentHoverHtml(item));
   });
-  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
+  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
   marker.on("click", (event) => {
     suppressMapPopupClose();
     stopLeafletClick(event);
+    closeZoomNaverHoverWindow();
     setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });
@@ -1907,6 +2023,7 @@ function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeRegionMarkerDesign(level);
   const [width, height] = zoomMarkerSize(level, design, item);
+  const iconAnchor = [width / 2, height / 2];
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
     position,
@@ -1916,11 +2033,11 @@ function renderNaverZoomGroupMarker(item, level) {
       <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
         ${zoomGroupMarkerContentHtml(item, level, design)}
       </div>
-    `, width, height)
+    `, width, height, iconAnchor)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverHoverWindow(position, regionHoverHtml(item, level));
+    openZoomNaverHoverWindow(position, regionHoverHtml(item, level), { size: [width, height], anchor: iconAnchor });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
     scheduleZoomNaverHoverWindowClose();
@@ -1940,12 +2057,13 @@ function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeApartmentMarkerDesign();
   const [width, height] = apartmentMarkerIconSize(design, item);
+  const iconAnchor = apartmentMarkerIconAnchor([width, height], design, item);
   const baseZIndex = zoomApartmentMarkerBaseZIndex(item);
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
     zIndex: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
-    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, apartmentMarkerIconAnchor([width, height], design, item))
+    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, iconAnchor)
   });
   registerMapApartmentMarkerRef(item, {
     provider: "naver",
@@ -1957,7 +2075,7 @@ function renderNaverZoomApartmentMarker(item) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverHoverWindow(position, apartmentHoverHtml(item));
+    openZoomNaverHoverWindow(position, apartmentHoverHtml(item), { size: [width, height], anchor: iconAnchor });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
     scheduleZoomNaverHoverWindowClose();

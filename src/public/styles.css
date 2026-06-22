@@ -2,7 +2,7 @@
 @import url("/css/app-base.css?v=20260622-global-map-header");
 @import url("/css/app-header.css?v=20260622-full-bleed-map");
 @import url("/css/app-map.css?v=20260622-flush-map-ranking");
-@import url("/css/app-map-panels.css?v=20260622-full-bleed-map");
+@import url("/css/app-map-panels.css?v=20260622-bounded-marker-hover");
 @import url("/css/app-design.css?v=20260622-marker-readable-font");
 @import url("/css/app-analytics.css?v=20260621-analytics-user-info");
 @import url("/css/markers/region.css?v=20260622-marker-hover-highlight");

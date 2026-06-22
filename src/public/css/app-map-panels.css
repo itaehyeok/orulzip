@@ -622,7 +622,14 @@
 .naver-hover-info-window {
   position: absolute;
   z-index: 760;
+  box-sizing: border-box;
   pointer-events: none;
+}
+
+.naver-hover-info-window .naver-info-window {
+  box-sizing: border-box;
+  max-width: inherit;
+  white-space: normal;
 }
 
 .naver-hover-info-window[hidden] {
