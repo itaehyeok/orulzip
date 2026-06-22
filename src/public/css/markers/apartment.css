@@ -59,20 +59,20 @@
   --rank-badge-text: #2939a8;
   --apartment-marker-outer-width: 138px;
   --apartment-marker-rank-box-width: 116px;
-  --apartment-marker-name-font-size: 11px;
-  --apartment-marker-area-font-size: 10px;
-  --apartment-marker-value-font-size: 25px;
-  --apartment-marker-rank-dong-font-size: 10px;
-  --apartment-marker-rank-sigungu-font-size: 10px;
-  --apartment-marker-rank-sido-font-size: 10px;
-  --apartment-marker-rank-national-font-size: 10px;
-  --apartment-marker-rank-national-percent-font-size: 10px;
-  --apartment-marker-rank-value-font-size: 11px;
+  --apartment-marker-name-font-size: 10px;
+  --apartment-marker-area-font-size: 9px;
+  --apartment-marker-value-font-size: 24px;
+  --apartment-marker-rank-dong-font-size: 9px;
+  --apartment-marker-rank-sigungu-font-size: 9px;
+  --apartment-marker-rank-sido-font-size: 9px;
+  --apartment-marker-rank-national-font-size: 9px;
+  --apartment-marker-rank-national-percent-font-size: 9px;
+  --apartment-marker-rank-value-font-size: 10px;
   --apartment-marker-name-area-gap: 3px;
   --apartment-marker-area-rate-gap: 4px;
   --apartment-marker-value-rank-gap: 5px;
   --apartment-marker-rank-row-gap: 4px;
-  --apartment-marker-rank-row-height: 19px;
+  --apartment-marker-rank-row-height: 18px;
   --apartment-marker-tail-height: 24px;
   --apartment-marker-tail-width: 30px;
   --apartment-marker-tail-offset: 0px;
@@ -192,11 +192,11 @@
 }
 
 .apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-period {
-  font-size: 9.5px;
+  font-size: 8.5px;
 }
 
 .apartment-rank-marker.apartment-marker-no-data .apartment-marker-no-data-message {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .apartment-rank-marker.selected {
@@ -220,7 +220,7 @@
   box-shadow: 0 8px 18px rgba(48, 122, 255, 0.28), 0 2px 6px rgba(16, 24, 40, 0.18);
   color: #ffffff;
   content: attr(data-selected-apartment-name);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 950;
   line-height: 1;
   padding: 6px 10px;
