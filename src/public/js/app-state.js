@@ -74,6 +74,7 @@ const state = {
   mapApartmentDetails: new Map(),
   mapApartmentMarkerRefs: new Map(),
   mapRankingMode: "viewport",
+  mapGroupRankingMode: "country",
   mapRankingDongScope: null,
   mapRankingScopes: null,
   mapRankingRequestId: 0,
