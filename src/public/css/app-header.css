@@ -433,7 +433,7 @@
 }
 
 .map-floating-period-select select {
-  width: 146px;
+  width: 118px;
   height: 42px;
   border: 1px solid rgba(16, 24, 40, 0.14);
   border-radius: 999px;
@@ -446,7 +446,7 @@
 }
 
 .map-floating-period-select::after {
-  right: 15px;
+  right: 13px;
 }
 
 .household-filter-toggle {
