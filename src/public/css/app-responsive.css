@@ -620,8 +620,8 @@ td:nth-child(4) {
   }
 
   .map-popup-trade-summary {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    gap: 4px 8px;
+    grid-template-columns: 28px minmax(78px, 1fr) minmax(78px, 0.9fr) minmax(62px, 0.75fr);
+    gap: 4px 6px;
   }
 
   .map-popup-trade-column-head {
@@ -635,6 +635,9 @@ td:nth-child(4) {
   .map-popup-trade-column-head .map-popup-trade-delta {
     grid-column: 3;
     grid-row: 1;
+    align-items: flex-start;
+    justify-self: stretch;
+    text-align: left;
   }
 
   .map-popup-trade-column-head .map-popup-trade-delta small {
@@ -648,8 +651,9 @@ td:nth-child(4) {
   .map-popup-trade-delta {
     grid-column: 3;
     grid-row: 1;
-    justify-self: end;
-    min-width: max-content;
+    justify-self: stretch;
+    min-width: 0;
+    text-align: left;
   }
 
   .map-popup-trade-growth {
