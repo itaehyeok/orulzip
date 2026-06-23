@@ -115,33 +115,34 @@
               <div id="mapRankingSection" class="map-ranking-section" hidden>
                 <div class="map-ranking-head">
                   <div class="map-ranking-title">
-                    <strong id="mapRankingTitle">현재 지도 랭킹</strong>
+                    <strong id="mapRankingTitle">
+                      <span data-map-ranking-title-prefix>현재 지도</span>
+                      <label class="map-ranking-title-select">
+                        <span class="sr-only">랭킹 대상</span>
+                        <select id="mapRankingTargetSelect" aria-label="랭킹 대상">
+                          <option value="sido">시도</option>
+                          <option value="sigungu">시군구</option>
+                          <option value="dong">동</option>
+                          <option value="apartment">아파트</option>
+                        </select>
+                      </label>
+                      <span data-map-ranking-title-suffix>랭킹</span>
+                    </strong>
                     <span id="mapRankingCount"></span>
                     <button id="mapRankingCloseBtn" class="map-ranking-close" type="button" aria-label="랭킹 닫기">×</button>
                   </div>
                   <div class="map-ranking-controls">
-                    <div class="map-ranking-filter-row">
-                      <label class="map-ranking-target-select">
-                        <span class="sr-only">랭킹 대상</span>
-                        <select id="mapRankingTargetSelect" aria-label="랭킹 대상">
-                          <option value="sido">시도 랭킹</option>
-                          <option value="sigungu">시군구 랭킹</option>
-                          <option value="dong">동 랭킹</option>
-                          <option value="apartment">아파트 랭킹</option>
-                        </select>
-                      </label>
-                      <label class="map-ranking-period-select">
-                        <span class="sr-only">리스트 기준 기간</span>
-                        <select data-period-select aria-label="리스트 기준 기간">
-                          <option value="3">3개월</option>
-                          <option value="6">6개월</option>
-                          <option value="12" selected>1년</option>
-                          <option value="36">3년</option>
-                          <option value="60">5년</option>
-                        </select>
-                      </label>
-                    </div>
                     <div id="mapRankingTabs" class="map-ranking-tabs" role="tablist" aria-label="아파트 리스트 범위"></div>
+                    <label class="map-ranking-period-select">
+                      <span class="sr-only">리스트 기준 기간</span>
+                      <select data-period-select aria-label="리스트 기준 기간">
+                        <option value="3">3개월</option>
+                        <option value="6">6개월</option>
+                        <option value="12" selected>1년</option>
+                        <option value="36">3년</option>
+                        <option value="60">5년</option>
+                      </select>
+                    </label>
                   </div>
                 </div>
                 <div id="mapRankingRows" class="map-ranking-rows"></div>

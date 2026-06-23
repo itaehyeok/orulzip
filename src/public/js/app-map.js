@@ -929,7 +929,9 @@ function renderMapApartmentRanking(level, items) {
   clearMapScopedRankingSignatures();
   state.mapRankingRequestId += 1;
   renderMapRankingRows(viewportRows, {
-    title: "현재 지도 랭킹",
+    titlePrefix: "현재 지도",
+    titleTargetLevel: "apartment",
+    titleSuffix: "랭킹",
     countText: `${formatInt(viewportRows.length)}개`,
     emptyText: "현재 지도에 표시할 아파트가 없습니다."
   });
@@ -960,7 +962,7 @@ function renderMapGroupRanking(level, items, { sourceLevel = level } = {}) {
   clearMapGroupRankingSignatures();
   state.mapRankingRequestId += 1;
   renderMapGroupRankingRows([], level, {
-    title: `${mapGroupRankingLevelLabel(level)} 상승률 랭킹`,
+    titlePrefix: "전국",
     countText: "",
     emptyText: "표시할 지역이 없습니다.",
     rankMode: "country"
@@ -1103,8 +1105,35 @@ function compareMapScopeRankingRows(a, b, rankMode) {
   return compareMapRankingRows(a, b);
 }
 
-function renderMapRankingRows(rows, { title, countText, emptyText, rankMode = "viewport", rankTotal = rows.length } = {}) {
-  if (els.mapRankingTitle) els.mapRankingTitle.textContent = title || "현재 지도 랭킹";
+function setMapRankingTitle({ prefix = "현재 지도", targetLevel = "apartment", suffix = "랭킹" } = {}) {
+  const normalizedLevel = normalizeMapRankingTargetLevel(targetLevel);
+  syncMapRankingTargetSelect(normalizedLevel);
+  if (!els.mapRankingTitle) return;
+
+  if (!els.mapRankingTitlePrefix || !els.mapRankingTitleSuffix || !els.mapRankingTargetSelect) {
+    const fallbackTitle = [prefix, mapRankingTargetLabel(normalizedLevel), suffix].filter(Boolean).join(" ");
+    els.mapRankingTitle.textContent = fallbackTitle;
+    return;
+  }
+
+  els.mapRankingTitlePrefix.textContent = prefix || "";
+  els.mapRankingTitleSuffix.textContent = suffix || "";
+}
+
+function renderMapRankingRows(rows, {
+  titlePrefix = "현재 지도",
+  titleTargetLevel = "apartment",
+  titleSuffix = "랭킹",
+  countText,
+  emptyText,
+  rankMode = "viewport",
+  rankTotal = rows.length
+} = {}) {
+  setMapRankingTitle({
+    prefix: titlePrefix,
+    targetLevel: titleTargetLevel,
+    suffix: titleSuffix
+  });
   els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
     ? rows.map((item, index) => {
@@ -1156,8 +1185,18 @@ function bindMapRankingRowEvents(rows) {
   });
 }
 
-function renderMapGroupRankingRows(rows, level, { title, countText, emptyText, rankMode = "country", rankTotal = rows.length } = {}) {
-  if (els.mapRankingTitle) els.mapRankingTitle.textContent = title || `${mapGroupRankingLevelLabel(level)} 상승률 랭킹`;
+function renderMapGroupRankingRows(rows, level, {
+  titlePrefix = "전국",
+  countText,
+  emptyText,
+  rankMode = "country",
+  rankTotal = rows.length
+} = {}) {
+  setMapRankingTitle({
+    prefix: titlePrefix,
+    targetLevel: level,
+    suffix: "상승률 랭킹"
+  });
   els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
     ? rows.map((item, index) => {
@@ -1303,7 +1342,11 @@ function renderMapGroupRankingTabs(scopes, mode, level) {
 async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSignature(scope)) {
   const requestId = ++state.mapRankingRequestId;
   state.mapScopedRankingPendingSignature = signature;
-  if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+  setMapRankingTitle({
+    prefix: scope.scopeLabel,
+    targetLevel: "apartment",
+    suffix: "순위"
+  });
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
 
@@ -1340,7 +1383,9 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
       });
     }
     renderMapRankingRows(rows, {
-      title: scope.title,
+      titlePrefix: scope.scopeLabel,
+      titleTargetLevel: "apartment",
+      titleSuffix: "순위",
       countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
       emptyText: `${scope.scopeLabel}에 표시할 아파트가 없습니다.`,
       rankMode: scope.mode,
@@ -1352,7 +1397,11 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
     if (state.mapScopedRankingPendingSignature === signature) state.mapScopedRankingPendingSignature = "";
-    if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+    setMapRankingTitle({
+      prefix: scope.scopeLabel,
+      targetLevel: "apartment",
+      suffix: "순위"
+    });
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
   }
@@ -1361,7 +1410,11 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
 async function loadMapGroupRankingRows(level, scope, signature = mapGroupRankingSignature(level, scope)) {
   const requestId = ++state.mapRankingRequestId;
   state.mapGroupRankingPendingSignature = signature;
-  if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+  setMapRankingTitle({
+    prefix: scope.scopeLabel,
+    targetLevel: level,
+    suffix: "상승률 랭킹"
+  });
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
 
@@ -1398,7 +1451,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
       });
     }
     renderMapGroupRankingRows(rows, level, {
-      title: scope.title,
+      titlePrefix: scope.scopeLabel,
       countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
       emptyText: `${scope.scopeLabel}에 표시할 ${mapGroupRankingLevelLabel(level)}가 없습니다.`,
       rankMode: scope.mode,
@@ -1409,7 +1462,11 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
     if (state.mapGroupRankingPendingSignature === signature) state.mapGroupRankingPendingSignature = "";
-    if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+    setMapRankingTitle({
+      prefix: scope.scopeLabel,
+      targetLevel: level,
+      suffix: "상승률 랭킹"
+    });
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
   }
@@ -1418,6 +1475,15 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
 function normalizeMapRankingTargetLevel(level) {
   const value = String(level || "").trim();
   return mapRankingTargetLevels.includes(value) ? value : "sido";
+}
+
+function mapRankingTargetLabel(level) {
+  return {
+    sido: "시도",
+    sigungu: "시군구",
+    dong: "동",
+    apartment: "아파트"
+  }[normalizeMapRankingTargetLevel(level)] || "시도";
 }
 
 function currentMapRankingTargetLevel(sourceLevel = state.latestZoomMapData?.level) {

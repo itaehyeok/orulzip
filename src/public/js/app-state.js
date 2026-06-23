@@ -400,6 +400,8 @@ const els = {
   mapApartmentRanking: document.querySelector("#mapApartmentRanking"),
   mapRankingSection: document.querySelector("#mapRankingSection"),
   mapRankingTitle: document.querySelector("#mapRankingTitle"),
+  mapRankingTitlePrefix: document.querySelector("[data-map-ranking-title-prefix]"),
+  mapRankingTitleSuffix: document.querySelector("[data-map-ranking-title-suffix]"),
   mapRankingCount: document.querySelector("#mapRankingCount"),
   mapRankingTargetSelect: document.querySelector("#mapRankingTargetSelect"),
   mapRankingCloseBtn: document.querySelector("#mapRankingCloseBtn"),

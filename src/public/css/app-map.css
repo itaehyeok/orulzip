@@ -381,13 +381,27 @@
 }
 
 .map-ranking-title strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   overflow: hidden;
   font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.map-ranking-title span {
+.map-ranking-title strong span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-ranking-title > span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -421,13 +435,6 @@
 .map-ranking-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.map-ranking-filter-row {
-  display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -472,7 +479,7 @@
   color: var(--blue);
 }
 
-.map-ranking-target-select,
+.map-ranking-title-select,
 .map-ranking-period-select {
   position: relative;
   display: inline-flex;
@@ -486,7 +493,7 @@
   justify-self: end;
 }
 
-.map-ranking-target-select select,
+.map-ranking-title-select select,
 .map-ranking-period-select select {
   height: 30px;
   appearance: none;
@@ -501,15 +508,21 @@
   padding: 0 24px 0 10px;
 }
 
-.map-ranking-target-select select {
-  width: 112px;
+.map-ranking-title-select select {
+  width: auto;
+  min-width: 76px;
+  border-color: rgba(35, 103, 209, 0.32);
+  background: #eef5ff;
+  color: var(--blue);
+  font-size: 13px;
+  padding-left: 9px;
 }
 
 .map-ranking-period-select select {
   width: 78px;
 }
 
-.map-ranking-target-select::after,
+.map-ranking-title-select::after,
 .map-ranking-period-select::after {
   content: "";
   position: absolute;
@@ -521,6 +534,10 @@
   border-bottom: 2px solid #475467;
   pointer-events: none;
   transform: translateY(-65%) rotate(45deg);
+}
+
+.map-ranking-title-select::after {
+  border-color: var(--blue);
 }
 
 .map-ranking-rows {
