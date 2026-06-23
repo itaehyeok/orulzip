@@ -532,6 +532,10 @@ td:nth-child(4) {
     height: auto;
   }
 
+  .map-apartment-popup .map-popup-end-label {
+    display: none;
+  }
+
   .map-apartment-ranking {
     inset: 0;
     width: auto;
