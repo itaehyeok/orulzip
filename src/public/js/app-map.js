@@ -2,6 +2,9 @@ function useNaverMap() {
   return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
 }
 
+const markerHoverWindowMarginPx = 12;
+const markerHoverWindowOffsetPx = 12;
+
 async function hasNaverAuthFailure(container = els.zoomMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
   return container.textContent.includes("네이버 지도 Open API 인증이 실패");
@@ -59,18 +62,197 @@ function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]
   };
 }
 
-function openZoomNaverInfoWindow(position, html, { pinned = false } = {}) {
+function openZoomNaverInfoWindow(position, html, { pinned = false, disableAutoPan = !pinned } = {}) {
   cancelZoomNaverInfoWindowClose();
   state.zoomNaverInfoWindowPinned = Boolean(pinned);
   if (!state.zoomNaverInfoWindow) {
     state.zoomNaverInfoWindow = new window.naver.maps.InfoWindow({
       borderWidth: 0,
       backgroundColor: "transparent",
-      disableAnchor: false
+      disableAnchor: false,
+      disableAutoPan
     });
   }
+  state.zoomNaverInfoWindow.setOptions({ disableAutoPan });
   state.zoomNaverInfoWindow.setContent(`<div class="naver-info-window">${html}</div>`);
   state.zoomNaverInfoWindow.open(state.zoomNaverMap, position);
+}
+
+function openZoomNaverHoverWindow(position, html, options = {}) {
+  const anchor = naverHoverWindowAnchorPoint(position);
+  if (!anchor) {
+    openZoomNaverInfoWindow(position, html, { disableAutoPan: true });
+    return;
+  }
+  if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) {
+    state.zoomNaverInfoWindow.close();
+  }
+  openZoomMarkerHoverWindow(html, markerHoverRectFromAnchorPoint(anchor, options.size, options.anchor));
+}
+
+function openLeafletMarkerHoverWindow(marker, html) {
+  const markerRect = leafletMarkerHoverRect(marker);
+  if (!markerRect) return;
+  openZoomMarkerHoverWindow(html, markerRect);
+}
+
+function openZoomMarkerHoverWindow(html, markerRect) {
+  cancelZoomNaverHoverWindowClose();
+  const hoverWindow = ensureZoomNaverHoverWindow();
+  hoverWindow.innerHTML = `<div class="naver-info-window">${html}</div>`;
+  hoverWindow.hidden = false;
+  hoverWindow.style.left = "0px";
+  hoverWindow.style.top = "0px";
+  hoverWindow.style.maxWidth = "";
+  hoverWindow.dataset.placement = "top";
+
+  const bounds = zoomMarkerHoverBounds();
+  if (bounds) {
+    hoverWindow.style.maxWidth = `${Math.max(160, Math.floor(bounds.right - bounds.left))}px`;
+  }
+  const hoverRect = hoverWindow.getBoundingClientRect();
+  const width = Math.ceil(hoverRect.width);
+  const height = Math.ceil(hoverRect.height);
+  const placement = zoomMarkerHoverPlacement(markerRect, width, height);
+  hoverWindow.dataset.placement = placement.placement;
+
+  hoverWindow.style.left = `${Math.round(placement.left)}px`;
+  hoverWindow.style.top = `${Math.round(placement.top)}px`;
+}
+
+function ensureZoomNaverHoverWindow() {
+  if (state.zoomNaverHoverWindow?.isConnected) return state.zoomNaverHoverWindow;
+  const hoverWindow = document.createElement("div");
+  hoverWindow.className = "naver-hover-info-window";
+  hoverWindow.hidden = true;
+  els.mapCanvasWrap.appendChild(hoverWindow);
+  state.zoomNaverHoverWindow = hoverWindow;
+  return hoverWindow;
+}
+
+function naverHoverWindowAnchorPoint(position) {
+  const map = state.zoomNaverMap;
+  const projection = map?.getProjection?.();
+  if (!projection?.fromCoordToOffset || !els.zoomMap || !els.mapCanvasWrap) return null;
+  const offset = projection.fromCoordToOffset(position);
+  if (!offset || !Number.isFinite(Number(offset.x)) || !Number.isFinite(Number(offset.y))) return null;
+  const mapRect = els.zoomMap.getBoundingClientRect();
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  return {
+    x: Number(offset.x) + mapRect.left - wrapRect.left,
+    y: Number(offset.y) + mapRect.top - wrapRect.top
+  };
+}
+
+function markerHoverRectFromAnchorPoint(point, size = null, anchor = null) {
+  const width = Math.max(1, Number(size?.[0]) || 1);
+  const height = Math.max(1, Number(size?.[1]) || 1);
+  const anchorX = Number.isFinite(Number(anchor?.[0])) ? Number(anchor[0]) : width / 2;
+  const anchorY = Number.isFinite(Number(anchor?.[1])) ? Number(anchor[1]) : height / 2;
+  const left = Number(point.x) - anchorX;
+  const top = Number(point.y) - anchorY;
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height
+  };
+}
+
+function leafletMarkerHoverRect(marker) {
+  const element = marker?.getElement?.();
+  if (!element || !els.mapCanvasWrap) return null;
+  const markerRect = element.getBoundingClientRect();
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  return {
+    left: markerRect.left - wrapRect.left,
+    top: markerRect.top - wrapRect.top,
+    right: markerRect.right - wrapRect.left,
+    bottom: markerRect.bottom - wrapRect.top
+  };
+}
+
+function zoomMarkerHoverBounds() {
+  if (!els.mapCanvasWrap || !els.zoomMap) return null;
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  const mapRect = els.zoomMap.getBoundingClientRect();
+  let left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
+  let right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
+  const top = mapRect.top - wrapRect.top + markerHoverWindowMarginPx;
+  const bottom = mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx;
+  const rankingRect = visibleMapRankingRect();
+
+  if (rankingRect && rankingRect.bottom > mapRect.top && rankingRect.top < mapRect.bottom) {
+    const overlapsLeftMapEdge = rankingRect.left <= mapRect.left + 4 && rankingRect.right > mapRect.left;
+    if (overlapsLeftMapEdge) {
+      left = Math.max(left, rankingRect.right - wrapRect.left + markerHoverWindowMarginPx);
+    }
+  }
+
+  if (right <= left) {
+    left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
+    right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
+  }
+
+  return { left, right, top, bottom };
+}
+
+function visibleMapRankingRect() {
+  const ranking = els.mapApartmentRanking;
+  if (!ranking || ranking.hidden) return null;
+  const style = window.getComputedStyle(ranking);
+  if (style.display === "none" || style.visibility === "hidden") return null;
+  const rect = ranking.getBoundingClientRect();
+  if (rect.width <= 1 || rect.height <= 1) return null;
+  return rect;
+}
+
+function zoomMarkerHoverPlacement(markerRect, width, height) {
+  const bounds = zoomMarkerHoverBounds();
+  if (!bounds || !markerRect) {
+    return {
+      left: markerHoverWindowMarginPx,
+      top: markerHoverWindowMarginPx,
+      placement: "top"
+    };
+  }
+  const clampWithin = (value, min, max) => max < min ? min : clampNumber(value, min, max);
+  const maxLeft = bounds.right - width;
+  const maxTop = bounds.bottom - height;
+  const markerCenterX = (markerRect.left + markerRect.right) / 2;
+  const markerCenterY = (markerRect.top + markerRect.bottom) / 2;
+  const topPlacementTop = markerRect.top - height - markerHoverWindowOffsetPx;
+  const centeredLeft = markerCenterX - width / 2;
+
+  if (topPlacementTop >= bounds.top) {
+    return {
+      left: clampWithin(centeredLeft, bounds.left, maxLeft),
+      top: clampWithin(topPlacementTop, bounds.top, maxTop),
+      placement: "top"
+    };
+  }
+
+  const bottomPlacementTop = markerRect.bottom + markerHoverWindowOffsetPx;
+  if (bottomPlacementTop + height <= bounds.bottom) {
+    return {
+      left: clampWithin(centeredLeft, bounds.left, maxLeft),
+      top: clampWithin(bottomPlacementTop, bounds.top, maxTop),
+      placement: "bottom"
+    };
+  }
+
+  const rightSpace = bounds.right - markerRect.right - markerHoverWindowOffsetPx;
+  const leftSpace = markerRect.left - bounds.left - markerHoverWindowOffsetPx;
+  const useRight = rightSpace >= width || rightSpace >= leftSpace;
+  const sideLeft = useRight
+    ? markerRect.right + markerHoverWindowOffsetPx
+    : markerRect.left - width - markerHoverWindowOffsetPx;
+
+  return {
+    left: clampWithin(sideLeft, bounds.left, maxLeft),
+    top: clampWithin(markerCenterY - height / 2, bounds.top, maxTop),
+    placement: useRight ? "right" : "left"
+  };
 }
 
 function cancelZoomNaverInfoWindowClose() {
@@ -86,6 +268,27 @@ function scheduleZoomNaverInfoWindowClose(delay = 120) {
     if (state.zoomNaverInfoWindowPinned) return;
     if (state.zoomNaverInfoWindow) state.zoomNaverInfoWindow.close();
   }, delay);
+}
+
+function cancelZoomNaverHoverWindowClose() {
+  if (!state.zoomNaverHoverWindowCloseTimer) return;
+  clearTimeout(state.zoomNaverHoverWindowCloseTimer);
+  state.zoomNaverHoverWindowCloseTimer = null;
+}
+
+function scheduleZoomNaverHoverWindowClose(delay = 120) {
+  cancelZoomNaverHoverWindowClose();
+  state.zoomNaverHoverWindowCloseTimer = setTimeout(() => {
+    state.zoomNaverHoverWindowCloseTimer = null;
+    if (state.zoomNaverHoverWindow) state.zoomNaverHoverWindow.hidden = true;
+    if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) state.zoomNaverInfoWindow.close();
+  }, delay);
+}
+
+function closeZoomNaverHoverWindow() {
+  cancelZoomNaverHoverWindowClose();
+  if (state.zoomNaverHoverWindow) state.zoomNaverHoverWindow.hidden = true;
+  if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) state.zoomNaverInfoWindow.close();
 }
 
 function shortRegionLabel(name) {
@@ -222,6 +425,7 @@ async function prepareMapApartmentFocusFromUrl() {
   });
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+  appendHouseholdFilterParam(params);
 
   const detail = await api(`/api/molit-apartment-detail?${params}`).catch(() => null);
   const apartment = detail?.apartment;
@@ -292,6 +496,7 @@ async function loadZoomMapSummary() {
   params.set("west", String(bounds.west));
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+  appendHouseholdFilterParam(params);
 
   const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
   const data = await api(`${endpoint}?${params}`);
@@ -636,6 +841,12 @@ function updateMapSearchActiveDescendant() {
 
 function renderMapApartmentRanking(level, items) {
   if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
+  if (isMapGroupRankingLevel(level)) {
+    clearMapScopedRankingSignatures();
+    renderMapGroupRanking(level, items);
+    return;
+  }
+  clearMapGroupRankingSignatures();
   if (level !== "apartment") {
     state.mapRankingRequestId += 1;
     state.mapRankingDongScope = null;
@@ -669,15 +880,51 @@ function renderMapApartmentRanking(level, items) {
   updateMobileMapRankingToggle(true);
   renderMapRankingTabs(scopes, mode);
   if (mode !== "viewport" && scopes[mode]) {
-    loadMapScopedRankingRows(scopes[mode]);
+    const signature = mapScopedRankingSignature(scopes[mode]);
+    if (shouldReuseMapScopedRanking(signature)) return;
+    loadMapScopedRankingRows(scopes[mode], signature);
     return;
   }
 
+  clearMapScopedRankingSignatures();
   state.mapRankingRequestId += 1;
   renderMapRankingRows(viewportRows, {
     title: "현재 지도 랭킹",
     countText: `${formatInt(viewportRows.length)}개`,
     emptyText: "현재 지도에 표시할 아파트가 없습니다."
+  });
+}
+
+function renderMapGroupRanking(level, items) {
+  const viewportRows = sortedMapGroupRankingRows(items);
+  const scopes = closestMapGroupRankingScopes(level, viewportRows);
+  const mode = mapGroupRankingMode(level, state.mapGroupRankingMode, scopes);
+  const scope = scopes[mode] || scopes.country;
+
+  state.mapRankingScopes = scopes;
+  state.mapRankingDongScope = null;
+  state.mapGroupRankingMode = scope?.mode || mode;
+
+  els.mapApartmentRanking.classList.add("ranking-active");
+  els.mapApartmentRanking.hidden = false;
+  els.mapRankingSection.hidden = false;
+  updateMobileMapRankingToggle(true);
+  renderMapGroupRankingTabs(scopes, state.mapGroupRankingMode, level);
+
+  if (scope) {
+    const signature = mapGroupRankingSignature(level, scope);
+    if (shouldReuseMapGroupRanking(signature)) return;
+    loadMapGroupRankingRows(level, scope, signature);
+    return;
+  }
+
+  clearMapGroupRankingSignatures();
+  state.mapRankingRequestId += 1;
+  renderMapGroupRankingRows([], level, {
+    title: `${mapGroupRankingLevelLabel(level)} 상승률 랭킹`,
+    countText: "",
+    emptyText: "표시할 지역이 없습니다.",
+    rankMode: "country"
   });
 }
 
@@ -768,6 +1015,12 @@ function sortedMapRankingRows(items) {
     .sort(compareMapRankingRows);
 }
 
+function sortedMapGroupRankingRows(items) {
+  return [...items]
+    .filter((item) => item.type === "group" && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)))
+    .sort((a, b) => compareMapScopeRankingRows(a, b, "country"));
+}
+
 function compareMapRankingRows(a, b) {
   if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
   const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
@@ -840,6 +1093,71 @@ function bindMapRankingRowEvents(rows) {
   });
 }
 
+function renderMapGroupRankingRows(rows, level, { title, countText, emptyText, rankMode = "country", rankTotal = rows.length } = {}) {
+  if (els.mapRankingTitle) els.mapRankingTitle.textContent = title || `${mapGroupRankingLevelLabel(level)} 상승률 랭킹`;
+  els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
+  els.mapRankingRows.innerHTML = rows.length
+    ? rows.map((item, index) => {
+      const rank = mapRankingRankValue(item, rankMode, index + 1);
+      return `
+        <div class="map-ranking-row" role="button" tabindex="0" data-map-group-index="${index}" aria-label="${escapeHtml(item.name)} 지역으로 이동">
+          <span class="map-ranking-rank">${formatInt(rank)}</span>
+          <span class="map-ranking-main">
+            <strong>${escapeHtml(mapGroupRankingRowTitle(item, level))}</strong>
+            <em>${escapeHtml(mapGroupRankingRowSubtitle(item, level))}</em>
+          </span>
+          <span class="map-ranking-actions">
+            <span class="map-ranking-rate ${rateClass(item.growthRate, rank, rankTotal)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+          </span>
+        </div>
+      `;
+    }).join("")
+    : `<div class="map-ranking-empty">${escapeHtml(emptyText || "표시할 지역이 없습니다.")}</div>`;
+  bindMapGroupRankingRowEvents(rows, level);
+}
+
+function bindMapGroupRankingRowEvents(rows, level) {
+  els.mapRankingRows.querySelectorAll("[data-map-group-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = rows[Number(button.dataset.mapGroupIndex)];
+      if (!item) return;
+      focusMapGroupFromRanking(item, level);
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      const item = rows[Number(button.dataset.mapGroupIndex)];
+      if (!item) return;
+      focusMapGroupFromRanking(item, level);
+    });
+  });
+}
+
+function focusMapGroupFromRanking(item, level) {
+  closeMapApartmentPopup();
+  const currentZoom = Number(currentZoomMapView()?.zoom || 0);
+  moveZoomMapTo(item, zoomGroupTargetZoom(level, currentZoom), { exactZoom: true });
+}
+
+function mapGroupRankingRowTitle(item, level) {
+  return shortZoomLabel(item?.name || "", level) || String(item?.name || "").trim() || mapGroupRankingLevelLabel(level);
+}
+
+function mapGroupRankingRowSubtitle(item, level) {
+  const parts = [];
+  if (level === "dong") {
+    const sigunguLabel = mapGroupSigunguLabel(item);
+    if (sigunguLabel) parts.push(sigunguLabel);
+  } else if (level === "sigungu") {
+    const sidoLabel = mapGroupSidoLabel(item);
+    if (sidoLabel) parts.push(sidoLabel);
+  }
+
+  const apartmentCount = Number(item?.apartmentCount);
+  if (Number.isFinite(apartmentCount)) parts.push(`아파트 ${formatInt(apartmentCount)}개`);
+  return parts.join(" · ") || `${mapGroupRankingLevelLabel(level)} 단위`;
+}
+
 function renderMapRankingTabs(scopes, mode) {
   if (!els.mapRankingTabs) return;
   const tabs = [
@@ -881,8 +1199,45 @@ function renderMapRankingTabs(scopes, mode) {
   });
 }
 
-async function loadMapScopedRankingRows(scope) {
+function renderMapGroupRankingTabs(scopes, mode, level) {
+  if (!els.mapRankingTabs) return;
+  const tabs = mapGroupRankingModes(level)
+    .map((tabMode) => scopes[tabMode])
+    .filter(Boolean);
+  els.mapRankingTabs.innerHTML = `
+    ${tabs.map((tab) => `
+      <button class="map-ranking-tab ${mode === tab.mode ? "active" : ""}" type="button" data-map-ranking-mode="${escapeHtml(tab.mode)}" role="tab" aria-selected="${mode === tab.mode}">${escapeHtml(tab.label)}</button>
+    `).join("")}
+  `;
+  els.mapRankingTabs.querySelectorAll("[data-map-ranking-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const requestedMode = button.dataset.mapRankingMode || "country";
+      const nextMode = mapGroupRankingMode(level, requestedMode, scopes);
+      if (state.mapGroupRankingMode === nextMode) return;
+      state.mapGroupRankingMode = nextMode;
+      const nextScope = scopes[nextMode] || null;
+      if (typeof trackAnalyticsEvent === "function") {
+        trackAnalyticsEvent("map_group_ranking_mode_changed", {
+          level,
+          rankMode: nextMode,
+          sigunguCode: scopes.sigungu?.key || "",
+          sigunguName: scopes.sigungu?.scopeLabel || "",
+          sidoCode: scopes.sido?.key || "",
+          sidoName: scopes.sido?.scopeLabel || "",
+          scopeName: nextScope?.scopeLabel || "",
+          mapSource: currentMapSource(),
+          periodLabel: mapAnalyticsPeriodLabel()
+        });
+      }
+      const latest = state.latestZoomMapData;
+      renderMapApartmentRanking(latest?.level, latest?.items || []);
+    });
+  });
+}
+
+async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSignature(scope)) {
   const requestId = ++state.mapRankingRequestId;
+  state.mapScopedRankingPendingSignature = signature;
   if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
@@ -896,9 +1251,16 @@ async function loadMapScopedRankingRows(scope) {
     if (scope.mode === "sido") params.set("sidoCode", scope.key);
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+    appendHouseholdFilterParam(params);
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
-    if (requestId !== state.mapRankingRequestId || state.mapRankingMode !== scope.mode || state.mapRankingScopes?.[scope.mode]?.key !== scope.key) return;
+    if (
+      requestId !== state.mapRankingRequestId
+      || state.latestZoomMapData?.level !== "apartment"
+      || state.mapRankingMode !== scope.mode
+      || state.mapRankingScopes?.[scope.mode]?.key !== scope.key
+      || signature !== mapScopedRankingSignature(scope)
+    ) return;
     const rows = scopedMapRankingRows(data.items || [], scope);
     const rankTotal = mapScopedRankingTotal(rows, scope);
     if (typeof trackAnalyticsEvent === "function") {
@@ -919,9 +1281,69 @@ async function loadMapScopedRankingRows(scope) {
       rankMode: scope.mode,
       rankTotal: rankTotal || rows.length
     });
+    state.mapScopedRankingActiveSignature = signature;
+    if (state.mapScopedRankingPendingSignature === signature) state.mapScopedRankingPendingSignature = "";
     scrollFocusedMapRankingRow({ behavior: "auto" });
   } catch (error) {
     if (requestId !== state.mapRankingRequestId) return;
+    if (state.mapScopedRankingPendingSignature === signature) state.mapScopedRankingPendingSignature = "";
+    if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+    els.mapRankingCount.textContent = "";
+    els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
+  }
+}
+
+async function loadMapGroupRankingRows(level, scope, signature = mapGroupRankingSignature(level, scope)) {
+  const requestId = ++state.mapRankingRequestId;
+  state.mapGroupRankingPendingSignature = signature;
+  if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
+  els.mapRankingCount.textContent = "불러오는 중";
+  els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
+
+  try {
+    const params = new URLSearchParams();
+    params.set("zoom", String(mapGroupRankingRequestZoom(level)));
+    if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
+    if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+    appendHouseholdFilterParam(params);
+    const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
+    const data = await api(`${endpoint}?${params}`);
+    const activeScope = state.mapRankingScopes?.[scope.mode];
+    if (
+      requestId !== state.mapRankingRequestId
+      || state.latestZoomMapData?.level !== level
+      || state.mapGroupRankingMode !== scope.mode
+      || activeScope?.key !== scope.key
+      || activeScope?.targetLevel !== level
+      || signature !== mapGroupRankingSignature(level, scope)
+    ) return;
+
+    const rows = scopedMapGroupRankingRows(data.items || [], level, scope);
+    const rankTotal = mapScopedRankingTotal(rows, scope);
+    if (typeof trackAnalyticsEvent === "function") {
+      trackAnalyticsEvent("map_group_ranking_opened", {
+        level,
+        rankMode: scope.mode,
+        scopeKey: scope.key,
+        scopeName: scope.scopeLabel,
+        rowCount: rows.length,
+        rankTotal,
+        mapSource: currentMapSource(),
+        periodLabel: mapAnalyticsPeriodLabel()
+      });
+    }
+    renderMapGroupRankingRows(rows, level, {
+      title: scope.title,
+      countText: rankTotal && rankTotal !== rows.length ? `${formatInt(rows.length)}/${formatInt(rankTotal)}개` : `${formatInt(rows.length)}개`,
+      emptyText: `${scope.scopeLabel}에 표시할 ${mapGroupRankingLevelLabel(level)}가 없습니다.`,
+      rankMode: scope.mode,
+      rankTotal: rankTotal || rows.length
+    });
+    state.mapGroupRankingActiveSignature = signature;
+    if (state.mapGroupRankingPendingSignature === signature) state.mapGroupRankingPendingSignature = "";
+  } catch (error) {
+    if (requestId !== state.mapRankingRequestId) return;
+    if (state.mapGroupRankingPendingSignature === signature) state.mapGroupRankingPendingSignature = "";
     if (els.mapRankingTitle) els.mapRankingTitle.textContent = scope.title;
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
@@ -952,6 +1374,43 @@ function closestMapRankingScopes(rows) {
   };
 }
 
+function closestMapGroupRankingScopes(level, rows) {
+  const candidates = rows.filter((item) => item.type === "group");
+  const closest = closestMapRankingItem(candidates);
+  const scopes = {
+    country: mapGroupRankingScope("country", "country", "전국", closest?.countryRankTotal, level)
+  };
+
+  if (level === "sigungu" || level === "dong") {
+    const sidoCode = mapGroupSidoCode(closest);
+    const sidoLabel = mapGroupSidoLabel(closest);
+    if (sidoCode && sidoLabel) {
+      scopes.sido = mapGroupRankingScope("sido", sidoCode, sidoLabel, closest?.sidoRankTotal, level);
+    }
+  }
+
+  if (level === "dong") {
+    const sigunguCode = mapGroupSigunguCode(closest);
+    const sigunguLabel = mapGroupSigunguLabel(closest);
+    if (sigunguCode && sigunguLabel) {
+      scopes.sigungu = mapGroupRankingScope("sigungu", sigunguCode, sigunguLabel, closest?.sigunguRankTotal, level);
+    }
+  }
+
+  return scopes;
+}
+
+function closestMapRankingItem(candidates) {
+  if (!candidates.length) return null;
+  const center = currentZoomMapCenter();
+  return center
+    ? candidates.reduce((best, item) => {
+      const distance = mapCoordinateDistance(center, item);
+      return distance < best.distance ? { item, distance } : best;
+    }, { item: candidates[0], distance: Infinity }).item
+    : candidates[0];
+}
+
 function mapRankingScope(mode, key, label, total = null) {
   return {
     mode,
@@ -963,8 +1422,108 @@ function mapRankingScope(mode, key, label, total = null) {
   };
 }
 
+function mapGroupRankingScope(mode, key, label, total = null, targetLevel = "sido") {
+  return {
+    mode,
+    key,
+    targetLevel,
+    scopeLabel: label,
+    label: mapGroupRankingTabLabel(mode, targetLevel),
+    title: `${label} ${mapGroupRankingLevelLabel(targetLevel)} 상승률 랭킹`,
+    total: Number(total) || null
+  };
+}
+
+function mapGroupRankingLevelLabel(level) {
+  return level === "sigungu" ? "시군구" : zoomLevelLabel(level);
+}
+
+function mapGroupRankingTabLabel(mode, targetLevel) {
+  if (mode === "country") return "전국";
+  if (mode === "sigungu" && targetLevel === "dong") return "시군구 내";
+  if (mode === "sido") return "시도 내";
+  return "지역 내";
+}
+
 function isMapRankingModeAvailable(mode, scopes) {
   return mode === "viewport" || Boolean(scopes?.[mode]);
+}
+
+function mapRankingPeriodSignature() {
+  return {
+    source: currentMapSource(),
+    start: els.startInput.value || "",
+    end: els.endInput.value || ""
+  };
+}
+
+function mapScopedRankingSignature(scope) {
+  if (!scope) return "";
+  return JSON.stringify({
+    kind: "apartment",
+    mode: scope.mode,
+    key: scope.key,
+    ...mapRankingPeriodSignature()
+  });
+}
+
+function mapGroupRankingSignature(level, scope) {
+  if (!scope) return "";
+  return JSON.stringify({
+    kind: "group",
+    level,
+    mode: scope.mode,
+    key: scope.key,
+    targetLevel: scope.targetLevel || level,
+    ...mapRankingPeriodSignature()
+  });
+}
+
+function shouldReuseMapScopedRanking(signature) {
+  return Boolean(signature && (
+    state.mapScopedRankingActiveSignature === signature
+    || state.mapScopedRankingPendingSignature === signature
+  ));
+}
+
+function shouldReuseMapGroupRanking(signature) {
+  return Boolean(signature && (
+    state.mapGroupRankingActiveSignature === signature
+    || state.mapGroupRankingPendingSignature === signature
+  ));
+}
+
+function clearMapScopedRankingSignatures() {
+  state.mapScopedRankingActiveSignature = "";
+  state.mapScopedRankingPendingSignature = "";
+}
+
+function clearMapGroupRankingSignatures() {
+  state.mapGroupRankingActiveSignature = "";
+  state.mapGroupRankingPendingSignature = "";
+}
+
+function isMapGroupRankingLevel(level) {
+  return ["sido", "sigungu", "dong"].includes(level);
+}
+
+function mapGroupRankingModes(level) {
+  if (level === "dong") return ["sigungu", "sido", "country"];
+  if (level === "sigungu") return ["sido", "country"];
+  if (level === "sido") return ["country"];
+  return ["country"];
+}
+
+function mapGroupRankingMode(level, mode, scopes) {
+  const modes = mapGroupRankingModes(level);
+  if (modes.includes(mode) && scopes?.[mode]) return mode;
+  return modes.find((candidate) => scopes?.[candidate]) || "country";
+}
+
+function mapGroupRankingRequestZoom(level) {
+  if (level === "dong") return 13;
+  if (level === "sigungu") return 11;
+  return 10;
 }
 
 function mapApartmentDongKey(item) {
@@ -992,6 +1551,26 @@ function mapApartmentSidoLabel(item) {
   return shortRegionLabel(item?.sidoName || "") || String(item?.sidoName || "").trim();
 }
 
+function mapGroupSidoCode(item) {
+  return String(item?.sidoCode || "").trim()
+    || String(item?.code || item?.sigunguCode || item?.dongKey || "").slice(0, 2);
+}
+
+function mapGroupSidoLabel(item) {
+  const name = item?.sidoName || (String(item?.code || "").length <= 2 ? item?.name : "");
+  return shortRegionLabel(name || "") || String(name || "").trim();
+}
+
+function mapGroupSigunguCode(item) {
+  return String(item?.sigunguCode || "").trim()
+    || String(item?.code || item?.dongKey || "").slice(0, 5);
+}
+
+function mapGroupSigunguLabel(item) {
+  const name = item?.sigunguName || (String(item?.code || "").length === 5 ? item?.name : "");
+  return shortZoomLabel(name || "", "sigungu") || String(name || "").trim();
+}
+
 function scopedMapRankingRows(items, scope) {
   return (items || [])
     .filter((item) => item.type === "apartment" && item.id)
@@ -1004,6 +1583,17 @@ function scopedMapRankingRows(items, scope) {
     .sort((a, b) => compareMapScopeRankingRows(a, b, scope.mode));
 }
 
+function scopedMapGroupRankingRows(items, level, scope) {
+  return (items || [])
+    .filter((item) => item.type === "group" && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)))
+    .filter((item) => {
+      if (scope.mode === "sigungu") return level === "dong" && mapGroupSigunguCode(item) === scope.key;
+      if (scope.mode === "sido") return mapGroupSidoCode(item) === scope.key;
+      return scope.mode === "country";
+    })
+    .sort((a, b) => compareMapScopeRankingRows(a, b, scope.mode));
+}
+
 function mapRankingRankValue(item, rankMode, fallbackRank) {
   const rankField = {
     dong: "dongRank",
@@ -1011,8 +1601,9 @@ function mapRankingRankValue(item, rankMode, fallbackRank) {
     sido: "sidoRank",
     country: "countryRank"
   }[rankMode];
-  const rank = Number(rankField ? item?.[rankField] : fallbackRank);
-  return Number.isFinite(rank) ? rank : fallbackRank;
+  const rawRank = rankField ? item?.[rankField] : fallbackRank;
+  const rank = Number(rawRank);
+  return Number.isFinite(rank) && rank > 0 ? rank : fallbackRank;
 }
 
 function mapRankingTotalValue(item, rankMode) {
@@ -1339,6 +1930,7 @@ function nextZoomMarkerTopZIndex() {
 function clearZoomMapOverlays() {
   state.zoomMarkerTopZIndex = 10000;
   state.mapApartmentMarkerRefs.clear();
+  closeZoomNaverHoverWindow();
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
     return;
@@ -1348,6 +1940,7 @@ function clearZoomMapOverlays() {
 
 function clearZoomNaverOverlays() {
   cancelZoomNaverInfoWindowClose();
+  closeZoomNaverHoverWindow();
   for (const overlay of state.zoomNaverOverlays) {
     try {
       overlay.setMap(null);
@@ -1378,16 +1971,15 @@ function renderZoomGroupMarker(item, level) {
     })
   }).addTo(state.zoomMapLayer);
   marker.bindPopup(zoomGroupPopup(item));
-  marker.bindTooltip(regionHoverHtml(item, level), {
-    className: "apartment-hover-tooltip region-hover-tooltip",
-    direction: "top",
-    opacity: 1,
-    sticky: true
+  marker.on("mouseover", () => {
+    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
+    openLeafletMarkerHoverWindow(marker, regionHoverHtml(item, level));
   });
-  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
+  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
   marker.on("click", (event) => {
     suppressMapPopupClose();
     stopLeafletClick(event);
+    closeZoomNaverHoverWindow();
     closeMapApartmentPopup();
     moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
   });
@@ -1417,16 +2009,15 @@ function renderZoomApartmentMarker(item) {
     design,
     baseZIndex
   });
-  marker.bindTooltip(apartmentHoverHtml(item), {
-    className: "apartment-hover-tooltip",
-    direction: "top",
-    opacity: 1,
-    sticky: true
+  marker.on("mouseover", () => {
+    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
+    openLeafletMarkerHoverWindow(marker, apartmentHoverHtml(item));
   });
-  marker.on("mouseover", () => marker.setZIndexOffset(nextZoomMarkerTopZIndex()));
+  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
   marker.on("click", (event) => {
     suppressMapPopupClose();
     stopLeafletClick(event);
+    closeZoomNaverHoverWindow();
     setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });
@@ -1436,6 +2027,7 @@ function renderNaverZoomGroupMarker(item, level) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeRegionMarkerDesign(level);
   const [width, height] = zoomMarkerSize(level, design, item);
+  const iconAnchor = [width / 2, height / 2];
   const baseZIndex = zoomMarkerBaseZIndex(level);
   const marker = new window.naver.maps.Marker({
     position,
@@ -1445,17 +2037,18 @@ function renderNaverZoomGroupMarker(item, level) {
       <div class="zoom-cluster-marker" style="width:${width}px;height:${height}px">
         ${zoomGroupMarkerContentHtml(item, level, design)}
       </div>
-    `, width, height)
+    `, width, height, iconAnchor)
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverInfoWindow(position, regionHoverHtml(item, level));
+    openZoomNaverHoverWindow(position, regionHoverHtml(item, level), { size: [width, height], anchor: iconAnchor });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    scheduleZoomNaverInfoWindowClose();
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    closeZoomNaverHoverWindow();
     cancelZoomNaverInfoWindowClose();
     closeMapApartmentPopup();
     openZoomNaverInfoWindow(position, zoomGroupPopup(item), { pinned: true });
@@ -1468,12 +2061,13 @@ function renderNaverZoomApartmentMarker(item) {
   const position = new window.naver.maps.LatLng(item.lat, item.lng);
   const design = activeApartmentMarkerDesign();
   const [width, height] = apartmentMarkerIconSize(design, item);
+  const iconAnchor = apartmentMarkerIconAnchor([width, height], design, item);
   const baseZIndex = zoomApartmentMarkerBaseZIndex(item);
   const marker = new window.naver.maps.Marker({
     position,
     map: state.zoomNaverMap,
     zIndex: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
-    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, apartmentMarkerIconAnchor([width, height], design, item))
+    icon: naverLabelIcon(apartmentMarkerHtml(item, design), width, height, iconAnchor)
   });
   registerMapApartmentMarkerRef(item, {
     provider: "naver",
@@ -1485,13 +2079,14 @@ function renderNaverZoomApartmentMarker(item) {
   });
   window.naver.maps.Event.addListener(marker, "mouseover", () => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverInfoWindow(position, apartmentHoverHtml(item));
+    openZoomNaverHoverWindow(position, apartmentHoverHtml(item), { size: [width, height], anchor: iconAnchor });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
-    scheduleZoomNaverInfoWindowClose();
+    scheduleZoomNaverHoverWindowClose();
   });
   window.naver.maps.Event.addListener(marker, "click", () => {
     suppressMapPopupClose();
+    closeZoomNaverHoverWindow();
     setFocusedMapApartment(item);
     openMapApartmentDetail(item.id, item);
   });

@@ -891,15 +891,15 @@ function graphDesignSampleData() {
   };
 }
 
-function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), interactive, mode, months, series, pyeongSeriesSource = series }) {
+function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), interactive, mode, months, series, pyeongSeriesSource = series, showPyeong = true }) {
   const geometry = graphChartGeometry({ mode, months, series });
   const { width, height, padding, chartRight, chartBottom, x, y, yMin, yMax } = geometry;
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
   const periodMarkers = renderGraphPeriodMarkers({ months, series, x, y, padding, chartBottom });
-  const pyeongSeries = averagePyeongGraphSeries({ months, series: pyeongSeriesSource });
-  const pyeongGeometry = graphPyeongGeometry({ pyeongSeries, padding, chartBottom });
+  const pyeongSeries = showPyeong ? averagePyeongGraphSeries({ months, series: pyeongSeriesSource }) : [];
+  const pyeongGeometry = showPyeong ? graphPyeongGeometry({ pyeongSeries, padding, chartBottom }) : null;
   const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
   const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, pyeongSeries, x, y: pyeongGeometry?.y });
   const seriesMarkup = series.map((item, index) => renderGraphSeries({
@@ -1199,7 +1199,7 @@ function graphDesignColor(design, index, fallback) {
   return palette[index % palette.length] || fallback || colors[index % colors.length];
 }
 
-function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = series, x, y, pyeongY }) {
+function bindMapPopupChartHover({ width, months, series, x, y }) {
   const svg = els.mapPopupChart.querySelector("svg");
   const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
   const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
@@ -1220,29 +1220,15 @@ function bindMapPopupChartHover({ width, months, series, pyeongSeriesSource = se
     const priceRows = series.map((item) => {
       const price = item.prices.find((entry) => entry.yearMonth === month);
       if (!price) return null;
-      return { item, price, y: y(Number(price.saleMid)) };
+      return { item, price };
     }).filter(Boolean);
-    const pyeongAverage = averagePyeongAtMonth(pyeongSeriesSource, month);
-    const priceRow = priceRows[0];
-    const priceDistance = priceRow
-      ? Math.abs(priceRow.y - svgPoint.y)
-      : Infinity;
-    const pyeongYValue = Number.isFinite(pyeongAverage) && pyeongY ? pyeongY(Number(pyeongAverage)) : NaN;
-    const pyeongDistance = Number.isFinite(pyeongYValue) ? Math.abs(pyeongYValue - svgPoint.y) : Infinity;
-    const isPyeongPrimary = pyeongDistance < priceDistance;
     const priceMarkup = priceRows.map(({ item, price }) =>
       `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`
     ).join("");
-    const pyeongMarkup = Number.isFinite(pyeongAverage)
-      ? `<span class="map-popup-tooltip-secondary">평당가격 ${formatMoney(pyeongAverage)}</span>`
-      : "";
-    const rows = isPyeongPrimary
-      ? `${pyeongMarkup || "<span>데이터 없음</span>"}`
-      : `${priceMarkup || "<span>데이터 없음</span>"}`;
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
       <strong>${formatMonth(month)}</strong>
-      ${rows || "<span>데이터 없음</span>"}
+      ${priceMarkup || "<span>데이터 없음</span>"}
     `);
   });
 

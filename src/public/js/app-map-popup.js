@@ -4,6 +4,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const requestId = ++state.mapPopupRequestId;
   const source = currentMapSource();
   const period = currentMapPeriodParams();
+  const minHouseholdCount = activeMinHouseholdCount();
   if (typeof trackAnalyticsEvent === "function") {
     trackAnalyticsEvent("apartment_detail_opened", {
       apartmentId,
@@ -15,7 +16,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
       periodLabel: typeof mapAnalyticsPeriodLabel === "function" ? mapAnalyticsPeriodLabel() : ""
     });
   }
-  const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}`;
+  const cacheKey = `${source}:${apartmentId}:${period.start}:${period.end}:${minHouseholdCount}`;
   state.mapPopupDetail = null;
   state.mapPopupSelectedAreaTypeId = null;
   if (state.mapApartmentDetails.has(cacheKey)) {
@@ -30,7 +31,8 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
     const params = new URLSearchParams({
       apartmentId,
       start: period.start,
-      end: period.end
+      end: period.end,
+      minHouseholdCount: String(minHouseholdCount)
     });
     const detail = await api(`${endpoint}?${params}`);
     if (requestId !== state.mapPopupRequestId) return;
@@ -77,7 +79,7 @@ function renderMapApartmentLoading(seedItem = null) {
     <div class="map-popup-loading">
       <span class="map-popup-spinner" aria-hidden="true"></span>
       <strong>시세 그래프를 불러오는 중</strong>
-      <em>평형별 월별 데이터를 준비하고 있습니다.</em>
+      <em>선택 평형의 월별 데이터를 준비하고 있습니다.</em>
     </div>
   `;
 }
@@ -148,13 +150,12 @@ function renderMapApartmentDetail(detail) {
 
   const selected = selectedMapPopupSeries(allSeries);
   const selectedSeries = selected ? [selected] : [];
-  renderMapPopupPyeongGrowth(allSeries, latestMonth);
   els.mapPopupStats.innerHTML = `
     ${renderMapPopupAreaPicker(allSeries, selected)}
     ${selected ? renderMapPopupAreaSummary(selected, latestMonth) : ""}
   `;
 
-  renderMapPopupChart({ months, series: selectedSeries, pyeongSeriesSource: allSeries });
+  renderMapPopupChart({ months, series: selectedSeries });
   renderMapPopupTradeHistory(selected);
 }
 
@@ -190,25 +191,8 @@ function renderMapPopupAreaPicker(series, selected) {
           `).join("")}
         </select>
       </label>
-      <em>선택 평형 실거래가 + 평당가격</em>
+      <em>선택 평형 실거래가 그래프</em>
     </div>
-  `;
-}
-
-function renderMapPopupPyeongGrowth(series, latestMonth) {
-  if (!els.mapPopupPyeongGrowth) return;
-  const latest = averageLatestPyeongAtOrBefore(series, latestMonth);
-  const rows = [1, 3, 5].map((years) => {
-    const start = averageLatestPyeongAtOrBefore(series, periodStartMonth(latestMonth, years));
-    if (!Number.isFinite(latest) || !Number.isFinite(start) || !start) {
-      return `<em class="no-data">${years}년 없음</em>`;
-    }
-    const growthRate = (latest - start) / start;
-    return `<em>${years}년 ${renderGrowthRateText(growthRate)}</em>`;
-  }).join("");
-  els.mapPopupPyeongGrowth.innerHTML = `
-    <span>평당 상승률</span>
-    ${rows}
   `;
 }
 
@@ -306,20 +290,6 @@ function mapPopupApartmentSigunguCode(apartment = {}) {
 
 function mapPopupApartmentSidoCode(apartment = {}) {
   return String(apartment?.sidoCode || apartment?.sigunguCode || apartment?.legalDongCode || apartment?.dongKey || "").slice(0, 2);
-}
-
-function averagePyeongAtMonth(series, yearMonth) {
-  return average(series.flatMap((item) => {
-    const price = item.prices.find((entry) => entry.yearMonth === yearMonth);
-    return Number.isFinite(Number(price?.pyeongPrice)) ? [Number(price.pyeongPrice)] : [];
-  }));
-}
-
-function averageLatestPyeongAtOrBefore(series, yearMonth) {
-  return average(series.flatMap((item) => {
-    const price = latestPriceAtOrBefore(item.prices, yearMonth);
-    return Number.isFinite(Number(price?.pyeongPrice)) ? [Number(price.pyeongPrice)] : [];
-  }));
 }
 
 function renderMapPopupAreaSummary(item, latestMonth) {
@@ -523,23 +493,21 @@ function compareMolitTradesDesc(a, b) {
     || String(b.id || "").localeCompare(String(a.id || ""));
 }
 
-function renderMapPopupChart({ months, series, pyeongSeriesSource = series }) {
+function renderMapPopupChart({ months, series }) {
   const result = renderGraphSvg({
     design: activeGraphDesign(),
     interactive: true,
     mode: "popup",
     months,
     series,
-    pyeongSeriesSource
+    showPyeong: false
   });
   els.mapPopupChart.innerHTML = result.html;
   bindMapPopupChartHover({
     width: result.geometry.width,
     months,
     series,
-    pyeongSeriesSource,
     x: result.geometry.x,
-    y: result.geometry.y,
-    pyeongY: result.geometry.pyeongY
+    y: result.geometry.y
   });
 }

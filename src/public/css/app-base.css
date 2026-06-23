@@ -230,94 +230,14 @@ h2 {
   margin-left: auto;
 }
 
+.tab-more-list .tab-logout-link {
+  margin-left: 0;
+}
+
 .primary-btn {
   background: var(--blue);
   border-color: var(--blue);
   color: #fff;
-}
-
-.map-top-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-  padding: 10px 0;
-}
-
-body:not(.map-shell-mode) .map-top-search-panel {
-  display: none;
-}
-
-.map-top-logo {
-  flex: 0 0 auto;
-  color: inherit;
-  text-decoration: none;
-}
-
-.map-top-header .orulzip-logo {
-  gap: 8px;
-}
-
-.map-top-header .orulzip-logo-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-}
-
-.map-top-header .orulzip-logo-mark svg {
-  width: 34px;
-  height: 34px;
-}
-
-.map-top-header .orulzip-logo-word {
-  font-size: 24px;
-}
-
-.map-top-search-panel {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.map-top-header .map-top-search-panel {
-  padding: 0;
-}
-
-.map-top-header .map-top-search-panel input {
-  height: 42px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 800;
-  padding: 0 42px 0 14px;
-}
-
-.map-top-search-panel::after {
-  position: absolute;
-  top: 50%;
-  right: 15px;
-  width: 13px;
-  height: 13px;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-  color: #667085;
-  content: "";
-  pointer-events: none;
-  transform: translateY(-58%);
-}
-
-.map-top-search-panel::before {
-  position: absolute;
-  top: calc(50% + 7px);
-  right: 12px;
-  width: 7px;
-  height: 2px;
-  border-radius: 999px;
-  background: #667085;
-  content: "";
-  pointer-events: none;
-  transform: rotate(45deg);
-  transform-origin: center;
-  z-index: 1;
 }
 
 .toolbar {
@@ -468,6 +388,19 @@ input {
 
 .page-size-control select {
   width: 92px;
+}
+
+.price-band-controls {
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.price-band-controls .household-filter-toggle {
+  height: 34px;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .pagination {
@@ -863,7 +796,7 @@ input {
   margin-bottom: 12px;
 }
 
-.map-shell-mode .top-tabs {
+.map-shell-mode .app-shell > .top-tabs {
   margin-bottom: 0;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
@@ -952,7 +885,7 @@ input {
 
 .map-transition-status {
   position: absolute;
-  top: 14px;
+  top: 66px;
   left: 50%;
   z-index: 760;
   border: 1px solid rgba(17, 24, 39, 0.14);
@@ -984,6 +917,10 @@ input {
   line-height: 1;
   padding: 5px 6px 5px 9px;
   box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+}
+
+.deploy-version-badge[hidden] {
+  display: none;
 }
 
 .deploy-version-text {

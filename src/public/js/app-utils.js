@@ -4,7 +4,32 @@ function queryParams() {
   if (els.neighborhoodSelect.value) params.set("neighborhood", els.neighborhoodSelect.value);
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
+  appendHouseholdFilterParam(params);
   return params.toString();
+}
+
+function appendHouseholdFilterParam(params) {
+  params.set("minHouseholdCount", String(activeMinHouseholdCount()));
+  return params;
+}
+
+function activeMinHouseholdCount() {
+  const value = Number(state.minHouseholdCount);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function householdFilterLabel() {
+  const minHouseholdCount = activeMinHouseholdCount();
+  return minHouseholdCount > 0 ? `${formatInt(minHouseholdCount)}세대 이상` : "전체";
+}
+
+function syncHouseholdFilterToggles() {
+  const isActive = activeMinHouseholdCount() > 0;
+  els.householdFilterToggles?.forEach((button) => {
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    button.textContent = isActive ? householdFilterLabel() : "전체";
+  });
 }
 
 async function api(path) {

@@ -18,64 +18,63 @@
     <meta name="twitter:description" content="아파트 실거래가 기준 상승률을 지도와 랭킹으로 확인하세요.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="/styles.css?v=20260621-price-band-more-toggle">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
+    <link rel="stylesheet" href="/styles.css?v=20260622-bounded-marker-hover">
   </head>
   <body>
     <main class="app-shell">
-      <header class="map-top-header" aria-label="상단 브랜드">
-        <a class="map-top-logo" href="/map" aria-label="오를집">
-          <span class="orulzip-logo tone-black style-line">
-            <span class="orulzip-logo-mark">
-              <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
-                <path class="logo-stroke" d="M8 25 24 11l16 14"/>
-                <path class="logo-stroke" d="M15 42V29"/>
-                <path class="logo-stroke" d="M33 42V29"/>
-                <path class="logo-accent" d="M18 34l6-7 4 4 7-11"/>
-              </svg>
+      <header class="map-top-header" aria-label="상단 메뉴">
+        <div class="map-top-left">
+          <button class="map-menu-button" type="button" aria-label="메뉴" title="메뉴">
+            <span aria-hidden="true"></span>
+          </button>
+          <a class="map-top-logo" href="/map" aria-label="오를집">
+            <span class="orulzip-logo tone-black style-line">
+              <span class="orulzip-logo-mark">
+                <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+                  <path class="logo-stroke" d="M8 25 24 11l16 14"/>
+                  <path class="logo-stroke" d="M15 42V29"/>
+                  <path class="logo-stroke" d="M33 42V29"/>
+                  <path class="logo-accent" d="M18 34l6-7 4 4 7-11"/>
+                </svg>
+              </span>
+              <span class="orulzip-logo-word">오를집</span>
             </span>
-            <span class="orulzip-logo-word">오를집</span>
-          </span>
-        </a>
-        <div class="map-search-panel map-top-search-panel">
-          <label class="sr-only" for="mapSearchInput">검색</label>
-          <input id="mapSearchInput" type="search" autocomplete="off" placeholder="동 또는 아파트" role="combobox" aria-expanded="false" aria-controls="mapSearchResults">
-          <div id="mapSearchResults" class="map-search-results" role="listbox" hidden></div>
+          </a>
+          <div class="map-search-panel map-top-search-panel">
+            <label class="sr-only" for="mapSearchInput">검색</label>
+            <input id="mapSearchInput" type="search" autocomplete="off" placeholder="동 또는 아파트" role="combobox" aria-expanded="false" aria-controls="mapSearchResults">
+            <div id="mapSearchResults" class="map-search-results" role="listbox" hidden></div>
+          </div>
+        </div>
+
+        <nav class="tabs top-tabs" aria-label="보기 전환">
+          <a class="active" data-tab="molitMap" href="/map" aria-current="page">아파트 상승률 지도</a>
+          <a data-tab="priceBands" href="/price-bands">아파트 랭킹</a>
+        </nav>
+
+        <div class="map-top-right">
+          <details class="tab-more-menu" data-admin-only hidden>
+            <summary>더보기</summary>
+            <div class="tab-more-list">
+              <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
+              <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
+              <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
+              <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
+              <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
+              <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
+              <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
+              <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
+              <div class="tab-more-control" data-admin-only hidden>
+                <span data-apartment-marker-mode-label>현재 아파트 마커</span>
+                <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
+                <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
+              </div>
+            </div>
+          </details>
         </div>
       </header>
-
-      <nav class="tabs top-tabs" aria-label="보기 전환">
-        <a class="active" data-tab="molitMap" href="/map" aria-current="page">아파트 상승률 지도</a>
-        <a data-tab="priceBands" href="/price-bands">아파트 랭킹</a>
-        <label class="top-period-select">
-          <span class="sr-only">기준 기간</span>
-          <select data-period-select aria-label="기준 기간">
-            <option value="3">3개월전 기준</option>
-            <option value="6">6개월전 기준</option>
-            <option value="12" selected>1년전 기준</option>
-            <option value="36">3년전 기준</option>
-            <option value="60">5년전 기준</option>
-          </select>
-        </label>
-        <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
-        <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
-        <details class="tab-more-menu" data-admin-only hidden>
-          <summary>더보기</summary>
-          <div class="tab-more-list">
-            <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
-            <a data-tab="apartment" data-admin-only href="/apartments" hidden>아파트별</a>
-            <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
-            <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
-            <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
-            <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
-            <div class="tab-more-control" data-admin-only hidden>
-              <span data-apartment-marker-mode-label>현재 아파트 마커</span>
-              <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
-              <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
-            </div>
-          </div>
-        </details>
-        <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
-      </nav>
 
       <div class="app-state-controls" hidden>
         <select id="regionSelect"></select>
@@ -98,6 +97,19 @@
           <h2 id="zoomMapTitle" class="sr-only">지도</h2>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
+            <div class="map-floating-controls">
+              <label class="top-period-select map-floating-period-select">
+                <span class="sr-only">기준 기간</span>
+                <select data-period-select aria-label="기준 기간">
+                  <option value="3">3개월전 기준</option>
+                  <option value="6">6개월전 기준</option>
+                  <option value="12" selected>1년전 기준</option>
+                  <option value="36">3년전 기준</option>
+                  <option value="60">5년전 기준</option>
+                </select>
+              </label>
+              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
+            </div>
             <div id="mapTransitionStatus" class="map-transition-status" hidden>마커 전환 중...</div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
               <div id="mapRankingSection" class="map-ranking-section" hidden>
@@ -185,70 +197,14 @@
         </section>
       </section>
 
-      <section id="apartmentView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>아파트별 통합 랭킹</h2>
-            <span id="apartmentCount"></span>
-          </div>
-          <div class="ranking-controls">
-            <div class="segmented-buttons" aria-label="아파트 랭킹 기준">
-              <button class="active" type="button" data-apartment-rank-mode="averagePyeong">평균평당가</button>
-              <button type="button" data-apartment-rank-mode="growth">상승률</button>
-            </div>
-            <div class="period-buttons" aria-label="아파트 랭킹 기준 기간">
-              <button data-period-months="3">3개월전 기준</button>
-              <button data-period-months="6">6개월전 기준</button>
-              <button class="active" data-period-months="12">1년전 기준</button>
-              <button data-period-months="36">3년전 기준</button>
-              <button data-period-months="60">5년전 기준</button>
-            </div>
-            <label class="page-size-control" for="apartmentPageSizeSelect">
-              <span>페이지당</span>
-              <select id="apartmentPageSizeSelect">
-                <option value="25">25개</option>
-                <option value="50" selected>50개</option>
-                <option value="100">100개</option>
-              </select>
-            </label>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr id="apartmentHeadRow">
-                  <th>순위</th>
-                  <th>아파트</th>
-                  <th>동</th>
-                  <th>면적 구성</th>
-                  <th>시작 평당가</th>
-                  <th>현재 평당가</th>
-                  <th>상승액</th>
-                  <th>상승률</th>
-                </tr>
-              </thead>
-              <tbody id="apartmentRows"></tbody>
-            </table>
-          </div>
-          <div id="apartmentPagination" class="pagination"></div>
-        </section>
-
-        <section id="apartmentDetailPanel" class="panel detail-panel" hidden>
-          <div class="panel-head">
-            <h2 id="detailTitle">KB 월별 시세</h2>
-            <span id="detailMeta"></span>
-          </div>
-          <div class="detail-body">
-            <div id="detailChart" class="detail-chart"></div>
-            <div id="detailTooltip" class="chart-tooltip" hidden></div>
-          </div>
-        </section>
-      </section>
-
       <section id="priceBandView" class="view">
         <section class="panel">
           <div class="panel-head">
             <h2>실거래가 가격대별 상승 랭킹</h2>
             <span id="priceBandCount"></span>
+          </div>
+          <div class="ranking-controls price-band-controls">
+            <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">
@@ -1294,7 +1250,7 @@
         </section>
       </section>
     </main>
-    <div class="deploy-version-badge" aria-label="배포 테스트 버전" data-deploy-version="__ORULZIP_DEPLOY_COPY_TEXT__" data-deploy-commits="__ORULZIP_RECENT_COMMITS__">
+    <div class="deploy-version-badge" __ORULZIP_DEPLOY_BADGE_HIDDEN__ aria-label="배포 테스트 버전" data-deploy-version="__ORULZIP_DEPLOY_COPY_TEXT__" data-deploy-commits="__ORULZIP_RECENT_COMMITS__">
       <span class="deploy-version-text">__ORULZIP_DEPLOYED_AT__ ·</span>
       <button class="deploy-version-commit" type="button" aria-label="최근 커밋 보기" aria-expanded="false">__ORULZIP_DEPLOY_COMMIT__</button>
       <button class="deploy-version-copy" type="button" aria-label="배포 버전 복사" title="배포 버전 복사">
@@ -1309,6 +1265,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260621-trade-header-columns"></script>
+    <script src="/app.js?v=20260622-bounded-marker-hover"></script>
   </body>
 </html>

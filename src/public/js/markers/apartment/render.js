@@ -182,17 +182,17 @@ function apartmentMarkerRegionStyleVars(item, design = activeApartmentMarkerDesi
     "--apartment-marker-name-font-size": "8px",
     "--apartment-marker-area-font-size": "7px",
     "--apartment-marker-value-font-size": "14px",
-    "--apartment-marker-rank-dong-font-size": "7px",
-    "--apartment-marker-rank-sigungu-font-size": "7px",
-    "--apartment-marker-rank-sido-font-size": "7px",
-    "--apartment-marker-rank-national-font-size": "7px",
-    "--apartment-marker-rank-national-percent-font-size": "7px",
-    "--apartment-marker-rank-value-font-size": "7px",
+    "--apartment-marker-rank-dong-font-size": "8px",
+    "--apartment-marker-rank-sigungu-font-size": "8px",
+    "--apartment-marker-rank-sido-font-size": "8px",
+    "--apartment-marker-rank-national-font-size": "8px",
+    "--apartment-marker-rank-national-percent-font-size": "8px",
+    "--apartment-marker-rank-value-font-size": "8px",
     "--apartment-marker-name-area-gap": "2px",
     "--apartment-marker-area-rate-gap": "4px",
     "--apartment-marker-value-rank-gap": "5px",
     "--apartment-marker-rank-row-gap": "3px",
-    "--apartment-marker-rank-row-height": "16px"
+    "--apartment-marker-rank-row-height": "17px"
   };
 }
 
@@ -216,19 +216,19 @@ function apartmentMarkerRegionLayout(item, style = activeApartmentMarkerStyle())
 
 function apartmentMarkerRegionRankBoxWidth(rows, style) {
   const rowWidth = Math.max(0, ...rows.map((row) => {
-    const labelWidth = estimateRegionMarkerTextWidth(row.label, 7);
-    const valueWidth = estimateRegionMarkerTextWidth(row.rank, 7);
+    const labelWidth = estimateRegionMarkerTextWidth(row.label, 8);
+    const valueWidth = estimateRegionMarkerTextWidth(row.rank, 8);
     return labelWidth + valueWidth + (row.label ? 5 : 0) + 18;
   }));
   return clampNumber(Math.ceil(rowWidth), 62, 128);
 }
 
 function apartmentMarkerRankRowStyle(line, style) {
-  const rowWidth = estimateRegionMarkerTextWidth(line.label, 7) + estimateRegionMarkerTextWidth(line.rank, 7) + (line.label ? 5 : 0);
+  const rowWidth = estimateRegionMarkerTextWidth(line.label, 8) + estimateRegionMarkerTextWidth(line.rank, 8) + (line.label ? 5 : 0);
   const availableWidth = Math.max(1, apartmentMarkerRegionRankBoxWidth([line], style) - 12);
   const fontSize = rowWidth > availableWidth
-    ? clampNumber(Math.floor((7 * availableWidth / rowWidth) * 10) / 10, 5, 7)
-    : 7;
+    ? clampNumber(Math.floor((8 * availableWidth / rowWidth) * 10) / 10, 5, 8)
+    : 8;
   return `--apartment-marker-row-font-size:${fontSize}px`;
 }
 
@@ -239,7 +239,7 @@ function apartmentMarkerRegionIconSize(item, design = activeApartmentMarkerDesig
   const nameHeight = display.name ? 10 : 0;
   const areaHeight = display.area ? 9 : 0;
   const rateHeight = display.rate ? 14 : 0;
-  const rankHeight = rankCount ? 5 + (rankCount * 16) + Math.max(0, rankCount - 1) * 3 : 0;
+  const rankHeight = rankCount ? 5 + (rankCount * 17) + Math.max(0, rankCount - 1) * 3 : 0;
   const height = Math.max(54, Math.ceil(20 + nameHeight + areaHeight + rateHeight + rankHeight + 18));
   return [layout.outerBoxWidth + 22, height];
 }

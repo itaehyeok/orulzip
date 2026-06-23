@@ -46,6 +46,11 @@
 }
 
 .apartment-rank-marker {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", Roboto, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
   --rank-bg: #ffffff;
   --rank-border: #5262d6;
   --rank-text: #2939a8;
@@ -101,6 +106,7 @@
   padding: 8px 8px calc(10px + var(--apartment-marker-tail-height) + var(--apartment-marker-tail-clearance));
   pointer-events: auto;
   text-align: center;
+  transition: filter 140ms ease;
   white-space: nowrap;
 }
 
@@ -122,6 +128,7 @@
   background: var(--rank-bg);
   clip-path: var(--apartment-marker-shape);
   content: "";
+  transition: background 140ms ease;
 }
 
 .apartment-rank-marker[data-apartment-marker-border="on"] {
@@ -168,6 +175,7 @@
   line-height: 1.05;
   padding: 5px 6px;
   text-align: center;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .apartment-rank-marker.apartment-marker-no-data::before {
@@ -400,6 +408,21 @@
   --rank-badge-text: #111827;
 }
 
+.apartment-rank-marker:not(.selected):hover {
+  --rank-bg: #f4f8ff;
+  --rank-border: #307aff;
+}
+
+.apartment-rank-marker.no-data:not(.selected):hover {
+  --rank-bg: #7b8798;
+  --rank-border: #e8f0ff;
+}
+
+.apartment-rank-marker.rank-chip-dark:not(.selected):hover {
+  --rank-bg: #1f2937;
+  --rank-border: #93c5fd;
+}
+
 .apartment-rank-marker.apartment-marker-region-like {
   isolation: isolate;
   display: grid;
@@ -414,6 +437,7 @@
   color: var(--rank-text);
   padding: 8px;
   text-align: center;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .apartment-rank-marker.apartment-marker-region-like::before {

@@ -19,6 +19,7 @@ import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
 import {
   buildMolitApartmentDetail,
+  DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT,
   readApartmentMapRankSummary,
   readCachedZoomMapSummary
 } from "./services/map-growth-cache.js";
@@ -26,10 +27,6 @@ import {
   readMolitCoordinateAudit,
   readMolitDuplicateAudit
 } from "./services/molit-complex-store.js";
-import {
-  APARTMENT_RANK_METRICS,
-  readApartmentRankPage
-} from "./services/apartment-rank-cache.js";
 import { readPriceBandRankPage } from "./services/price-band-rank-cache.js";
 import {
   markAnalyticsVisitorInternal,
@@ -38,7 +35,6 @@ import {
   recordAnalyticsEvent
 } from "./services/analytics-store.js";
 import {
-  buildApartmentAveragePyeongRankings,
   buildApartmentRankings,
   buildNeighborhoodChart,
   buildNeighborhoodRankings
@@ -51,15 +47,14 @@ const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartments", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
-const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/apartments", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
   "/api/sync",
   "/api/neighborhood-rankings",
   "/api/neighborhood-chart",
-  "/api/apartment-rankings",
   "/api/apartment-detail",
   "/api/formula-analysis",
   "/api/molit/status",
@@ -105,11 +100,6 @@ const routeSeo = new Map([
     title: "실거래가 가격대별 아파트 상승률 랭킹 - 오를집",
     description: "3개월, 6개월, 1년, 3년, 5년 기준으로 실거래가 가격대별 아파트 평균 평당가 상승률 랭킹을 확인하세요.",
     canonicalPath: "/price-bands"
-  }],
-  ["/apartments", {
-    title: "아파트별 평균 평당가 랭킹 - 오를집",
-    description: "수집된 아파트의 평균 평당가와 상승률 랭킹을 기간별로 비교하세요.",
-    canonicalPath: "/apartments"
   }],
   ["/neighborhood", {
     title: "동네별 아파트 상승률 랭킹 - 오를집",
@@ -391,36 +381,6 @@ const server = createServer(async (req, res) => {
       return json(res, buildNeighborhoodChart(dataset, queryFilters(url)));
     }
 
-    if (url.pathname === "/api/apartment-rankings") {
-      const filters = queryFilters(url);
-      const rankMode = url.searchParams.get("rankMode") || "growth";
-      const page = Number(url.searchParams.get("page") || 1);
-      const pageSize = Number(url.searchParams.get("pageSize") || 50);
-      if (rankMode === "averagePyeong") {
-        const cached = await readApartmentRankPage({
-          source: "kb",
-          metric: APARTMENT_RANK_METRICS.averagePyeong,
-          startMonth: filters.start,
-          endMonth: filters.end,
-          page,
-          pageSize
-        });
-        if (cached.cache.hit) return json(res, { ...cached, rankMode });
-        const dataset = await readDatasetFromDb();
-        return json(res, {
-          ...paginateRows(buildApartmentAveragePyeongRankings(dataset, filters), { page, pageSize }),
-          rankMode,
-          cache: cached.cache
-        });
-      }
-      const dataset = await readDatasetFromDb();
-      return json(res, {
-        ...paginateRows(buildApartmentRankings(dataset, filters), { page, pageSize }),
-        rankMode,
-        cache: { hit: false, source: "kb", metric: "growth", updatedAt: null }
-      });
-    }
-
     if (url.pathname === "/api/price-band-rankings") {
       const filters = queryFilters(url);
       const basis = url.searchParams.get("basis") || "start";
@@ -433,6 +393,7 @@ const server = createServer(async (req, res) => {
         startMonth: filters.start,
         endMonth: filters.end,
         bandKey,
+        minHouseholdCount: filters.minHouseholdCount,
         page,
         pageSize
       }));
@@ -451,7 +412,8 @@ const server = createServer(async (req, res) => {
         dongKey: url.searchParams.get("dongKey") || "",
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
-        rankingScope: url.searchParams.get("rankingScope") || ""
+        rankingScope: url.searchParams.get("rankingScope") || "",
+        minHouseholdCount: minHouseholdCountFromUrl(url, 0)
       };
       const cached = await readCachedZoomMapSummary(filters);
       if (cached) return json(res, cached);
@@ -476,14 +438,15 @@ const server = createServer(async (req, res) => {
         dongKey: url.searchParams.get("dongKey") || "",
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
-        rankingScope: url.searchParams.get("rankingScope") || ""
+        rankingScope: url.searchParams.get("rankingScope") || "",
+        minHouseholdCount: minHouseholdCountFromUrl(url)
       };
       const cached = await readCachedZoomMapSummary(filters);
       return json(res, cached || {
         level: zoomAggregationLevel(filters.zoom),
         zoom: filters.zoom,
         period: { startMonth: filters.start, endMonth: filters.end },
-        cache: { hit: false, source: "molit", updatedAt: null },
+        cache: { hit: false, source: "molit", minHouseholdCount: filters.minHouseholdCount, updatedAt: null },
         items: []
       });
     }
@@ -505,11 +468,14 @@ const server = createServer(async (req, res) => {
         source: "molit",
         apartmentId,
         startMonth: url.searchParams.get("start") || "",
-        endMonth: url.searchParams.get("end") || ""
+        endMonth: url.searchParams.get("end") || "",
+        minHouseholdCount: minHouseholdCountFromUrl(url)
       }));
     }
 
-    return await serveStatic(url.pathname, res);
+    return await serveStatic(url.pathname, res, {
+      environment: requestAnalyticsEnvironment
+    });
   } catch (error) {
     const status = Number(error.statusCode || 500);
     return json(res, { error: error.message }, status >= 400 && status < 600 ? status : 500);
@@ -525,26 +491,15 @@ function queryFilters(url) {
     regionId: url.searchParams.get("regionId") || "",
     neighborhood: url.searchParams.get("neighborhood") || "",
     start: url.searchParams.get("start") || "",
-    end: url.searchParams.get("end") || ""
+    end: url.searchParams.get("end") || "",
+    minHouseholdCount: minHouseholdCountFromUrl(url)
   };
 }
 
-function paginateRows(result, { page = 1, pageSize = 50 } = {}) {
-  const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
-  const totalRows = result.rows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / normalizedPageSize));
-  const safePage = Math.min(Math.max(1, Number(page) || 1), totalPages);
-  const offset = (safePage - 1) * normalizedPageSize;
-  return {
-    ...result,
-    pagination: {
-      page: safePage,
-      pageSize: normalizedPageSize,
-      totalRows,
-      totalPages
-    },
-    rows: result.rows.slice(offset, offset + normalizedPageSize)
-  };
+function minHouseholdCountFromUrl(url, fallback = DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT) {
+  const number = Number(url.searchParams.get("minHouseholdCount"));
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.floor(number));
 }
 
 function buildZoomMapSummary(dataset, filters) {
@@ -1048,7 +1003,7 @@ function serializeJob(job) {
   };
 }
 
-async function serveStatic(pathname, res) {
+async function serveStatic(pathname, res, { environment = "unknown" } = {}) {
   if (pathname === "/favicon.ico") {
     res.writeHead(204);
     res.end();
@@ -1071,7 +1026,7 @@ async function serveStatic(pathname, res) {
   }
   if (filePath === "/index.html") {
     content = injectRouteSeo(content.toString("utf8"), normalizedPath);
-    content = injectDeployVersion(content);
+    content = injectDeployVersion(content, { environment });
   }
 
   res.writeHead(200, {
@@ -1116,8 +1071,11 @@ function injectRouteSeo(html, routePath) {
     .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
 }
 
-function injectDeployVersion(html) {
+function injectDeployVersion(html, { environment = "unknown" } = {}) {
+  const deployBadgeHidden = environment === "production" ? "hidden" : "";
+
   return html
+    .replaceAll("__ORULZIP_DEPLOY_BADGE_HIDDEN__", deployBadgeHidden)
     .replaceAll("__ORULZIP_DEPLOY_VERSION__", escapeHtml(deployVersionText))
     .replaceAll("__ORULZIP_DEPLOYED_AT__", escapeHtml(`v ${deployedAtKst}`))
     .replaceAll("__ORULZIP_DEPLOY_COMMIT__", escapeHtml(deployCommitSha))
