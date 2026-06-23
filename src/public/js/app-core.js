@@ -16,11 +16,13 @@ async function init() {
   state.activeLogoDesignId = readStoredLogoDesignId();
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.activeGrowthRateColorDesignId = readStoredGrowthRateColorDesignId();
+  state.growthRateBandMode = readStoredGrowthRateBandMode();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   state.activeTransitionDesignId = readStoredTransitionDesignId();
   applyMarkerLineGap();
   applyMapHeaderDesign();
   applyGrowthRateColorDesign();
+  syncGrowthRateBandModeControls();
   setActiveTab(tabFromLocation());
   renderApartmentMarkerStyleEditor();
   renderRegionMarkerStyleEditor();
@@ -89,6 +91,9 @@ function bindEvents() {
   document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
   document.querySelector("[data-display-settings-open]")?.addEventListener("click", openMapDisplaySettingsPanel);
   document.querySelector("[data-display-settings-close]")?.addEventListener("click", closeMapDisplaySettingsPanels);
+  els.growthRateBandModeButtons.forEach((button) => {
+    button.addEventListener("click", () => setGrowthRateBandMode(button.dataset.growthRateBandMode));
+  });
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -393,6 +398,39 @@ function closeMapDisplaySettingsPanels() {
   document.querySelectorAll(".map-settings-menu.display-settings-open").forEach((menu) => {
     menu.classList.remove("display-settings-open");
   });
+}
+
+function setGrowthRateBandMode(mode) {
+  const nextMode = normalizeGrowthRateBandMode(mode);
+  if (state.growthRateBandMode === nextMode) {
+    syncGrowthRateBandModeControls();
+    return;
+  }
+  state.growthRateBandMode = nextMode;
+  try {
+    window.localStorage.setItem(growthRateBandModeStorageKey, nextMode);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  syncGrowthRateBandModeControls();
+  refreshGrowthRateBandModeViews();
+}
+
+function syncGrowthRateBandModeControls() {
+  const activeMode = activeGrowthRateBandMode();
+  els.growthRateBandModeButtons.forEach((button) => {
+    const isActive = normalizeGrowthRateBandMode(button.dataset.growthRateBandMode) === activeMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function refreshGrowthRateBandModeViews() {
+  if (state.activeTab === "design") {
+    renderDesignTab();
+    return;
+  }
+  void refresh();
 }
 
 function positionOpenTabMoreMenus() {

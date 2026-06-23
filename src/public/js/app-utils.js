@@ -144,7 +144,10 @@ function growthRateTone(rate, rank = null, total = null) {
   if (rate === null || rate === undefined || rate === "") return "growth-rate-no-data";
   const number = Number(rate);
   if (!Number.isFinite(number)) return "growth-rate-no-data";
-  if (number < 0) return "growth-rate-negative";
+  if (number <= 0) return "growth-rate-negative";
+  if (activeGrowthRateBandMode() === "3") {
+    return number >= 0.1 ? "growth-rate-top-1" : "growth-rate-top-3";
+  }
   if (number >= 0.2) return "growth-rate-top-1";
   if (number >= 0.1) return "growth-rate-top-2";
   return "growth-rate-top-3";

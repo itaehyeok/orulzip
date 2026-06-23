@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
-    <link rel="stylesheet" href="/styles.css?v=20260623-growth-green-band">
+    <link rel="stylesheet" href="/styles.css?v=20260623-growth-band-mode">
   </head>
   <body>
     <main class="app-shell">
@@ -61,6 +61,13 @@
                 <button class="household-filter-switch" type="button" data-household-filter-toggle data-household-filter-static="true" role="switch" aria-checked="true" aria-pressed="true" aria-label="100세대 이상 보기">
                   <span aria-hidden="true"></span>
                 </button>
+              </div>
+              <div class="map-display-settings-row map-display-settings-row-stack">
+                <span>상승률 색상 구간</span>
+                <div class="growth-band-mode-control" role="group" aria-label="상승률 색상 구간">
+                  <button type="button" data-growth-rate-band-mode="3" aria-pressed="true">3구간</button>
+                  <button type="button" data-growth-rate-band-mode="4" aria-pressed="false">4구간</button>
+                </div>
               </div>
             </div>
           </details>
@@ -1473,6 +1480,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260623-hover-pointer"></script>
+    <script src="/app.js?v=20260623-growth-band-mode"></script>
   </body>
 </html>

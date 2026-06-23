@@ -36,6 +36,25 @@ const tabTitles = {
   analytics: "방문분석 - 오를집"
 };
 
+const growthRateBandModeStorageKey = "orulzip.growthRateBandMode";
+const defaultGrowthRateBandMode = "3";
+
+function normalizeGrowthRateBandMode(mode) {
+  return String(mode) === "4" ? "4" : defaultGrowthRateBandMode;
+}
+
+function readStoredGrowthRateBandMode() {
+  try {
+    return normalizeGrowthRateBandMode(window.localStorage.getItem(growthRateBandModeStorageKey));
+  } catch {
+    return defaultGrowthRateBandMode;
+  }
+}
+
+function activeGrowthRateBandMode() {
+  return normalizeGrowthRateBandMode(state.growthRateBandMode);
+}
+
 const state = {
   regions: [],
   regionStats: [],
@@ -108,6 +127,7 @@ const state = {
   activeLogoDesignId: null,
   activeMapHeaderDesignId: null,
   activeGrowthRateColorDesignId: null,
+  growthRateBandMode: readStoredGrowthRateBandMode(),
   minHouseholdCount: 100,
   priceBandStartKey: "",
   priceBandEndKey: "",
@@ -435,6 +455,7 @@ const els = {
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
   neighborhoodCount: document.querySelector("#neighborhoodCount"),
   householdFilterToggles: document.querySelectorAll("[data-household-filter-toggle]"),
+  growthRateBandModeButtons: document.querySelectorAll("[data-growth-rate-band-mode]"),
   priceBandView: document.querySelector("#priceBandView"),
   priceBandRows: document.querySelector("#priceBandRows"),
   priceBandCount: document.querySelector("#priceBandCount"),
