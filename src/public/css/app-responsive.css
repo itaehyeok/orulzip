@@ -495,6 +495,12 @@ td:nth-child(4) {
     min-height: 0;
   }
 
+  @supports (height: 100lvh) {
+    .map-view.active {
+      height: calc(100lvh - var(--map-global-header-height));
+    }
+  }
+
   .map-panel {
     border: 0;
     border-radius: 0;
