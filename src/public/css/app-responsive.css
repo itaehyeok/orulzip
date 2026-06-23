@@ -218,14 +218,24 @@ td:nth-child(4) {
 
 @media (max-width: 820px) {
   :root {
-    --map-global-header-height: 99px;
+    --map-mobile-safe-top: env(safe-area-inset-top, 0px);
+    --map-mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --map-global-header-height: calc(99px + var(--map-mobile-safe-top));
   }
 
   .app-shell {
     padding: 10px;
   }
 
+  body.map-shell-mode {
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
   .map-shell-mode .app-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
     padding: 0;
   }
 
@@ -234,7 +244,7 @@ td:nth-child(4) {
     grid-template-rows: auto auto;
     gap: 8px 10px;
     margin: -10px -10px 0;
-    padding: 8px 10px 0;
+    padding: calc(8px + var(--map-mobile-safe-top)) 10px 0;
     min-height: 0;
     background: #ffffff;
   }
@@ -527,8 +537,12 @@ td:nth-child(4) {
 
   .map-ranking-toggle:not([hidden]) {
     left: 14px;
-    bottom: calc(14px + env(safe-area-inset-bottom));
+    bottom: calc(14px + var(--map-mobile-safe-bottom));
     display: inline-flex;
+  }
+
+  .map-shell-mode .deploy-version-badge {
+    bottom: calc(10px + var(--map-mobile-safe-bottom));
   }
 
   .map-ranking-toggle.ranking-open {
