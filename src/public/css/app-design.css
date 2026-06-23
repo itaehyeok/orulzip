@@ -2,8 +2,333 @@
   margin-bottom: 16px;
 }
 
-#designView > .design-panel:not(.price-band-design-lab) {
+#designView > .design-panel:not(.marker-color-lab) {
   display: none;
+}
+
+.marker-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+.marker-showcase-card {
+  --brand-marker: #5262d6;
+  --brand-marker-text: #2939a8;
+  --neutral-marker: #d0d5dd;
+  --neutral-marker-text: #344054;
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.marker-showcase-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 0;
+}
+
+.marker-showcase-head strong {
+  overflow: hidden;
+  color: #1d2939;
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker-showcase-head span {
+  flex: 0 0 auto;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.marker-showcase-map {
+  position: relative;
+  min-height: 248px;
+  overflow: hidden;
+  border-top: 1px solid #edf1f7;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(255,255,255,.58) 1px, transparent 1px) 0 0 / 34px 34px,
+    #e8eef3;
+}
+
+.marker-showcase-road,
+.marker-showcase-river {
+  position: absolute;
+  pointer-events: none;
+}
+
+.marker-showcase-road {
+  width: 148%;
+  height: 18px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-inline: 0;
+  background: #e7c47d;
+  opacity: 0.78;
+  transform-origin: center;
+}
+
+.marker-showcase-road.road-a {
+  left: -25%;
+  top: 43%;
+  transform: rotate(-18deg);
+}
+
+.marker-showcase-road.road-b {
+  left: -18%;
+  top: 68%;
+  transform: rotate(24deg);
+}
+
+.marker-showcase-river {
+  right: -20%;
+  top: 0;
+  width: 42%;
+  height: 120%;
+  border-left: 9px solid rgba(255, 255, 255, 0.7);
+  background: rgba(126, 186, 220, 0.55);
+  transform: rotate(8deg);
+}
+
+.showcase-marker {
+  --band-color: #0f766e;
+  --band-soft: #ccfbf1;
+  --band-border: rgba(15, 118, 110, 0.22);
+  --preview-border: var(--band-color);
+  --preview-text: var(--band-color);
+  --preview-badge-bg: var(--band-soft);
+  --preview-badge-text: var(--band-color);
+  --preview-badge-border: var(--band-border);
+  --preview-accent-display: none;
+  --preview-accent-width: 0;
+  --preview-accent-height: 0;
+  --preview-accent-radius: 0;
+  --preview-accent-left: auto;
+  --preview-accent-right: auto;
+  --preview-accent-top: auto;
+  --preview-accent-bottom: auto;
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  min-width: 92px;
+  max-width: 132px;
+  gap: 4px;
+  box-sizing: border-box;
+  border: 2px solid var(--preview-border);
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 13px 24px rgba(16, 24, 40, 0.17);
+  color: var(--preview-text);
+  font-weight: 950;
+  line-height: 1;
+  padding: 8px;
+  place-items: center;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.showcase-marker::before {
+  position: absolute;
+  display: var(--preview-accent-display);
+  left: var(--preview-accent-left);
+  right: var(--preview-accent-right);
+  top: var(--preview-accent-top);
+  bottom: var(--preview-accent-bottom);
+  width: var(--preview-accent-width);
+  height: var(--preview-accent-height);
+  border-radius: var(--preview-accent-radius);
+  background: var(--band-color);
+  content: "";
+}
+
+.showcase-marker small {
+  overflow: hidden;
+  max-width: 100%;
+  color: #667085;
+  font-size: 8px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+}
+
+.showcase-marker strong {
+  color: var(--preview-text);
+  font-size: 22px;
+  font-weight: 950;
+  line-height: 0.96;
+}
+
+.showcase-marker em {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--preview-badge-border);
+  border-radius: 999px;
+  background: var(--preview-badge-bg);
+  color: var(--preview-badge-text);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  padding: 5px 7px;
+}
+
+.showcase-marker.level-sido {
+  min-width: 86px;
+}
+
+.showcase-marker.level-sigungu {
+  min-width: 104px;
+}
+
+.showcase-marker.level-dong {
+  min-width: 108px;
+}
+
+.showcase-marker.level-apartment {
+  min-width: 88px;
+  max-width: 108px;
+}
+
+.showcase-marker.level-apartment strong {
+  font-size: 18px;
+}
+
+.showcase-marker.tone-red {
+  --band-color: #dc2626;
+  --band-soft: #ffe4e6;
+  --band-border: rgba(220, 38, 38, 0.22);
+}
+
+.showcase-marker.tone-orange {
+  --band-color: #d97706;
+  --band-soft: #ffedd5;
+  --band-border: rgba(217, 119, 6, 0.24);
+}
+
+.showcase-marker.tone-green {
+  --band-color: #16a34a;
+  --band-soft: #dcfce7;
+  --band-border: rgba(22, 163, 74, 0.22);
+}
+
+.showcase-marker.tone-blue {
+  --band-color: #2563eb;
+  --band-soft: #dbeafe;
+  --band-border: rgba(37, 99, 235, 0.22);
+}
+
+.showcase-marker.pos-a {
+  left: 29%;
+  top: 29%;
+}
+
+.showcase-marker.pos-b {
+  left: 67%;
+  top: 32%;
+}
+
+.showcase-marker.pos-c {
+  left: 36%;
+  top: 69%;
+}
+
+.showcase-marker.pos-d {
+  left: 70%;
+  top: 72%;
+}
+
+.marker-showcase-card.variant-02 .showcase-marker {
+  --preview-badge-bg: #ffffff;
+}
+
+.marker-showcase-card.variant-03 .showcase-marker {
+  --preview-border: var(--brand-marker);
+}
+
+.marker-showcase-card.variant-04 .showcase-marker {
+  --preview-border: var(--brand-marker);
+  --preview-badge-bg: #eef2ff;
+  --preview-badge-text: var(--brand-marker-text);
+  --preview-badge-border: rgba(82, 98, 214, 0.18);
+}
+
+.marker-showcase-card.variant-05 .showcase-marker {
+  --preview-border: var(--neutral-marker);
+  --preview-text: var(--neutral-marker-text);
+}
+
+.marker-showcase-card.variant-06 .showcase-marker {
+  --preview-border: var(--neutral-marker);
+  --preview-text: var(--brand-marker-text);
+  --preview-badge-text: var(--brand-marker-text);
+  --preview-accent-display: block;
+  --preview-accent-left: 0;
+  --preview-accent-top: 8px;
+  --preview-accent-bottom: 8px;
+  --preview-accent-width: 4px;
+  --preview-accent-height: auto;
+  --preview-accent-radius: 0 999px 999px 0;
+}
+
+.marker-showcase-card.variant-07 .showcase-marker {
+  --preview-border: var(--brand-marker);
+  --preview-text: var(--brand-marker-text);
+  --preview-badge-bg: #eef2ff;
+  --preview-badge-text: var(--brand-marker-text);
+  --preview-badge-border: rgba(82, 98, 214, 0.18);
+  --preview-accent-display: block;
+  --preview-accent-left: 10px;
+  --preview-accent-right: 10px;
+  --preview-accent-top: 0;
+  --preview-accent-width: auto;
+  --preview-accent-height: 3px;
+  --preview-accent-radius: 0 0 999px 999px;
+}
+
+.marker-showcase-card.variant-08 .showcase-marker {
+  --preview-border: var(--brand-marker);
+  --preview-text: var(--brand-marker-text);
+  --preview-badge-bg: #eef2ff;
+  --preview-badge-text: var(--brand-marker-text);
+  --preview-badge-border: rgba(82, 98, 214, 0.18);
+  --preview-accent-display: block;
+  --preview-accent-left: 8px;
+  --preview-accent-top: 8px;
+  --preview-accent-width: 7px;
+  --preview-accent-height: 7px;
+  --preview-accent-radius: 999px;
+}
+
+.marker-showcase-card.variant-09 .showcase-marker {
+  --preview-border: var(--brand-marker);
+  --preview-text: var(--brand-marker-text);
+  --preview-badge-bg: var(--band-soft);
+  --preview-badge-text: var(--brand-marker-text);
+  --preview-badge-border: rgba(82, 98, 214, 0.14);
+}
+
+.marker-showcase-card.variant-10 .showcase-marker {
+  --preview-border: var(--neutral-marker);
+  --preview-text: var(--brand-marker-text);
+  --preview-badge-bg: #f2f4f7;
+  --preview-badge-text: var(--neutral-marker-text);
+  --preview-badge-border: rgba(102, 112, 133, 0.16);
+  --preview-accent-display: block;
+  --preview-accent-right: 8px;
+  --preview-accent-top: 8px;
+  --preview-accent-width: 6px;
+  --preview-accent-height: 6px;
+  --preview-accent-radius: 999px;
 }
 
 .price-band-design-grid {

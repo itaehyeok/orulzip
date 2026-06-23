@@ -51,7 +51,7 @@
   font-feature-settings: "tnum";
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
-  --rank-bg: var(--growth-marker-bg, #ffffff);
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-border, #5262d6);
   --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
@@ -356,7 +356,7 @@
 }
 
 .apartment-rank-marker.rank-chip-white {
-  --rank-bg: var(--growth-marker-bg, #ffffff);
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-border, #5262d6);
   --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
@@ -369,16 +369,16 @@
 }
 
 .apartment-rank-marker.rank-chip-stack {
-  --rank-bg: var(--growth-marker-main, #3040a7);
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-border, #5b68d9);
-  --rank-text: #ffffff;
-  --rank-muted: rgba(255, 255, 255, 0.78);
-  --rank-badge-bg: rgba(255, 255, 255, 0.92);
+  --rank-text: var(--growth-marker-text, #3040a7);
+  --rank-muted: #667085;
+  --rank-badge-bg: var(--growth-marker-badge-bg, rgba(255, 255, 255, 0.92));
   --rank-badge-text: var(--growth-marker-text, #3040a7);
 }
 
 .apartment-rank-marker.rank-chip-table {
-  --rank-bg: var(--growth-marker-bg, #eef2ff);
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-border, #5b68d9);
   --rank-text: var(--growth-marker-text, #3040a7);
   --rank-muted: #667085;
@@ -404,16 +404,16 @@
 }
 
 .apartment-rank-marker.rank-chip-dark {
-  --rank-bg: #111827;
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-border, #ffffff);
-  --rank-text: #ffffff;
-  --rank-muted: #c7d2fe;
-  --rank-badge-bg: var(--growth-marker-main, #ffffff);
-  --rank-badge-text: #ffffff;
+  --rank-text: var(--growth-marker-text, #111827);
+  --rank-muted: #667085;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #ffffff);
+  --rank-badge-text: var(--growth-marker-badge-text, #111827);
 }
 
 .apartment-rank-marker:not(.selected):hover {
-  --rank-bg: var(--growth-marker-hover-bg, #f4f8ff);
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-hover-border, #307aff);
 }
 
@@ -423,7 +423,7 @@
 }
 
 .apartment-rank-marker.rank-chip-dark:not(.selected):hover {
-  --rank-bg: #1f2937;
+  --rank-bg: #ffffff;
   --rank-border: var(--growth-marker-hover-border, #93c5fd);
 }
 
