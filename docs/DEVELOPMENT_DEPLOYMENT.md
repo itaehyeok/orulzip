@@ -40,7 +40,8 @@ Development web `.env`:
 ```env
 CONTAINER_PREFIX=orulzip-development
 WEB_PORT=3051
-DATABASE_URL=postgres://orulzip_readonly:...@orulzip-postgres:5432/orulzip
+DATABASE_URL=postgres://orulzip_dev_readonly:...@orulzip-postgres:5432/orulzip_dev
+ANALYTICS_DATABASE_URL=postgres://orulzip_dev_analytics_writer:...@orulzip-postgres:5432/orulzip_dev
 ORULZIP_DB_INIT=0
 ORULZIP_READ_ONLY=1
 ORULZIP_ADMIN_COOKIE_SECURE=1
@@ -59,6 +60,11 @@ MOLIT_DAILY_DELAY_MS=500
 ```
 
 Use a separate `ORULZIP_ADMIN_SESSION_SECRET` for development. Web containers should use the read-only database account; data collector containers should use the writer account.
+
+Development web uses the cloned `orulzip_dev` database. Production web and data
+collector containers keep using `orulzip`. Daily MOLIT collection should continue
+writing only to `orulzip`; refresh `orulzip_dev` from production only when a new
+development snapshot is explicitly needed.
 
 ## Caddy
 

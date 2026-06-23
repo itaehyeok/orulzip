@@ -2,33 +2,34 @@
 
 Last reviewed: 2026-06-23
 
-This document records the intended database split direction before any database
-migration work starts.
+This document records the database split direction and the current state after
+the first development database clone.
 
 ## Current State
 
-Production and development currently point at the same PostgreSQL container and
-the same database:
+Production and development use the same PostgreSQL container but separate
+databases:
 
 ```text
-orulzip-postgres:5432/orulzip
+orulzip-postgres:5432/orulzip      # production
+orulzip-postgres:5432/orulzip_dev  # development snapshot
 ```
 
 Current runtime responsibilities:
 
 - Production web reads `orulzip`.
-- Development web also reads `orulzip`.
-- Production and development analytics both write to the same `orulzip`
-  database.
+- Development web reads `orulzip_dev`.
+- Production analytics writes to `orulzip`.
+- Development analytics writes to `orulzip_dev`.
 - Data collector containers write to the same `orulzip` database.
 - Web containers run with `ORULZIP_DB_INIT=0` and `ORULZIP_READ_ONLY=1`.
 - Data collector containers run with `ORULZIP_DB_INIT=1` and
   `ORULZIP_READ_ONLY=0`.
 
-This means a schema change tested through development can affect production if
-it runs against the shared database.
+This removes the immediate production risk from development schema experiments.
+Daily MOLIT collection still writes only to production.
 
-Observed size on 2026-06-23:
+Observed size before the split on 2026-06-23:
 
 - Database `orulzip`: about 10 GB
 - PostgreSQL data directory: about 11 GB
@@ -39,36 +40,44 @@ Observed size on 2026-06-23:
   - `public.price_band_rank_items`: about 381 MB
   - `public.monthly_prices`: about 247 MB
 
-## Immediate Plan
+Observed size after the first clone on 2026-06-23:
 
-The first step should be a full development database clone.
+- Database `orulzip`: about 10 GB
+- Database `orulzip_dev`: about 7.1 GB
+- PostgreSQL data directory: about 19 GB
+- Clone dump file: `/mnt/elements10tb/orulzip/db-backups/orulzip_to_orulzip_dev_20260623_103303.dump`
+- Dump file size: about 670 MB
+
+`orulzip_dev` is smaller than the original because dump/restore rebuilt tables
+and indexes in a compact form.
+
+## Completed First Split
+
+The first step was a full development database clone.
 
 ```text
 orulzip      # production database, current source of truth
-orulzip_dev  # cloned development database
+orulzip_dev  # cloned development database snapshot
 ```
 
-Do not attempt a raw-only split in this first step. The current application uses
-one `DATABASE_URL` for raw trade data, cache tables, ranking tables, analytics,
-and operational tables. Separating only raw tables first would require a larger
-application refactor before it is safe.
-
-Immediate target state:
+Implemented state:
 
 - Production web keeps using `orulzip`.
 - Data collectors keep writing only to `orulzip`.
 - Development web uses `orulzip_dev`.
 - Development analytics uses `orulzip_dev`.
-- Development cache/ranking refresh jobs, if run, use `orulzip_dev`.
-- `orulzip_dev` is a snapshot copy of production at clone time.
+- Development web uses `orulzip_dev_readonly`.
+- Development analytics uses `orulzip_dev_analytics_writer`.
+- `orulzip_dev` is a snapshot copy of production from clone time.
 
-Expected impact:
+Important rule:
 
-- Disk usage increases by roughly another 10-11 GB for the cloned database.
-- A dump/restore workflow can temporarily need additional dump-file space.
-- Production schema changes and development schema changes become isolated.
-- Development data stops being automatically current unless it is refreshed from
-  production or collected separately.
+```text
+Daily collection: orulzip only
+Development refresh: manual prod -> dev clone/refresh only when requested
+```
+
+Do not run daily duplicate collection into both databases.
 
 Recommended operational rule after the first split:
 
@@ -79,22 +88,22 @@ Recommended operational rule after the first split:
   fresh data is needed.
 - Do not run daily duplicate collection into both databases.
 
-## First Split Checklist
+## First Split Implementation Checklist
 
-When implementing the immediate split, the next worker should:
+Completed on 2026-06-23:
 
-1. Create a database backup or dump of `orulzip`.
-2. Restore it into a new database such as `orulzip_dev`.
-3. Create or adjust development-only roles for `orulzip_dev`.
-4. Update `/home/th/docker/custom/orulzip/development/.env` so development web
+1. Created a `pg_dump -Fc --no-owner --no-acl` dump of `orulzip`.
+2. Restored it into `orulzip_dev`.
+3. Created development-only roles for `orulzip_dev`.
+4. Updated `/home/th/docker/custom/orulzip/development/.env` so development web
    points at `orulzip_dev`.
-5. Keep `/home/th/docker/custom/orulzip/production/.env` pointing at `orulzip`.
-6. Keep `/home/th/docker/custom/orulzip/data-collector/.env` pointing at
+5. Kept `/home/th/docker/custom/orulzip/production/.env` pointing at `orulzip`.
+6. Kept `/home/th/docker/custom/orulzip/data-collector/.env` pointing at
    `orulzip`.
-7. Restart only the development web after changing its `.env`.
-8. Verify `dev.orulzip.com` reads from `orulzip_dev`.
-9. Verify `orulzip.com` still reads from `orulzip`.
-10. Verify data collector containers still write to `orulzip`.
+7. Restarted only the development web after changing its `.env`.
+8. Verified `dev.orulzip.com` reads from `orulzip_dev`.
+9. Verified `orulzip.com` still reads from `orulzip`.
+10. Verified data collector containers still write to `orulzip`.
 
 ## Future Target Architecture
 
@@ -160,10 +169,17 @@ allowing arbitrary code to mix raw and environment-specific writes.
 
 ## Decision Summary
 
-Current next step:
+Completed first step:
 
 ```text
 Full clone: orulzip -> orulzip_dev
+```
+
+Current next step:
+
+```text
+Keep daily collection on orulzip only.
+Refresh orulzip_dev from orulzip only when explicitly requested.
 ```
 
 Later target:
@@ -172,5 +188,5 @@ Later target:
 Shared raw database + separate production/development derived databases
 ```
 
-Do the full clone first to remove the immediate production risk. Do the raw/app
-split later when there is time to refactor the data access boundary cleanly.
+The full clone removed the immediate production risk. Do the raw/app split later
+when there is time to refactor the data access boundary cleanly.
