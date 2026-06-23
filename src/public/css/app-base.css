@@ -443,6 +443,47 @@ input {
   background: #fff;
 }
 
+.price-band-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.price-band-filter-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.price-band-filter-control span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.price-band-filter-control select {
+  min-width: 92px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: 0;
+}
+
+.price-band-filter-arrow {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 900;
+}
+
 .price-band-row {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);

@@ -95,10 +95,12 @@ function renderNeighborhoodTable(result) {
 
 function renderPriceBandTable(result, basisBands = null) {
   els.priceBandView?.removeAttribute("aria-busy");
-  if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
-  state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
+  state.priceBandStartKey = result.selection?.startBandKey === null || result.selection?.startBandKey === undefined
     ? ""
-    : String(result.selectedBandKey);
+    : String(result.selection.startBandKey);
+  state.priceBandEndKey = result.selection?.endBandKey === null || result.selection?.endBandKey === undefined
+    ? ""
+    : String(result.selection.endBandKey);
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
   const summaryBands = basisBands || {
@@ -114,16 +116,16 @@ function renderPriceBandTable(result, basisBands = null) {
   state.priceBandPage = pagination.page;
   const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
   const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
-  const basisLabel = result.basis === "end" ? "현재 가격대" : "과거 가격대";
-  const selectedBand = result.selectedBand || bands.find((band) => String(band.bandKey) === state.priceBandKey) || null;
-  const selectedBandLabel = selectedBand?.bandLabel || "가격대";
+  const selectedStartBand = findPriceBand(summaryBands.start, state.priceBandStartKey);
+  const selectedEndBand = findPriceBand(summaryBands.end, state.priceBandEndKey);
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
   const cacheLabel = formatPriceBandCacheLabel(result.cache);
   const householdLabel = householdFilterLabel();
-  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
-  renderPriceBandSummary(summaryBands, state.priceBandBasis, state.priceBandKey);
+  const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
+  els.priceBandCount.textContent = `${selectionLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
+  renderPriceBandSummary(summaryBands, state.priceBandStartKey, state.priceBandEndKey);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
       <tr>
@@ -177,11 +179,10 @@ function bindPriceBandMapLinks() {
 }
 
 function renderPriceBandLoadingState() {
-  updatePriceBandSummaryActiveState(state.priceBandBasis, state.priceBandKey);
-  const basisLabel = state.priceBandBasis === "end" ? "현재 가격대" : "과거 가격대";
-  const selectedBandLabel = currentPriceBandChipLabel() || "가격대";
+  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey);
+  const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
-  if (els.priceBandCount) els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · 불러오는 중`;
+  if (els.priceBandCount) els.priceBandCount.textContent = `${selectionLabel} · 불러오는 중`;
   if (els.priceBandRows) {
     els.priceBandRows.innerHTML = `
       <tr>
@@ -197,60 +198,68 @@ function renderPriceBandLoadingState() {
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
 
-function renderPriceBandSummary(basisBands, selectedBasis, selectedBandKey) {
+function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBandKey) {
   if (!els.priceBandSummary) return;
-  const groups = [
-    { basis: "start", label: "과거 가격대", prefix: "과거", bands: Array.isArray(basisBands?.start) ? basisBands.start : [] },
-    { basis: "end", label: "현재 가격대", prefix: "현재", bands: Array.isArray(basisBands?.end) ? basisBands.end : [] }
-  ];
-  if (!groups.some((group) => group.bands.length)) {
+  const startBands = Array.isArray(basisBands?.start) ? basisBands.start : [];
+  const endBands = Array.isArray(basisBands?.end) ? basisBands.end : [];
+  if (!startBands.length && !endBands.length) {
     els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
     return;
   }
-  els.priceBandSummary.innerHTML = groups.map((group) => `
-    <div class="price-band-row">
-      <div class="price-band-row-label">${group.label}</div>
-      <div class="price-band-chip-row">
-        ${group.bands.length ? group.bands.map((band) => renderPriceBandChip(band, group, selectedBasis, selectedBandKey)).join("") : `<span class="price-band-empty">데이터 없음</span>`}
-      </div>
+  els.priceBandSummary.innerHTML = `
+    <div class="price-band-filter-row" aria-label="가격대 랭킹 조건">
+      ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
+      <span class="price-band-filter-arrow" aria-hidden="true">→</span>
+      ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
     </div>
-  `).join("");
-}
-
-function renderPriceBandChip(band, group, selectedBasis, selectedBandKey) {
-  const isActive = group.basis === selectedBasis && String(band.bandKey) === String(selectedBandKey);
-  return `
-    <button
-      type="button"
-      class="price-band-chip ${isActive ? "active" : ""}"
-      data-price-band-basis="${group.basis}"
-      data-price-band-key="${escapeHtml(band.bandKey)}"
-      aria-pressed="${isActive ? "true" : "false"}"
-    >
-      <strong>${group.prefix} ${escapeHtml(band.bandLabel)}</strong>
-      <span>${formatInt(band.apartmentCount)}개</span>
-      <em>최고 ${formatPercent(band.topGrowthRate)}</em>
-    </button>
   `;
 }
 
-function updatePriceBandSummaryActiveState(selectedBasis, selectedBandKey) {
-  if (!els.priceBandSummary) return;
-  els.priceBandSummary.querySelectorAll("[data-price-band-key]").forEach((button) => {
-    const isActive = button.dataset.priceBandBasis === selectedBasis
-      && String(button.dataset.priceBandKey || "") === String(selectedBandKey || "");
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
+function renderPriceBandSelect(kind, label, bands, selectedBandKey) {
+  const normalizedSelectedKey = selectedBandKey === null || selectedBandKey === undefined ? "" : String(selectedBandKey);
+  return `
+    <label class="price-band-filter-control">
+      <span>${label}</span>
+      <select data-price-band-filter="${kind}">
+        <option value="" ${normalizedSelectedKey === "" ? "selected" : ""}>전체</option>
+        ${bands.map((band) => renderPriceBandOption(band, normalizedSelectedKey)).join("")}
+      </select>
+    </label>
+  `;
 }
 
-function currentPriceBandChipLabel() {
+function renderPriceBandOption(band, selectedBandKey) {
+  const bandKey = String(band.bandKey);
+  return `<option value="${escapeHtml(bandKey)}" ${bandKey === selectedBandKey ? "selected" : ""}>${escapeHtml(band.bandLabel || `${bandKey}억대`)}</option>`;
+}
+
+function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey) {
+  if (!els.priceBandSummary) return;
+  const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
+  const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
+  if (startSelect) startSelect.value = selectedStartBandKey === null || selectedStartBandKey === undefined ? "" : String(selectedStartBandKey);
+  if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
+}
+
+function currentPriceBandSelectionLabel() {
   if (!els.priceBandSummary) return "";
-  const activeButton = [...els.priceBandSummary.querySelectorAll("[data-price-band-key]")]
-    .find((button) => button.dataset.priceBandBasis === state.priceBandBasis
-      && String(button.dataset.priceBandKey || "") === String(state.priceBandKey || ""));
-  const label = activeButton?.querySelector("strong")?.textContent?.trim() || "";
-  return label.replace(/^(과거|현재)\s+/, "");
+  const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
+  const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
+  return `과거 ${selectedPriceBandLabel(startSelect)} → 현재 ${selectedPriceBandLabel(endSelect)}`;
+}
+
+function priceBandSelectionLabel(startBand, endBand) {
+  return `과거 ${startBand?.bandLabel || "전체"} → 현재 ${endBand?.bandLabel || "전체"}`;
+}
+
+function selectedPriceBandLabel(select) {
+  if (!select) return "전체";
+  return select.selectedOptions?.[0]?.textContent?.trim() || "전체";
+}
+
+function findPriceBand(bands, bandKey) {
+  if (bandKey === null || bandKey === undefined || bandKey === "") return null;
+  return (Array.isArray(bands) ? bands : []).find((band) => String(band.bandKey) === String(bandKey)) || null;
 }
 
 function formatPriceBandLocation(row) {

@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260622-bounded-marker-hover";
+  const version = "20260623-price-band-range-filters";
   const scripts = [
     "app-prelude",
     "app-state",

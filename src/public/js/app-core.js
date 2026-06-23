@@ -142,7 +142,8 @@ function bindEvents() {
 
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
       state.priceBandPage = 1;
       setPeriodMonths(periodButtonMonths(button));
       refresh();
@@ -150,7 +151,8 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-period-select]").forEach((select) => {
     select.addEventListener("change", () => {
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
       state.priceBandPage = 1;
       setPeriodMonths(Number(select.value) || 12);
       refresh();
@@ -159,7 +161,8 @@ function bindEvents() {
   els.householdFilterToggles?.forEach((button) => {
     button.addEventListener("click", () => {
       state.minHouseholdCount = activeMinHouseholdCount() > 0 ? 0 : 100;
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
       state.priceBandPage = 1;
       state.mapApartmentDetails.clear();
       syncHouseholdFilterToggles();
@@ -168,11 +171,14 @@ function bindEvents() {
       refresh();
     });
   });
-  els.priceBandSummary?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-price-band-key]");
-    if (!button) return;
-    state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
-    state.priceBandKey = button.dataset.priceBandKey || "";
+  els.priceBandSummary?.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-price-band-filter]");
+    if (!select) return;
+    if (select.dataset.priceBandFilter === "end") {
+      state.priceBandEndKey = select.value || "";
+    } else {
+      state.priceBandStartKey = select.value || "";
+    }
     state.priceBandPage = 1;
     renderPriceBandLoadingState();
     refresh();
@@ -477,13 +483,13 @@ async function loadActiveViewData() {
     const requestId = ++state.priceBandRequestId;
     renderPriceBandLoadingState();
     const priceBandParams = new URLSearchParams(params);
-    priceBandParams.set("basis", state.priceBandBasis);
-    if (state.priceBandKey !== "") priceBandParams.set("bandKey", state.priceBandKey);
+    priceBandParams.set("basis", "start");
+    if (state.priceBandStartKey !== "") priceBandParams.set("startBandKey", state.priceBandStartKey);
+    if (state.priceBandEndKey !== "") priceBandParams.set("endBandKey", state.priceBandEndKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
-    const otherBasis = state.priceBandBasis === "end" ? "start" : "end";
     const otherPriceBandParams = new URLSearchParams(params);
-    otherPriceBandParams.set("basis", otherBasis);
+    otherPriceBandParams.set("basis", "end");
     otherPriceBandParams.set("page", "1");
     otherPriceBandParams.set("pageSize", "10");
     const [result, otherResult] = await Promise.all([

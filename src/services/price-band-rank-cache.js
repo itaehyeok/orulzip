@@ -70,6 +70,8 @@ export async function readPriceBandRankPage({
   startMonth = "",
   endMonth = "",
   bandKey = "",
+  startBandKey = "",
+  endBandKey = "",
   minHouseholdCount = 0,
   page = 1,
   pageSize = 50
@@ -109,26 +111,56 @@ export async function readPriceBandRankPage({
   }
 
   const bands = await readBands(snapshot.id, normalizedBasis);
-  const requestedBandKey = normalizeBandKey(bandKey);
-  const selectedBand = bands.find((band) => band.bandKey === requestedBandKey)
-    || [...bands].sort((a, b) => b.apartmentCount - a.apartmentCount || a.bandKey - b.bandKey)[0]
-    || null;
-  const totalRows = selectedBand?.apartmentCount || 0;
+  const legacyBandKey = normalizeBandKey(bandKey);
+  const requestedStartBandKey = normalizeBandKey(startBandKey);
+  const requestedEndBandKey = normalizeBandKey(endBandKey);
+  const selectedStartBandKey = requestedStartBandKey ?? (normalizedBasis === "start" ? legacyBandKey : null);
+  const selectedEndBandKey = requestedEndBandKey ?? (normalizedBasis === "end" ? legacyBandKey : null);
+  const selectedBandKey = normalizedBasis === "end" ? selectedEndBandKey : selectedStartBandKey;
+  const selectedBand = selectedBandKey === null
+    ? null
+    : bands.find((band) => band.bandKey === selectedBandKey) || null;
+  const where = buildPriceBandItemWhere({
+    snapshotId: snapshot.id,
+    snapshotBasis: normalizedBasis,
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey
+  });
+  const countResult = await query(`
+    select count(*)::int as total_rows
+    from price_band_rank_items pbi
+    where ${where.sql}
+  `, where.params);
+  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / normalizedPageSize)) : 0;
   const safePage = totalRows ? Math.min(normalizedPage, totalPages) : 1;
   const offset = (safePage - 1) * normalizedPageSize;
-  const rowsResult = selectedBand ? await query(`
-    select pbi.*, a.household_count
-    from price_band_rank_items pbi
-    left join molit_complexes c
-      on c.id = pbi.apartment_id
-    left join apartments a
-      on a.id = c.matched_apartment_id
-    where pbi.snapshot_id = $1
-      and pbi.band_key = $2
-    order by pbi.rank asc
-    limit $3 offset $4
-  `, [snapshot.id, selectedBand.bandKey, normalizedPageSize, offset]) : { rows: [] };
+  const rowsResult = totalRows ? await query(`
+    with filtered as (
+      select pbi.*, a.household_count
+      from price_band_rank_items pbi
+      left join molit_complexes c
+        on c.id = pbi.apartment_id
+      left join apartments a
+        on a.id = c.matched_apartment_id
+      where ${where.sql}
+    ),
+    ranked as (
+      select
+        filtered.*,
+        row_number() over (
+          order by growth_rate desc nulls last,
+                   growth_amount desc nulls last,
+                   end_pyeong_price desc nulls last,
+                   apartment_name asc
+        )::int as filtered_rank
+      from filtered
+    )
+    select *
+    from ranked
+    order by filtered_rank asc
+    limit $${where.params.length + 1} offset $${where.params.length + 2}
+  `, [...where.params, normalizedPageSize, offset]) : { rows: [] };
 
   return {
     period: {
@@ -139,6 +171,16 @@ export async function readPriceBandRankPage({
     bands,
     selectedBandKey: selectedBand?.bandKey ?? null,
     selectedBand,
+    selection: {
+      startBandKey: selectedStartBandKey,
+      startBand: normalizedBasis === "start"
+        ? bands.find((band) => band.bandKey === selectedStartBandKey) || null
+        : null,
+      endBandKey: selectedEndBandKey,
+      endBand: normalizedBasis === "end"
+        ? bands.find((band) => band.bandKey === selectedEndBandKey) || null
+        : null
+    },
     cache: {
       hit: true,
       source: snapshot.source,
@@ -154,6 +196,66 @@ export async function readPriceBandRankPage({
     },
     rows: rowsResult.rows.map((row) => serializePriceBandItem(row, snapshot.basis))
   };
+}
+
+function buildPriceBandItemWhere({
+  snapshotId,
+  snapshotBasis = "start",
+  startBandKey = null,
+  endBandKey = null
+}) {
+  const clauses = ["pbi.snapshot_id = $1"];
+  const params = [snapshotId];
+  appendPriceBandClause({
+    clauses,
+    params,
+    snapshotBasis,
+    basis: "start",
+    key: startBandKey,
+    column: "start_sale_price"
+  });
+  appendPriceBandClause({
+    clauses,
+    params,
+    snapshotBasis,
+    basis: "end",
+    key: endBandKey,
+    column: "end_sale_price"
+  });
+  return {
+    sql: clauses.join("\n      and "),
+    params
+  };
+}
+
+function appendPriceBandClause({
+  clauses,
+  params,
+  snapshotBasis,
+  basis,
+  key,
+  column
+}) {
+  if (key === null || key === undefined) return;
+  if (snapshotBasis === basis) {
+    params.push(key);
+    clauses.push(`pbi.band_key = $${params.length}`);
+    return;
+  }
+  const range = priceBandRange(key);
+  if (!range) return;
+  if (range.max === null) {
+    params.push(range.min);
+    clauses.push(`pbi.${column} >= $${params.length}`);
+    return;
+  }
+  if (range.min === null) {
+    params.push(range.max);
+    clauses.push(`pbi.${column} < $${params.length}`);
+    return;
+  }
+  params.push(range.min, range.max);
+  clauses.push(`pbi.${column} >= $${params.length - 1} and pbi.${column} < $${params.length}`);
 }
 
 async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
@@ -592,7 +694,7 @@ async function readBands(snapshotId, basis) {
 
 function serializePriceBandItem(row, basis) {
   return {
-    rank: Number(row.rank || 0),
+    rank: Number(row.filtered_rank || row.rank || 0),
     apartmentId: row.apartment_id || "",
     apartmentName: row.apartment_name || "",
     neighborhoodName: row.neighborhood_name || "",
@@ -848,6 +950,14 @@ function priceBand(price) {
   }
   const floor = Math.floor(eok / 10) * 10;
   return { key: floor, label: `${floor}억대` };
+}
+
+function priceBandRange(key) {
+  const number = Number(key);
+  if (!Number.isFinite(number) || number < 0) return null;
+  if (number === 0) return { min: null, max: 10000 };
+  if (number < 10) return { min: number * 10000, max: (number + 1) * 10000 };
+  return { min: number * 10000, max: (number + 10) * 10000 };
 }
 
 function molitTypeKey(apartmentId, exclusiveAreaM2) {
