@@ -293,6 +293,11 @@ function appendPriceBandClause({
 }
 
 async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
+  const freshness = molitPriceFreshnessRule(startMonth, endMonth);
+  const queryStartMonth = [
+    addMonths(startMonth, -freshness.startGapMonths),
+    addMonths(endMonth, -freshness.endGapMonths)
+  ].sort()[0];
   const [monthly, recent] = await Promise.all([
     query(`
       with matched as (
@@ -327,6 +332,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
+          and d.deal_year_month >= $3
           and d.deal_year_month <= $2
           and coalesce(d.cancel_type, '') = ''
           and c.lat is not null
@@ -433,7 +439,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         deal_count
       from end_rows
       order by apartment_id, exclusive_area_m2, deal_year_month
-    `, [startMonth, endMonth]),
+    `, [startMonth, endMonth, queryStartMonth]),
     query(`
       with matched as (
         select
