@@ -4,6 +4,17 @@ import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
 export const DEFAULT_PRICE_BAND_PERIOD_MONTHS = [3, 6, 12, 36, 60];
 export const PRICE_BAND_BASES = ["start", "end"];
 export const DEFAULT_PRICE_BAND_MIN_HOUSEHOLD_COUNTS = [0, 100];
+export const PRICE_AREA_BANDS = [
+  { key: "all", label: "전체 평형" },
+  { key: "under10", label: "10평 이하" },
+  { key: "10", label: "10평대" },
+  { key: "20", label: "20평대" },
+  { key: "30", label: "30평대" },
+  { key: "40", label: "40평대" },
+  { key: "50", label: "50평대" },
+  { key: "60plus", label: "60평 이상" }
+];
+export const DEFAULT_PRICE_AREA_BAND_KEYS = PRICE_AREA_BANDS.map((band) => band.key);
 const PRICE_BAND_SOURCE = "molit";
 const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
@@ -17,7 +28,8 @@ export async function refreshPriceBandRankCache({
   source = PRICE_BAND_SOURCE,
   periodMonths = DEFAULT_PRICE_BAND_PERIOD_MONTHS,
   bases = PRICE_BAND_BASES,
-  minHouseholdCounts = DEFAULT_PRICE_BAND_MIN_HOUSEHOLD_COUNTS
+  minHouseholdCounts = DEFAULT_PRICE_BAND_MIN_HOUSEHOLD_COUNTS,
+  areaBandKeys = DEFAULT_PRICE_AREA_BAND_KEYS
 } = {}) {
   const normalizedSource = source || PRICE_BAND_SOURCE;
   const today = todayKstDateString();
@@ -25,6 +37,7 @@ export async function refreshPriceBandRankCache({
 
   const snapshots = [];
   const householdFilters = normalizeMinHouseholdCounts(minHouseholdCounts);
+  const areaBands = normalizePriceAreaBands(areaBandKeys);
   for (const monthsBack of normalizePeriodMonths(periodMonths)) {
     const requestedStart = addMonths(endMonth, -monthsBack);
     const data = await readMolitPriceBandMonthlyRows(today, {
@@ -33,27 +46,31 @@ export async function refreshPriceBandRankCache({
     });
     if (!data.rows.length) continue;
 
-    for (const basis of normalizeBases(bases)) {
-      for (const minHouseholdCount of householdFilters) {
-        const ranking = buildMolitPriceBandRankings(data.rows, {
-          startMonth: requestedStart,
-          endMonth,
-          basis,
-          recentByType: data.recentByType,
-          minHouseholdCount
-        });
-        if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
-        const snapshot = await savePriceBandRankSnapshot({
-          source: normalizedSource,
-          basis,
-          periodMonths: monthsBack,
-          startMonth: ranking.period.startMonth,
-          endMonth: ranking.period.endMonth,
-          minHouseholdCount,
-          bands: ranking.bands,
-          rows: ranking.allRows || []
-        });
-        snapshots.push(snapshot);
+    for (const areaBand of areaBands) {
+      for (const basis of normalizeBases(bases)) {
+        for (const minHouseholdCount of householdFilters) {
+          const ranking = buildMolitPriceBandRankings(data.rows, {
+            startMonth: requestedStart,
+            endMonth,
+            basis,
+            recentByType: data.recentByType,
+            minHouseholdCount,
+            areaBand
+          });
+          if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
+          const snapshot = await savePriceBandRankSnapshot({
+            source: normalizedSource,
+            basis,
+            periodMonths: monthsBack,
+            startMonth: ranking.period.startMonth,
+            endMonth: ranking.period.endMonth,
+            minHouseholdCount,
+            areaBand,
+            bands: ranking.bands,
+            rows: ranking.allRows || []
+          });
+          snapshots.push(snapshot);
+        }
       }
     }
   }
@@ -72,11 +89,13 @@ export async function readPriceBandRankPage({
   bandKey = "",
   startBandKey = "",
   endBandKey = "",
+  areaBandKey = "all",
   minHouseholdCount = 0,
   page = 1,
   pageSize = 50
 } = {}) {
   const normalizedBasis = basis === "end" ? "end" : "start";
+  const normalizedAreaBand = normalizePriceAreaBand(areaBandKey);
   const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
@@ -88,18 +107,28 @@ export async function readPriceBandRankPage({
       and start_month = $3
       and end_month = $4
       and min_household_count = $5
+      and area_band_key = $6
     order by updated_at desc
     limit 1
-  `, [source, normalizedBasis, startMonth, endMonth, normalizedMinHouseholdCount]);
+  `, [source, normalizedBasis, startMonth, endMonth, normalizedMinHouseholdCount, normalizedAreaBand.key]);
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) {
     return {
       period: { startMonth, endMonth },
       basis: normalizedBasis,
+      areaBands: PRICE_AREA_BANDS,
       bands: [],
       selectedBandKey: null,
       selectedBand: null,
-      cache: { hit: false, source, basis: normalizedBasis, minHouseholdCount: normalizedMinHouseholdCount, updatedAt: null },
+      selection: {
+        startBandKey: null,
+        startBand: null,
+        endBandKey: null,
+        endBand: null,
+        areaBandKey: normalizedAreaBand.key,
+        areaBand: normalizedAreaBand
+      },
+      cache: { hit: false, source, basis: normalizedBasis, minHouseholdCount: normalizedMinHouseholdCount, areaBandKey: normalizedAreaBand.key, updatedAt: null },
       pagination: {
         page: normalizedPage,
         pageSize: normalizedPageSize,
@@ -168,6 +197,7 @@ export async function readPriceBandRankPage({
       endMonth: snapshot.end_month
     },
     basis: snapshot.basis,
+    areaBands: PRICE_AREA_BANDS,
     bands,
     selectedBandKey: selectedBand?.bandKey ?? null,
     selectedBand,
@@ -179,13 +209,17 @@ export async function readPriceBandRankPage({
       endBandKey: selectedEndBandKey,
       endBand: normalizedBasis === "end"
         ? bands.find((band) => band.bandKey === selectedEndBandKey) || null
-        : null
+        : null,
+      areaBandKey: snapshot.area_band_key || normalizedAreaBand.key,
+      areaBand: PRICE_AREA_BANDS.find((band) => band.key === (snapshot.area_band_key || normalizedAreaBand.key))
+        || normalizedAreaBand
     },
     cache: {
       hit: true,
       source: snapshot.source,
       basis: snapshot.basis,
       minHouseholdCount: Number(snapshot.min_household_count || 0),
+      areaBandKey: snapshot.area_band_key || normalizedAreaBand.key,
       updatedAt: snapshot.updated_at
     },
     pagination: {
@@ -446,8 +480,10 @@ function buildMolitPriceBandRankings(rows, {
   endMonth,
   basis = "start",
   recentByType = new Map(),
-  minHouseholdCount = 0
+  minHouseholdCount = 0,
+  areaBand = PRICE_AREA_BANDS[0]
 }) {
+  const normalizedAreaBand = normalizePriceAreaBand(areaBand?.key || areaBand);
   const apartments = groupMolitRows(rows, recentByType);
   const eligibleApartments = [...apartments.values()]
     .filter((apartmentGroup) => Number(apartmentGroup.apartment?.householdCount || 0) >= minHouseholdCount);
@@ -465,7 +501,7 @@ function buildMolitPriceBandRankings(rows, {
       if (!isMolitPriceFreshForMonth(start, startMonth, freshness.startGapMonths)) return null;
       if (!isMolitPriceFreshForMonth(end, endMonth, freshness.endGapMonths)) return null;
       return molitPriceBandAreaSummary(type, start, end);
-    }).filter(Boolean).sort(compareAreaSummaryGrowth);
+    }).filter((summary) => summary && isAreaSummaryInBand(summary, normalizedAreaBand)).sort(compareAreaSummaryGrowth);
     if (!typeSummaries.length) continue;
 
     const representative = typeSummaries[0];
@@ -543,6 +579,7 @@ function buildMolitPriceBandRankings(rows, {
   return {
     period: { startMonth, endMonth },
     basis,
+    areaBand: normalizedAreaBand,
     bands,
     allRows
   };
@@ -555,23 +592,38 @@ async function savePriceBandRankSnapshot({
   startMonth,
   endMonth,
   minHouseholdCount = 0,
+  areaBand = PRICE_AREA_BANDS[0],
   bands,
   rows
 }) {
+  const normalizedAreaBand = normalizePriceAreaBand(areaBand?.key || areaBand);
   return withClient(async (client) => {
     await client.query("begin");
     try {
       const snapshotResult = await client.query(`
         insert into price_band_rank_snapshots (
-          source, basis, period_months, start_month, end_month, min_household_count, band_count, item_count, updated_at
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, now())
-        on conflict (source, basis, start_month, end_month, min_household_count) do update set
+          source, basis, period_months, start_month, end_month, min_household_count,
+          area_band_key, area_band_label, band_count, item_count, updated_at
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+        on conflict (source, basis, start_month, end_month, min_household_count, area_band_key) do update set
           period_months = excluded.period_months,
+          area_band_label = excluded.area_band_label,
           band_count = excluded.band_count,
           item_count = excluded.item_count,
           updated_at = now()
         returning *
-      `, [source, basis, periodMonths, startMonth, endMonth, minHouseholdCount, bands.length, rows.length]);
+      `, [
+        source,
+        basis,
+        periodMonths,
+        startMonth,
+        endMonth,
+        minHouseholdCount,
+        normalizedAreaBand.key,
+        normalizedAreaBand.label,
+        bands.length,
+        rows.length
+      ]);
       const snapshot = snapshotResult.rows[0];
       await client.query("delete from price_band_rank_items where snapshot_id = $1", [snapshot.id]);
       await insertPriceBandRankItems(client, snapshot.id, rows);
@@ -585,6 +637,8 @@ async function savePriceBandRankSnapshot({
         startMonth,
         endMonth,
         minHouseholdCount,
+        areaBandKey: normalizedAreaBand.key,
+        areaBandLabel: normalizedAreaBand.label,
         bandCount: bands.length,
         itemCount: rows.length,
         updatedAt: snapshot.updated_at
@@ -736,6 +790,18 @@ function normalizeMinHouseholdCount(value) {
 function normalizeBases(values) {
   return [...new Set(values.map((value) => value === "end" ? "end" : "start"))]
     .sort((a, b) => PRICE_BAND_BASES.indexOf(a) - PRICE_BAND_BASES.indexOf(b));
+}
+
+function normalizePriceAreaBands(values) {
+  const source = Array.isArray(values) ? values : [values];
+  const normalized = source.map((value) => normalizePriceAreaBand(value));
+  const byKey = new Map(normalized.map((band) => [band.key, band]));
+  return PRICE_AREA_BANDS.filter((band) => byKey.has(band.key));
+}
+
+function normalizePriceAreaBand(value) {
+  const key = typeof value === "object" && value !== null ? value.key : value;
+  return PRICE_AREA_BANDS.find((band) => band.key === String(key || "")) || PRICE_AREA_BANDS[0];
 }
 
 function normalizeBandKey(value) {
@@ -931,10 +997,25 @@ function compareAreaSummaryGrowth(a, b) {
     || a.exclusiveAreaM2 - b.exclusiveAreaM2;
 }
 
+function isAreaSummaryInBand(summary, band) {
+  if (!summary || !band || band.key === "all") return true;
+  const pyeong = exclusiveAreaPyeong(summary.exclusiveAreaM2);
+  if (!Number.isFinite(pyeong) || pyeong <= 0) return false;
+  if (band.key === "under10") return pyeong <= 10;
+  if (band.key === "60plus") return pyeong >= 60;
+  const decade = Number(band.key);
+  if (decade === 10) return pyeong > 10 && pyeong < 20;
+  return Number.isFinite(decade) && pyeong >= decade && pyeong < decade + 10;
+}
+
+function exclusiveAreaPyeong(exclusiveAreaM2) {
+  return Number(exclusiveAreaM2) / 3.305785;
+}
+
 function molitAreaLabel(exclusiveAreaM2) {
   const area = Number(exclusiveAreaM2);
   if (!Number.isFinite(area) || area <= 0) return "전용 -";
-  const pyeong = area / 3.305785;
+  const pyeong = exclusiveAreaPyeong(area);
   const rounded = pyeong >= 10 ? Math.round(pyeong) : Math.round(pyeong * 10) / 10;
   return `전용 ${rounded}평`;
 }

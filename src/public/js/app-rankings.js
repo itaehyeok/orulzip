@@ -101,8 +101,10 @@ function renderPriceBandTable(result, basisBands = null) {
   state.priceBandEndKey = result.selection?.endBandKey === null || result.selection?.endBandKey === undefined
     ? ""
     : String(result.selection.endBandKey);
+  state.priceBandAreaKey = result.selection?.areaBandKey || state.priceBandAreaKey || "all";
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
+  const areaBands = Array.isArray(result.areaBands) ? result.areaBands : [];
   const summaryBands = basisBands || {
     start: result.basis === "start" ? bands : [],
     end: result.basis === "end" ? bands : []
@@ -116,16 +118,17 @@ function renderPriceBandTable(result, basisBands = null) {
   state.priceBandPage = pagination.page;
   const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
   const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
-  const selectedStartBand = findPriceBand(summaryBands.start, state.priceBandStartKey);
-  const selectedEndBand = findPriceBand(summaryBands.end, state.priceBandEndKey);
+  const selectedStartBand = findPriceBand(summaryBands.start, state.priceBandStartKey) || fallbackPriceBand(state.priceBandStartKey);
+  const selectedEndBand = findPriceBand(summaryBands.end, state.priceBandEndKey) || fallbackPriceBand(state.priceBandEndKey);
+  const selectedAreaBand = findPriceAreaBand(areaBands, state.priceBandAreaKey);
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
   const cacheLabel = formatPriceBandCacheLabel(result.cache);
   const householdLabel = householdFilterLabel();
   const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
-  els.priceBandCount.textContent = `${selectionLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
-  renderPriceBandSummary(summaryBands, state.priceBandStartKey, state.priceBandEndKey, pagination.totalRows);
+  els.priceBandCount.textContent = `${selectionLabel} · ${selectedAreaBand?.label || "전체 평형"} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
+  renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
       <tr>
@@ -179,7 +182,7 @@ function bindPriceBandMapLinks() {
 }
 
 function renderPriceBandLoadingState() {
-  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey);
+  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
   updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
@@ -199,11 +202,12 @@ function renderPriceBandLoadingState() {
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
 
-function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBandKey, totalRows = 0) {
+function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey, totalRows = 0) {
   if (!els.priceBandSummary) return;
   const startBands = Array.isArray(basisBands?.start) ? basisBands.start : [];
   const endBands = Array.isArray(basisBands?.end) ? basisBands.end : [];
-  if (!startBands.length && !endBands.length) {
+  const areaBandOptions = Array.isArray(areaBands) ? areaBands : [];
+  if (!startBands.length && !endBands.length && !areaBandOptions.length) {
     els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
     return;
   }
@@ -213,21 +217,31 @@ function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBan
       <span class="price-band-filter-arrow" aria-hidden="true">→</span>
       ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
       <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
+      ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
     </div>
   `;
 }
 
 function renderPriceBandSelect(kind, label, bands, selectedBandKey) {
   const normalizedSelectedKey = selectedBandKey === null || selectedBandKey === undefined ? "" : String(selectedBandKey);
+  const options = priceBandOptionsWithSelected(bands, normalizedSelectedKey);
   return `
     <label class="price-band-filter-control">
       <span>${label}</span>
       <select data-price-band-filter="${kind}">
         <option value="" ${normalizedSelectedKey === "" ? "selected" : ""}>전체</option>
-        ${bands.map((band) => renderPriceBandOption(band, normalizedSelectedKey)).join("")}
+        ${options.map((band) => renderPriceBandOption(band, normalizedSelectedKey)).join("")}
       </select>
     </label>
   `;
+}
+
+function priceBandOptionsWithSelected(bands, selectedBandKey) {
+  const options = Array.isArray(bands) ? [...bands] : [];
+  if (selectedBandKey !== "" && !options.some((band) => String(band.bandKey) === selectedBandKey)) {
+    options.unshift(fallbackPriceBand(selectedBandKey));
+  }
+  return options.filter(Boolean);
 }
 
 function renderPriceBandOption(band, selectedBandKey) {
@@ -235,12 +249,32 @@ function renderPriceBandOption(band, selectedBandKey) {
   return `<option value="${escapeHtml(bandKey)}" ${bandKey === selectedBandKey ? "selected" : ""}>${escapeHtml(band.bandLabel || `${bandKey}억대`)}</option>`;
 }
 
-function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey) {
+function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
+  const bands = Array.isArray(areaBands) && areaBands.length
+    ? areaBands
+    : [{ key: "all", label: "전체 평형" }];
+  const normalizedSelectedKey = selectedAreaBandKey || "all";
+  return `
+    <label class="price-band-filter-control price-band-area-filter-control">
+      <span>평형</span>
+      <select data-price-band-filter="area">
+        ${bands.map((band) => {
+          const key = String(band.key || "all");
+          return `<option value="${escapeHtml(key)}" ${key === normalizedSelectedKey ? "selected" : ""}>${escapeHtml(band.label || "전체 평형")}</option>`;
+        }).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey) {
   if (!els.priceBandSummary) return;
   const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
   const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
+  const areaSelect = els.priceBandSummary.querySelector('[data-price-band-filter="area"]');
   if (startSelect) startSelect.value = selectedStartBandKey === null || selectedStartBandKey === undefined ? "" : String(selectedStartBandKey);
   if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
+  if (areaSelect) areaSelect.value = selectedAreaBandKey || "all";
 }
 
 function updatePriceBandTotalBadge(label) {
@@ -267,6 +301,19 @@ function selectedPriceBandLabel(select) {
 function findPriceBand(bands, bandKey) {
   if (bandKey === null || bandKey === undefined || bandKey === "") return null;
   return (Array.isArray(bands) ? bands : []).find((band) => String(band.bandKey) === String(bandKey)) || null;
+}
+
+function fallbackPriceBand(bandKey) {
+  if (bandKey === null || bandKey === undefined || bandKey === "") return null;
+  const key = Number(bandKey);
+  if (!Number.isFinite(key)) return null;
+  if (key === 0) return { bandKey: key, bandLabel: "1억 미만" };
+  return { bandKey: key, bandLabel: `${key}억대` };
+}
+
+function findPriceAreaBand(bands, bandKey) {
+  const key = bandKey || "all";
+  return (Array.isArray(bands) ? bands : []).find((band) => String(band.key) === String(key)) || null;
 }
 
 function formatPriceBandTotal(totalRows) {

@@ -479,7 +479,7 @@ input {
 
 .price-band-filter-control select {
   width: auto;
-  min-width: 72px;
+  min-width: 70px;
   height: 30px;
   border: 0;
   background: transparent;
@@ -503,7 +503,7 @@ input {
   display: inline-flex;
   align-items: center;
   height: 32px;
-  margin-left: auto;
+  margin-left: 2px;
   border: 1px solid #d8e2f0;
   border-radius: 999px;
   background: #f8fbff;
@@ -513,6 +513,10 @@ input {
   line-height: 1;
   padding: 0 12px;
   white-space: nowrap;
+}
+
+.price-band-area-filter-control select {
+  min-width: 92px;
 }
 
 .price-band-row {

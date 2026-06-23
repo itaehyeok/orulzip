@@ -106,6 +106,7 @@ const state = {
   minHouseholdCount: 100,
   priceBandStartKey: "",
   priceBandEndKey: "",
+  priceBandAreaKey: "all",
   priceBandPage: 1,
   priceBandPageSize: 50,
   priceBandRequestId: 0,

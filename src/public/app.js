@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260623-compact-price-band-filters";
+  const version = "20260623-price-area-band-filters";
   const scripts = [
     "app-prelude",
     "app-state",

@@ -144,6 +144,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       state.priceBandStartKey = "";
       state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       setPeriodMonths(periodButtonMonths(button));
       refresh();
@@ -153,6 +154,7 @@ function bindEvents() {
     select.addEventListener("change", () => {
       state.priceBandStartKey = "";
       state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       setPeriodMonths(Number(select.value) || 12);
       refresh();
@@ -163,6 +165,7 @@ function bindEvents() {
       state.minHouseholdCount = activeMinHouseholdCount() > 0 ? 0 : 100;
       state.priceBandStartKey = "";
       state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       state.mapApartmentDetails.clear();
       syncHouseholdFilterToggles();
@@ -174,7 +177,9 @@ function bindEvents() {
   els.priceBandSummary?.addEventListener("change", (event) => {
     const select = event.target.closest("[data-price-band-filter]");
     if (!select) return;
-    if (select.dataset.priceBandFilter === "end") {
+    if (select.dataset.priceBandFilter === "area") {
+      state.priceBandAreaKey = select.value || "all";
+    } else if (select.dataset.priceBandFilter === "end") {
       state.priceBandEndKey = select.value || "";
     } else {
       state.priceBandStartKey = select.value || "";
@@ -486,10 +491,12 @@ async function loadActiveViewData() {
     priceBandParams.set("basis", "start");
     if (state.priceBandStartKey !== "") priceBandParams.set("startBandKey", state.priceBandStartKey);
     if (state.priceBandEndKey !== "") priceBandParams.set("endBandKey", state.priceBandEndKey);
+    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") priceBandParams.set("areaBandKey", state.priceBandAreaKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
     const otherPriceBandParams = new URLSearchParams(params);
     otherPriceBandParams.set("basis", "end");
+    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") otherPriceBandParams.set("areaBandKey", state.priceBandAreaKey);
     otherPriceBandParams.set("page", "1");
     otherPriceBandParams.set("pageSize", "10");
     const [result, otherResult] = await Promise.all([

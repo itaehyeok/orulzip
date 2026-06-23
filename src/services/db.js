@@ -467,6 +467,10 @@ export async function initDb() {
 
     alter table price_band_rank_snapshots
       add column if not exists min_household_count integer not null default 0;
+    alter table price_band_rank_snapshots
+      add column if not exists area_band_key text not null default 'all';
+    alter table price_band_rank_snapshots
+      add column if not exists area_band_label text not null default '전체 평형';
 
     do $$
     declare
@@ -517,10 +521,12 @@ export async function initDb() {
 
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
-    create unique index if not exists price_band_rank_snapshots_household_filter_uidx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count);
+    drop index if exists price_band_rank_snapshots_household_filter_uidx;
+    create unique index if not exists price_band_rank_snapshots_household_area_filter_uidx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key);
+    drop index if exists price_band_rank_snapshots_filter_lookup_idx;
     create index if not exists price_band_rank_snapshots_filter_lookup_idx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, updated_at desc);
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, updated_at desc);
     alter table price_band_rank_items
       add column if not exists address text;
     alter table price_band_rank_items
