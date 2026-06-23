@@ -1200,13 +1200,15 @@ function graphDesignColor(design, index, fallback) {
 }
 
 function bindMapPopupChartHover({ width, months, series, x, y }) {
-  const svg = els.mapPopupChart.querySelector("svg");
-  const hit = els.mapPopupChart.querySelector(".chart-hover-hit");
-  const line = els.mapPopupChart.querySelector(".map-popup-hover-line");
-  if (!svg || !hit || !line || !els.mapPopupTooltip || !months.length) return;
+  const chart = els.mapPopupChart;
+  const tooltip = els.mapPopupTooltip;
+  const svg = chart?.querySelector("svg");
+  const hit = chart?.querySelector(".chart-hover-hit");
+  const line = chart?.querySelector(".map-popup-hover-line");
+  if (!chart || !svg || !hit || !line || !tooltip || !months.length) return;
   const hideHover = () => {
     line.hidden = true;
-    els.mapPopupTooltip.hidden = true;
+    tooltip.hidden = true;
   };
 
   hit.addEventListener("mousemove", (event) => {
@@ -1226,7 +1228,7 @@ function bindMapPopupChartHover({ width, months, series, x, y }) {
       `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`
     ).join("");
 
-    showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
+    showFloatingTooltip(chart.parentElement, tooltip, event, `
       <strong>${formatMonth(month)}</strong>
       ${priceMarkup || "<span>데이터 없음</span>"}
     `);
@@ -1234,5 +1236,5 @@ function bindMapPopupChartHover({ width, months, series, x, y }) {
 
   hit.addEventListener("mouseleave", hideHover);
   svg.addEventListener("mouseleave", hideHover);
-  els.mapPopupChart.addEventListener("mouseleave", hideHover);
+  chart.addEventListener("mouseleave", hideHover);
 }

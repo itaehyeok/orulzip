@@ -140,8 +140,9 @@ function renderPriceBandTable(result, basisBands = null) {
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => {
       const mapLink = priceBandMapApartmentLink(row);
+      const isSelected = state.priceBandDetailApartmentId && String(state.priceBandDetailApartmentId) === String(row.apartmentId || "");
       return `
-      <tr class="clickable-row" data-price-band-row-map-link="${escapeHtml(mapLink)}">
+      <tr class="clickable-row${isSelected ? " selected" : ""}" data-price-band-detail-row data-price-band-apartment-id="${escapeHtml(row.apartmentId || "")}">
         <td>${row.rank}</td>
         <td>
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
@@ -160,7 +161,7 @@ function renderPriceBandTable(result, basisBands = null) {
     : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
   bindPriceBandAreaMoreToggles();
-  bindPriceBandMapLinks();
+  bindPriceBandMapLinks(rows);
 }
 
 function bindPriceBandAreaMoreToggles() {
@@ -179,7 +180,8 @@ function bindPriceBandAreaMoreToggles() {
   });
 }
 
-function bindPriceBandMapLinks() {
+function bindPriceBandMapLinks(rows = []) {
+  const rowByApartmentId = new Map(rows.map((row) => [String(row.apartmentId || ""), row]).filter(([id]) => id));
   els.priceBandRows?.querySelectorAll("[data-price-band-map-link]").forEach((link) => {
     link.addEventListener("click", async (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -187,11 +189,13 @@ function bindPriceBandMapLinks() {
       await openPriceBandMapDetailLink(link.getAttribute("href") || "");
     });
   });
-  els.priceBandRows?.querySelectorAll("[data-price-band-row-map-link]").forEach((row) => {
+  els.priceBandRows?.querySelectorAll("[data-price-band-detail-row]").forEach((row) => {
     row.addEventListener("click", async (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       if (event.target.closest("a, button, select, input, textarea, [role='button']")) return;
-      await openPriceBandMapDetailLink(row.dataset.priceBandRowMapLink || "");
+      const item = rowByApartmentId.get(String(row.dataset.priceBandApartmentId || ""));
+      if (!item) return;
+      await openPriceBandApartmentDetail(item);
     });
   });
 }
@@ -203,7 +207,122 @@ async function openPriceBandMapDetailLink(href) {
   await activateTab("molitMap", { push: false });
 }
 
+async function openPriceBandApartmentDetail(row) {
+  const apartmentId = String(row?.apartmentId || "").trim();
+  if (!apartmentId || !els.priceBandDetailPanel) return;
+  const requestId = ++state.priceBandDetailRequestId;
+  state.priceBandDetailApartmentId = apartmentId;
+  state.mapPopupDetail = null;
+  state.mapPopupSelectedAreaTypeId = null;
+  state.mapPopupPreferredAreaM2 = priceBandRepresentativeAreaM2(row);
+  state.mapPopupPreferredApartmentId = state.mapPopupPreferredAreaM2 ? apartmentId : null;
+  updatePriceBandSelectedRow(apartmentId);
+  renderPriceBandApartmentLoading(row);
+  els.priceBandDetailPanel.scrollIntoView({ block: "start", behavior: "smooth" });
+
+  const period = currentMapPeriodParams();
+  const minHouseholdCount = activeMinHouseholdCount();
+  const cacheKey = `molit:${apartmentId}:${period.start}:${period.end}:${minHouseholdCount}`;
+  if (state.mapApartmentDetails.has(cacheKey)) {
+    if (requestId !== state.priceBandDetailRequestId) return;
+    renderPriceBandApartmentDetail(state.mapApartmentDetails.get(cacheKey));
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      apartmentId,
+      start: period.start,
+      end: period.end,
+      minHouseholdCount: String(minHouseholdCount)
+    });
+    const detail = await api(`/api/molit-apartment-detail?${params}`);
+    if (requestId !== state.priceBandDetailRequestId) return;
+    state.mapApartmentDetails.set(cacheKey, detail);
+    renderPriceBandApartmentDetail(detail);
+  } catch (error) {
+    if (requestId !== state.priceBandDetailRequestId) return;
+    renderPriceBandApartmentError(row, error);
+  }
+}
+
+function renderPriceBandApartmentLoading(row) {
+  withPriceBandDetailElements(() => renderMapApartmentLoading(priceBandDetailSeedItem(row)));
+}
+
+function renderPriceBandApartmentError(row, error) {
+  withPriceBandDetailElements(() => renderMapApartmentError(priceBandDetailSeedItem(row), error));
+}
+
+function renderPriceBandApartmentDetail(detail) {
+  withPriceBandDetailElements(() => renderMapApartmentDetail(detail));
+}
+
+function closePriceBandApartmentDetail() {
+  state.priceBandDetailRequestId += 1;
+  state.priceBandDetailApartmentId = null;
+  if (els.priceBandDetailPanel) {
+    els.priceBandDetailPanel.hidden = true;
+    els.priceBandDetailPanel.classList.remove("loading");
+  }
+  if (els.priceBandDetailTooltip) els.priceBandDetailTooltip.hidden = true;
+  updatePriceBandSelectedRow("");
+}
+
+function withPriceBandDetailElements(callback) {
+  if (!els.priceBandDetailPanel) return callback();
+  const previous = {
+    mapApartmentPopup: els.mapApartmentPopup,
+    mapPopupTitle: els.mapPopupTitle,
+    mapPopupMeta: els.mapPopupMeta,
+    mapPopupRanks: els.mapPopupRanks,
+    mapPopupPyeongGrowth: els.mapPopupPyeongGrowth,
+    mapPopupStats: els.mapPopupStats,
+    mapPopupChart: els.mapPopupChart,
+    mapPopupTooltip: els.mapPopupTooltip,
+    mapPopupTradeHistory: els.mapPopupTradeHistory,
+    mapCanvasWrap: els.mapCanvasWrap,
+    mapLocateBtn: els.mapLocateBtn
+  };
+  const previousRankLinksEnabled = state.mapPopupRankLinksEnabled;
+  Object.assign(els, {
+    mapApartmentPopup: els.priceBandDetailPanel,
+    mapPopupTitle: els.priceBandDetailTitle,
+    mapPopupMeta: els.priceBandDetailMeta,
+    mapPopupRanks: els.priceBandDetailRanks,
+    mapPopupPyeongGrowth: els.priceBandDetailPyeongGrowth,
+    mapPopupStats: els.priceBandDetailStats,
+    mapPopupChart: els.priceBandDetailChart,
+    mapPopupTooltip: els.priceBandDetailTooltip,
+    mapPopupTradeHistory: els.priceBandDetailTradeHistory,
+    mapCanvasWrap: null,
+    mapLocateBtn: null
+  });
+  state.mapPopupRankLinksEnabled = false;
+  try {
+    return callback();
+  } finally {
+    Object.assign(els, previous);
+    state.mapPopupRankLinksEnabled = previousRankLinksEnabled;
+  }
+}
+
+function priceBandDetailSeedItem(row) {
+  return {
+    id: row?.apartmentId || "",
+    name: row?.apartmentName || "아파트 시세",
+    neighborhoodName: row?.neighborhoodName || formatPriceBandLocation(row || {}) || "-"
+  };
+}
+
+function updatePriceBandSelectedRow(apartmentId) {
+  els.priceBandRows?.querySelectorAll("[data-price-band-detail-row]").forEach((row) => {
+    row.classList.toggle("selected", Boolean(apartmentId) && row.dataset.priceBandApartmentId === String(apartmentId));
+  });
+}
+
 function renderPriceBandLoadingState() {
+  closePriceBandApartmentDetail();
   syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
   updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";

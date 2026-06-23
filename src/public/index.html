@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
-    <link rel="stylesheet" href="/styles.css?v=20260623-price-band-growth-markers">
+    <link rel="stylesheet" href="/styles.css?v=20260623-price-band-inline-detail">
   </head>
   <body>
     <main class="app-shell">
@@ -228,6 +228,25 @@
             <span id="priceBandCount"></span>
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
+          <section id="priceBandDetailPanel" class="price-band-detail-panel" hidden aria-live="polite">
+            <div class="map-popup-head">
+              <div>
+                <div class="map-popup-title-row">
+                  <h3 id="priceBandDetailTitle">아파트 시세</h3>
+                  <div id="priceBandDetailPyeongGrowth" class="map-popup-pyeong-growth"></div>
+                </div>
+                <span id="priceBandDetailMeta"></span>
+                <div id="priceBandDetailRanks" class="map-popup-ranks"></div>
+              </div>
+              <button id="priceBandDetailCloseBtn" type="button" aria-label="닫기">×</button>
+            </div>
+            <div id="priceBandDetailStats" class="map-popup-stats"></div>
+            <div class="map-popup-chart-wrap">
+              <div id="priceBandDetailChart" class="map-popup-chart"></div>
+              <div id="priceBandDetailTooltip" class="chart-tooltip" hidden></div>
+            </div>
+            <div id="priceBandDetailTradeHistory" class="map-popup-trade-history"></div>
+          </section>
           <div class="table-wrap">
             <table class="price-band-table">
               <thead>
@@ -1286,6 +1305,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260623-price-band-growth-markers"></script>
+    <script src="/app.js?v=20260623-price-band-inline-detail"></script>
   </body>
 </html>

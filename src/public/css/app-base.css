@@ -523,6 +523,40 @@ input {
   min-width: 92px;
 }
 
+.price-band-detail-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(820px, calc(100dvh - 180px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+  overscroll-behavior: contain;
+}
+
+.price-band-detail-panel[hidden] {
+  display: none;
+}
+
+.price-band-detail-panel.loading .map-popup-stats {
+  align-items: stretch;
+}
+
+.price-band-detail-panel .map-popup-chart-wrap {
+  min-height: 0;
+  overflow-x: hidden;
+}
+
+.price-band-detail-panel .map-popup-chart svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.price-band-table tr.selected {
+  background: #eef6ff;
+}
+
 .price-band-row {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);

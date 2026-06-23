@@ -96,6 +96,13 @@ function bindEvents() {
     state.mapPopupSelectedAreaTypeId = select.value;
     renderMapApartmentDetail(state.mapPopupDetail);
   });
+  els.priceBandDetailCloseBtn?.addEventListener("click", closePriceBandApartmentDetail);
+  els.priceBandDetailStats?.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-map-popup-area-select]");
+    if (!select || !state.mapPopupDetail) return;
+    state.mapPopupSelectedAreaTypeId = select.value;
+    renderPriceBandApartmentDetail(state.mapPopupDetail);
+  });
   els.mapSearchInput.addEventListener("input", () => scheduleMapSearch());
   els.mapSearchInput.addEventListener("focus", () => {
     if (els.mapSearchInput.value.trim()) scheduleMapSearch(0);

@@ -231,9 +231,9 @@ function renderMapPopupAreaPicker(series, selected) {
   if (!series.length) return "";
   return `
     <div class="map-popup-area-picker">
-      <label for="mapPopupAreaSelect">
+      <label>
         <span>평형 선택</span>
-        <select id="mapPopupAreaSelect" data-map-popup-area-select>
+        <select data-map-popup-area-select>
           ${series.map((item) => `
             <option value="${escapeHtml(item.id)}" ${item.id === selected?.id ? "selected" : ""}>
               ${escapeHtml(mapPopupAreaOptionLabel(item))} · 거래 ${formatInt(areaTypeDealCount(item))}건
@@ -306,7 +306,7 @@ function renderMapPopupRankChip(item) {
     <b>${escapeHtml(item.label)}</b>
     ${formatRankText(item.rank, item.total)}
   `;
-  if (!item.mode || !item.key) {
+  if (!item.mode || !item.key || state.mapPopupRankLinksEnabled === false) {
     return `<span>${content}</span>`;
   }
   return `
