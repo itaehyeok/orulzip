@@ -149,7 +149,7 @@ function renderMapApartmentDetail(detail) {
   }
 
   const selected = selectedMapPopupSeries(allSeries);
-  const selectedSeries = selected ? [selected] : [];
+  const selectedSeries = selected ? mapPopupChartSeries(selected) : [];
   els.mapPopupStats.innerHTML = `
     ${renderMapPopupAreaPicker(allSeries, selected)}
     ${selected ? renderMapPopupAreaSummary(selected, latestMonth) : ""}
@@ -157,6 +157,28 @@ function renderMapApartmentDetail(detail) {
 
   renderMapPopupChart({ months, series: selectedSeries });
   renderMapPopupTradeHistory(selected);
+}
+
+function mapPopupChartSeries(selected) {
+  if (!selected) return [];
+  const series = [selected];
+  const benchmark = selected.neighborhoodPyeongBenchmark;
+  if (benchmark?.prices?.length) {
+    series.push({
+      id: `${selected.id}:neighborhood-pyeong-benchmark`,
+      label: benchmark.label || "동 평당가 환산",
+      auxiliary: true,
+      color: "#667085",
+      lineWidth: 1.8,
+      dash: "6 6",
+      opacity: 0.38,
+      pointMode: "none",
+      labelMode: "none",
+      periodMarker: false,
+      prices: benchmark.prices
+    });
+  }
+  return series;
 }
 
 function selectedMapPopupSeries(series) {

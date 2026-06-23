@@ -1019,7 +1019,7 @@ function renderGraphPeriodMarkers({ months, series, x, y, padding, chartBottom }
     if (!months.includes(yearMonth)) return "";
     const xPos = x(yearMonth);
     const labelX = Math.min(xPos + 7, x(months.at(-1)) - 16);
-    const dots = series.map((item) => {
+    const dots = series.filter((item) => item.periodMarker !== false).map((item) => {
       const yPos = interpolatedSeriesYAtMonth(item, yearMonth, x, y);
       if (!Number.isFinite(yPos)) return "";
       return `<circle class="map-popup-period-dot" cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="4" fill="${item.color}" stroke="#ffffff"></circle>`;
@@ -1117,19 +1117,20 @@ function renderGraphSeries({ chartBottom, design, index, item, mode, svgId, x, y
   const first = points[0];
   const last = points.at(-1);
   const areaPath = `${linePath} L ${last.x.toFixed(1)} ${chartBottom} L ${first.x.toFixed(1)} ${chartBottom} Z`;
-  const labelLimit = mode === "preview" ? 2 : design.labelMode === "end" ? 5 : 0;
+  const labelLimit = item.labelMode === "none" ? 0 : mode === "preview" ? 2 : design.labelMode === "end" ? 5 : 0;
   const labelY = Math.max(22, Math.min(chartBottom - 8, last.y));
   const endLabel = index < labelLimit
     ? `<text class="map-popup-end-label" x="${(last.x + 9).toFixed(1)}" y="${(labelY + 4).toFixed(1)}" fill="${item.color}" style="stroke:${design.background};">${escapeHtml(item.label || "-")} ${formatKoreanPrice(last.price.saleMid)}</text>`
     : "";
-  const area = design.fillOpacity > 0
+  const area = !item.auxiliary && design.fillOpacity > 0
     ? `<path class="map-popup-area" d="${areaPath}" fill="url(#${svgId}-area-${index})"></path>`
     : "";
-  const pointsMarkup = renderGraphPoints({ design, first, item, last, points });
+  const pointsMarkup = item.pointMode === "none" ? "" : renderGraphPoints({ design, first, item, last, points });
   const lineStyle = [
-    `stroke-width:${design.lineWidth}px`,
-    `filter:${design.shadow ? "drop-shadow(0 2px 2px rgba(16, 24, 40, 0.18))" : "none"}`,
-    design.dash ? `stroke-dasharray:${design.dash}` : ""
+    `stroke-width:${Number(item.lineWidth) || design.lineWidth}px`,
+    `filter:${!item.auxiliary && design.shadow ? "drop-shadow(0 2px 2px rgba(16, 24, 40, 0.18))" : "none"}`,
+    Number.isFinite(Number(item.opacity)) ? `opacity:${Number(item.opacity)}` : "",
+    item.dash || design.dash ? `stroke-dasharray:${item.dash || design.dash}` : ""
   ].filter(Boolean).join(";");
 
   return `
@@ -1222,9 +1223,12 @@ function bindMapPopupChartHover({ width, months, series, x, y }) {
       if (!price) return null;
       return { item, price };
     }).filter(Boolean);
-    const priceMarkup = priceRows.map(({ item, price }) =>
-      `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}</span>`
-    ).join("");
+    const priceMarkup = priceRows.map(({ item, price }) => {
+      const benchmarkNote = item.auxiliary && Number.isFinite(Number(price.pyeongPrice)) && Number.isFinite(Number(price.exclusiveAreaPyeong))
+        ? `<small>평당 ${formatKoreanPrice(price.pyeongPrice)} × ${Number(price.exclusiveAreaPyeong).toFixed(1)}평</small>`
+        : "";
+      return `<span><i style="background:${item.color}"></i>${escapeHtml(item.label || "-")} ${formatKoreanPrice(price.saleMid)}${benchmarkNote}</span>`;
+    }).join("");
 
     showFloatingTooltip(els.mapPopupChart.parentElement, els.mapPopupTooltip, event, `
       <strong>${formatMonth(month)}</strong>

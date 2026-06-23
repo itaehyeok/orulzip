@@ -558,7 +558,7 @@ export async function buildMolitApartmentDetail(apartmentId, {
   );
   const detailStartMonth = addMonths(currentMonth, -safeMonthLookback);
   const safeTradeLimit = Math.max(10, Math.min(Number(tradeLimitPerType) || MOLIT_APARTMENT_DETAIL_TRADE_LIMIT_PER_TYPE, 200));
-  const [complexResult, monthlyResult, recentResult, tradeResult] = await Promise.all([
+  const [complexResult, monthlyResult, recentResult, tradeResult, neighborhoodPyeongResult] = await Promise.all([
     query(`
       select id, apt_name, legal_dong, lawd_cd, address,
              sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
@@ -653,7 +653,23 @@ export async function buildMolitApartmentDetail(apartmentId, {
                deal_month desc nulls last,
                deal_day desc nulls last,
                id desc
-    `, [normalizedApartmentId, safeTradeLimit])
+    `, [normalizedApartmentId, safeTradeLimit]),
+    query(`
+      select
+        d.deal_year_month,
+        round(avg(d.pyeong_price))::int as pyeong_price,
+        count(*)::int as deal_count
+      from molit_trade_deals d
+      join molit_complexes target
+        on target.id = $1
+       and target.lawd_cd = d.lawd_cd
+       and target.legal_dong = coalesce(trim(d.legal_dong), '')
+      where d.pyeong_price is not null
+        and d.deal_year_month between $2 and $3
+        and coalesce(d.cancel_type, '') = ''
+      group by d.deal_year_month
+      order by d.deal_year_month
+    `, [normalizedApartmentId, detailStartMonth, currentMonth])
   ]);
 
   const apartment = serializeMolitComplexRow(complexResult.rows[0]);
@@ -670,6 +686,14 @@ export async function buildMolitApartmentDetail(apartmentId, {
   const months = monthRange(firstMonth, currentMonth);
   const recentByType = new Map(recentResult.rows.map((row) => [String(row.exclusive_area_m2), serializeMolitPrice(row)]));
   const tradesByType = groupMolitTradesByType(tradeResult.rows);
+  const neighborhoodPyeongByMonth = new Map(neighborhoodPyeongResult.rows.map((row) => [
+    row.deal_year_month,
+    {
+      yearMonth: row.deal_year_month || "",
+      pyeongPrice: Number(row.pyeong_price || 0),
+      dealCount: Number(row.deal_count || 0)
+    }
+  ]));
   const types = new Map();
   for (const row of monthlyResult.rows) {
     const typeKey = String(row.exclusive_area_m2);
@@ -712,6 +736,12 @@ export async function buildMolitApartmentDetail(apartmentId, {
       supplyAreaPyeong: type.supplyAreaPyeong,
       exclusiveAreaPyeong: type.exclusiveAreaPyeong,
       totalDealCount: type.totalDealCount,
+      neighborhoodPyeongBenchmark: buildNeighborhoodPyeongBenchmark({
+        apartment,
+        months,
+        pyeongByMonth: neighborhoodPyeongByMonth,
+        exclusiveAreaPyeong: type.exclusiveAreaPyeong
+      }),
       trades: tradesByType.get(typeKey) || [],
       prices
     };
@@ -721,6 +751,32 @@ export async function buildMolitApartmentDetail(apartmentId, {
     apartment,
     areaTypes,
     months: [...new Set(areaTypes.flatMap((item) => item.prices.map((price) => price.yearMonth)))].sort()
+  };
+}
+
+function buildNeighborhoodPyeongBenchmark({ apartment, months, pyeongByMonth, exclusiveAreaPyeong }) {
+  const pyeong = Number(exclusiveAreaPyeong);
+  if (!Number.isFinite(pyeong) || pyeong <= 0 || !pyeongByMonth?.size) return null;
+  const prices = [];
+  let carried = null;
+  for (const yearMonth of months) {
+    carried = pyeongByMonth.get(yearMonth) || carried;
+    const pyeongPrice = Number(carried?.pyeongPrice);
+    if (!Number.isFinite(pyeongPrice) || pyeongPrice <= 0) continue;
+    prices.push({
+      yearMonth,
+      sourceMonth: carried.yearMonth || yearMonth,
+      saleMid: Math.round(pyeongPrice * pyeong),
+      pyeongPrice,
+      exclusiveAreaPyeong: pyeong,
+      dealCount: Number(carried.dealCount || 0)
+    });
+  }
+  if (!prices.length) return null;
+  const dongName = apartment?.dongName || apartment?.neighborhoodName || "동네";
+  return {
+    label: `${dongName} 평당가 환산`,
+    prices
   };
 }
 
