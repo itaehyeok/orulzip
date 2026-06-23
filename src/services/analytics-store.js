@@ -417,6 +417,36 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, in
   };
 }
 
+export async function readExternalVisitorAlertSummary({ environment = "production" } = {}) {
+  const normalizedEnvironment = normalizedAnalyticsEnvironment(environment);
+  const result = await analyticsQuery(`
+    select
+      count(distinct e.visitor_id) filter (where e.created_at >= now() - interval '30 minutes')::integer as active_visitors_30m,
+      count(distinct e.visitor_id) filter (where e.created_at >= date_trunc('day', now()))::integer as today_visitors,
+      count(*) filter (where e.event_name = 'page_view' and e.created_at >= date_trunc('day', now()))::integer as today_page_views,
+      count(distinct e.visitor_id) filter (where e.created_at >= now() - interval '7 days')::integer as week_visitors,
+      count(*) filter (where e.event_name = 'page_view' and e.created_at >= now() - interval '7 days')::integer as week_page_views,
+      count(distinct e.visitor_id)::integer as total_visitors,
+      count(*) filter (where e.event_name = 'page_view')::integer as total_page_views
+    from analytics.events e
+    where not e.is_admin
+      and not e.is_internal
+      and ($1::text = 'all' or coalesce(e.environment, 'unknown') = $1)
+  `, [normalizedEnvironment]);
+
+  const row = result.rows[0] || {};
+  return {
+    environment: normalizedEnvironment,
+    activeVisitors30m: Number(row.active_visitors_30m || 0),
+    todayVisitors: Number(row.today_visitors || 0),
+    todayPageViews: Number(row.today_page_views || 0),
+    weekVisitors: Number(row.week_visitors || 0),
+    weekPageViews: Number(row.week_page_views || 0),
+    totalVisitors: Number(row.total_visitors || 0),
+    totalPageViews: Number(row.total_page_views || 0)
+  };
+}
+
 async function activeOrNewSessionId(client, { requestedSessionId, visitorId, path, isAdmin, pageViewIncrement }) {
   if (requestedSessionId) {
     const active = await client.query(`

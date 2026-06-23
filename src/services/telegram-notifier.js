@@ -68,6 +68,8 @@ function telegramVisitorMessage(event) {
 
   const campaign = visitorCampaign(userInfo);
   if (campaign) lines.push(`캠페인: ${campaign}`);
+  const summaryLines = visitorSummaryLines(event.summary);
+  if (summaryLines.length) lines.push("", "방문 요약", ...summaryLines);
   return lines.join("\n");
 }
 
@@ -98,4 +100,19 @@ function visitorScreen(userInfo) {
 
 function visitorCampaign(userInfo) {
   return [userInfo.utmSource, userInfo.utmMedium, userInfo.utmCampaign].filter(Boolean).join(" / ");
+}
+
+function visitorSummaryLines(summary) {
+  if (!summary || typeof summary !== "object") return [];
+  return [
+    `최근 30분: ${formatCount(summary.activeVisitors30m)}명`,
+    `오늘: ${formatCount(summary.todayVisitors)}명 / ${formatCount(summary.todayPageViews)}PV`,
+    `최근 7일: ${formatCount(summary.weekVisitors)}명 / ${formatCount(summary.weekPageViews)}PV`,
+    `전체: ${formatCount(summary.totalVisitors)}명 / ${formatCount(summary.totalPageViews)}PV`
+  ];
+}
+
+function formatCount(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? Math.round(number).toLocaleString("ko-KR") : "0";
 }

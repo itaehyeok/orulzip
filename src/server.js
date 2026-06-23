@@ -30,6 +30,7 @@ import {
 import { readPriceBandRankPage } from "./services/price-band-rank-cache.js";
 import {
   markAnalyticsVisitorInternal,
+  readExternalVisitorAlertSummary,
   readAnalyticsSummary,
   readAnalyticsVisitors,
   recordAnalyticsEvent
@@ -205,7 +206,7 @@ const server = createServer(async (req, res) => {
         url: analyticsPublicUrl(result.path)
       };
       if (shouldNotifyExternalVisitorVisit(visitorAlert)) {
-        notifyTelegramExternalVisitor(visitorAlert).catch((error) => {
+        notifyTelegramExternalVisitorWithSummary(visitorAlert).catch((error) => {
           console.warn("Telegram visitor alert failed:", error?.message || error);
         });
       }
@@ -1247,6 +1248,16 @@ function analyticsPublicUrl(path) {
   } catch {
     return `${siteOrigin}/`;
   }
+}
+
+async function notifyTelegramExternalVisitorWithSummary(visitorAlert) {
+  let summary = null;
+  try {
+    summary = await readExternalVisitorAlertSummary({ environment: visitorAlert.environment });
+  } catch (error) {
+    console.warn("Telegram visitor summary failed:", error?.message || error);
+  }
+  await notifyTelegramExternalVisitor({ ...visitorAlert, summary });
 }
 
 function firstHeaderValue(value) {
