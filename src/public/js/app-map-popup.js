@@ -162,57 +162,23 @@ function renderMapApartmentDetail(detail) {
 function mapPopupChartSeries(selected) {
   if (!selected) return [];
   const series = [selected];
-  series.push(...mapPopupBenchmarkSeries(selected));
-  return series;
-}
-
-function mapPopupBenchmarkSeries(selected) {
   const benchmark = selected.neighborhoodPyeongBenchmark;
-  if (!benchmark) return [];
-  if (benchmark.average || benchmark.top20) {
-    return [
-      mapPopupBenchmarkLine(selected, benchmark.average, "average", {
-        fallbackLabel: "동네 평균 환산가",
-        color: "#98a2b3",
-        dash: "6 6",
-        opacity: 0.42,
-        lineWidth: 1.7
-      }),
-      mapPopupBenchmarkLine(selected, benchmark.top20, "top20", {
-        fallbackLabel: "동네 상위 20% 환산가",
-        color: "#475467",
-        dash: "3 6",
-        opacity: 0.5,
-        lineWidth: 1.8
-      })
-    ].filter(Boolean);
-  }
-  return [
-    mapPopupBenchmarkLine(selected, benchmark, "average", {
-      fallbackLabel: "동네 평균 환산가",
-      color: "#98a2b3",
+  if (benchmark?.prices?.length) {
+    series.push({
+      id: `${selected.id}:neighborhood-pyeong-benchmark`,
+      label: benchmark.label || "동 평당가 환산",
+      auxiliary: true,
+      color: "#667085",
+      lineWidth: 1.8,
       dash: "6 6",
-      opacity: 0.42,
-      lineWidth: 1.7
-    })
-  ].filter(Boolean);
-}
-
-function mapPopupBenchmarkLine(selected, benchmark, key, options) {
-  if (!benchmark?.prices?.length) return null;
-  return {
-    id: `${selected.id}:neighborhood-pyeong-${key}`,
-    label: benchmark.label || options.fallbackLabel,
-    auxiliary: true,
-    color: options.color,
-    lineWidth: options.lineWidth,
-    dash: options.dash,
-    opacity: options.opacity,
-    pointMode: "none",
-    labelMode: "none",
-    periodMarker: false,
-    prices: benchmark.prices
-  };
+      opacity: 0.38,
+      pointMode: "none",
+      labelMode: "none",
+      periodMarker: false,
+      prices: benchmark.prices
+    });
+  }
+  return series;
 }
 
 function selectedMapPopupSeries(series) {
