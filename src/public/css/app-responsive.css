@@ -546,10 +546,16 @@ td:nth-child(4) {
   .map-location-control {
     top: 12px;
     right: 12px;
+    justify-content: center;
+    width: 42px;
     height: 42px;
     min-width: 42px;
-    padding: 0 12px;
+    padding: 0;
     font-size: 12px;
+  }
+
+  .map-location-control .map-location-text {
+    display: none;
   }
 
   .map-ranking-row {

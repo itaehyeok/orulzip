@@ -473,7 +473,9 @@ const server = createServer(async (req, res) => {
       }));
     }
 
-    return await serveStatic(url.pathname, res);
+    return await serveStatic(url.pathname, res, {
+      environment: requestAnalyticsEnvironment
+    });
   } catch (error) {
     const status = Number(error.statusCode || 500);
     return json(res, { error: error.message }, status >= 400 && status < 600 ? status : 500);
@@ -1001,7 +1003,7 @@ function serializeJob(job) {
   };
 }
 
-async function serveStatic(pathname, res) {
+async function serveStatic(pathname, res, { environment = "unknown" } = {}) {
   if (pathname === "/favicon.ico") {
     res.writeHead(204);
     res.end();
@@ -1024,7 +1026,7 @@ async function serveStatic(pathname, res) {
   }
   if (filePath === "/index.html") {
     content = injectRouteSeo(content.toString("utf8"), normalizedPath);
-    content = injectDeployVersion(content);
+    content = injectDeployVersion(content, { environment });
   }
 
   res.writeHead(200, {
@@ -1069,8 +1071,11 @@ function injectRouteSeo(html, routePath) {
     .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
 }
 
-function injectDeployVersion(html) {
+function injectDeployVersion(html, { environment = "unknown" } = {}) {
+  const deployBadgeHidden = environment === "production" ? "hidden" : "";
+
   return html
+    .replaceAll("__ORULZIP_DEPLOY_BADGE_HIDDEN__", deployBadgeHidden)
     .replaceAll("__ORULZIP_DEPLOY_VERSION__", escapeHtml(deployVersionText))
     .replaceAll("__ORULZIP_DEPLOYED_AT__", escapeHtml(`v ${deployedAtKst}`))
     .replaceAll("__ORULZIP_DEPLOY_COMMIT__", escapeHtml(deployCommitSha))

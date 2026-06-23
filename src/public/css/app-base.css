@@ -919,6 +919,10 @@ input {
   box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
 }
 
+.deploy-version-badge[hidden] {
+  display: none;
+}
+
 .deploy-version-text {
   user-select: text;
 }
