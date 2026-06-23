@@ -93,6 +93,8 @@ In Hostinger DNS, add `dev.orulzip.com` pointing to the same public target as `o
 - `main` pushes deploy web-only compose to `/home/th/docker/custom/orulzip/production`
 - `develop` pushes deploy web-only compose to `/home/th/docker/custom/orulzip/development`
 - `database` and `data-collector` are managed separately and are not restarted by web deployments.
+- Development deploys do not run post-deploy MOLIT cache refresh. Refresh or
+  reclone `orulzip_dev` only when explicitly requested.
 
 The development workflow expects the self-hosted runner label used by production:
 
