@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260623-price-band-inline-detail";
+  const version = "20260623-floating-detail-panel";
   const scripts = [
     "app-prelude",
     "app-state",

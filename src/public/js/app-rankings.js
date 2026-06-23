@@ -203,6 +203,7 @@ function bindPriceBandMapLinks(rows = []) {
 async function openPriceBandMapDetailLink(href) {
   const normalizedHref = String(href || "").trim();
   if (!normalizedHref) return;
+  closePriceBandApartmentDetail();
   window.history.pushState({ tab: "molitMap" }, "", normalizedHref);
   await activateTab("molitMap", { push: false });
 }
@@ -218,7 +219,6 @@ async function openPriceBandApartmentDetail(row) {
   state.mapPopupPreferredApartmentId = state.mapPopupPreferredAreaM2 ? apartmentId : null;
   updatePriceBandSelectedRow(apartmentId);
   renderPriceBandApartmentLoading(row);
-  els.priceBandDetailPanel.scrollIntoView({ block: "start", behavior: "smooth" });
 
   const period = currentMapPeriodParams();
   const minHouseholdCount = activeMinHouseholdCount();
