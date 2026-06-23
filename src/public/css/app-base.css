@@ -491,6 +491,10 @@ input {
   white-space: nowrap;
 }
 
+.price-band-period-filter-control select {
+  min-width: 72px;
+}
+
 .price-band-filter-arrow {
   flex: 0 0 auto;
   color: var(--muted);

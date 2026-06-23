@@ -449,9 +449,15 @@ async function prepareMapApartmentFocusFromUrl() {
   if (!isMapTab() || currentMapSource() !== "molit") return false;
   const focus = mapApartmentFocusFromUrl();
   if (!focus?.apartmentId) return false;
-  if (state.pendingMapApartmentFocus?.id === focus.apartmentId && !state.pendingMapApartmentFocus.resolved) {
+  if (
+    state.pendingMapApartmentFocus?.id === focus.apartmentId
+    && state.pendingMapApartmentFocus?.areaM2 === focus.areaM2
+    && !state.pendingMapApartmentFocus.resolved
+  ) {
     return false;
   }
+  state.mapPopupPreferredAreaM2 = focus.areaM2;
+  state.mapPopupPreferredApartmentId = focus.areaM2 ? focus.apartmentId : null;
 
   const params = new URLSearchParams({
     apartmentId: focus.apartmentId
@@ -474,15 +480,21 @@ async function prepareMapApartmentFocusFromUrl() {
     lat: Number(apartment.lat),
     lng: Number(apartment.lng)
   };
+  state.mapPopupPreferredApartmentId = focus.areaM2 ? item.id : null;
   state.pendingMapApartmentFocus = {
     id: item.id,
     item,
+    areaM2: focus.areaM2,
     resolved: false
   };
 
   if (!(await initZoomMap())) return false;
   closeMapApartmentPopup();
   setFocusedMapApartment(item);
+  const period = currentMapPeriodParams();
+  const detailCacheKey = `molit:${item.id}:${period.start}:${period.end}:${activeMinHouseholdCount()}`;
+  state.mapApartmentDetails.set(detailCacheKey, detail);
+  openMapApartmentDetail(item.id, item);
   moveZoomMapTo(item, apartmentMapZoom, { exactZoom: true });
   setTimeout(() => {
     if (state.pendingMapApartmentFocus?.id === item.id && !state.pendingMapApartmentFocus.resolved && isMapTab()) {
@@ -495,7 +507,13 @@ async function prepareMapApartmentFocusFromUrl() {
 function mapApartmentFocusFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
   const apartmentId = String(params.get("focusApartmentId") || "").trim();
-  return apartmentId ? { apartmentId } : null;
+  const areaM2 = nullableMapFocusNumber(params.get("focusAreaM2"));
+  return apartmentId ? { apartmentId, areaM2 } : null;
+}
+
+function nullableMapFocusNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }
 
 function resolvePendingMapApartmentFocus(items = []) {
@@ -510,8 +528,9 @@ function resolvePendingMapApartmentFocus(items = []) {
 
 function clearMapApartmentFocusUrl() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("focusApartmentId")) return;
+  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2")) return;
   url.searchParams.delete("focusApartmentId");
+  url.searchParams.delete("focusAreaM2");
   window.history.replaceState({ tab: state.activeTab }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 

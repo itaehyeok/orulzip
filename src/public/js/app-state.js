@@ -87,6 +87,8 @@ const state = {
   pendingMapApartmentFocus: null,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
+  mapPopupPreferredApartmentId: null,
+  mapPopupPreferredAreaM2: null,
   mapPopupCloseSuppressedUntil: 0,
   focusedMapApartmentId: null,
   activeGraphDesignId: null,

@@ -175,6 +175,14 @@ function bindEvents() {
     });
   });
   els.priceBandSummary?.addEventListener("change", (event) => {
+    const periodSelect = event.target.closest("[data-price-band-period-select]");
+    if (periodSelect) {
+      state.priceBandPage = 1;
+      setPeriodMonths(Number(periodSelect.value) || 12);
+      renderPriceBandLoadingState();
+      refresh();
+      return;
+    }
     const select = event.target.closest("[data-price-band-filter]");
     if (!select) return;
     if (select.dataset.priceBandFilter === "area") {

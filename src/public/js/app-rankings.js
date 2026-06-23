@@ -2,6 +2,14 @@ function applyQuickPeriod(years) {
   applyQuickPeriodMonths(Math.max(1, Math.round(Number(years || 1) * 12)));
 }
 
+const priceBandPeriodOptions = [
+  { value: 3, label: "3개월 전" },
+  { value: 6, label: "6개월 전" },
+  { value: 12, label: "1년 전" },
+  { value: 36, label: "3년 전" },
+  { value: 60, label: "5년 전" }
+];
+
 function applyQuickPeriodMonths(months) {
   if (!state.months.length) return;
   const end = state.months.at(-1);
@@ -25,7 +33,7 @@ function syncPeriodButtons(activeMonths = currentPeriodMonths()) {
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.classList.toggle("active", periodButtonMonths(button) === activeMonths);
   });
-  document.querySelectorAll("[data-period-select]").forEach((select) => {
+  document.querySelectorAll("[data-period-select], [data-price-band-period-select]").forEach((select) => {
     if (select.value !== String(activeMonths)) select.value = String(activeMonths);
   });
 }
@@ -130,14 +138,16 @@ function renderPriceBandTable(result, basisBands = null) {
   els.priceBandCount.textContent = `${selectionLabel} · ${selectedAreaBand?.label || "전체 평형"} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
   renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows);
   els.priceBandRows.innerHTML = rows.length
-    ? rows.map((row) => `
-      <tr>
+    ? rows.map((row) => {
+      const mapLink = priceBandMapApartmentLink(row);
+      return `
+      <tr class="clickable-row" data-price-band-row-map-link="${escapeHtml(mapLink)}">
         <td>${row.rank}</td>
         <td>
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
-            <a href="${escapeHtml(priceBandMapApartmentLink(row))}" data-price-band-map-link data-apartment-id="${escapeHtml(row.apartmentId || "")}">지도에서 보기</a>
+            <a href="${escapeHtml(mapLink)}" data-price-band-map-link>지도에서 보기</a>
             <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
             <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
           </span>
@@ -145,7 +155,8 @@ function renderPriceBandTable(result, basisBands = null) {
         <td>${escapeHtml(formatPriceBandLocation(row))}</td>
         <td>${renderPriceBandAreaBreakdownCell(row)}</td>
       </tr>
-    `).join("")
+    `;
+    }).join("")
     : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
   bindPriceBandAreaMoreToggles();
@@ -172,13 +183,24 @@ function bindPriceBandMapLinks() {
   els.priceBandRows?.querySelectorAll("[data-price-band-map-link]").forEach((link) => {
     link.addEventListener("click", async (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-      const apartmentId = link.dataset.apartmentId || "";
-      if (!apartmentId) return;
       event.preventDefault();
-      window.history.pushState({ tab: "molitMap" }, "", priceBandMapApartmentLink({ apartmentId }));
-      await activateTab("molitMap", { push: false });
+      await openPriceBandMapDetailLink(link.getAttribute("href") || "");
     });
   });
+  els.priceBandRows?.querySelectorAll("[data-price-band-row-map-link]").forEach((row) => {
+    row.addEventListener("click", async (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      if (event.target.closest("a, button, select, input, textarea, [role='button']")) return;
+      await openPriceBandMapDetailLink(row.dataset.priceBandRowMapLink || "");
+    });
+  });
+}
+
+async function openPriceBandMapDetailLink(href) {
+  const normalizedHref = String(href || "").trim();
+  if (!normalizedHref) return;
+  window.history.pushState({ tab: "molitMap" }, "", normalizedHref);
+  await activateTab("molitMap", { push: false });
 }
 
 function renderPriceBandLoadingState() {
@@ -213,12 +235,27 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
   }
   els.priceBandSummary.innerHTML = `
     <div class="price-band-filter-row" aria-label="가격대 랭킹 조건">
+      ${renderPriceBandPeriodSelect()}
       ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
       <span class="price-band-filter-arrow" aria-hidden="true">→</span>
       ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
       <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
       ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
     </div>
+  `;
+}
+
+function renderPriceBandPeriodSelect() {
+  const activeMonths = currentPeriodMonths();
+  return `
+    <label class="price-band-filter-control price-band-period-filter-control">
+      <span>과거 기준</span>
+      <select data-price-band-period-select aria-label="가격대 랭킹 과거 기준 기간">
+        ${priceBandPeriodOptions.map((option) => `
+          <option value="${option.value}" ${option.value === activeMonths ? "selected" : ""}>${escapeHtml(option.label)}</option>
+        `).join("")}
+      </select>
+    </label>
   `;
 }
 
@@ -338,6 +375,8 @@ function naverApartmentLink(row) {
 function priceBandMapApartmentLink(row) {
   const params = new URLSearchParams();
   if (row.apartmentId) params.set("focusApartmentId", row.apartmentId);
+  const areaM2 = priceBandRepresentativeAreaM2(row);
+  if (areaM2 !== null) params.set("focusAreaM2", areaM2.toFixed(2));
   return `/map?${params}`;
 }
 
@@ -409,6 +448,7 @@ function priceBandAreaSummaries(row) {
     : [fallbackPriceBandAreaSummary(row)];
   return summaries
     .map((item) => ({
+      exclusiveAreaM2: nullableNumber(item.exclusiveAreaM2),
       areaLabel: item.areaLabel || row.areaLabel || "-",
       startSalePrice: nullableNumber(item.startSalePrice),
       endSalePrice: nullableNumber(item.endSalePrice),
@@ -423,12 +463,18 @@ function fallbackPriceBandAreaSummary(row) {
   const endSalePrice = nullableNumber(row.endSalePrice);
   const growthAmount = startSalePrice !== null && endSalePrice !== null ? endSalePrice - startSalePrice : nullableNumber(row.growthAmount);
   return {
+    exclusiveAreaM2: nullableNumber(row.exclusiveAreaM2),
     areaLabel: row.areaLabel || `${formatInt(row.areaTypeCount || 0)}개 면적`,
     startSalePrice,
     endSalePrice,
     growthAmount,
     growthRate: nullableNumber(row.growthRate)
   };
+}
+
+function priceBandRepresentativeAreaM2(row) {
+  const summary = priceBandAreaSummaries(row)[0];
+  return nullableNumber(summary?.exclusiveAreaM2);
 }
 
 function nullableNumber(value) {

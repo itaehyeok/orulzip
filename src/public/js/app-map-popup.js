@@ -5,6 +5,10 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   const source = currentMapSource();
   const period = currentMapPeriodParams();
   const minHouseholdCount = activeMinHouseholdCount();
+  if (state.mapPopupPreferredApartmentId && String(state.mapPopupPreferredApartmentId) !== String(apartmentId)) {
+    state.mapPopupPreferredApartmentId = null;
+    state.mapPopupPreferredAreaM2 = null;
+  }
   if (typeof trackAnalyticsEvent === "function") {
     trackAnalyticsEvent("apartment_detail_opened", {
       apartmentId,
@@ -148,7 +152,7 @@ function renderMapApartmentDetail(detail) {
     return;
   }
 
-  const selected = selectedMapPopupSeries(allSeries);
+  const selected = selectedMapPopupSeries(allSeries, detail.apartment.id);
   const selectedSeries = selected ? [selected] : [];
   els.mapPopupStats.innerHTML = `
     ${renderMapPopupAreaPicker(allSeries, selected)}
@@ -159,16 +163,62 @@ function renderMapApartmentDetail(detail) {
   renderMapPopupTradeHistory(selected);
 }
 
-function selectedMapPopupSeries(series) {
-  if (!series.length) return null;
+function selectedMapPopupSeries(series, apartmentId = "") {
+  if (!series.length) {
+    state.mapPopupPreferredApartmentId = null;
+    state.mapPopupPreferredAreaM2 = null;
+    return null;
+  }
   const selected = series.find((item) => item.id === state.mapPopupSelectedAreaTypeId);
   if (selected) return selected;
+  const preferred = selectedMapPopupPreferredAreaSeries(series, apartmentId);
+  if (preferred) {
+    state.mapPopupSelectedAreaTypeId = preferred.id;
+    return preferred;
+  }
   const fallback = [...series].sort((a, b) =>
     areaTypeDealCount(b) - areaTypeDealCount(a)
     || Number(b.exclusiveAreaPyeong || 0) - Number(a.exclusiveAreaPyeong || 0)
   )[0];
   state.mapPopupSelectedAreaTypeId = fallback?.id || null;
   return fallback || null;
+}
+
+function selectedMapPopupPreferredAreaSeries(series, apartmentId = "") {
+  const preferredAreaM2 = Number(state.mapPopupPreferredAreaM2);
+  if (!Number.isFinite(preferredAreaM2) || preferredAreaM2 <= 0) return null;
+  if (state.mapPopupPreferredApartmentId && String(state.mapPopupPreferredApartmentId) !== String(apartmentId)) {
+    state.mapPopupPreferredApartmentId = null;
+    state.mapPopupPreferredAreaM2 = null;
+    return null;
+  }
+  state.mapPopupPreferredApartmentId = null;
+  state.mapPopupPreferredAreaM2 = null;
+  const scored = series
+    .map((item) => ({
+      item,
+      diff: Math.abs(mapPopupAreaM2(item) - preferredAreaM2)
+    }))
+    .filter((entry) => Number.isFinite(entry.diff))
+    .sort((a, b) => a.diff - b.diff);
+  const best = scored[0];
+  return best && best.diff <= 0.35 ? best.item : null;
+}
+
+function mapPopupAreaM2(item) {
+  const direct = Number(item?.exclusiveAreaM2);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const pyeong = Number(item?.exclusiveAreaPyeong || item?.supplyAreaPyeong);
+  if (Number.isFinite(pyeong) && pyeong > 0) return pyeong * 3.305785;
+  const idMatch = String(item?.id || "").match(/:([0-9]+(?:\.[0-9]+)?)$/);
+  if (idMatch) {
+    const fromId = Number(idMatch[1]);
+    if (Number.isFinite(fromId) && fromId > 0) return fromId;
+  }
+  const labelMatch = String(item?.label || "").match(/([0-9]+(?:\.[0-9]+)?)\s*㎡/);
+  if (!labelMatch) return NaN;
+  const fromLabel = Number(labelMatch[1]);
+  return Number.isFinite(fromLabel) && fromLabel > 0 ? fromLabel : NaN;
 }
 
 function areaTypeDealCount(areaType) {
