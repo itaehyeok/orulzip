@@ -655,20 +655,38 @@ export async function buildMolitApartmentDetail(apartmentId, {
                id desc
     `, [normalizedApartmentId, safeTradeLimit]),
     query(`
+      with dong_deals as (
+        select
+          d.deal_year_month,
+          d.pyeong_price::numeric as pyeong_price
+        from molit_trade_deals d
+        join molit_complexes target
+          on target.id = $1
+         and target.lawd_cd = d.lawd_cd
+         and target.legal_dong = coalesce(trim(d.legal_dong), '')
+        where d.pyeong_price is not null
+          and d.deal_year_month between $2 and $3
+          and coalesce(d.cancel_type, '') = ''
+      ),
+      ranked as (
+        select
+          deal_year_month,
+          pyeong_price,
+          ntile(5) over (
+            partition by deal_year_month
+            order by pyeong_price desc
+          ) as price_bucket
+        from dong_deals
+      )
       select
-        d.deal_year_month,
-        round(avg(d.pyeong_price))::int as pyeong_price,
-        count(*)::int as deal_count
-      from molit_trade_deals d
-      join molit_complexes target
-        on target.id = $1
-       and target.lawd_cd = d.lawd_cd
-       and target.legal_dong = coalesce(trim(d.legal_dong), '')
-      where d.pyeong_price is not null
-        and d.deal_year_month between $2 and $3
-        and coalesce(d.cancel_type, '') = ''
-      group by d.deal_year_month
-      order by d.deal_year_month
+        deal_year_month,
+        round(avg(pyeong_price))::int as average_pyeong_price,
+        count(*)::int as average_deal_count,
+        round(avg(pyeong_price) filter (where price_bucket = 1))::int as top20_pyeong_price,
+        (count(*) filter (where price_bucket = 1))::int as top20_deal_count
+      from ranked
+      group by deal_year_month
+      order by deal_year_month
     `, [normalizedApartmentId, detailStartMonth, currentMonth])
   ]);
 
@@ -690,8 +708,10 @@ export async function buildMolitApartmentDetail(apartmentId, {
     row.deal_year_month,
     {
       yearMonth: row.deal_year_month || "",
-      pyeongPrice: Number(row.pyeong_price || 0),
-      dealCount: Number(row.deal_count || 0)
+      averagePyeongPrice: Number(row.average_pyeong_price || 0),
+      averageDealCount: Number(row.average_deal_count || 0),
+      top20PyeongPrice: Number(row.top20_pyeong_price || 0),
+      top20DealCount: Number(row.top20_deal_count || 0)
     }
   ]));
   const types = new Map();
@@ -736,7 +756,7 @@ export async function buildMolitApartmentDetail(apartmentId, {
       supplyAreaPyeong: type.supplyAreaPyeong,
       exclusiveAreaPyeong: type.exclusiveAreaPyeong,
       totalDealCount: type.totalDealCount,
-      neighborhoodPyeongBenchmark: buildNeighborhoodPyeongBenchmark({
+      neighborhoodPyeongBenchmark: buildNeighborhoodPyeongBenchmarks({
         apartment,
         months,
         pyeongByMonth: neighborhoodPyeongByMonth,
@@ -754,30 +774,64 @@ export async function buildMolitApartmentDetail(apartmentId, {
   };
 }
 
-function buildNeighborhoodPyeongBenchmark({ apartment, months, pyeongByMonth, exclusiveAreaPyeong }) {
+function buildNeighborhoodPyeongBenchmarks({ apartment, months, pyeongByMonth, exclusiveAreaPyeong }) {
   const pyeong = Number(exclusiveAreaPyeong);
   if (!Number.isFinite(pyeong) || pyeong <= 0 || !pyeongByMonth?.size) return null;
+  const averagePrices = buildNeighborhoodPyeongBenchmarkPrices({
+    months,
+    pyeongByMonth,
+    exclusiveAreaPyeong: pyeong,
+    pyeongPriceField: "averagePyeongPrice",
+    dealCountField: "averageDealCount"
+  });
+  const top20Prices = buildNeighborhoodPyeongBenchmarkPrices({
+    months,
+    pyeongByMonth,
+    exclusiveAreaPyeong: pyeong,
+    pyeongPriceField: "top20PyeongPrice",
+    dealCountField: "top20DealCount"
+  });
+  if (!averagePrices.length && !top20Prices.length) return null;
+  const dongName = apartment?.dongName || apartment?.neighborhoodName || "동네";
+  return {
+    average: averagePrices.length
+      ? {
+          label: `${dongName} 평균 환산가`,
+          prices: averagePrices
+        }
+      : null,
+    top20: top20Prices.length
+      ? {
+          label: `${dongName} 상위 20% 환산가`,
+          prices: top20Prices
+        }
+      : null
+  };
+}
+
+function buildNeighborhoodPyeongBenchmarkPrices({
+  months,
+  pyeongByMonth,
+  exclusiveAreaPyeong,
+  pyeongPriceField,
+  dealCountField
+}) {
   const prices = [];
   let carried = null;
   for (const yearMonth of months) {
     carried = pyeongByMonth.get(yearMonth) || carried;
-    const pyeongPrice = Number(carried?.pyeongPrice);
+    const pyeongPrice = Number(carried?.[pyeongPriceField]);
     if (!Number.isFinite(pyeongPrice) || pyeongPrice <= 0) continue;
     prices.push({
       yearMonth,
       sourceMonth: carried.yearMonth || yearMonth,
-      saleMid: Math.round(pyeongPrice * pyeong),
+      saleMid: Math.round(pyeongPrice * exclusiveAreaPyeong),
       pyeongPrice,
-      exclusiveAreaPyeong: pyeong,
-      dealCount: Number(carried.dealCount || 0)
+      exclusiveAreaPyeong,
+      dealCount: Number(carried[dealCountField] || 0)
     });
   }
-  if (!prices.length) return null;
-  const dongName = apartment?.dongName || apartment?.neighborhoodName || "동네";
-  return {
-    label: `${dongName} 평당가 환산`,
-    prices
-  };
+  return prices;
 }
 
 export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS } = {}) {

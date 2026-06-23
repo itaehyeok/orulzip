@@ -895,6 +895,7 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
   const geometry = graphChartGeometry({ mode, months, series });
   const { width, height, padding, chartRight, chartBottom, x, y, yMin, yMax } = geometry;
   const svgId = `graph-${mode}-${design.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+  const plotClipId = `${svgId}-plot-clip`;
   const grid = renderGraphGrid({ design, y, yMin, yMax, padding, chartRight });
   const monthLabels = renderGraphMonthLabels({ design, mode, months, x, height });
   const periodMarkers = renderGraphPeriodMarkers({ months, series, x, y, padding, chartBottom });
@@ -902,17 +903,27 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
   const pyeongGeometry = showPyeong ? graphPyeongGeometry({ pyeongSeries, padding, chartBottom }) : null;
   const pyeongAxis = renderPyeongGraphAxis({ design, pyeongDesign, pyeongGeometry, padding, chartBottom, chartRight });
   const pyeongSeriesMarkup = renderPyeongGraphSeries({ design: pyeongDesign, pyeongSeries, x, y: pyeongGeometry?.y });
+  const clippedPyeongSeriesMarkup = pyeongSeriesMarkup
+    ? `<g clip-path="url(#${plotClipId})">${pyeongSeriesMarkup}</g>`
+    : "";
+  const auxiliaryLegend = renderGraphAuxiliaryLegend({ chartRight, padding, series });
   const seriesMarkup = series.map((item, index) => renderGraphSeries({
     chartBottom,
     design,
     index,
     item,
     mode,
+    plotClipId,
     svgId,
     x,
     y
   })).join("");
-  const defs = series.map((item, index) => renderGraphGradient({ design, item, index, svgId })).join("");
+  const plotClip = `
+    <clipPath id="${plotClipId}">
+      <rect x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}"></rect>
+    </clipPath>
+  `;
+  const defs = `${series.map((item, index) => renderGraphGradient({ design, item, index, svgId })).join("")}${plotClip}`;
   const hover = interactive
     ? `
       <line class="chart-hover-line map-popup-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${chartBottom}" style="stroke:${design.textColor};" hidden></line>
@@ -933,7 +944,8 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
         <rect class="map-popup-plot-bg" x="${padding.left}" y="${padding.top}" width="${chartRight - padding.left}" height="${chartBottom - padding.top}" rx="${design.plotRadius}" style="fill:${design.plotBackground};stroke:${design.gridMode === "none" ? "transparent" : design.gridColor};"></rect>
         ${grid}
         ${pyeongAxis}
-        ${pyeongSeriesMarkup}
+        ${auxiliaryLegend}
+        ${clippedPyeongSeriesMarkup}
         ${seriesMarkup}
         ${periodMarkers}
         ${monthLabels}
@@ -944,6 +956,36 @@ function renderGraphSvg({ design, pyeongDesign = activePyeongGraphDesign(), inte
       </svg>
     `
   };
+}
+
+function renderGraphAuxiliaryLegend({ chartRight, padding, series }) {
+  const items = series.filter((item) => item.auxiliary && item.label).slice(0, 3);
+  if (!items.length) return "";
+  const availableWidth = Math.max(120, chartRight - padding.left);
+  const itemWidth = Math.max(130, Math.min(190, availableWidth / items.length));
+  const yPos = Math.max(13, padding.top - 10);
+  return items.map((item, index) => {
+    const xPos = padding.left + index * itemWidth;
+    const label = truncateGraphLegendLabel(item.label, Math.max(10, Math.floor((itemWidth - 28) / 10)));
+    const style = [
+      `stroke-width:${Number(item.lineWidth) || 1.8}px`,
+      `opacity:${Number.isFinite(Number(item.opacity)) ? Number(item.opacity) : 1}`,
+      item.dash ? `stroke-dasharray:${item.dash}` : "",
+      "stroke-linecap:round"
+    ].filter(Boolean).join(";");
+    return `
+      <g class="map-popup-auxiliary-legend">
+        <line x1="${xPos}" y1="${yPos}" x2="${xPos + 18}" y2="${yPos}" stroke="${item.color}" style="${style}"></line>
+        <text x="${xPos + 24}" y="${yPos + 4}" fill="#667085" font-size="11" font-weight="800">${escapeHtml(label)}</text>
+      </g>
+    `;
+  }).join("");
+}
+
+function truncateGraphLegendLabel(label, maxLength) {
+  const value = String(label || "");
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(1, maxLength - 2))}..`;
 }
 
 function averagePyeongGraphSeries({ months, series }) {
@@ -1106,7 +1148,7 @@ function renderGraphMonthLabels({ design, mode, months, x, height }) {
     .join("");
 }
 
-function renderGraphSeries({ chartBottom, design, index, item, mode, svgId, x, y }) {
+function renderGraphSeries({ chartBottom, design, index, item, mode, plotClipId, svgId, x, y }) {
   const points = item.prices.map((price) => ({
     x: x(price.yearMonth),
     y: y(price.saleMid),
@@ -1132,10 +1174,16 @@ function renderGraphSeries({ chartBottom, design, index, item, mode, svgId, x, y
     Number.isFinite(Number(item.opacity)) ? `opacity:${Number(item.opacity)}` : "",
     item.dash || design.dash ? `stroke-dasharray:${item.dash || design.dash}` : ""
   ].filter(Boolean).join(";");
-
-  return `
+  const pathMarkup = `
     ${area}
     <path class="map-popup-line" d="${linePath}" stroke="${item.color}" style="${lineStyle}"></path>
+  `;
+  const clippedPathMarkup = plotClipId
+    ? `<g clip-path="url(#${plotClipId})">${pathMarkup}</g>`
+    : pathMarkup;
+
+  return `
+    ${clippedPathMarkup}
     ${pointsMarkup}
     ${endLabel}
   `;
