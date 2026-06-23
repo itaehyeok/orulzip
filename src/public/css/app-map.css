@@ -519,7 +519,8 @@
 }
 
 .map-ranking-period-select select {
-  width: 78px;
+  width: 118px;
+  word-spacing: -2px;
 }
 
 .map-ranking-title-select::after,

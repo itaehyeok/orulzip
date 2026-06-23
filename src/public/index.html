@@ -2,7 +2,7 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>오를집 - 아파트 실거래가 상승률 지도</title>
     <meta name="description" content="오를집은 아파트 실거래가를 기준으로 지역별·가격대별 상승률과 랭킹을 지도에서 확인하는 부동산 데이터 서비스입니다.">
     <meta name="robots" content="index,follow">
@@ -20,15 +20,50 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
-    <link rel="stylesheet" href="/styles.css?v=20260622-bounded-marker-hover">
+    <link rel="stylesheet" href="/styles.css?v=20260623-mobile-safari-map-fill">
   </head>
   <body>
     <main class="app-shell">
       <header class="map-top-header" aria-label="상단 메뉴">
         <div class="map-top-left">
-          <button class="map-menu-button" type="button" aria-label="메뉴" title="메뉴">
-            <span aria-hidden="true"></span>
-          </button>
+          <details class="map-settings-menu">
+            <summary class="map-menu-button" aria-label="설정 메뉴" title="설정">
+              <span aria-hidden="true"></span>
+            </summary>
+            <div class="map-settings-panel">
+              <button class="map-settings-row" type="button" data-display-settings-open>표시 설정</button>
+              <details class="map-settings-submenu" data-admin-only hidden>
+                <summary class="map-settings-row">어드민 메뉴</summary>
+                <div class="map-admin-menu-list">
+                  <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
+                  <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
+                  <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
+                  <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
+                  <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
+                  <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
+                  <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
+                  <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
+                  <div class="tab-more-control" data-admin-only hidden>
+                    <span data-apartment-marker-mode-label>현재 아파트 마커</span>
+                    <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
+                    <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div class="map-display-settings-panel" data-display-settings-panel hidden>
+              <div class="map-display-settings-head">
+                <strong>표시 설정</strong>
+                <button type="button" data-display-settings-close aria-label="표시 설정 닫기">×</button>
+              </div>
+              <div class="map-display-settings-row">
+                <span>100세대 이상 보기</span>
+                <button class="household-filter-switch" type="button" data-household-filter-toggle data-household-filter-static="true" role="switch" aria-checked="true" aria-pressed="true" aria-label="100세대 이상 보기">
+                  <span aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+          </details>
           <a class="map-top-logo" href="/map" aria-label="오를집">
             <span class="orulzip-logo tone-black style-line">
               <span class="orulzip-logo-mark">
@@ -53,27 +88,6 @@
           <a class="active" data-tab="molitMap" href="/map" aria-current="page">아파트 상승률 지도</a>
           <a data-tab="priceBands" href="/price-bands">아파트 랭킹</a>
         </nav>
-
-        <div class="map-top-right">
-          <details class="tab-more-menu" data-admin-only hidden>
-            <summary>더보기</summary>
-            <div class="tab-more-list">
-              <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
-              <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
-              <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
-              <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
-              <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
-              <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
-              <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
-              <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
-              <div class="tab-more-control" data-admin-only hidden>
-                <span data-apartment-marker-mode-label>현재 아파트 마커</span>
-                <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
-                <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
-              </div>
-            </div>
-          </details>
-        </div>
       </header>
 
       <div class="app-state-controls" hidden>
@@ -99,16 +113,15 @@
             <div id="zoomMap" class="growth-map"></div>
             <div class="map-floating-controls">
               <label class="top-period-select map-floating-period-select">
-                <span class="sr-only">기준 기간</span>
-                <select data-period-select aria-label="기준 기간">
-                  <option value="3">3개월전 기준</option>
-                  <option value="6">6개월전 기준</option>
-                  <option value="12" selected>1년전 기준</option>
-                  <option value="36">3년전 기준</option>
-                  <option value="60">5년전 기준</option>
+                <span class="sr-only">대비 기간</span>
+                <select data-period-select aria-label="대비 기간">
+                  <option value="3">3개월 전 대비</option>
+                  <option value="6">6개월 전 대비</option>
+                  <option value="12" selected>1년 전 대비</option>
+                  <option value="36">3년 전 대비</option>
+                  <option value="60">5년 전 대비</option>
                 </select>
               </label>
-              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
             </div>
             <div id="mapTransitionStatus" class="map-transition-status" hidden>마커 전환 중...</div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
@@ -133,13 +146,13 @@
                   <div class="map-ranking-controls">
                     <div id="mapRankingTabs" class="map-ranking-tabs" role="tablist" aria-label="아파트 리스트 범위"></div>
                     <label class="map-ranking-period-select">
-                      <span class="sr-only">리스트 기준 기간</span>
-                      <select data-period-select aria-label="리스트 기준 기간">
-                        <option value="3">3개월</option>
-                        <option value="6">6개월</option>
-                        <option value="12" selected>1년</option>
-                        <option value="36">3년</option>
-                        <option value="60">5년</option>
+                      <span class="sr-only">리스트 대비 기간</span>
+                      <select data-period-select aria-label="리스트 대비 기간">
+                        <option value="3">3개월 전 대비</option>
+                        <option value="6">6개월 전 대비</option>
+                        <option value="12" selected>1년 전 대비</option>
+                        <option value="36">3년 전 대비</option>
+                        <option value="60">5년 전 대비</option>
                       </select>
                     </label>
                   </div>
@@ -213,9 +226,6 @@
           <div class="panel-head">
             <h2>실거래가 가격대별 상승 랭킹</h2>
             <span id="priceBandCount"></span>
-          </div>
-          <div class="ranking-controls price-band-controls">
-            <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
           </div>
           <div id="priceBandSummary" class="price-band-summary"></div>
           <div class="table-wrap">

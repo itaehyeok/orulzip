@@ -54,7 +54,10 @@ function renderAdminNavigation() {
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !showAdminNav;
   });
-  if (!showAdminNav) closeTabMoreMenus();
+  if (!showAdminNav) {
+    closeTabMoreMenus();
+    closeMapSettingsMenus();
+  }
 }
 
 function bindEvents() {
@@ -84,6 +87,8 @@ function bindEvents() {
   });
   document.querySelector(".deploy-version-copy")?.addEventListener("click", copyDeployVersion);
   document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
+  document.querySelector("[data-display-settings-open]")?.addEventListener("click", openMapDisplaySettingsPanel);
+  document.querySelector("[data-display-settings-close]")?.addEventListener("click", closeMapDisplaySettingsPanels);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -158,6 +163,7 @@ function bindEvents() {
       state.priceBandPage = 1;
       state.mapApartmentDetails.clear();
       syncHouseholdFilterToggles();
+      closeMapSettingsMenus();
       if (state.activeTab === "priceBands") renderPriceBandLoadingState();
       refresh();
     });
@@ -195,12 +201,13 @@ function bindEvents() {
     refresh();
   });
 
-  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+  document.querySelectorAll("[data-tab]").forEach((item) => {
     item.addEventListener("click", (event) => {
       event.preventDefault();
       const menu = item.closest(".tab-more-menu");
       activateTab(item.dataset.tab, { push: true });
       if (menu) menu.open = false;
+      if (item.closest(".map-settings-menu")) closeMapSettingsMenus();
     });
   });
 
@@ -213,13 +220,16 @@ function bindEvents() {
     const isRankingClick = els.mapApartmentRanking?.contains(event.target);
     const isRankingToggleClick = els.mapRankingToggleBtn?.contains(event.target);
     const isTabMoreClick = event.target.closest(".tab-more-menu");
+    const isMapSettingsClick = event.target.closest(".map-settings-menu");
     const isDeployVersionClick = event.target.closest(".deploy-version-badge");
     if (!isSearchClick && !isRankingClick && !isRankingToggleClick) hideMapSearchResults();
     if (!isTabMoreClick) closeTabMoreMenus();
+    if (!isMapSettingsClick) closeMapSettingsMenus();
     if (!isDeployVersionClick) closeDeployCommitPopover();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeMapSettingsMenus();
       closeDeployCommitPopover();
       closeMobileMapRanking();
     }
@@ -330,6 +340,32 @@ function relativeCommitTime(value) {
 function closeTabMoreMenus() {
   document.querySelectorAll(".tab-more-menu[open]").forEach((menu) => {
     menu.open = false;
+  });
+}
+
+function closeMapSettingsMenus() {
+  document.querySelectorAll(".map-settings-menu[open]").forEach((menu) => {
+    menu.open = false;
+    menu.classList.remove("display-settings-open");
+  });
+  closeMapDisplaySettingsPanels();
+}
+
+function openMapDisplaySettingsPanel() {
+  const menu = document.querySelector(".map-settings-menu");
+  const panel = document.querySelector("[data-display-settings-panel]");
+  if (!menu || !panel) return;
+  menu.open = true;
+  menu.classList.add("display-settings-open");
+  panel.hidden = false;
+}
+
+function closeMapDisplaySettingsPanels() {
+  document.querySelectorAll("[data-display-settings-panel]").forEach((panel) => {
+    panel.hidden = true;
+  });
+  document.querySelectorAll(".map-settings-menu.display-settings-open").forEach((menu) => {
+    menu.classList.remove("display-settings-open");
   });
 }
 
@@ -506,7 +542,7 @@ function setActiveTab(tab, { push = false } = {}) {
   const nextTab = tabRoutes[tab] ? tab : "map";
   state.activeTab = nextTab;
 
-  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+  document.querySelectorAll("[data-tab]").forEach((item) => {
     const isActive = item.dataset.tab === nextTab;
     item.classList.toggle("active", isActive);
     if (isActive) {

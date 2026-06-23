@@ -607,9 +607,9 @@ function growthRateMapPreviewHtml(design) {
         <span>디자인</span>
       </span>
       <span class="growth-rate-map-preview-period">
-        <span>3개월전 기준</span>
-        <span class="active">1년전 기준</span>
-        <span>5년전 기준</span>
+        <span>3개월 전 대비</span>
+        <span class="active">1년 전 대비</span>
+        <span>5년 전 대비</span>
       </span>
       <span class="growth-rate-map-preview-canvas">
         <span class="growth-rate-map-preview-road road-a"></span>

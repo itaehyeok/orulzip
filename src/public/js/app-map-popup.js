@@ -186,7 +186,7 @@ function renderMapPopupAreaPicker(series, selected) {
         <select id="mapPopupAreaSelect" data-map-popup-area-select>
           ${series.map((item) => `
             <option value="${escapeHtml(item.id)}" ${item.id === selected?.id ? "selected" : ""}>
-              ${escapeHtml(item.label || "-")} · 거래 ${formatInt(areaTypeDealCount(item))}건
+              ${escapeHtml(mapPopupAreaOptionLabel(item))} · 거래 ${formatInt(areaTypeDealCount(item))}건
             </option>
           `).join("")}
         </select>
@@ -194,6 +194,13 @@ function renderMapPopupAreaPicker(series, selected) {
       <em>선택 평형 실거래가 그래프</em>
     </div>
   `;
+}
+
+function mapPopupAreaOptionLabel(item) {
+  const label = item?.label || "-";
+  const pyeong = Number(item?.exclusiveAreaPyeong || item?.supplyAreaPyeong);
+  if (!Number.isFinite(pyeong) || pyeong <= 0) return label;
+  return `${label} (${pyeong.toFixed(1)}평)`;
 }
 
 function renderMapPopupRanks(rankSummary, apartment = null) {

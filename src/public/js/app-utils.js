@@ -28,7 +28,12 @@ function syncHouseholdFilterToggles() {
   els.householdFilterToggles?.forEach((button) => {
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    button.textContent = isActive ? householdFilterLabel() : "전체";
+    if (button.getAttribute("role") === "switch") {
+      button.setAttribute("aria-checked", isActive ? "true" : "false");
+    }
+    if (button.dataset.householdFilterStatic !== "true") {
+      button.textContent = isActive ? householdFilterLabel() : "전체";
+    }
   });
 }
 

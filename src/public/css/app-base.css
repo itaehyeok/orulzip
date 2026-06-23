@@ -390,19 +390,6 @@ input {
   width: 92px;
 }
 
-.price-band-controls {
-  justify-content: flex-end;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-}
-
-.price-band-controls .household-filter-toggle {
-  height: 34px;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
 .pagination {
   display: flex;
   flex-wrap: wrap;
