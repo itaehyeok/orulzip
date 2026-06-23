@@ -115,7 +115,18 @@
               <div id="mapRankingSection" class="map-ranking-section" hidden>
                 <div class="map-ranking-head">
                   <div class="map-ranking-title">
-                    <strong id="mapRankingTitle">현재 지도 랭킹</strong>
+                    <strong id="mapRankingTitle">
+                      <span data-map-ranking-title-prefix>현재 지도</span>
+                      <label class="map-ranking-title-select">
+                        <select id="mapRankingTargetSelect" aria-label="랭킹 대상">
+                          <option value="sido">시도</option>
+                          <option value="sigungu">시군구</option>
+                          <option value="dong">동</option>
+                          <option value="apartment">아파트</option>
+                        </select>
+                      </label>
+                      <span data-map-ranking-title-suffix>랭킹</span>
+                    </strong>
                     <span id="mapRankingCount"></span>
                     <button id="mapRankingCloseBtn" class="map-ranking-close" type="button" aria-label="랭킹 닫기">×</button>
                   </div>
