@@ -872,7 +872,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           c.last_month,
           c.lat,
           c.lng,
-          coalesce(a.household_count, 0) as household_count,
+          coalesce(c.reb_household_count, a.household_count, 0) as household_count,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_year_month,
           d.deal_amount,

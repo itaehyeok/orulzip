@@ -166,7 +166,7 @@ export async function readPriceBandRankPage({
   const offset = (safePage - 1) * normalizedPageSize;
   const rowsResult = totalRows ? await query(`
     with filtered as (
-      select pbi.*, a.household_count
+      select pbi.*, coalesce(c.reb_household_count, a.household_count, 0) as household_count
       from price_band_rank_items pbi
       left join molit_complexes c
         on c.id = pbi.apartment_id
@@ -311,7 +311,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           c.last_month,
           c.lat,
           c.lng,
-          coalesce(a.household_count, 0) as household_count,
+          coalesce(c.reb_household_count, a.household_count, 0) as household_count,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_year_month,
           d.deal_amount,

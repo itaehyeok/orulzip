@@ -238,7 +238,75 @@ export async function initDb() {
       add column if not exists sigungu_code text,
       add column if not exists sigungu_name text,
       add column if not exists dong_key text,
-      add column if not exists dong_name text;
+      add column if not exists dong_name text,
+      add column if not exists reb_complex_pk text,
+      add column if not exists reb_household_count integer,
+      add column if not exists reb_dong_count integer,
+      add column if not exists reb_match_score integer,
+      add column if not exists reb_match_source text,
+      add column if not exists reb_matched_at timestamptz;
+
+    create table if not exists reb_apt_identity_raw (
+      complex_pk text primary key,
+      pnu text,
+      adres text,
+      complex_nm1 text,
+      complex_nm2 text,
+      complex_nm3 text,
+      complex_gb_cd text,
+      dong_cnt integer,
+      unit_cnt integer,
+      useapr_dt text,
+      imported_at timestamptz not null default now()
+    );
+
+    alter table reb_apt_identity_raw
+      add column if not exists pnu text,
+      add column if not exists adres text,
+      add column if not exists complex_nm1 text,
+      add column if not exists complex_nm2 text,
+      add column if not exists complex_nm3 text,
+      add column if not exists complex_gb_cd text,
+      add column if not exists dong_cnt integer,
+      add column if not exists unit_cnt integer,
+      add column if not exists useapr_dt text,
+      add column if not exists imported_at timestamptz not null default now();
+
+    create table if not exists reb_apt_identity_apartment_norm (
+      complex_pk text primary key,
+      pnu text,
+      lawd_cd text,
+      adres text,
+      adres_norm text,
+      complex_nm1 text,
+      complex_nm2 text,
+      complex_nm3 text,
+      complex_nm1_norm text,
+      complex_nm2_norm text,
+      complex_nm3_norm text,
+      complex_gb_cd text,
+      dong_cnt integer,
+      unit_cnt integer,
+      useapr_dt text,
+      imported_at timestamptz not null default now()
+    );
+
+    alter table reb_apt_identity_apartment_norm
+      add column if not exists pnu text,
+      add column if not exists lawd_cd text,
+      add column if not exists adres text,
+      add column if not exists adres_norm text,
+      add column if not exists complex_nm1 text,
+      add column if not exists complex_nm2 text,
+      add column if not exists complex_nm3 text,
+      add column if not exists complex_nm1_norm text,
+      add column if not exists complex_nm2_norm text,
+      add column if not exists complex_nm3_norm text,
+      add column if not exists complex_gb_cd text,
+      add column if not exists dong_cnt integer,
+      add column if not exists unit_cnt integer,
+      add column if not exists useapr_dt text,
+      add column if not exists imported_at timestamptz not null default now();
 
     create index if not exists molit_complexes_lawd_dong_idx
       on molit_complexes(lawd_cd, legal_dong);
@@ -250,6 +318,22 @@ export async function initDb() {
       on molit_complexes(needs_review, distance_to_kb_m desc);
     create index if not exists molit_complexes_name_trgm_idx
       on molit_complexes using gin (normalized_apt_name gin_trgm_ops);
+    create index if not exists molit_complexes_reb_household_idx
+      on molit_complexes(reb_household_count);
+    create index if not exists molit_complexes_reb_complex_idx
+      on molit_complexes(reb_complex_pk);
+    create index if not exists reb_apt_identity_raw_type_idx
+      on reb_apt_identity_raw(complex_gb_cd);
+    create index if not exists reb_apt_identity_raw_unit_idx
+      on reb_apt_identity_raw(unit_cnt);
+    create index if not exists reb_apt_identity_norm_lawd_idx
+      on reb_apt_identity_apartment_norm(lawd_cd);
+    create index if not exists reb_apt_identity_norm_unit_idx
+      on reb_apt_identity_apartment_norm(unit_cnt);
+    create index if not exists reb_apt_identity_norm_adres_trgm_idx
+      on reb_apt_identity_apartment_norm using gin (adres_norm gin_trgm_ops);
+    create index if not exists reb_apt_identity_norm_nm1_trgm_idx
+      on reb_apt_identity_apartment_norm using gin (complex_nm1_norm gin_trgm_ops);
 
     create table if not exists molit_trade_fetches (
       id bigserial primary key,
