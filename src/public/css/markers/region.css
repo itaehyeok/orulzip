@@ -484,12 +484,12 @@
 }
 
 .dong-rank-demo {
-  --rank-bg: #ffffff;
-  --rank-border: #5262d6;
-  --rank-text: #2939a8;
+  --rank-bg: var(--growth-marker-bg, #ffffff);
+  --rank-border: var(--growth-marker-border, #5262d6);
+  --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
-  --rank-badge-bg: #eef2ff;
-  --rank-badge-text: #2939a8;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #eef2ff);
+  --rank-badge-text: var(--growth-marker-badge-text, #2939a8);
   --rank-default-width: 126px;
   position: relative;
   z-index: 2;
@@ -544,7 +544,7 @@
   gap: 2px;
   place-items: center;
   justify-self: stretch;
-  color: var(--region-marker-value-color, var(--rank-text));
+  color: var(--rank-text);
   font-size: var(--region-marker-value-font-size, 25px);
   font-weight: 950;
   letter-spacing: 0;
@@ -575,7 +575,7 @@
 }
 
 .dong-rank-demo .region-marker-value-rate {
-  color: var(--region-marker-value-color, var(--rank-text));
+  color: var(--rank-text);
   font-size: var(--region-marker-value-font-size, 25px);
   font-weight: 950;
   line-height: 0.96;
@@ -676,36 +676,36 @@
 }
 
 .rank-chip-white {
-  --rank-bg: #ffffff;
-  --rank-border: #5262d6;
-  --rank-text: #2939a8;
+  --rank-bg: var(--growth-marker-bg, #ffffff);
+  --rank-border: var(--growth-marker-border, #5262d6);
+  --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
-  --rank-badge-bg: #eef2ff;
-  --rank-badge-text: #2939a8;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #eef2ff);
+  --rank-badge-text: var(--growth-marker-badge-text, #2939a8);
   --rank-default-width: 126px;
 }
 
 .rank-chip-white em {
-  border: 1px solid rgba(82, 98, 214, 0.18);
+  border: 1px solid var(--growth-marker-badge-border, rgba(82, 98, 214, 0.18));
 }
 
 .rank-chip-stack {
-  --rank-bg: #eef2ff;
-  --rank-border: #5b68d9;
-  --rank-text: #3040a7;
-  --rank-muted: #5360bc;
-  --rank-badge-bg: #3040a7;
-  --rank-badge-text: #ffffff;
+  --rank-bg: var(--growth-marker-main, #3040a7);
+  --rank-border: var(--growth-marker-border, #5b68d9);
+  --rank-text: #ffffff;
+  --rank-muted: rgba(255, 255, 255, 0.78);
+  --rank-badge-bg: rgba(255, 255, 255, 0.92);
+  --rank-badge-text: var(--growth-marker-text, #3040a7);
   --rank-default-width: 118px;
 }
 
 .rank-chip-table {
-  --rank-bg: #eef2ff;
-  --rank-border: #5b68d9;
-  --rank-text: #3040a7;
-  --rank-muted: #5360bc;
+  --rank-bg: var(--growth-marker-bg, #eef2ff);
+  --rank-border: var(--growth-marker-border, #5b68d9);
+  --rank-text: var(--growth-marker-text, #3040a7);
+  --rank-muted: #667085;
   --rank-badge-bg: #ffffff;
-  --rank-badge-text: #3040a7;
+  --rank-badge-text: var(--growth-marker-badge-text, #3040a7);
   --rank-default-width: 138px;
   text-align: left;
 }
@@ -718,14 +718,14 @@
 .rank-chip-table span {
   gap: var(--region-marker-rank-row-gap, 0);
   overflow: hidden;
-  border: 1px solid rgba(48, 64, 167, 0.18);
+  border: 1px solid var(--growth-marker-badge-border, rgba(48, 64, 167, 0.18));
   border-radius: 6px;
   width: var(--region-marker-rank-box-width, 100%);
 }
 
 .rank-chip-table em {
   border-radius: 0;
-  border-bottom: 1px solid rgba(48, 64, 167, 0.14);
+  border-bottom: 1px solid var(--growth-marker-badge-border, rgba(48, 64, 167, 0.14));
 }
 
 .rank-chip-table em:last-child {
@@ -734,22 +734,22 @@
 
 .rank-chip-dark {
   --rank-bg: #111827;
-  --rank-border: #ffffff;
+  --rank-border: var(--growth-marker-border, #ffffff);
   --rank-text: #ffffff;
   --rank-muted: #c7d2fe;
-  --rank-badge-bg: #ffffff;
-  --rank-badge-text: #111827;
+  --rank-badge-bg: var(--growth-marker-main, #ffffff);
+  --rank-badge-text: #ffffff;
   --rank-default-width: 130px;
 }
 
 .dong-rank-demo:hover {
-  --rank-bg: #f4f8ff;
-  --rank-border: #307aff;
+  --rank-bg: var(--growth-marker-hover-bg, #f4f8ff);
+  --rank-border: var(--growth-marker-hover-border, #307aff);
 }
 
 .dong-rank-demo.rank-chip-dark:hover {
   --rank-bg: #1f2937;
-  --rank-border: #93c5fd;
+  --rank-border: var(--growth-marker-hover-border, #93c5fd);
 }
 
 .rank-chip-region {
