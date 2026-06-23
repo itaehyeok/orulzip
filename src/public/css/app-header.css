@@ -238,6 +238,7 @@
   background-color: rgba(255, 255, 255, 0.96);
   color: #1d2939;
   font-size: 14px;
+  word-spacing: -2px;
   box-shadow: 0 12px 30px rgba(16, 24, 40, 0.18);
   backdrop-filter: blur(8px);
 }
