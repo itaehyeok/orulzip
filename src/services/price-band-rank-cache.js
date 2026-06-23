@@ -298,6 +298,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
     addMonths(startMonth, -freshness.startGapMonths),
     addMonths(endMonth, -freshness.endGapMonths)
   ].sort()[0];
+  const recentStartMonth = addMonths(endMonth, -1);
   const [monthly, recent] = await Promise.all([
     query(`
       with matched as (
@@ -458,6 +459,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           and d.deal_amount is not null
           and d.pyeong_price is not null
           and coalesce(d.cancel_type, '') = ''
+          and d.deal_year_month >= $2
           and make_date(d.deal_year, d.deal_month, d.deal_day) between $1::date - interval '30 days' and $1::date
           and c.lat is not null
           and c.lng is not null
@@ -472,7 +474,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         count(*)::int as deal_count
       from matched
       group by apartment_id, exclusive_area_m2
-    `, [today])
+    `, [today, recentStartMonth])
   ]);
 
   return {
