@@ -538,9 +538,9 @@ function renderPriceBandAreaBreakdownCell(row) {
 
 function renderPriceBandAreaBreakdownLine(item, tone, options = {}) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
-  const rateTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
+  const rateTone = growthRateToneClass(item.growthRate);
   const metricMarkup = tone === "primary"
-    ? `<span class="price-band-area-metric-chip"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong></span>`
+    ? `<span class="price-band-area-metric-chip ${rateTone}"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate">${formatPercent(item.growthRate)}</strong></span>`
     : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
   const moreMarkup = options.moreCount
     ? `

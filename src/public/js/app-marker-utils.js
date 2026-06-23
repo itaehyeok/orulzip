@@ -122,7 +122,7 @@ const growthMarkerColorBands = [
   {
     min: 0.2,
     main: "#dc2626",
-    bg: "#fff1f2",
+    bg: "#ffffff",
     badgeBg: "#ffe4e6",
     badgeBorder: "rgba(220, 38, 38, 0.22)",
     hoverBg: "#ffe4e6"
@@ -130,7 +130,7 @@ const growthMarkerColorBands = [
   {
     min: 0.1,
     main: "#d97706",
-    bg: "#fff7ed",
+    bg: "#ffffff",
     badgeBg: "#ffedd5",
     badgeBorder: "rgba(217, 119, 6, 0.24)",
     hoverBg: "#ffedd5"
@@ -138,7 +138,7 @@ const growthMarkerColorBands = [
   {
     min: 0.05,
     main: "#16a34a",
-    bg: "#f0fdf4",
+    bg: "#ffffff",
     badgeBg: "#dcfce7",
     badgeBorder: "rgba(22, 163, 74, 0.22)",
     hoverBg: "#dcfce7"
@@ -146,7 +146,7 @@ const growthMarkerColorBands = [
   {
     min: 0,
     main: "#0f766e",
-    bg: "#f0fdfa",
+    bg: "#ffffff",
     badgeBg: "#ccfbf1",
     badgeBorder: "rgba(15, 118, 110, 0.22)",
     hoverBg: "#ccfbf1"
@@ -154,7 +154,7 @@ const growthMarkerColorBands = [
   {
     min: -Infinity,
     main: "#2563eb",
-    bg: "#eff6ff",
+    bg: "#ffffff",
     badgeBg: "#dbeafe",
     badgeBorder: "rgba(37, 99, 235, 0.22)",
     hoverBg: "#dbeafe"
@@ -170,8 +170,10 @@ const growthMarkerNoDataColors = {
 };
 
 function growthMarkerColors(rate) {
-  if (!Number.isFinite(rate)) return growthMarkerNoDataColors;
-  return growthMarkerColorBands.find((band) => rate >= band.min) || growthMarkerNoDataColors;
+  if (rate === null || rate === undefined || rate === "") return growthMarkerNoDataColors;
+  const number = Number(rate);
+  if (!Number.isFinite(number)) return growthMarkerNoDataColors;
+  return growthMarkerColorBands.find((band) => number >= band.min) || growthMarkerNoDataColors;
 }
 
 function growthColor(rate) {

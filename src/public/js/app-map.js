@@ -344,7 +344,7 @@ function mapGroupPopup(group) {
     <strong>${escapeHtml(group.name)}</strong><br>
     아파트 ${formatInt(group.apartmentCount)}개 / 면적 ${formatInt(group.areaCount)}개<br>
     평균 상승액 ${formatMoney(group.growthAmount)}<br>
-    평균 상승률 ${formatPercent(group.growthRate)}
+    평균 상승률 ${renderGrowthRateText(group.growthRate)}
   `;
 }
 

@@ -205,16 +205,25 @@ function setActiveMapHeaderDesign(id) {
 }
 
 const growthRateColorDesignStorageKey = "orulzip.growthRateColorDesignId";
+const growthRateColorStandard = {
+  top1: "#dc2626",
+  top2: "#d97706",
+  top3: "#16a34a",
+  positive: "#0f766e",
+  negative: "#2563eb",
+  neutral: "#667085",
+  noData: "#98a2b3"
+};
 const growthRateColorDesignVariants = [
   {
     id: "signal",
     name: "01 시그널",
     note: "상위권을 빨강-주황-녹색으로 빠르게 구분",
-    top1: "#b42318",
-    top2: "#c24132",
-    top3: "#d97706",
-    positive: "#16805f",
-    negative: "#2367d1",
+    top1: growthRateColorStandard.top1,
+    top2: growthRateColorStandard.top2,
+    top3: growthRateColorStandard.top3,
+    positive: growthRateColorStandard.positive,
+    negative: growthRateColorStandard.negative,
     neutral: "#667085",
     noData: "#98a2b3"
   },
@@ -286,7 +295,7 @@ function setActiveGrowthRateColorDesign(id) {
 }
 
 function applyGrowthRateColorDesign() {
-  const design = activeGrowthRateColorDesign();
+  const design = growthRateColorStandard;
   const root = document.documentElement;
   root.style.setProperty("--growth-rate-top-1", design.top1);
   root.style.setProperty("--growth-rate-top-2", design.top2);
@@ -301,6 +310,12 @@ function applyGrowthRateColorDesign() {
   root.style.setProperty("--growth-rate-positive-bg", alphaHex(design.positive, 0.1));
   root.style.setProperty("--growth-rate-negative-bg", alphaHex(design.negative, 0.1));
   root.style.setProperty("--growth-rate-neutral-bg", alphaHex(design.neutral, 0.1));
+  root.style.setProperty("--growth-rate-top-1-border", alphaHex(design.top1, 0.22));
+  root.style.setProperty("--growth-rate-top-2-border", alphaHex(design.top2, 0.24));
+  root.style.setProperty("--growth-rate-top-3-border", alphaHex(design.top3, 0.22));
+  root.style.setProperty("--growth-rate-positive-border", alphaHex(design.positive, 0.22));
+  root.style.setProperty("--growth-rate-negative-border", alphaHex(design.negative, 0.22));
+  root.style.setProperty("--growth-rate-neutral-border", alphaHex(design.neutral, 0.18));
 }
 
 function growthRateColorPreviewStyle(design) {
@@ -317,7 +332,13 @@ function growthRateColorPreviewStyle(design) {
     `--growth-rate-top-3-bg:${alphaHex(design.top3, 0.12)}`,
     `--growth-rate-positive-bg:${alphaHex(design.positive, 0.1)}`,
     `--growth-rate-negative-bg:${alphaHex(design.negative, 0.1)}`,
-    `--growth-rate-neutral-bg:${alphaHex(design.neutral, 0.1)}`
+    `--growth-rate-neutral-bg:${alphaHex(design.neutral, 0.1)}`,
+    `--growth-rate-top-1-border:${alphaHex(design.top1, 0.22)}`,
+    `--growth-rate-top-2-border:${alphaHex(design.top2, 0.24)}`,
+    `--growth-rate-top-3-border:${alphaHex(design.top3, 0.22)}`,
+    `--growth-rate-positive-border:${alphaHex(design.positive, 0.22)}`,
+    `--growth-rate-negative-border:${alphaHex(design.negative, 0.22)}`,
+    `--growth-rate-neutral-border:${alphaHex(design.neutral, 0.18)}`
   ].join(";");
 }
 

@@ -645,36 +645,43 @@
 }
 
 .map-ranking-rate {
-  background: var(--growth-rate-neutral-bg);
+  border: 1px solid var(--growth-rate-neutral-border);
+  background: #ffffff;
   color: var(--growth-rate-neutral);
 }
 
 .map-ranking-rate.growth-rate-top-1 {
-  background: var(--growth-rate-top-1-bg);
+  border-color: var(--growth-rate-top-1-border);
+  background: #ffffff;
   color: var(--growth-rate-top-1);
 }
 
 .map-ranking-rate.growth-rate-top-2 {
-  background: var(--growth-rate-top-2-bg);
+  border-color: var(--growth-rate-top-2-border);
+  background: #ffffff;
   color: var(--growth-rate-top-2);
 }
 
 .map-ranking-rate.growth-rate-top-3 {
-  background: var(--growth-rate-top-3-bg);
+  border-color: var(--growth-rate-top-3-border);
+  background: #ffffff;
   color: var(--growth-rate-top-3);
 }
 
 .map-ranking-rate.growth-rate-positive {
-  background: var(--growth-rate-positive-bg);
+  border-color: var(--growth-rate-positive-border);
+  background: #ffffff;
   color: var(--growth-rate-positive);
 }
 
 .map-ranking-rate.growth-rate-negative {
-  background: var(--growth-rate-negative-bg);
+  border-color: var(--growth-rate-negative-border);
+  background: #ffffff;
   color: var(--growth-rate-negative);
 }
 
 .map-ranking-rate.growth-rate-no-data {
+  border-color: rgba(152, 162, 179, 0.2);
   background: #f2f4f7;
   color: var(--growth-rate-no-data);
   font-size: 11px;

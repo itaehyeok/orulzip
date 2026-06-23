@@ -106,9 +106,47 @@ td:nth-child(4) {
   align-items: baseline;
   gap: 8px;
   justify-self: end;
+  border: 1px solid var(--growth-rate-neutral-border);
   border-radius: 999px;
-  background: #fff1ee;
+  background: #ffffff;
+  color: var(--growth-rate-neutral);
   padding: 4px 9px;
+}
+
+.price-band-area-metric-chip.growth-rate-top-1 {
+  border-color: var(--growth-rate-top-1-border);
+  color: var(--growth-rate-top-1);
+}
+
+.price-band-area-metric-chip.growth-rate-top-2 {
+  border-color: var(--growth-rate-top-2-border);
+  color: var(--growth-rate-top-2);
+}
+
+.price-band-area-metric-chip.growth-rate-top-3 {
+  border-color: var(--growth-rate-top-3-border);
+  color: var(--growth-rate-top-3);
+}
+
+.price-band-area-metric-chip.growth-rate-positive {
+  border-color: var(--growth-rate-positive-border);
+  color: var(--growth-rate-positive);
+}
+
+.price-band-area-metric-chip.growth-rate-negative {
+  border-color: var(--growth-rate-negative-border);
+  color: var(--growth-rate-negative);
+}
+
+.price-band-area-metric-chip.growth-rate-no-data {
+  border-color: rgba(152, 162, 179, 0.2);
+  background: #f2f4f7;
+  color: var(--growth-rate-no-data);
+}
+
+.price-band-area-metric-chip .price-band-area-amount,
+.price-band-area-metric-chip .price-band-area-rate {
+  color: currentColor;
 }
 
 .price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-amount,
@@ -122,6 +160,26 @@ td:nth-child(4) {
 .price-band-area-breakdown-line.secondary .price-band-area-amount,
 .price-band-area-breakdown-line.secondary .price-band-area-rate {
   color: #667085;
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-1 {
+  color: var(--growth-rate-top-1);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-2 {
+  color: var(--growth-rate-top-2);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-3 {
+  color: var(--growth-rate-top-3);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-positive {
+  color: var(--growth-rate-positive);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-negative {
+  color: var(--growth-rate-negative);
 }
 
 .price-band-area-more-slot {

@@ -19,6 +19,18 @@
 - Backend files are not split as aggressively yet. If a task requires repeatedly opening or editing `src/server.js` or `src/services/map-growth-cache.js`, pause after the immediate task and tell the user that backend refactoring is now worth considering.
 - Suggest backend refactoring when the same backend file must be read in broad chunks more than twice for one task, when a backend change crosses routing/cache/detail-building boundaries, or when new backend code would push a file past roughly 1,200 lines.
 
+## Growth Rate Color Standard
+
+- Use one shared growth-rate color language across map markers, map ranking lists, apartment ranking tables, and any other user-facing growth-rate display.
+- Growth-rate bands are based on the actual rate value, not ranking percentile:
+  - `< 0%`: blue `#2563eb`
+  - `0% <= rate < 5%`: teal `#0f766e`
+  - `5% <= rate < 10%`: green `#16a34a`
+  - `10% <= rate < 20%`: orange `#d97706`
+  - `20% <= rate`: red `#dc2626`
+- Default marker/list/table treatment is the "white background with colored line" style: keep main marker and chip backgrounds white, use the band color for borders and primary growth-rate text, and keep rank boxes as the only lightly tinted areas.
+- Do not introduce another growth-rate palette or percentile-based growth-rate coloring unless the user explicitly asks for it.
+
 ## Verification
 
 - After frontend changes, rebuild the web container so split static files are copied into the image:
