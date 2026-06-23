@@ -324,6 +324,8 @@ export async function initDb() {
 
     create index if not exists molit_complexes_lawd_dong_idx
       on molit_complexes(lawd_cd, legal_dong);
+    create index if not exists molit_complexes_deal_match_idx
+      on molit_complexes(lawd_cd, legal_dong, jibun, normalized_apt_name);
     create index if not exists molit_complexes_hierarchy_idx
       on molit_complexes(sido_code, sigungu_code, dong_key);
     create index if not exists molit_complexes_coord_idx
