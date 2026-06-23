@@ -207,35 +207,12 @@ function zoomMarkerHoverBounds() {
   if (!els.mapCanvasWrap || !els.zoomMap) return null;
   const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
   const mapRect = els.zoomMap.getBoundingClientRect();
-  let left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
-  let right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
-  const top = mapRect.top - wrapRect.top + markerHoverWindowMarginPx;
-  const bottom = mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx;
-  const rankingRect = visibleMapRankingRect();
-
-  if (rankingRect && rankingRect.bottom > mapRect.top && rankingRect.top < mapRect.bottom) {
-    const overlapsLeftMapEdge = rankingRect.left <= mapRect.left + 4 && rankingRect.right > mapRect.left;
-    if (overlapsLeftMapEdge) {
-      left = Math.max(left, rankingRect.right - wrapRect.left + markerHoverWindowMarginPx);
-    }
-  }
-
-  if (right <= left) {
-    left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
-    right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
-  }
-
-  return { left, right, top, bottom };
-}
-
-function visibleMapRankingRect() {
-  const ranking = els.mapApartmentRanking;
-  if (!ranking || ranking.hidden) return null;
-  const style = window.getComputedStyle(ranking);
-  if (style.display === "none" || style.visibility === "hidden") return null;
-  const rect = ranking.getBoundingClientRect();
-  if (rect.width <= 1 || rect.height <= 1) return null;
-  return rect;
+  return {
+    left: mapRect.left - wrapRect.left + markerHoverWindowMarginPx,
+    right: mapRect.right - wrapRect.left - markerHoverWindowMarginPx,
+    top: mapRect.top - wrapRect.top + markerHoverWindowMarginPx,
+    bottom: mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx
+  };
 }
 
 function zoomMarkerHoverPlacement(markerRect, width, height) {

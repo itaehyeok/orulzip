@@ -21,20 +21,20 @@
   --growth-rate-top-1: #dc2626;
   --growth-rate-top-2: #d97706;
   --growth-rate-top-3: #16a34a;
-  --growth-rate-positive: #0f766e;
+  --growth-rate-positive: #16a34a;
   --growth-rate-negative: #2563eb;
   --growth-rate-neutral: #667085;
   --growth-rate-no-data: #98a2b3;
   --growth-rate-top-1-bg: rgba(220, 38, 38, 0.12);
   --growth-rate-top-2-bg: rgba(217, 119, 6, 0.1);
   --growth-rate-top-3-bg: rgba(22, 163, 74, 0.12);
-  --growth-rate-positive-bg: rgba(15, 118, 110, 0.1);
+  --growth-rate-positive-bg: rgba(22, 163, 74, 0.1);
   --growth-rate-negative-bg: rgba(37, 99, 235, 0.1);
   --growth-rate-neutral-bg: rgba(102, 112, 133, 0.1);
   --growth-rate-top-1-border: rgba(220, 38, 38, 0.22);
   --growth-rate-top-2-border: rgba(217, 119, 6, 0.24);
   --growth-rate-top-3-border: rgba(22, 163, 74, 0.22);
-  --growth-rate-positive-border: rgba(15, 118, 110, 0.22);
+  --growth-rate-positive-border: rgba(22, 163, 74, 0.22);
   --growth-rate-negative-border: rgba(37, 99, 235, 0.22);
   --growth-rate-neutral-border: rgba(102, 112, 133, 0.18);
 }

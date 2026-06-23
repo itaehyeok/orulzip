@@ -145,11 +145,11 @@ const growthMarkerColorBands = [
   },
   {
     min: 0,
-    main: "#0f766e",
+    main: "#16a34a",
     bg: "#ffffff",
-    badgeBg: "#ccfbf1",
-    badgeBorder: "rgba(15, 118, 110, 0.22)",
-    hoverBg: "#ccfbf1"
+    badgeBg: "#dcfce7",
+    badgeBorder: "rgba(22, 163, 74, 0.22)",
+    hoverBg: "#dcfce7"
   },
   {
     min: -Infinity,

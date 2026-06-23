@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260623-growth-color-standard";
+  const version = "20260623-growth-green-band";
   const scripts = [
     "app-prelude",
     "app-state",

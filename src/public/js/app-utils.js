@@ -147,8 +147,7 @@ function growthRateTone(rate, rank = null, total = null) {
   if (number < 0) return "growth-rate-negative";
   if (number >= 0.2) return "growth-rate-top-1";
   if (number >= 0.1) return "growth-rate-top-2";
-  if (number >= 0.05) return "growth-rate-top-3";
-  return "growth-rate-positive";
+  return "growth-rate-top-3";
 }
 
 function growthRateToneClass(rate, rank = null, total = null) {

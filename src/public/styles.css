@@ -1,5 +1,5 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
-@import url("/css/app-base.css?v=20260623-growth-color-standard");
+@import url("/css/app-base.css?v=20260623-growth-green-band");
 @import url("/css/app-header.css?v=20260622-full-bleed-map");
 @import url("/css/app-map.css?v=20260623-growth-color-standard");
 @import url("/css/app-map-panels.css?v=20260623-floating-detail-panel");

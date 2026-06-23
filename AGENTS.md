@@ -24,8 +24,7 @@
 - Use one shared growth-rate color language across map markers, map ranking lists, apartment ranking tables, and any other user-facing growth-rate display.
 - Growth-rate bands are based on the actual rate value, not ranking percentile:
   - `< 0%`: blue `#2563eb`
-  - `0% <= rate < 5%`: teal `#0f766e`
-  - `5% <= rate < 10%`: green `#16a34a`
+  - `0% <= rate < 10%`: green `#16a34a`
   - `10% <= rate < 20%`: orange `#d97706`
   - `20% <= rate`: red `#dc2626`
 - Default marker/list/table treatment is the "white background with colored line" style: keep main marker and chip backgrounds white, use the band color for borders and primary growth-rate text, and keep rank boxes as the only lightly tinted areas.

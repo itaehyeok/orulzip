@@ -209,7 +209,7 @@ const growthRateColorStandard = {
   top1: "#dc2626",
   top2: "#d97706",
   top3: "#16a34a",
-  positive: "#0f766e",
+  positive: "#16a34a",
   negative: "#2563eb",
   neutral: "#667085",
   noData: "#98a2b3"
