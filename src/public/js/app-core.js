@@ -158,6 +158,7 @@ function bindEvents() {
       state.priceBandPage = 1;
       state.mapApartmentDetails.clear();
       syncHouseholdFilterToggles();
+      closeMapSettingsMenus();
       if (state.activeTab === "priceBands") renderPriceBandLoadingState();
       refresh();
     });
@@ -213,13 +214,16 @@ function bindEvents() {
     const isRankingClick = els.mapApartmentRanking?.contains(event.target);
     const isRankingToggleClick = els.mapRankingToggleBtn?.contains(event.target);
     const isTabMoreClick = event.target.closest(".tab-more-menu");
+    const isMapSettingsClick = event.target.closest(".map-settings-menu");
     const isDeployVersionClick = event.target.closest(".deploy-version-badge");
     if (!isSearchClick && !isRankingClick && !isRankingToggleClick) hideMapSearchResults();
     if (!isTabMoreClick) closeTabMoreMenus();
+    if (!isMapSettingsClick) closeMapSettingsMenus();
     if (!isDeployVersionClick) closeDeployCommitPopover();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeMapSettingsMenus();
       closeDeployCommitPopover();
       closeMobileMapRanking();
     }
@@ -329,6 +333,12 @@ function relativeCommitTime(value) {
 
 function closeTabMoreMenus() {
   document.querySelectorAll(".tab-more-menu[open]").forEach((menu) => {
+    menu.open = false;
+  });
+}
+
+function closeMapSettingsMenus() {
+  document.querySelectorAll(".map-settings-menu[open]").forEach((menu) => {
     menu.open = false;
   });
 }

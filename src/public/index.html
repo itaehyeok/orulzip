@@ -26,9 +26,15 @@
     <main class="app-shell">
       <header class="map-top-header" aria-label="상단 메뉴">
         <div class="map-top-left">
-          <button class="map-menu-button" type="button" aria-label="메뉴" title="메뉴">
-            <span aria-hidden="true"></span>
-          </button>
+          <details class="map-settings-menu">
+            <summary class="map-menu-button" aria-label="설정 메뉴" title="설정">
+              <span aria-hidden="true"></span>
+            </summary>
+            <div class="map-settings-panel">
+              <strong>설정</strong>
+              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
+            </div>
+          </details>
           <a class="map-top-logo" href="/map" aria-label="오를집">
             <span class="orulzip-logo tone-black style-line">
               <span class="orulzip-logo-mark">
@@ -108,7 +114,6 @@
                   <option value="60">5년 전 대비</option>
                 </select>
               </label>
-              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
             </div>
             <div id="mapTransitionStatus" class="map-transition-status" hidden>마커 전환 중...</div>
             <aside id="mapApartmentRanking" class="map-apartment-ranking">
