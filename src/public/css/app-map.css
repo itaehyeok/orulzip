@@ -426,6 +426,13 @@
   min-width: 0;
 }
 
+.map-ranking-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .map-ranking-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -465,17 +472,22 @@
   color: var(--blue);
 }
 
+.map-ranking-target-select,
 .map-ranking-period-select {
   position: relative;
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
   height: 30px;
+}
+
+.map-ranking-period-select {
+  margin-left: auto;
   justify-self: end;
 }
 
+.map-ranking-target-select select,
 .map-ranking-period-select select {
-  width: 78px;
   height: 30px;
   appearance: none;
   border: 1px solid #d8e0ec;
@@ -489,6 +501,15 @@
   padding: 0 24px 0 10px;
 }
 
+.map-ranking-target-select select {
+  width: 112px;
+}
+
+.map-ranking-period-select select {
+  width: 78px;
+}
+
+.map-ranking-target-select::after,
 .map-ranking-period-select::after {
   content: "";
   position: absolute;

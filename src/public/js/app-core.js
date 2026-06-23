@@ -128,6 +128,7 @@ function bindEvents() {
     });
   });
   els.mapLocateBtn?.addEventListener("click", goToCurrentLocation);
+  els.mapRankingTargetSelect?.addEventListener("change", handleMapRankingTargetChange);
   els.mapRankingToggleBtn?.addEventListener("click", toggleMobileMapRanking);
   els.mapRankingCloseBtn?.addEventListener("click", closeMobileMapRanking);
   document.addEventListener("change", handleMarkerRankDisplayOptionChange);

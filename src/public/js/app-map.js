@@ -5,6 +5,7 @@ function useNaverMap() {
 const mobileMapControlsQuery = "(max-width: 820px)";
 const markerHoverWindowMarginPx = 12;
 const markerHoverWindowOffsetPx = 12;
+const mapRankingTargetLevels = ["sido", "sigungu", "dong", "apartment"];
 
 function isMobileMapControlsViewport() {
   if (window.matchMedia) return window.matchMedia(mobileMapControlsQuery).matches;
@@ -873,13 +874,17 @@ function updateMapSearchActiveDescendant() {
 
 function renderMapApartmentRanking(level, items) {
   if (!els.mapApartmentRanking || !els.mapRankingSection || !els.mapRankingRows || !els.mapRankingCount) return;
-  if (isMapGroupRankingLevel(level)) {
+  const sourceLevel = normalizeMapRankingTargetLevel(level);
+  const targetLevel = currentMapRankingTargetLevel(sourceLevel);
+  syncMapRankingTargetSelect(targetLevel);
+
+  if (isMapGroupRankingLevel(targetLevel)) {
     clearMapScopedRankingSignatures();
-    renderMapGroupRanking(level, items);
+    renderMapGroupRanking(targetLevel, items, { sourceLevel });
     return;
   }
   clearMapGroupRankingSignatures();
-  if (level !== "apartment") {
+  if (targetLevel !== "apartment") {
     state.mapRankingRequestId += 1;
     state.mapRankingDongScope = null;
     state.mapRankingScopes = null;
@@ -897,12 +902,15 @@ function renderMapApartmentRanking(level, items) {
     return;
   }
 
-  const viewportRows = sortedMapRankingRows(items);
-  const scopes = closestMapRankingScopes(viewportRows);
+  const includeViewport = sourceLevel === "apartment";
+  const viewportRows = includeViewport ? sortedMapRankingRows(items) : [];
+  const scopes = includeViewport
+    ? closestMapRankingScopes(viewportRows)
+    : closestMapApartmentRankingScopes(sourceLevel, items);
   state.mapRankingScopes = scopes;
   state.mapRankingDongScope = scopes.dong;
-  if (!isMapRankingModeAvailable(state.mapRankingMode, scopes)) {
-    state.mapRankingMode = "viewport";
+  if (!isMapRankingModeAvailable(state.mapRankingMode, scopes, { includeViewport })) {
+    state.mapRankingMode = defaultMapRankingMode(scopes, { includeViewport });
   }
   const mode = state.mapRankingMode;
 
@@ -910,7 +918,7 @@ function renderMapApartmentRanking(level, items) {
   els.mapApartmentRanking.hidden = false;
   els.mapRankingSection.hidden = false;
   updateMobileMapRankingToggle(true);
-  renderMapRankingTabs(scopes, mode);
+  renderMapRankingTabs(scopes, mode, { includeViewport });
   if (mode !== "viewport" && scopes[mode]) {
     const signature = mapScopedRankingSignature(scopes[mode]);
     if (shouldReuseMapScopedRanking(signature)) return;
@@ -927,9 +935,8 @@ function renderMapApartmentRanking(level, items) {
   });
 }
 
-function renderMapGroupRanking(level, items) {
-  const viewportRows = sortedMapGroupRankingRows(items);
-  const scopes = closestMapGroupRankingScopes(level, viewportRows);
+function renderMapGroupRanking(level, items, { sourceLevel = level } = {}) {
+  const scopes = closestMapGroupRankingScopesForContext(level, sourceLevel, items);
   const mode = mapGroupRankingMode(level, state.mapGroupRankingMode, scopes);
   const scope = scopes[mode] || scopes.country;
 
@@ -998,6 +1005,27 @@ function syncMapRankingOverlayClasses(available) {
   els.mapRankingToggleBtn?.classList.toggle("ranking-over-popup", isOverPopup);
 }
 
+function handleMapRankingTargetChange() {
+  const nextLevel = normalizeMapRankingTargetLevel(els.mapRankingTargetSelect?.value || "");
+  state.mapRankingTargetManual = true;
+  state.mapRankingTargetLevel = nextLevel;
+  state.mapRankingRequestId += 1;
+  clearMapScopedRankingSignatures();
+  clearMapGroupRankingSignatures();
+
+  if (typeof trackAnalyticsEvent === "function") {
+    trackAnalyticsEvent("map_ranking_target_changed", {
+      targetLevel: nextLevel,
+      mapLevel: state.latestZoomMapData?.level || "",
+      mapSource: currentMapSource(),
+      periodLabel: mapAnalyticsPeriodLabel()
+    });
+  }
+
+  const latest = state.latestZoomMapData;
+  renderMapApartmentRanking(latest?.level, latest?.items || []);
+}
+
 function openMapRankingFromPopupScope({ mode, key, label, total } = {}) {
   const normalizedMode = ["dong", "sigungu", "sido", "country"].includes(mode) ? mode : "";
   const normalizedKey = normalizedMode === "country" ? "country" : String(key || "").trim();
@@ -1015,6 +1043,9 @@ function openMapRankingFromPopupScope({ mode, key, label, total } = {}) {
   };
 
   state.mapRankingMode = normalizedMode;
+  state.mapRankingTargetManual = true;
+  state.mapRankingTargetLevel = "apartment";
+  syncMapRankingTargetSelect("apartment");
   state.mapRankingScopes = scopes;
   state.mapRankingDongScope = scopes.dong || null;
   if (state.mapPopupDetail?.apartment?.id) {
@@ -1190,10 +1221,10 @@ function mapGroupRankingRowSubtitle(item, level) {
   return parts.join(" · ") || `${mapGroupRankingLevelLabel(level)} 단위`;
 }
 
-function renderMapRankingTabs(scopes, mode) {
+function renderMapRankingTabs(scopes, mode, { includeViewport = true } = {}) {
   if (!els.mapRankingTabs) return;
   const tabs = [
-    { mode: "viewport", label: "지도 내" },
+    includeViewport ? { mode: "viewport", label: "지도 내" } : null,
     scopes.dong,
     scopes.sigungu,
     scopes.sido,
@@ -1207,7 +1238,9 @@ function renderMapRankingTabs(scopes, mode) {
   els.mapRankingTabs.querySelectorAll("[data-map-ranking-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       const requestedMode = button.dataset.mapRankingMode || "viewport";
-      const nextMode = isMapRankingModeAvailable(requestedMode, scopes) ? requestedMode : "viewport";
+      const nextMode = isMapRankingModeAvailable(requestedMode, scopes, { includeViewport })
+        ? requestedMode
+        : defaultMapRankingMode(scopes, { includeViewport });
       if (state.mapRankingMode === nextMode) return;
       state.mapRankingMode = nextMode;
       const nextScope = scopes[nextMode] || null;
@@ -1288,7 +1321,7 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
     const data = await api(`${endpoint}?${params}`);
     if (
       requestId !== state.mapRankingRequestId
-      || state.latestZoomMapData?.level !== "apartment"
+      || currentMapRankingTargetLevel(state.latestZoomMapData?.level) !== "apartment"
       || state.mapRankingMode !== scope.mode
       || state.mapRankingScopes?.[scope.mode]?.key !== scope.key
       || signature !== mapScopedRankingSignature(scope)
@@ -1343,7 +1376,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
     const activeScope = state.mapRankingScopes?.[scope.mode];
     if (
       requestId !== state.mapRankingRequestId
-      || state.latestZoomMapData?.level !== level
+      || currentMapRankingTargetLevel(state.latestZoomMapData?.level) !== level
       || state.mapGroupRankingMode !== scope.mode
       || activeScope?.key !== scope.key
       || activeScope?.targetLevel !== level
@@ -1380,6 +1413,100 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
   }
+}
+
+function normalizeMapRankingTargetLevel(level) {
+  const value = String(level || "").trim();
+  return mapRankingTargetLevels.includes(value) ? value : "sido";
+}
+
+function currentMapRankingTargetLevel(sourceLevel = state.latestZoomMapData?.level) {
+  const normalizedSource = normalizeMapRankingTargetLevel(sourceLevel);
+  if (!state.mapRankingTargetManual) {
+    state.mapRankingTargetLevel = normalizedSource;
+    return normalizedSource;
+  }
+  const normalizedTarget = normalizeMapRankingTargetLevel(state.mapRankingTargetLevel || normalizedSource);
+  state.mapRankingTargetLevel = normalizedTarget;
+  return normalizedTarget;
+}
+
+function syncMapRankingTargetSelect(level) {
+  if (!els.mapRankingTargetSelect) return;
+  const normalizedLevel = normalizeMapRankingTargetLevel(level);
+  if (els.mapRankingTargetSelect.value !== normalizedLevel) {
+    els.mapRankingTargetSelect.value = normalizedLevel;
+  }
+}
+
+function defaultMapRankingMode(scopes, { includeViewport = true } = {}) {
+  if (includeViewport) return "viewport";
+  return ["dong", "sigungu", "sido", "country"].find((mode) => scopes?.[mode]) || "country";
+}
+
+function closestMapApartmentRankingScopes(sourceLevel, items) {
+  const closest = closestMapRankingItem(sortedMapGroupRankingRows(items));
+  const scopes = {
+    country: mapRankingScope("country", "country", "전국", closest?.countryRankTotal)
+  };
+  if (!closest) return scopes;
+
+  const sidoCode = mapGroupSidoCode(closest);
+  const sidoLabel = mapGroupSidoLabel(closest);
+  if (sidoCode && sidoLabel) {
+    scopes.sido = mapRankingScope("sido", sidoCode, sidoLabel, closest.sidoRankTotal);
+  }
+
+  if (sourceLevel === "sigungu" || sourceLevel === "dong") {
+    const sigunguCode = mapGroupSigunguCode(closest);
+    const sigunguLabel = mapGroupSigunguLabel(closest);
+    if (sigunguCode && sigunguLabel) {
+      scopes.sigungu = mapRankingScope("sigungu", sigunguCode, sigunguLabel, closest.sigunguRankTotal);
+    }
+  }
+
+  if (sourceLevel === "dong") {
+    const dongKey = mapGroupDongKey(closest);
+    const dongLabel = mapGroupDongLabel(closest);
+    if (dongKey && dongLabel) {
+      scopes.dong = mapRankingScope("dong", dongKey, dongLabel, closest.dongRankTotal);
+    }
+  }
+
+  return scopes;
+}
+
+function closestMapGroupRankingScopesForContext(level, sourceLevel, items) {
+  if (sourceLevel === "apartment") {
+    return closestMapGroupRankingScopesFromApartment(level, sortedMapRankingRows(items));
+  }
+  return closestMapGroupRankingScopes(level, sortedMapGroupRankingRows(items));
+}
+
+function closestMapGroupRankingScopesFromApartment(level, rows) {
+  const closest = closestMapRankingItem(rows);
+  const scopes = {
+    country: mapGroupRankingScope("country", "country", "전국", closest?.countryRankTotal, level)
+  };
+  if (!closest) return scopes;
+
+  if (level === "sigungu" || level === "dong") {
+    const sidoCode = mapApartmentSidoCode(closest);
+    const sidoLabel = mapApartmentSidoLabel(closest);
+    if (sidoCode && sidoLabel) {
+      scopes.sido = mapGroupRankingScope("sido", sidoCode, sidoLabel, closest.sidoRankTotal, level);
+    }
+  }
+
+  if (level === "dong") {
+    const sigunguCode = mapApartmentSigunguCode(closest);
+    const sigunguLabel = mapApartmentSigunguLabel(closest);
+    if (sigunguCode && sigunguLabel) {
+      scopes.sigungu = mapGroupRankingScope("sigungu", sigunguCode, sigunguLabel, closest.sigunguRankTotal, level);
+    }
+  }
+
+  return scopes;
 }
 
 function closestMapRankingScopes(rows) {
@@ -1477,15 +1604,16 @@ function mapGroupRankingTabLabel(mode, targetLevel) {
   return "지역 내";
 }
 
-function isMapRankingModeAvailable(mode, scopes) {
-  return mode === "viewport" || Boolean(scopes?.[mode]);
+function isMapRankingModeAvailable(mode, scopes, { includeViewport = true } = {}) {
+  return (includeViewport && mode === "viewport") || Boolean(scopes?.[mode]);
 }
 
 function mapRankingPeriodSignature() {
   return {
     source: currentMapSource(),
     start: els.startInput.value || "",
-    end: els.endInput.value || ""
+    end: els.endInput.value || "",
+    minHouseholdCount: activeMinHouseholdCount()
   };
 }
 
@@ -1601,6 +1729,17 @@ function mapGroupSigunguCode(item) {
 function mapGroupSigunguLabel(item) {
   const name = item?.sigunguName || (String(item?.code || "").length === 5 ? item?.name : "");
   return shortZoomLabel(name || "", "sigungu") || String(name || "").trim();
+}
+
+function mapGroupDongKey(item) {
+  const code = String(item?.dongKey || item?.legalDongCode || item?.code || "").trim();
+  return code.length >= 8 ? code : "";
+}
+
+function mapGroupDongLabel(item) {
+  const code = String(item?.code || "").trim();
+  const name = item?.dongName || (code.length >= 8 ? item?.name : "");
+  return shortZoomLabel(name || "", "dong") || String(name || "").trim();
 }
 
 function scopedMapRankingRows(items, scope) {
