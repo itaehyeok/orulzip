@@ -35,6 +35,10 @@ import {
   recordAnalyticsEvent
 } from "./services/analytics-store.js";
 import {
+  notifyTelegramExternalVisitor,
+  shouldNotifyExternalVisitorVisit
+} from "./services/telegram-notifier.js";
+import {
   buildApartmentRankings,
   buildNeighborhoodChart,
   buildNeighborhoodRankings
@@ -196,6 +200,15 @@ const server = createServer(async (req, res) => {
         userAgent: req.headers["user-agent"] || "",
         isAdmin
       });
+      const visitorAlert = {
+        ...result,
+        url: analyticsPublicUrl(result.path)
+      };
+      if (shouldNotifyExternalVisitorVisit(visitorAlert)) {
+        notifyTelegramExternalVisitor(visitorAlert).catch((error) => {
+          console.warn("Telegram visitor alert failed:", error?.message || error);
+        });
+      }
       return json(res, { ok: true }, 200, {
         "Set-Cookie": [
           createAnalyticsCookie(analyticsVisitorCookieName, result.visitorId, analyticsVisitorMaxAgeSeconds),
@@ -1226,6 +1239,14 @@ function analyticsRequestHost(req) {
   const forwardedHost = firstHeaderValue(req.headers["x-forwarded-host"]);
   const hostHeader = firstHeaderValue(req.headers.host);
   return normalizeAnalyticsHost(forwardedHost || hostHeader);
+}
+
+function analyticsPublicUrl(path) {
+  try {
+    return new URL(path || "/", siteOrigin).toString();
+  } catch {
+    return `${siteOrigin}/`;
+  }
 }
 
 function firstHeaderValue(value) {

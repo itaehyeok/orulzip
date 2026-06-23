@@ -26,6 +26,14 @@ export async function recordAnalyticsEvent(input = {}) {
   return await withAnalyticsClient(async (client) => {
     await client.query("begin");
     try {
+      const existingVisitor = await client.query(`
+        select is_internal
+        from analytics.visitors
+        where visitor_id = $1
+        limit 1
+      `, [payload.visitorId]);
+      const isNewVisitor = !existingVisitor.rows.length;
+
       await client.query(`
         insert into analytics.visitors as visitors (
           visitor_id,
@@ -117,7 +125,16 @@ export async function recordAnalyticsEvent(input = {}) {
         sessionId,
         eventId: Number(event.rows[0]?.id || 0),
         createdAt: event.rows[0]?.created_at || null,
-        isInternal
+        isInternal,
+        isNewVisitor,
+        isAdmin: payload.isAdmin,
+        eventName: payload.eventName,
+        path: payload.path,
+        title: payload.title,
+        referrer: payload.referrer,
+        userInfo: payload.userInfo,
+        host: payload.host,
+        environment: payload.environment
       };
     } catch (error) {
       await client.query("rollback");
