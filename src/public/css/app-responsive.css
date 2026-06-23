@@ -532,6 +532,22 @@ td:nth-child(4) {
     height: auto;
   }
 
+  .map-apartment-popup .map-popup-axis-label {
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .map-apartment-popup .map-popup-period-marker text {
+    font-size: 12px;
+    stroke-width: 3.5px;
+  }
+
+  .map-apartment-popup .map-popup-pyeong-axis-label,
+  .map-apartment-popup .map-popup-pyeong-axis-title {
+    font-size: 12px;
+    font-weight: 850;
+  }
+
   .map-apartment-popup .map-popup-end-label {
     display: none;
   }
