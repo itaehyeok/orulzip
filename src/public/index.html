@@ -31,8 +31,37 @@
               <span aria-hidden="true"></span>
             </summary>
             <div class="map-settings-panel">
-              <strong>설정</strong>
-              <button class="household-filter-toggle" type="button" data-household-filter-toggle aria-pressed="true">100세대 이상</button>
+              <button class="map-settings-row" type="button" data-display-settings-open>표시 설정</button>
+              <details class="map-settings-submenu" data-admin-only hidden>
+                <summary class="map-settings-row">어드민 메뉴</summary>
+                <div class="map-admin-menu-list">
+                  <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
+                  <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
+                  <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
+                  <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
+                  <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
+                  <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
+                  <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
+                  <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
+                  <div class="tab-more-control" data-admin-only hidden>
+                    <span data-apartment-marker-mode-label>현재 아파트 마커</span>
+                    <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
+                    <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div class="map-display-settings-panel" data-display-settings-panel hidden>
+              <div class="map-display-settings-head">
+                <strong>표시 설정</strong>
+                <button type="button" data-display-settings-close aria-label="표시 설정 닫기">×</button>
+              </div>
+              <div class="map-display-settings-row">
+                <span>100세대 이상 보기</span>
+                <button class="household-filter-switch" type="button" data-household-filter-toggle data-household-filter-static="true" role="switch" aria-checked="true" aria-pressed="true" aria-label="100세대 이상 보기">
+                  <span aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
           </details>
           <a class="map-top-logo" href="/map" aria-label="오를집">
@@ -59,27 +88,6 @@
           <a class="active" data-tab="molitMap" href="/map" aria-current="page">아파트 상승률 지도</a>
           <a data-tab="priceBands" href="/price-bands">아파트 랭킹</a>
         </nav>
-
-        <div class="map-top-right">
-          <details class="tab-more-menu" data-admin-only hidden>
-            <summary>더보기</summary>
-            <div class="tab-more-list">
-              <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
-              <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
-              <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
-              <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
-              <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
-              <a data-tab="map" data-admin-only href="/kb-map" hidden>지도(KB시세)</a>
-              <a data-tab="analytics" data-admin-only href="/analytics" hidden>방문분석</a>
-              <a class="tab-logout-link" data-admin-only href="/logout" hidden>로그아웃</a>
-              <div class="tab-more-control" data-admin-only hidden>
-                <span data-apartment-marker-mode-label>현재 아파트 마커</span>
-                <button type="button" data-apartment-marker-mode="region" aria-pressed="true">현재로 돌아오기</button>
-                <button type="button" data-apartment-marker-mode="legacy" aria-pressed="false">예전 걸로 돌아가기</button>
-              </div>
-            </div>
-          </details>
-        </div>
       </header>
 
       <div class="app-state-controls" hidden>

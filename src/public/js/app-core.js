@@ -54,7 +54,10 @@ function renderAdminNavigation() {
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !showAdminNav;
   });
-  if (!showAdminNav) closeTabMoreMenus();
+  if (!showAdminNav) {
+    closeTabMoreMenus();
+    closeMapSettingsMenus();
+  }
 }
 
 function bindEvents() {
@@ -84,6 +87,8 @@ function bindEvents() {
   });
   document.querySelector(".deploy-version-copy")?.addEventListener("click", copyDeployVersion);
   document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
+  document.querySelector("[data-display-settings-open]")?.addEventListener("click", openMapDisplaySettingsPanel);
+  document.querySelector("[data-display-settings-close]")?.addEventListener("click", closeMapDisplaySettingsPanels);
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
@@ -196,12 +201,13 @@ function bindEvents() {
     refresh();
   });
 
-  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+  document.querySelectorAll("[data-tab]").forEach((item) => {
     item.addEventListener("click", (event) => {
       event.preventDefault();
       const menu = item.closest(".tab-more-menu");
       activateTab(item.dataset.tab, { push: true });
       if (menu) menu.open = false;
+      if (item.closest(".map-settings-menu")) closeMapSettingsMenus();
     });
   });
 
@@ -340,6 +346,26 @@ function closeTabMoreMenus() {
 function closeMapSettingsMenus() {
   document.querySelectorAll(".map-settings-menu[open]").forEach((menu) => {
     menu.open = false;
+    menu.classList.remove("display-settings-open");
+  });
+  closeMapDisplaySettingsPanels();
+}
+
+function openMapDisplaySettingsPanel() {
+  const menu = document.querySelector(".map-settings-menu");
+  const panel = document.querySelector("[data-display-settings-panel]");
+  if (!menu || !panel) return;
+  menu.open = true;
+  menu.classList.add("display-settings-open");
+  panel.hidden = false;
+}
+
+function closeMapDisplaySettingsPanels() {
+  document.querySelectorAll("[data-display-settings-panel]").forEach((panel) => {
+    panel.hidden = true;
+  });
+  document.querySelectorAll(".map-settings-menu.display-settings-open").forEach((menu) => {
+    menu.classList.remove("display-settings-open");
   });
 }
 
@@ -516,7 +542,7 @@ function setActiveTab(tab, { push = false } = {}) {
   const nextTab = tabRoutes[tab] ? tab : "map";
   state.activeTab = nextTab;
 
-  document.querySelectorAll(".tabs [data-tab]").forEach((item) => {
+  document.querySelectorAll("[data-tab]").forEach((item) => {
     const isActive = item.dataset.tab === nextTab;
     item.classList.toggle("active", isActive);
     if (isActive) {
