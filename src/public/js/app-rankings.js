@@ -125,7 +125,7 @@ function renderPriceBandTable(result, basisBands = null) {
   const householdLabel = householdFilterLabel();
   const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
   els.priceBandCount.textContent = `${selectionLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
-  renderPriceBandSummary(summaryBands, state.priceBandStartKey, state.priceBandEndKey);
+  renderPriceBandSummary(summaryBands, state.priceBandStartKey, state.priceBandEndKey, pagination.totalRows);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => `
       <tr>
@@ -180,6 +180,7 @@ function bindPriceBandMapLinks() {
 
 function renderPriceBandLoadingState() {
   syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey);
+  updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
   if (els.priceBandCount) els.priceBandCount.textContent = `${selectionLabel} · 불러오는 중`;
@@ -198,7 +199,7 @@ function renderPriceBandLoadingState() {
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
 
-function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBandKey) {
+function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBandKey, totalRows = 0) {
   if (!els.priceBandSummary) return;
   const startBands = Array.isArray(basisBands?.start) ? basisBands.start : [];
   const endBands = Array.isArray(basisBands?.end) ? basisBands.end : [];
@@ -211,6 +212,7 @@ function renderPriceBandSummary(basisBands, selectedStartBandKey, selectedEndBan
       ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
       <span class="price-band-filter-arrow" aria-hidden="true">→</span>
       ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
+      <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
     </div>
   `;
 }
@@ -241,6 +243,11 @@ function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey) {
   if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
 }
 
+function updatePriceBandTotalBadge(label) {
+  const badge = els.priceBandSummary?.querySelector("[data-price-band-total]");
+  if (badge) badge.textContent = label;
+}
+
 function currentPriceBandSelectionLabel() {
   if (!els.priceBandSummary) return "";
   const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
@@ -260,6 +267,10 @@ function selectedPriceBandLabel(select) {
 function findPriceBand(bands, bandKey) {
   if (bandKey === null || bandKey === undefined || bandKey === "") return null;
   return (Array.isArray(bands) ? bands : []).find((band) => String(band.bandKey) === String(bandKey)) || null;
+}
+
+function formatPriceBandTotal(totalRows) {
+  return `총 ${formatInt(totalRows || 0)}개 단지`;
 }
 
 function formatPriceBandLocation(row) {
