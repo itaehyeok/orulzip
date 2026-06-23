@@ -2,8 +2,38 @@ function useNaverMap() {
   return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
 }
 
+const mobileMapControlsQuery = "(max-width: 820px)";
 const markerHoverWindowMarginPx = 12;
 const markerHoverWindowOffsetPx = 12;
+
+function isMobileMapControlsViewport() {
+  if (window.matchMedia) return window.matchMedia(mobileMapControlsQuery).matches;
+  return window.innerWidth <= 820;
+}
+
+function shouldShowNaverZoomControl() {
+  return !isMobileMapControlsViewport();
+}
+
+function syncNaverZoomControl() {
+  if (!state.zoomNaverMap || typeof state.zoomNaverMap.setOptions !== "function") return;
+  state.zoomNaverMap.setOptions("zoomControl", shouldShowNaverZoomControl());
+}
+
+function bindNaverZoomControlSync() {
+  if (state.naverZoomControlSyncBound) return;
+  state.naverZoomControlSyncBound = true;
+  const mediaQuery = window.matchMedia?.(mobileMapControlsQuery);
+  if (mediaQuery?.addEventListener) {
+    mediaQuery.addEventListener("change", syncNaverZoomControl);
+    return;
+  }
+  if (mediaQuery?.addListener) {
+    mediaQuery.addListener(syncNaverZoomControl);
+    return;
+  }
+  window.addEventListener("resize", syncNaverZoomControl);
+}
 
 async function hasNaverAuthFailure(container = els.zoomMap) {
   await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -332,6 +362,7 @@ async function initNaverZoomMap() {
   if (state.zoomNaverMap) {
     setTimeout(() => {
       window.naver.maps.Event.trigger(state.zoomNaverMap, "resize");
+      syncNaverZoomControl();
       updateZoomMapLevelLabel();
     }, 0);
     watchNaverAuthFailure();
@@ -341,10 +372,11 @@ async function initNaverZoomMap() {
   state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
     center: new window.naver.maps.LatLng(homeMapView.center[0], homeMapView.center[1]),
     zoom: homeMapView.zoom,
-    zoomControl: true,
+    zoomControl: shouldShowNaverZoomControl(),
     scaleControl: true,
     mapDataControl: false
   });
+  bindNaverZoomControlSync();
   window.naver.maps.Event.addListener(state.zoomNaverMap, "zoom_changed", updateZoomMapLevelLabel);
   window.naver.maps.Event.addListener(state.zoomNaverMap, "idle", () => {
     updateZoomMapLevelLabel();
