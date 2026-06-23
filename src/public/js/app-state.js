@@ -53,6 +53,8 @@ const state = {
   zoomNaverInfoWindowPinned: false,
   zoomNaverHoverWindow: null,
   zoomNaverHoverWindowCloseTimer: null,
+  zoomMapPointerTrackingBound: false,
+  zoomMapLastPointer: null,
   mapTransitionTimer: null,
   lastZoomMapRenderLevel: null,
   userLocationMarker: null,
