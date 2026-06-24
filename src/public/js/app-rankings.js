@@ -170,10 +170,19 @@ function renderPriceBandTable(result, basisBands = null) {
       </tr>
     `;
     }).join("")
-    : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
+    : priceBandPlaceholderRow("선택한 가격대에 표시할 아파트 데이터가 없습니다.");
   renderPriceBandPagination(pagination);
   bindPriceBandAreaMoreToggles();
   bindPriceBandMapLinks(rows);
+}
+
+function priceBandPlaceholderRow(content, extraCellClass = "") {
+  const cellClass = `empty price-band-placeholder-cell${extraCellClass ? ` ${extraCellClass}` : ""}`;
+  return `
+    <tr class="price-band-placeholder-row">
+      <td colspan="4" class="${cellClass}">${content}</td>
+    </tr>
+  `;
 }
 
 function bindPriceBandAreaMoreToggles() {
@@ -418,16 +427,12 @@ function renderPriceBandLoadingState() {
     `;
   }
   if (els.priceBandRows) {
-    els.priceBandRows.innerHTML = `
-      <tr>
-        <td colspan="4" class="empty price-band-loading-cell">
-          <div class="price-band-loading">
-            <span class="price-band-loading-spinner" aria-hidden="true"></span>
-            <strong>랭킹을 불러오는 중입니다.</strong>
-          </div>
-        </td>
-      </tr>
-    `;
+    els.priceBandRows.innerHTML = priceBandPlaceholderRow(`
+      <div class="price-band-loading">
+        <span class="price-band-loading-spinner" aria-hidden="true"></span>
+        <strong>랭킹을 불러오는 중입니다.</strong>
+      </div>
+    `, "price-band-loading-cell");
   }
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
@@ -897,5 +902,5 @@ function showFloatingTooltip(container, tooltip, event, html) {
 function renderEmpty() {
   els.chart.innerHTML = `<div class="empty">동기화 후 그래프가 표시됩니다.</div>`;
   els.neighborhoodRows.innerHTML = `<tr><td colspan="7" class="empty">동기화 후 랭킹이 표시됩니다.</td></tr>`;
-  if (els.priceBandRows) els.priceBandRows.innerHTML = `<tr><td colspan="4" class="empty">동기화 후 가격대별 랭킹이 표시됩니다.</td></tr>`;
+  if (els.priceBandRows) els.priceBandRows.innerHTML = priceBandPlaceholderRow("동기화 후 가격대별 랭킹이 표시됩니다.");
 }

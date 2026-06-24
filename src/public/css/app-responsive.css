@@ -490,6 +490,37 @@ td:nth-child(4) {
     border-top: 1px solid #eef1f5;
   }
 
+  .price-band-table tr.price-band-placeholder-row {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .price-band-table tr.price-band-placeholder-row td.price-band-placeholder-cell {
+    display: flex;
+    width: auto;
+    min-height: 112px;
+    height: auto;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    border-radius: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .price-band-table tr.price-band-placeholder-row .price-band-loading {
+    max-width: 100%;
+    justify-content: center;
+    white-space: normal;
+  }
+
   .price-band-table .table-main {
     margin-bottom: 4px;
     font-size: 15px;
