@@ -366,22 +366,25 @@ async function readPriceBandRankSnapshotPage({
       from price_band_rank_items pbi
       where ${where.sql}
     ),
-    ranked as (
+    ordered as (
+      select *
+      from filtered
+      order by growth_rate desc nulls last,
+               growth_amount desc nulls last,
+               end_pyeong_price desc nulls last,
+               apartment_name asc
+      limit $${where.params.length + 1} offset $${where.params.length + 2}
+    ),
+    paged as (
       select
-        filtered.*,
-        row_number() over (
+        ordered.*,
+        ($${where.params.length + 2}::int + row_number() over (
           order by growth_rate desc nulls last,
                    growth_amount desc nulls last,
                    end_pyeong_price desc nulls last,
                    apartment_name asc
-        )::int as filtered_rank
-      from filtered
-    ),
-    paged as (
-      select *
-      from ranked
-      order by filtered_rank asc
-      limit $${where.params.length + 1} offset $${where.params.length + 2}
+        ))::int as filtered_rank
+      from ordered
     )
     select
       paged.*,

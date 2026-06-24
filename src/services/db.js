@@ -644,6 +644,10 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, apartment_id);
     create index if not exists price_band_rank_items_snapshot_rank_idx
       on price_band_rank_items(snapshot_id, rank);
+    create index if not exists price_band_rank_items_snapshot_growth_idx
+      on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_items_snapshot_band_growth_idx
+      on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
 
     create table if not exists app_cache_entries (
       cache_key text primary key,
