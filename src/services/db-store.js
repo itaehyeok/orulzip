@@ -381,10 +381,8 @@ export async function kbCollectionCoverage() {
         select *
         from crawl_jobs
         where region_id = any($1::text[])
-          and (
-            status in ('discovering', 'running')
-            or (status = 'requested' and years_back = 0)
-          )
+          and years_back = 0
+          and status in ('requested', 'discovering', 'running')
       ),
       job_summary as (
         select
