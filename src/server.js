@@ -15,7 +15,12 @@ import {
 } from "./services/db-store.js";
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
-import { readDataHealthStatus } from "./services/data-health.js";
+import {
+  DATA_HEALTH_APP_ROUTES,
+  DATA_HEALTH_PROTECTED_API_ROUTES,
+  DATA_HEALTH_ROUTE_SEO,
+  readDataHealthApi
+} from "./routes/data-health.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
 import {
@@ -54,8 +59,8 @@ const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replac
 const defaultSeoImagePath = "/og/orulzip-map-preview.png";
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics", "/data-health"]);
-const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics", "/data-health"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
@@ -69,7 +74,7 @@ const protectedApiRoutes = new Set([
   "/api/molit/duplicate-audit",
   "/api/analytics/summary",
   "/api/analytics/visitors",
-  "/api/data-health"
+  ...DATA_HEALTH_PROTECTED_API_ROUTES
 ]);
 const writeApiRoutes = new Set(["/api/crawl/start", "/api/sync"]);
 const adminCookieName = "orulzip_admin";
@@ -187,14 +192,9 @@ const routeSeo = new Map([
     description: "오를집 내부 방문 분석 화면입니다.",
     canonicalPath: "/analytics",
     robots: "noindex,nofollow"
-  }],
-  ["/data-health", {
-    title: "데이터 상태 - 오를집",
-    description: "오를집 운영 데이터 수집과 캐시 검증 상태 화면입니다.",
-    canonicalPath: "/data-health",
-    robots: "noindex,nofollow"
   }]
 ]);
+for (const [path, seo] of DATA_HEALTH_ROUTE_SEO) routeSeo.set(path, seo);
 
 if (shouldInitDb) {
   await initDb();
@@ -345,10 +345,8 @@ const server = createServer(async (req, res) => {
       }));
     }
 
-    if (url.pathname === "/api/data-health") {
-      return json(res, await readDataHealthStatus({
-        limit: Number(url.searchParams.get("limit") || 10)
-      }));
+    if (DATA_HEALTH_PROTECTED_API_ROUTES.has(url.pathname)) {
+      return json(res, await readDataHealthApi(url));
     }
 
     if (url.pathname === "/api/filters") {
