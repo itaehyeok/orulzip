@@ -1,5 +1,8 @@
 import { initDb, closeDb } from "../src/services/db.js";
-import { refreshPriceBandRankCache } from "../src/services/price-band-rank-cache.js";
+import {
+  ensurePriceBandRankCacheIndexes,
+  refreshPriceBandRankCache
+} from "../src/services/price-band-rank-cache.js";
 
 const intervalMs = positiveNumber(process.env.PRICE_BAND_CACHE_REFRESH_INTERVAL_MS, 24 * 60 * 60 * 1000);
 const initialDelayMs = Math.max(0, Number(process.env.PRICE_BAND_CACHE_INITIAL_DELAY_MS || 0));
@@ -14,6 +17,7 @@ process.on("SIGTERM", () => {
 
 await initDb();
 try {
+  await ensurePriceBandRankCacheIndexes();
   if (initialDelayMs > 0) await sleep(initialDelayMs);
   while (!stopped) {
     await refreshOnce();

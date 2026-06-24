@@ -1,10 +1,15 @@
-import { DEFAULT_PRICE_BAND_PERIOD_MONTHS, refreshPriceBandRankCache } from "../src/services/price-band-rank-cache.js";
+import {
+  DEFAULT_PRICE_BAND_PERIOD_MONTHS,
+  ensurePriceBandRankCacheIndexes,
+  refreshPriceBandRankCache
+} from "../src/services/price-band-rank-cache.js";
 import { closeDb, initDb } from "../src/services/db.js";
 
 const options = parseArgs(process.argv.slice(2));
 
 await initDb();
 try {
+  await ensurePriceBandRankCacheIndexes();
   const result = await refreshPriceBandRankCache({
     periodMonths: options.months.length ? options.months : DEFAULT_PRICE_BAND_PERIOD_MONTHS,
     areaBandKeys: options.areaBands.length ? options.areaBands : undefined

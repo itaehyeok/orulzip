@@ -34,15 +34,18 @@ function renderDataHealthError(error) {
 
 function renderDataHealthDashboard(status) {
   const latest = status?.latest || null;
-  renderDataHealthSummary(latest);
+  renderDataHealthSummary(latest, status);
   renderDataHealthChecks(latest?.checks || []);
   renderDataHealthRuns(status?.runs || []);
 }
 
-function renderDataHealthSummary(run) {
+function renderDataHealthSummary(run, status = {}) {
   if (!els.dataHealthSummary) return;
   if (!run) {
-    els.dataHealthSummary.innerHTML = `<div class="data-health-empty">아직 저장된 데이터 상태 검증 결과가 없습니다.</div>`;
+    const message = status?.schemaReady === false
+      ? (status.message || "데이터 상태 테이블이 아직 준비되지 않았습니다.")
+      : "아직 저장된 데이터 상태 검증 결과가 없습니다.";
+    els.dataHealthSummary.innerHTML = `<div class="data-health-empty">${escapeHtml(message)}</div>`;
     return;
   }
   const summary = run.summary || {};
@@ -104,7 +107,7 @@ function renderDataHealthMetricList(metrics) {
   return `
     <div class="data-health-metrics">
       ${entries.map(([key, value]) => `
-        <span><b>${escapeHtml(dataHealthMetricLabel(key))}</b>${escapeHtml(dataHealthMetricValue(value))}</span>
+        <span><b>${escapeHtml(dataHealthMetricLabel(key))}</b>${escapeHtml(dataHealthMetricValue(value, key))}</span>
       `).join("")}
     </div>
   `;
@@ -166,26 +169,50 @@ function dataHealthStatusMeta(run) {
 function dataHealthMetricLabel(key) {
   return {
     expectedLawdCount: "대상 시군구",
-    checkedMonths: "검사 월",
-    failedMonths: "실패 월",
+    checkedMonths: "검사월",
+    failedMonths: "실패월",
+    completedLawdCount: "완료 시군구",
+    missingLawdCount: "미완료 시군구",
+    completedFetches: "완료 fetch",
+    runningFetches: "진행중 fetch",
+    failedFetches: "실패 fetch",
+    savedCount: "저장",
     totalDeals: "거래",
+    dealCount: "거래",
+    lawdCount: "시군구",
     totalCount: "단지",
     coordinateCount: "좌표",
+    coordinateRate: "좌표 커버리지",
     householdCount: "세대수",
+    householdRate: "세대수 커버리지",
     household100Count: "100세대+",
-    expectedSnapshots: "필수 캐시",
-    foundSnapshots: "생성 캐시",
+    reviewCount: "검토 필요",
+    expectedSnapshots: "필수 조합",
+    foundSnapshots: "준비 조합",
     failedSnapshots: "실패",
-    warningSnapshots: "주의"
+    warningSnapshots: "주의",
+    apartmentCount: "단지",
+    areaCount: "면적",
+    apartmentDataCount: "데이터 단지",
+    bandCount: "가격대",
+    itemCount: "단지",
+    updatedAt: "갱신시각",
+    readDurationMs: "조회시간",
+    sampleRows: "샘플",
+    snapshotId: "스냅샷",
+    longRunningQueries: "장기 쿼리",
+    fiveMinuteQueries: "5분+ 쿼리"
   }[key] || key;
 }
 
-function dataHealthMetricValue(value) {
+function dataHealthMetricValue(value, key = "") {
   if (typeof value === "number") {
-    if (Math.abs(value) > 0 && Math.abs(value) < 1) return `${(value * 100).toFixed(1)}%`;
+    if (/Ms$/.test(key)) return `${formatInt(value)}ms`;
+    if (/Rate$/.test(key) || (Math.abs(value) > 0 && Math.abs(value) < 1)) return `${(value * 100).toFixed(1)}%`;
     return formatInt(value);
   }
   if (typeof value === "string" && /^\d{6}$/.test(value)) return formatDataHealthMonth(value);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) return formatDateTime(value);
   return String(value);
 }
 
@@ -195,7 +222,9 @@ function dataHealthDetailReason(detail) {
     empty_level: `비어 있음${detail.missingLevels?.length ? ` · ${detail.missingLevels.join(", ")}` : ""}`,
     stale_cache: "갱신 지연",
     core_empty: "핵심 데이터 없음",
-    area_empty: "해당 평형 데이터 없음"
+    area_empty: "해당 평형 데이터 없음",
+    slow_cache_read: `조회 지연${detail.readDurationMs ? ` · ${formatInt(detail.readDurationMs)}ms` : ""}`,
+    long_running_query: `장기 실행${detail.ageSeconds ? ` · ${formatInt(detail.ageSeconds)}초` : ""}`
   }[detail.reason] || "";
   if (reason) return reason;
   if (detail.missingLawdCount) return `미완료 ${formatInt(detail.missingLawdCount)}개`;

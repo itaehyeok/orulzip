@@ -177,6 +177,9 @@ export async function initDb() {
       on molit_trade_deals(target_region_id, deal_year_month);
     create index if not exists molit_trade_deals_lawd_month_idx
       on molit_trade_deals(lawd_cd, deal_year_month);
+    create index if not exists molit_trade_deals_month_lawd_active_idx
+      on molit_trade_deals(deal_year_month, lawd_cd)
+      where coalesce(cancel_type, '') = '';
     create index if not exists molit_trade_deals_apt_idx
       on molit_trade_deals(apt_name, legal_dong);
     create index if not exists molit_trade_deals_complex_match_idx
@@ -464,6 +467,8 @@ export async function initDb() {
       on map_growth_items(snapshot_id, level, lat, lng);
     create index if not exists map_growth_items_hierarchy_idx
       on map_growth_items(snapshot_id, level, sido_code, sigungu_code, dong_key);
+    create index if not exists map_growth_items_snapshot_level_data_idx
+      on map_growth_items(snapshot_id, level, has_data);
 
     create table if not exists map_dong_apartment_rank_items (
       snapshot_id bigint not null references map_growth_snapshots(id) on delete cascade,
@@ -637,6 +642,12 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, band_key, rank);
     create index if not exists price_band_rank_items_apartment_idx
       on price_band_rank_items(snapshot_id, apartment_id);
+    create index if not exists price_band_rank_items_snapshot_rank_idx
+      on price_band_rank_items(snapshot_id, rank);
+    create index if not exists price_band_rank_items_snapshot_growth_idx
+      on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_items_snapshot_band_growth_idx
+      on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
 
     create table if not exists app_cache_entries (
       cache_key text primary key,

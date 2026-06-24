@@ -220,7 +220,7 @@ function formatMapCacheLabel(cache) {
 
 function formatPriceBandCacheLabel(cache) {
   if (!cache) return "";
-  if (cache.hit === false) return "실거래가 캐시 없음";
+  if (cache.hit === false) return "실거래가 캐시 준비 중";
   if (!cache.updatedAt) return "";
   const updatedAt = new Date(cache.updatedAt);
   const today = new Date();
@@ -232,7 +232,14 @@ function formatPriceBandCacheLabel(cache) {
     hour: "2-digit",
     minute: "2-digit"
   });
-  return `${sameDay ? "오늘" : ""}(${date}) ${time} 기준`;
+  const prefix = sameDay ? "오늘" : date;
+  const periodSuffix = cache.fallback && cache.servedStartMonth && cache.servedEndMonth
+    ? ` · 표시 ${formatMonth(cache.servedStartMonth)}-${formatMonth(cache.servedEndMonth)}`
+    : "";
+  if (cache.fallback || cache.status === "stale") {
+    return `마지막 정상 데이터 ${prefix} ${time} 기준${periodSuffix}`;
+  }
+  return `업데이트 ${prefix} ${time} 기준${periodSuffix}`;
 }
 
 function escapeHtml(value) {
