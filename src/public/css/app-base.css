@@ -449,7 +449,31 @@ input {
   background: #fff;
 }
 
+.price-band-count-main,
+.price-band-count-sub,
+.price-band-count-meta {
+  display: block;
+}
+
+.price-band-count-main {
+  color: #475467;
+  font-weight: 850;
+}
+
+.price-band-count-sub,
+.price-band-count-meta {
+  color: var(--muted);
+}
+
 .price-band-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.price-band-filter-primary,
+.price-band-filter-flow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

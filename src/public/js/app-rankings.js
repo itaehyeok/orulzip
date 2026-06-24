@@ -135,7 +135,15 @@ function renderPriceBandTable(result, basisBands = null) {
   const cacheLabel = formatPriceBandCacheLabel(result.cache);
   const householdLabel = householdFilterLabel();
   const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
-  els.priceBandCount.textContent = `${selectionLabel} · ${selectedAreaBand?.label || "전체 평형"} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
+  els.priceBandCount.innerHTML = renderPriceBandCountSummary({
+    selectionLabel,
+    areaLabel: selectedAreaBand?.label || "전체 평형",
+    householdLabel,
+    totalRows: pagination.totalRows,
+    periodLabel,
+    rangeLabel: pagination.totalRows ? `${formatInt(start)}-${formatInt(end)}` : "",
+    cacheLabel
+  });
   renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => {
@@ -329,7 +337,12 @@ function renderPriceBandLoadingState() {
   updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
-  if (els.priceBandCount) els.priceBandCount.textContent = `${selectionLabel} · 불러오는 중`;
+  if (els.priceBandCount) {
+    els.priceBandCount.innerHTML = `
+      <span class="price-band-count-main">${escapeHtml(selectionLabel)}</span>
+      <span class="price-band-count-sub">랭킹을 불러오는 중입니다.</span>
+    `;
+  }
   if (els.priceBandRows) {
     els.priceBandRows.innerHTML = `
       <tr>
@@ -356,13 +369,43 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
   }
   els.priceBandSummary.innerHTML = `
     <div class="price-band-filter-row" aria-label="가격대 랭킹 조건">
-      ${renderPriceBandPeriodSelect()}
-      ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
-      <span class="price-band-filter-arrow" aria-hidden="true">→</span>
-      ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
-      <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
-      ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
+      <div class="price-band-filter-primary">
+        ${renderPriceBandPeriodSelect()}
+        ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
+      </div>
+      <div class="price-band-filter-flow">
+        ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
+        <span class="price-band-filter-arrow" aria-hidden="true">→</span>
+        ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
+        <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
+      </div>
     </div>
+  `;
+}
+
+function renderPriceBandCountSummary({
+  selectionLabel,
+  areaLabel,
+  householdLabel,
+  totalRows,
+  periodLabel,
+  rangeLabel,
+  cacheLabel
+}) {
+  const subParts = [
+    areaLabel || "전체 평형",
+    householdLabel,
+    `총 ${formatInt(totalRows || 0)}개`
+  ].filter(Boolean);
+  const metaParts = [
+    periodLabel,
+    rangeLabel,
+    cacheLabel
+  ].filter(Boolean);
+  return `
+    <span class="price-band-count-main">${escapeHtml(selectionLabel || "가격대 전체")}</span>
+    <span class="price-band-count-sub">${escapeHtml(subParts.join(" · "))}</span>
+    ${metaParts.length ? `<span class="price-band-count-meta">${escapeHtml(metaParts.join(" · "))}</span>` : ""}
   `;
 }
 

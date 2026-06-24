@@ -288,6 +288,288 @@ td:nth-child(4) {
     padding: 10px;
   }
 
+  #priceBandView .panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    min-height: 0;
+    padding: 16px 16px 14px;
+  }
+
+  #priceBandView .panel-head h2 {
+    font-size: 21px;
+    line-height: 1.18;
+  }
+
+  #priceBandCount {
+    display: grid;
+    gap: 3px;
+    max-width: 100%;
+    line-height: 1.35;
+  }
+
+  #priceBandCount .price-band-count-main {
+    color: #475467;
+    font-size: 14px;
+    font-weight: 850;
+  }
+
+  #priceBandCount .price-band-count-sub {
+    color: #667085;
+    font-size: 12px;
+  }
+
+  #priceBandCount .price-band-count-meta {
+    color: #98a2b3;
+    font-size: 11px;
+  }
+
+  .price-band-summary {
+    gap: 9px;
+    padding: 12px 16px 14px;
+  }
+
+  .price-band-filter-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .price-band-filter-primary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .price-band-filter-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .price-band-filter-control {
+    justify-content: space-between;
+    width: 100%;
+    height: 44px;
+    padding: 0 10px;
+  }
+
+  .price-band-filter-control span {
+    font-size: 11px;
+  }
+
+  .price-band-filter-control select,
+  .price-band-period-filter-control select,
+  .price-band-area-filter-control select {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    font-size: 13px;
+    text-align: right;
+  }
+
+  .price-band-filter-arrow {
+    justify-self: center;
+  }
+
+  .price-band-filter-total {
+    display: none;
+  }
+
+  #priceBandView .table-wrap {
+    overflow: visible;
+  }
+
+  .price-band-table,
+  .price-band-table tbody,
+  .price-band-table tr,
+  .price-band-table td {
+    display: block;
+  }
+
+  .price-band-table thead {
+    display: none;
+  }
+
+  .price-band-table tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px 12px 14px;
+    background: #f8fafc;
+  }
+
+  .price-band-table tr.clickable-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 0 10px;
+    min-width: 0;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
+  }
+
+  .price-band-table tr.clickable-row:hover {
+    background: #ffffff;
+  }
+
+  .price-band-table tr.clickable-row.selected {
+    border-color: rgba(22, 128, 95, 0.32);
+    box-shadow: inset 3px 0 0 #16805f, 0 1px 3px rgba(16, 24, 40, 0.05);
+  }
+
+  .price-band-table tbody td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .price-band-table tbody td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: #edf1f7;
+    color: #475467;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .price-band-table tbody td:nth-child(2),
+  .price-band-table tbody td:nth-child(3) {
+    grid-column: 2;
+  }
+
+  .price-band-table tbody td:nth-child(3) {
+    margin-top: 4px;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .price-band-table tbody td:nth-child(3)::before {
+    content: "지역 ";
+    color: #98a2b3;
+    font-size: 11px;
+    font-weight: 850;
+  }
+
+  .price-band-table tbody td:nth-child(4) {
+    grid-column: 1 / -1;
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid #eef1f5;
+  }
+
+  .price-band-table .table-main {
+    margin-bottom: 4px;
+    font-size: 15px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  .price-band-table .muted-cell {
+    display: block;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .price-band-table .table-links {
+    gap: 7px 11px;
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .price-band-area-breakdown {
+    min-width: 0;
+    gap: 7px;
+  }
+
+  .price-band-area-breakdown-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    gap: 4px 8px;
+    border-radius: 7px;
+    background: #f8fafc;
+    padding: 8px;
+  }
+
+  .price-band-area-breakdown-line.primary {
+    font-size: 13px;
+  }
+
+  .price-band-area-breakdown-line.secondary {
+    font-size: 12px;
+  }
+
+  .price-band-area-label {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .price-band-area-breakdown-line.primary .price-band-area-range {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .price-band-area-breakdown-line.secondary .price-band-area-range {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .price-band-area-range {
+    min-width: 0;
+    color: #667085;
+    font-size: 11.5px;
+    line-height: 1.35;
+    white-space: normal;
+  }
+
+  .price-band-area-metric-chip,
+  .price-band-area-amount {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .price-band-area-metric-chip {
+    gap: 6px;
+    padding: 4px 7px;
+  }
+
+  .price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-amount,
+  .price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-rate {
+    font-size: 11px;
+  }
+
+  .price-band-area-rate {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .price-band-area-more-slot {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  .price-band-area-more-toggle {
+    min-width: 0;
+  }
+
   body.map-shell-mode {
     min-height: 100dvh;
     overflow: hidden;
