@@ -2,6 +2,14 @@ function applyQuickPeriod(years) {
   applyQuickPeriodMonths(Math.max(1, Math.round(Number(years || 1) * 12)));
 }
 
+const priceBandPeriodOptions = [
+  { value: 3, label: "3개월 전" },
+  { value: 6, label: "6개월 전" },
+  { value: 12, label: "1년 전" },
+  { value: 36, label: "3년 전" },
+  { value: 60, label: "5년 전" }
+];
+
 function applyQuickPeriodMonths(months) {
   if (!state.months.length) return;
   const end = state.months.at(-1);
@@ -25,7 +33,7 @@ function syncPeriodButtons(activeMonths = currentPeriodMonths()) {
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.classList.toggle("active", periodButtonMonths(button) === activeMonths);
   });
-  document.querySelectorAll("[data-period-select]").forEach((select) => {
+  document.querySelectorAll("[data-period-select], [data-price-band-period-select]").forEach((select) => {
     if (select.value !== String(activeMonths)) select.value = String(activeMonths);
   });
 }
@@ -95,12 +103,16 @@ function renderNeighborhoodTable(result) {
 
 function renderPriceBandTable(result, basisBands = null) {
   els.priceBandView?.removeAttribute("aria-busy");
-  if (result.basis === "start" || result.basis === "end") state.priceBandBasis = result.basis;
-  state.priceBandKey = result.selectedBandKey === null || result.selectedBandKey === undefined
+  state.priceBandStartKey = result.selection?.startBandKey === null || result.selection?.startBandKey === undefined
     ? ""
-    : String(result.selectedBandKey);
+    : String(result.selection.startBandKey);
+  state.priceBandEndKey = result.selection?.endBandKey === null || result.selection?.endBandKey === undefined
+    ? ""
+    : String(result.selection.endBandKey);
+  state.priceBandAreaKey = result.selection?.areaBandKey || state.priceBandAreaKey || "all";
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
+  const areaBands = Array.isArray(result.areaBands) ? result.areaBands : [];
   const summaryBands = basisBands || {
     start: result.basis === "start" ? bands : [],
     end: result.basis === "end" ? bands : []
@@ -114,25 +126,29 @@ function renderPriceBandTable(result, basisBands = null) {
   state.priceBandPage = pagination.page;
   const start = pagination.totalRows ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
   const end = pagination.totalRows ? Math.min(pagination.page * pagination.pageSize, pagination.totalRows) : 0;
-  const basisLabel = result.basis === "end" ? "현재 가격대" : "과거 가격대";
-  const selectedBand = result.selectedBand || bands.find((band) => String(band.bandKey) === state.priceBandKey) || null;
-  const selectedBandLabel = selectedBand?.bandLabel || "가격대";
+  const selectedStartBand = findPriceBand(summaryBands.start, state.priceBandStartKey) || fallbackPriceBand(state.priceBandStartKey);
+  const selectedEndBand = findPriceBand(summaryBands.end, state.priceBandEndKey) || fallbackPriceBand(state.priceBandEndKey);
+  const selectedAreaBand = findPriceAreaBand(areaBands, state.priceBandAreaKey);
   const periodLabel = result.period?.startMonth && result.period?.endMonth
     ? `${formatMonth(result.period.startMonth)} - ${formatMonth(result.period.endMonth)}`
     : "";
   const cacheLabel = formatPriceBandCacheLabel(result.cache);
   const householdLabel = householdFilterLabel();
-  els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
-  renderPriceBandSummary(summaryBands, state.priceBandBasis, state.priceBandKey);
+  const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
+  els.priceBandCount.textContent = `${selectionLabel} · ${selectedAreaBand?.label || "전체 평형"} · ${householdLabel} · ${formatInt(pagination.totalRows)}개${periodLabel ? ` · ${periodLabel}` : ""}${pagination.totalRows ? ` · ${formatInt(start)}-${formatInt(end)}` : ""}${cacheLabel ? ` · ${cacheLabel}` : ""}`;
+  renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows);
   els.priceBandRows.innerHTML = rows.length
-    ? rows.map((row) => `
-      <tr>
+    ? rows.map((row) => {
+      const mapLink = priceBandMapApartmentLink(row);
+      const isSelected = state.priceBandDetailApartmentId && String(state.priceBandDetailApartmentId) === String(row.apartmentId || "");
+      return `
+      <tr class="clickable-row${isSelected ? " selected" : ""}" data-price-band-detail-row data-price-band-apartment-id="${escapeHtml(row.apartmentId || "")}">
         <td>${row.rank}</td>
         <td>
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
-            <a href="${escapeHtml(priceBandMapApartmentLink(row))}" data-price-band-map-link data-apartment-id="${escapeHtml(row.apartmentId || "")}">지도에서 보기</a>
+            <a href="${escapeHtml(mapLink)}" data-price-band-map-link>지도에서 보기</a>
             <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
             <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
           </span>
@@ -140,11 +156,12 @@ function renderPriceBandTable(result, basisBands = null) {
         <td>${escapeHtml(formatPriceBandLocation(row))}</td>
         <td>${renderPriceBandAreaBreakdownCell(row)}</td>
       </tr>
-    `).join("")
+    `;
+    }).join("")
     : `<tr><td colspan="4" class="empty">선택한 가격대에 표시할 아파트 데이터가 없습니다.</td></tr>`;
   renderPriceBandPagination(pagination);
   bindPriceBandAreaMoreToggles();
-  bindPriceBandMapLinks();
+  bindPriceBandMapLinks(rows);
 }
 
 function bindPriceBandAreaMoreToggles() {
@@ -163,25 +180,154 @@ function bindPriceBandAreaMoreToggles() {
   });
 }
 
-function bindPriceBandMapLinks() {
+function bindPriceBandMapLinks(rows = []) {
+  const rowByApartmentId = new Map(rows.map((row) => [String(row.apartmentId || ""), row]).filter(([id]) => id));
   els.priceBandRows?.querySelectorAll("[data-price-band-map-link]").forEach((link) => {
     link.addEventListener("click", async (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-      const apartmentId = link.dataset.apartmentId || "";
-      if (!apartmentId) return;
       event.preventDefault();
-      window.history.pushState({ tab: "molitMap" }, "", priceBandMapApartmentLink({ apartmentId }));
-      await activateTab("molitMap", { push: false });
+      await openPriceBandMapDetailLink(link.getAttribute("href") || "");
+    });
+  });
+  els.priceBandRows?.querySelectorAll("[data-price-band-detail-row]").forEach((row) => {
+    row.addEventListener("click", async (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      if (event.target.closest("a, button, select, input, textarea, [role='button']")) return;
+      const item = rowByApartmentId.get(String(row.dataset.priceBandApartmentId || ""));
+      if (!item) return;
+      await openPriceBandApartmentDetail(item);
     });
   });
 }
 
+async function openPriceBandMapDetailLink(href) {
+  const normalizedHref = String(href || "").trim();
+  if (!normalizedHref) return;
+  closePriceBandApartmentDetail();
+  window.history.pushState({ tab: "molitMap" }, "", normalizedHref);
+  await activateTab("molitMap", { push: false });
+}
+
+async function openPriceBandApartmentDetail(row) {
+  const apartmentId = String(row?.apartmentId || "").trim();
+  if (!apartmentId || !els.priceBandDetailPanel) return;
+  const requestId = ++state.priceBandDetailRequestId;
+  state.priceBandDetailApartmentId = apartmentId;
+  state.mapPopupDetail = null;
+  state.mapPopupSelectedAreaTypeId = null;
+  state.mapPopupPreferredAreaM2 = priceBandRepresentativeAreaM2(row);
+  state.mapPopupPreferredApartmentId = state.mapPopupPreferredAreaM2 ? apartmentId : null;
+  updatePriceBandSelectedRow(apartmentId);
+  renderPriceBandApartmentLoading(row);
+
+  const period = currentMapPeriodParams();
+  const minHouseholdCount = activeMinHouseholdCount();
+  const cacheKey = `molit:${apartmentId}:${period.start}:${period.end}:${minHouseholdCount}`;
+  if (state.mapApartmentDetails.has(cacheKey)) {
+    if (requestId !== state.priceBandDetailRequestId) return;
+    renderPriceBandApartmentDetail(state.mapApartmentDetails.get(cacheKey));
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      apartmentId,
+      start: period.start,
+      end: period.end,
+      minHouseholdCount: String(minHouseholdCount)
+    });
+    const detail = await api(`/api/molit-apartment-detail?${params}`);
+    if (requestId !== state.priceBandDetailRequestId) return;
+    state.mapApartmentDetails.set(cacheKey, detail);
+    renderPriceBandApartmentDetail(detail);
+  } catch (error) {
+    if (requestId !== state.priceBandDetailRequestId) return;
+    renderPriceBandApartmentError(row, error);
+  }
+}
+
+function renderPriceBandApartmentLoading(row) {
+  withPriceBandDetailElements(() => renderMapApartmentLoading(priceBandDetailSeedItem(row)));
+}
+
+function renderPriceBandApartmentError(row, error) {
+  withPriceBandDetailElements(() => renderMapApartmentError(priceBandDetailSeedItem(row), error));
+}
+
+function renderPriceBandApartmentDetail(detail) {
+  withPriceBandDetailElements(() => renderMapApartmentDetail(detail));
+}
+
+function closePriceBandApartmentDetail() {
+  state.priceBandDetailRequestId += 1;
+  state.priceBandDetailApartmentId = null;
+  if (els.priceBandDetailPanel) {
+    els.priceBandDetailPanel.hidden = true;
+    els.priceBandDetailPanel.classList.remove("loading");
+  }
+  if (els.priceBandDetailTooltip) els.priceBandDetailTooltip.hidden = true;
+  updatePriceBandSelectedRow("");
+}
+
+function withPriceBandDetailElements(callback) {
+  if (!els.priceBandDetailPanel) return callback();
+  const previous = {
+    mapApartmentPopup: els.mapApartmentPopup,
+    mapPopupTitle: els.mapPopupTitle,
+    mapPopupMeta: els.mapPopupMeta,
+    mapPopupRanks: els.mapPopupRanks,
+    mapPopupPyeongGrowth: els.mapPopupPyeongGrowth,
+    mapPopupStats: els.mapPopupStats,
+    mapPopupChart: els.mapPopupChart,
+    mapPopupTooltip: els.mapPopupTooltip,
+    mapPopupTradeHistory: els.mapPopupTradeHistory,
+    mapCanvasWrap: els.mapCanvasWrap,
+    mapLocateBtn: els.mapLocateBtn
+  };
+  const previousRankLinksEnabled = state.mapPopupRankLinksEnabled;
+  Object.assign(els, {
+    mapApartmentPopup: els.priceBandDetailPanel,
+    mapPopupTitle: els.priceBandDetailTitle,
+    mapPopupMeta: els.priceBandDetailMeta,
+    mapPopupRanks: els.priceBandDetailRanks,
+    mapPopupPyeongGrowth: els.priceBandDetailPyeongGrowth,
+    mapPopupStats: els.priceBandDetailStats,
+    mapPopupChart: els.priceBandDetailChart,
+    mapPopupTooltip: els.priceBandDetailTooltip,
+    mapPopupTradeHistory: els.priceBandDetailTradeHistory,
+    mapCanvasWrap: null,
+    mapLocateBtn: null
+  });
+  state.mapPopupRankLinksEnabled = false;
+  try {
+    return callback();
+  } finally {
+    Object.assign(els, previous);
+    state.mapPopupRankLinksEnabled = previousRankLinksEnabled;
+  }
+}
+
+function priceBandDetailSeedItem(row) {
+  return {
+    id: row?.apartmentId || "",
+    name: row?.apartmentName || "아파트 시세",
+    neighborhoodName: row?.neighborhoodName || formatPriceBandLocation(row || {}) || "-"
+  };
+}
+
+function updatePriceBandSelectedRow(apartmentId) {
+  els.priceBandRows?.querySelectorAll("[data-price-band-detail-row]").forEach((row) => {
+    row.classList.toggle("selected", Boolean(apartmentId) && row.dataset.priceBandApartmentId === String(apartmentId));
+  });
+}
+
 function renderPriceBandLoadingState() {
-  updatePriceBandSummaryActiveState(state.priceBandBasis, state.priceBandKey);
-  const basisLabel = state.priceBandBasis === "end" ? "현재 가격대" : "과거 가격대";
-  const selectedBandLabel = currentPriceBandChipLabel() || "가격대";
+  closePriceBandApartmentDetail();
+  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
+  updatePriceBandTotalBadge("불러오는 중");
+  const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
-  if (els.priceBandCount) els.priceBandCount.textContent = `${basisLabel} · ${selectedBandLabel} · 불러오는 중`;
+  if (els.priceBandCount) els.priceBandCount.textContent = `${selectionLabel} · 불러오는 중`;
   if (els.priceBandRows) {
     els.priceBandRows.innerHTML = `
       <tr>
@@ -197,60 +343,137 @@ function renderPriceBandLoadingState() {
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
 
-function renderPriceBandSummary(basisBands, selectedBasis, selectedBandKey) {
+function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey, totalRows = 0) {
   if (!els.priceBandSummary) return;
-  const groups = [
-    { basis: "start", label: "과거 가격대", prefix: "과거", bands: Array.isArray(basisBands?.start) ? basisBands.start : [] },
-    { basis: "end", label: "현재 가격대", prefix: "현재", bands: Array.isArray(basisBands?.end) ? basisBands.end : [] }
-  ];
-  if (!groups.some((group) => group.bands.length)) {
+  const startBands = Array.isArray(basisBands?.start) ? basisBands.start : [];
+  const endBands = Array.isArray(basisBands?.end) ? basisBands.end : [];
+  const areaBandOptions = Array.isArray(areaBands) ? areaBands : [];
+  if (!startBands.length && !endBands.length && !areaBandOptions.length) {
     els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
     return;
   }
-  els.priceBandSummary.innerHTML = groups.map((group) => `
-    <div class="price-band-row">
-      <div class="price-band-row-label">${group.label}</div>
-      <div class="price-band-chip-row">
-        ${group.bands.length ? group.bands.map((band) => renderPriceBandChip(band, group, selectedBasis, selectedBandKey)).join("") : `<span class="price-band-empty">데이터 없음</span>`}
-      </div>
+  els.priceBandSummary.innerHTML = `
+    <div class="price-band-filter-row" aria-label="가격대 랭킹 조건">
+      ${renderPriceBandPeriodSelect()}
+      ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
+      <span class="price-band-filter-arrow" aria-hidden="true">→</span>
+      ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
+      <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
+      ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
     </div>
-  `).join("");
-}
-
-function renderPriceBandChip(band, group, selectedBasis, selectedBandKey) {
-  const isActive = group.basis === selectedBasis && String(band.bandKey) === String(selectedBandKey);
-  return `
-    <button
-      type="button"
-      class="price-band-chip ${isActive ? "active" : ""}"
-      data-price-band-basis="${group.basis}"
-      data-price-band-key="${escapeHtml(band.bandKey)}"
-      aria-pressed="${isActive ? "true" : "false"}"
-    >
-      <strong>${group.prefix} ${escapeHtml(band.bandLabel)}</strong>
-      <span>${formatInt(band.apartmentCount)}개</span>
-      <em>최고 ${formatPercent(band.topGrowthRate)}</em>
-    </button>
   `;
 }
 
-function updatePriceBandSummaryActiveState(selectedBasis, selectedBandKey) {
-  if (!els.priceBandSummary) return;
-  els.priceBandSummary.querySelectorAll("[data-price-band-key]").forEach((button) => {
-    const isActive = button.dataset.priceBandBasis === selectedBasis
-      && String(button.dataset.priceBandKey || "") === String(selectedBandKey || "");
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
+function renderPriceBandPeriodSelect() {
+  const activeMonths = currentPeriodMonths();
+  return `
+    <label class="price-band-filter-control price-band-period-filter-control">
+      <span>과거 기준</span>
+      <select data-price-band-period-select aria-label="가격대 랭킹 과거 기준 기간">
+        ${priceBandPeriodOptions.map((option) => `
+          <option value="${option.value}" ${option.value === activeMonths ? "selected" : ""}>${escapeHtml(option.label)}</option>
+        `).join("")}
+      </select>
+    </label>
+  `;
 }
 
-function currentPriceBandChipLabel() {
+function renderPriceBandSelect(kind, label, bands, selectedBandKey) {
+  const normalizedSelectedKey = selectedBandKey === null || selectedBandKey === undefined ? "" : String(selectedBandKey);
+  const options = priceBandOptionsWithSelected(bands, normalizedSelectedKey);
+  return `
+    <label class="price-band-filter-control">
+      <span>${label}</span>
+      <select data-price-band-filter="${kind}">
+        <option value="" ${normalizedSelectedKey === "" ? "selected" : ""}>전체</option>
+        ${options.map((band) => renderPriceBandOption(band, normalizedSelectedKey)).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function priceBandOptionsWithSelected(bands, selectedBandKey) {
+  const options = Array.isArray(bands) ? [...bands] : [];
+  if (selectedBandKey !== "" && !options.some((band) => String(band.bandKey) === selectedBandKey)) {
+    options.unshift(fallbackPriceBand(selectedBandKey));
+  }
+  return options.filter(Boolean);
+}
+
+function renderPriceBandOption(band, selectedBandKey) {
+  const bandKey = String(band.bandKey);
+  return `<option value="${escapeHtml(bandKey)}" ${bandKey === selectedBandKey ? "selected" : ""}>${escapeHtml(band.bandLabel || `${bandKey}억대`)}</option>`;
+}
+
+function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
+  const bands = Array.isArray(areaBands) && areaBands.length
+    ? areaBands
+    : [{ key: "all", label: "전체 평형" }];
+  const normalizedSelectedKey = selectedAreaBandKey || "all";
+  return `
+    <label class="price-band-filter-control price-band-area-filter-control">
+      <span>평형</span>
+      <select data-price-band-filter="area">
+        ${bands.map((band) => {
+          const key = String(band.key || "all");
+          return `<option value="${escapeHtml(key)}" ${key === normalizedSelectedKey ? "selected" : ""}>${escapeHtml(band.label || "전체 평형")}</option>`;
+        }).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey) {
+  if (!els.priceBandSummary) return;
+  const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
+  const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
+  const areaSelect = els.priceBandSummary.querySelector('[data-price-band-filter="area"]');
+  if (startSelect) startSelect.value = selectedStartBandKey === null || selectedStartBandKey === undefined ? "" : String(selectedStartBandKey);
+  if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
+  if (areaSelect) areaSelect.value = selectedAreaBandKey || "all";
+}
+
+function updatePriceBandTotalBadge(label) {
+  const badge = els.priceBandSummary?.querySelector("[data-price-band-total]");
+  if (badge) badge.textContent = label;
+}
+
+function currentPriceBandSelectionLabel() {
   if (!els.priceBandSummary) return "";
-  const activeButton = [...els.priceBandSummary.querySelectorAll("[data-price-band-key]")]
-    .find((button) => button.dataset.priceBandBasis === state.priceBandBasis
-      && String(button.dataset.priceBandKey || "") === String(state.priceBandKey || ""));
-  const label = activeButton?.querySelector("strong")?.textContent?.trim() || "";
-  return label.replace(/^(과거|현재)\s+/, "");
+  const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
+  const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
+  return `과거 ${selectedPriceBandLabel(startSelect)} → 현재 ${selectedPriceBandLabel(endSelect)}`;
+}
+
+function priceBandSelectionLabel(startBand, endBand) {
+  return `과거 ${startBand?.bandLabel || "전체"} → 현재 ${endBand?.bandLabel || "전체"}`;
+}
+
+function selectedPriceBandLabel(select) {
+  if (!select) return "전체";
+  return select.selectedOptions?.[0]?.textContent?.trim() || "전체";
+}
+
+function findPriceBand(bands, bandKey) {
+  if (bandKey === null || bandKey === undefined || bandKey === "") return null;
+  return (Array.isArray(bands) ? bands : []).find((band) => String(band.bandKey) === String(bandKey)) || null;
+}
+
+function fallbackPriceBand(bandKey) {
+  if (bandKey === null || bandKey === undefined || bandKey === "") return null;
+  const key = Number(bandKey);
+  if (!Number.isFinite(key)) return null;
+  if (key === 0) return { bandKey: key, bandLabel: "1억 미만" };
+  return { bandKey: key, bandLabel: `${key}억대` };
+}
+
+function findPriceAreaBand(bands, bandKey) {
+  const key = bandKey || "all";
+  return (Array.isArray(bands) ? bands : []).find((band) => String(band.key) === String(key)) || null;
+}
+
+function formatPriceBandTotal(totalRows) {
+  return `총 ${formatInt(totalRows || 0)}개 단지`;
 }
 
 function formatPriceBandLocation(row) {
@@ -271,6 +494,8 @@ function naverApartmentLink(row) {
 function priceBandMapApartmentLink(row) {
   const params = new URLSearchParams();
   if (row.apartmentId) params.set("focusApartmentId", row.apartmentId);
+  const areaM2 = priceBandRepresentativeAreaM2(row);
+  if (areaM2 !== null) params.set("focusAreaM2", areaM2.toFixed(2));
   return `/map?${params}`;
 }
 
@@ -313,9 +538,9 @@ function renderPriceBandAreaBreakdownCell(row) {
 
 function renderPriceBandAreaBreakdownLine(item, tone, options = {}) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
-  const rateTone = Number(item.growthRate || 0) >= 0 ? "positive" : "negative";
+  const rateTone = growthRateToneClass(item.growthRate);
   const metricMarkup = tone === "primary"
-    ? `<span class="price-band-area-metric-chip"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong></span>`
+    ? `<span class="price-band-area-metric-chip ${rateTone}"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate">${formatPercent(item.growthRate)}</strong></span>`
     : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
   const moreMarkup = options.moreCount
     ? `
@@ -342,6 +567,7 @@ function priceBandAreaSummaries(row) {
     : [fallbackPriceBandAreaSummary(row)];
   return summaries
     .map((item) => ({
+      exclusiveAreaM2: nullableNumber(item.exclusiveAreaM2),
       areaLabel: item.areaLabel || row.areaLabel || "-",
       startSalePrice: nullableNumber(item.startSalePrice),
       endSalePrice: nullableNumber(item.endSalePrice),
@@ -356,12 +582,18 @@ function fallbackPriceBandAreaSummary(row) {
   const endSalePrice = nullableNumber(row.endSalePrice);
   const growthAmount = startSalePrice !== null && endSalePrice !== null ? endSalePrice - startSalePrice : nullableNumber(row.growthAmount);
   return {
+    exclusiveAreaM2: nullableNumber(row.exclusiveAreaM2),
     areaLabel: row.areaLabel || `${formatInt(row.areaTypeCount || 0)}개 면적`,
     startSalePrice,
     endSalePrice,
     growthAmount,
     growthRate: nullableNumber(row.growthRate)
   };
+}
+
+function priceBandRepresentativeAreaM2(row) {
+  const summary = priceBandAreaSummaries(row)[0];
+  return nullableNumber(summary?.exclusiveAreaM2);
 }
 
 function nullableNumber(value) {

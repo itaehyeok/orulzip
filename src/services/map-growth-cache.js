@@ -423,7 +423,11 @@ export async function refreshMolitMapGrowthCache({
   const householdFilters = normalizeMinHouseholdCounts(minHouseholdCounts);
   for (const period of normalizedPeriods(periodYears)) {
     const startMonth = addMonths(endMonth, -period.months);
-    const data = await readMolitMatchedMonthlyRows(today, { startMonth, endMonth });
+    const data = await readMolitMatchedMonthlyRows(today, {
+      startMonth,
+      endMonth,
+      minHouseholdCount: Math.min(...householdFilters)
+    });
     if (!data.rows.length) continue;
     for (const minHouseholdCount of householdFilters) {
       const items = buildMolitCacheItems(data.rows, {
@@ -850,10 +854,16 @@ function buildCacheItems(dataset, rankingRows) {
   };
 }
 
-async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
+async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHouseholdCount = 0 }) {
+  const freshness = molitPriceFreshnessRule(startMonth, endMonth);
+  const queryStartMonth = [
+    addMonths(startMonth, -freshness.startGapMonths),
+    addMonths(endMonth, -freshness.endGapMonths)
+  ].sort()[0];
+  const recentStartMonth = addMonths(endMonth, -1);
   const [monthly, recent] = await Promise.all([
     query(`
-      with matched as (
+      with eligible_complexes as materialized (
         select
           c.id as apartment_id,
           c.apt_name as apartment_name,
@@ -872,26 +882,54 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           c.last_month,
           c.lat,
           c.lng,
-          coalesce(a.household_count, 0) as household_count,
+          c.lawd_cd,
+          c.legal_dong,
+          c.jibun,
+          c.normalized_apt_name,
+          coalesce(c.reb_household_count, a.household_count, 0) as household_count
+        from molit_complexes c
+        left join apartments a
+          on a.id = c.matched_apartment_id
+        where c.lat is not null
+          and c.lng is not null
+          and ($4::int <= 0 or coalesce(c.reb_household_count, a.household_count, 0) >= $4::int)
+      ),
+      matched as (
+        select
+          c.apartment_id,
+          c.apartment_name,
+          c.neighborhood_name,
+          c.legal_dong_code,
+          c.address,
+          c.sido_code,
+          c.sido_name,
+          c.sigungu_code,
+          c.sigungu_name,
+          c.dong_key,
+          c.dong_name,
+          c.build_year,
+          c.apartment_deal_count,
+          c.first_month,
+          c.last_month,
+          c.lat,
+          c.lng,
+          c.household_count,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
           d.deal_year_month,
           d.deal_amount,
           d.pyeong_price
-        from molit_trade_deals d
-        join molit_complexes c
-          on c.lawd_cd = d.lawd_cd
+        from eligible_complexes c
+        join molit_trade_deals d
+          on d.lawd_cd = c.lawd_cd
          and c.legal_dong = coalesce(trim(d.legal_dong), '')
          and c.jibun = coalesce(trim(d.jibun), '')
          and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
-        left join apartments a
-          on a.id = c.matched_apartment_id
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
+          and d.deal_year_month >= $3
           and d.deal_year_month <= $2
           and coalesce(d.cancel_type, '') = ''
-          and c.lat is not null
-          and c.lng is not null
       ),
       monthly as (
         select
@@ -1009,7 +1047,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         deal_count
       from end_rows
       order by apartment_id, exclusive_area_m2, deal_year_month
-    `, [startMonth, endMonth]),
+    `, [startMonth, endMonth, queryStartMonth, normalizeMinHouseholdCount(minHouseholdCount)]),
     query(`
       with matched as (
         select
@@ -1028,6 +1066,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
           and d.deal_amount is not null
           and d.pyeong_price is not null
           and coalesce(d.cancel_type, '') = ''
+          and d.deal_year_month >= $2
           and make_date(d.deal_year, d.deal_month, d.deal_day) between $1::date - interval '30 days' and $1::date
           and c.lat is not null
           and c.lng is not null
@@ -1044,7 +1083,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth }) {
         count(*)::int as deal_count
       from matched
       group by apartment_id, exclusive_area_m2
-    `, [today])
+    `, [today, recentStartMonth])
   ]);
 
   return {

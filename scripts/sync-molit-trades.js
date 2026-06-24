@@ -14,6 +14,7 @@ import {
   upsertTradeDeals
 } from "../src/services/molit-trade-store.js";
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
+import { refreshRebApartmentIdentityMatches } from "../src/services/reb-apartment-identity-store.js";
 import { refreshMapGrowthCacheIfUnlocked } from "../src/services/map-growth-cache.js";
 import { NATIONWIDE_LAWD_CODES } from "./molit-lawd-codes.js";
 
@@ -383,6 +384,15 @@ if (!stoppedEarly && !options.skipMapCacheRefresh) {
     overview: complexResult.overview,
     geocode: complexResult.geocode
   }, null, 2));
+
+  if (process.env.REB_APT_IDENTITY_MATCH_ON_MOLIT_SYNC !== "0") {
+    console.log("[molit] refreshing REB household matches");
+    const rebMatchResult = await refreshRebApartmentIdentityMatches({ skipIfEmpty: true });
+    console.log(JSON.stringify({
+      message: rebMatchResult.skipped ? "REB household match refresh skipped" : "REB household matches refreshed",
+      ...rebMatchResult
+    }, null, 2));
+  }
 
   refreshMolitMapGrowthCacheInIsolatedProcess();
 }

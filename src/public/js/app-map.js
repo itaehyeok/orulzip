@@ -110,6 +110,15 @@ function openZoomNaverInfoWindow(position, html, { pinned = false, disableAutoPa
 }
 
 function openZoomNaverHoverWindow(position, html, options = {}) {
+  const pointerAnchor = naverHoverWindowPointerAnchorPoint(options.event) || recentZoomMapPointerAnchorPoint();
+  if (pointerAnchor) {
+    if (state.zoomNaverInfoWindow && !state.zoomNaverInfoWindowPinned) {
+      state.zoomNaverInfoWindow.close();
+    }
+    openZoomMarkerHoverWindow(html, markerHoverRectFromPointerPoint(pointerAnchor));
+    return;
+  }
+
   const anchor = naverHoverWindowAnchorPoint(position);
   if (!anchor) {
     openZoomNaverInfoWindow(position, html, { disableAutoPan: true });
@@ -175,6 +184,75 @@ function naverHoverWindowAnchorPoint(position) {
   };
 }
 
+function bindZoomMapPointerTracking() {
+  if (state.zoomMapPointerTrackingBound || !els.mapCanvasWrap) return;
+  state.zoomMapPointerTrackingBound = true;
+  const updatePointer = (event) => {
+    updateZoomMapPointerFromEvent(event);
+  };
+  els.mapCanvasWrap.addEventListener("pointermove", updatePointer, { capture: true, passive: true });
+  els.mapCanvasWrap.addEventListener("mousemove", updatePointer, { capture: true, passive: true });
+}
+
+function updateZoomMapPointerFromEvent(event) {
+  const pointer = zoomMapClientPointFromEvent(event);
+  if (!pointer) return null;
+  if (event?.target?.closest?.("#mapApartmentRanking") || isClientPointInsideVisibleMapRanking(pointer.clientX, pointer.clientY)) {
+    state.zoomMapLastPointer = null;
+    return null;
+  }
+  state.zoomMapLastPointer = {
+    clientX: pointer.clientX,
+    clientY: pointer.clientY,
+    time: Date.now()
+  };
+  return state.zoomMapLastPointer;
+}
+
+function zoomMapClientPointFromEvent(event) {
+  const source = event?.domEvent || event?.pointerEvent || event?.originalEvent || event?.event || event;
+  const clientX = Number(source?.clientX);
+  const clientY = Number(source?.clientY);
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+  return { clientX, clientY };
+}
+
+function naverHoverWindowPointerAnchorPoint(event) {
+  const pointer = updateZoomMapPointerFromEvent(event);
+  return pointer ? zoomMapPointerAnchorPoint(pointer) : null;
+}
+
+function recentZoomMapPointerAnchorPoint(maxAgeMs = 600) {
+  const pointer = state.zoomMapLastPointer;
+  if (!pointer || Date.now() - Number(pointer.time || 0) > maxAgeMs) return null;
+  return zoomMapPointerAnchorPoint(pointer);
+}
+
+function zoomMapPointerAnchorPoint(pointer) {
+  if (!pointer || !els.mapCanvasWrap || !els.zoomMap) return null;
+  const mapRect = els.zoomMap.getBoundingClientRect();
+  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
+  const clientX = Number(pointer.clientX);
+  const clientY = Number(pointer.clientY);
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+  if (isClientPointInsideVisibleMapRanking(clientX, clientY)) return null;
+  if (clientX < mapRect.left || clientX > mapRect.right || clientY < mapRect.top || clientY > mapRect.bottom) return null;
+  return {
+    x: clientX - wrapRect.left,
+    y: clientY - wrapRect.top
+  };
+}
+
+function isClientPointInsideVisibleMapRanking(clientX, clientY) {
+  const ranking = els.mapApartmentRanking;
+  if (!ranking || ranking.hidden) return false;
+  const style = window.getComputedStyle(ranking);
+  if (style.display === "none" || style.visibility === "hidden") return false;
+  const rect = ranking.getBoundingClientRect();
+  if (rect.width <= 1 || rect.height <= 1) return false;
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+
 function markerHoverRectFromAnchorPoint(point, size = null, anchor = null) {
   const width = Math.max(1, Number(size?.[0]) || 1);
   const height = Math.max(1, Number(size?.[1]) || 1);
@@ -187,6 +265,15 @@ function markerHoverRectFromAnchorPoint(point, size = null, anchor = null) {
     top,
     right: left + width,
     bottom: top + height
+  };
+}
+
+function markerHoverRectFromPointerPoint(point) {
+  return {
+    left: Number(point.x) - 0.5,
+    top: Number(point.y) - 0.5,
+    right: Number(point.x) + 0.5,
+    bottom: Number(point.y) + 0.5
   };
 }
 
@@ -207,35 +294,12 @@ function zoomMarkerHoverBounds() {
   if (!els.mapCanvasWrap || !els.zoomMap) return null;
   const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
   const mapRect = els.zoomMap.getBoundingClientRect();
-  let left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
-  let right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
-  const top = mapRect.top - wrapRect.top + markerHoverWindowMarginPx;
-  const bottom = mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx;
-  const rankingRect = visibleMapRankingRect();
-
-  if (rankingRect && rankingRect.bottom > mapRect.top && rankingRect.top < mapRect.bottom) {
-    const overlapsLeftMapEdge = rankingRect.left <= mapRect.left + 4 && rankingRect.right > mapRect.left;
-    if (overlapsLeftMapEdge) {
-      left = Math.max(left, rankingRect.right - wrapRect.left + markerHoverWindowMarginPx);
-    }
-  }
-
-  if (right <= left) {
-    left = mapRect.left - wrapRect.left + markerHoverWindowMarginPx;
-    right = mapRect.right - wrapRect.left - markerHoverWindowMarginPx;
-  }
-
-  return { left, right, top, bottom };
-}
-
-function visibleMapRankingRect() {
-  const ranking = els.mapApartmentRanking;
-  if (!ranking || ranking.hidden) return null;
-  const style = window.getComputedStyle(ranking);
-  if (style.display === "none" || style.visibility === "hidden") return null;
-  const rect = ranking.getBoundingClientRect();
-  if (rect.width <= 1 || rect.height <= 1) return null;
-  return rect;
+  return {
+    left: mapRect.left - wrapRect.left + markerHoverWindowMarginPx,
+    right: mapRect.right - wrapRect.left - markerHoverWindowMarginPx,
+    top: mapRect.top - wrapRect.top + markerHoverWindowMarginPx,
+    bottom: mapRect.bottom - wrapRect.top - markerHoverWindowMarginPx
+  };
 }
 
 function zoomMarkerHoverPlacement(markerRect, width, height) {
@@ -344,11 +408,12 @@ function mapGroupPopup(group) {
     <strong>${escapeHtml(group.name)}</strong><br>
     아파트 ${formatInt(group.apartmentCount)}개 / 면적 ${formatInt(group.areaCount)}개<br>
     평균 상승액 ${formatMoney(group.growthAmount)}<br>
-    평균 상승률 ${formatPercent(group.growthRate)}
+    평균 상승률 ${renderGrowthRateText(group.growthRate)}
   `;
 }
 
 async function initZoomMap() {
+  bindZoomMapPointerTracking();
   if (useNaverMap()) {
     const ready = await initNaverZoomMap();
     if (ready) return true;
@@ -449,9 +514,15 @@ async function prepareMapApartmentFocusFromUrl() {
   if (!isMapTab() || currentMapSource() !== "molit") return false;
   const focus = mapApartmentFocusFromUrl();
   if (!focus?.apartmentId) return false;
-  if (state.pendingMapApartmentFocus?.id === focus.apartmentId && !state.pendingMapApartmentFocus.resolved) {
+  if (
+    state.pendingMapApartmentFocus?.id === focus.apartmentId
+    && state.pendingMapApartmentFocus?.areaM2 === focus.areaM2
+    && !state.pendingMapApartmentFocus.resolved
+  ) {
     return false;
   }
+  state.mapPopupPreferredAreaM2 = focus.areaM2;
+  state.mapPopupPreferredApartmentId = focus.areaM2 ? focus.apartmentId : null;
 
   const params = new URLSearchParams({
     apartmentId: focus.apartmentId
@@ -474,15 +545,21 @@ async function prepareMapApartmentFocusFromUrl() {
     lat: Number(apartment.lat),
     lng: Number(apartment.lng)
   };
+  state.mapPopupPreferredApartmentId = focus.areaM2 ? item.id : null;
   state.pendingMapApartmentFocus = {
     id: item.id,
     item,
+    areaM2: focus.areaM2,
     resolved: false
   };
 
   if (!(await initZoomMap())) return false;
   closeMapApartmentPopup();
   setFocusedMapApartment(item);
+  const period = currentMapPeriodParams();
+  const detailCacheKey = `molit:${item.id}:${period.start}:${period.end}:${activeMinHouseholdCount()}`;
+  state.mapApartmentDetails.set(detailCacheKey, detail);
+  openMapApartmentDetail(item.id, item);
   moveZoomMapTo(item, apartmentMapZoom, { exactZoom: true });
   setTimeout(() => {
     if (state.pendingMapApartmentFocus?.id === item.id && !state.pendingMapApartmentFocus.resolved && isMapTab()) {
@@ -495,7 +572,13 @@ async function prepareMapApartmentFocusFromUrl() {
 function mapApartmentFocusFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
   const apartmentId = String(params.get("focusApartmentId") || "").trim();
-  return apartmentId ? { apartmentId } : null;
+  const areaM2 = nullableMapFocusNumber(params.get("focusAreaM2"));
+  return apartmentId ? { apartmentId, areaM2 } : null;
+}
+
+function nullableMapFocusNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }
 
 function resolvePendingMapApartmentFocus(items = []) {
@@ -510,8 +593,9 @@ function resolvePendingMapApartmentFocus(items = []) {
 
 function clearMapApartmentFocusUrl() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("focusApartmentId")) return;
+  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2")) return;
   url.searchParams.delete("focusApartmentId");
+  url.searchParams.delete("focusAreaM2");
   window.history.replaceState({ tab: state.activeTab }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -2276,9 +2360,9 @@ function renderNaverZoomGroupMarker(item, level) {
       </div>
     `, width, height, iconAnchor)
   });
-  window.naver.maps.Event.addListener(marker, "mouseover", () => {
+  window.naver.maps.Event.addListener(marker, "mouseover", (event) => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverHoverWindow(position, regionHoverHtml(item, level), { size: [width, height], anchor: iconAnchor });
+    openZoomNaverHoverWindow(position, regionHoverHtml(item, level), { size: [width, height], anchor: iconAnchor, event });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
     scheduleZoomNaverHoverWindowClose();
@@ -2314,9 +2398,9 @@ function renderNaverZoomApartmentMarker(item) {
     size: [width, height],
     baseZIndex
   });
-  window.naver.maps.Event.addListener(marker, "mouseover", () => {
+  window.naver.maps.Event.addListener(marker, "mouseover", (event) => {
     setNaverMarkerZIndex(marker, nextZoomMarkerTopZIndex());
-    openZoomNaverHoverWindow(position, apartmentHoverHtml(item), { size: [width, height], anchor: iconAnchor });
+    openZoomNaverHoverWindow(position, apartmentHoverHtml(item), { size: [width, height], anchor: iconAnchor, event });
   });
   window.naver.maps.Event.addListener(marker, "mouseout", () => {
     scheduleZoomNaverHoverWindowClose();

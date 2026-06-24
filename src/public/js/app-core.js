@@ -16,11 +16,13 @@ async function init() {
   state.activeLogoDesignId = readStoredLogoDesignId();
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.activeGrowthRateColorDesignId = readStoredGrowthRateColorDesignId();
+  state.growthRateBandMode = readStoredGrowthRateBandMode();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   state.activeTransitionDesignId = readStoredTransitionDesignId();
   applyMarkerLineGap();
   applyMapHeaderDesign();
   applyGrowthRateColorDesign();
+  syncGrowthRateBandModeControls();
   setActiveTab(tabFromLocation());
   renderApartmentMarkerStyleEditor();
   renderRegionMarkerStyleEditor();
@@ -89,12 +91,22 @@ function bindEvents() {
   document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
   document.querySelector("[data-display-settings-open]")?.addEventListener("click", openMapDisplaySettingsPanel);
   document.querySelector("[data-display-settings-close]")?.addEventListener("click", closeMapDisplaySettingsPanels);
+  els.growthRateBandModeButtons.forEach((button) => {
+    button.addEventListener("click", () => setGrowthRateBandMode(button.dataset.growthRateBandMode));
+  });
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
     const select = event.target.closest("[data-map-popup-area-select]");
     if (!select || !state.mapPopupDetail) return;
     state.mapPopupSelectedAreaTypeId = select.value;
     renderMapApartmentDetail(state.mapPopupDetail);
+  });
+  els.priceBandDetailCloseBtn?.addEventListener("click", closePriceBandApartmentDetail);
+  els.priceBandDetailStats?.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-map-popup-area-select]");
+    if (!select || !state.mapPopupDetail) return;
+    state.mapPopupSelectedAreaTypeId = select.value;
+    renderPriceBandApartmentDetail(state.mapPopupDetail);
   });
   els.mapSearchInput.addEventListener("input", () => scheduleMapSearch());
   els.mapSearchInput.addEventListener("focus", () => {
@@ -142,7 +154,9 @@ function bindEvents() {
 
   document.querySelectorAll("[data-period-months], [data-period-years]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       setPeriodMonths(periodButtonMonths(button));
       refresh();
@@ -150,7 +164,9 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-period-select]").forEach((select) => {
     select.addEventListener("change", () => {
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       setPeriodMonths(Number(select.value) || 12);
       refresh();
@@ -159,7 +175,9 @@ function bindEvents() {
   els.householdFilterToggles?.forEach((button) => {
     button.addEventListener("click", () => {
       state.minHouseholdCount = activeMinHouseholdCount() > 0 ? 0 : 100;
-      state.priceBandKey = "";
+      state.priceBandStartKey = "";
+      state.priceBandEndKey = "";
+      state.priceBandAreaKey = "all";
       state.priceBandPage = 1;
       state.mapApartmentDetails.clear();
       syncHouseholdFilterToggles();
@@ -168,11 +186,24 @@ function bindEvents() {
       refresh();
     });
   });
-  els.priceBandSummary?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-price-band-key]");
-    if (!button) return;
-    state.priceBandBasis = button.dataset.priceBandBasis === "end" ? "end" : "start";
-    state.priceBandKey = button.dataset.priceBandKey || "";
+  els.priceBandSummary?.addEventListener("change", (event) => {
+    const periodSelect = event.target.closest("[data-price-band-period-select]");
+    if (periodSelect) {
+      state.priceBandPage = 1;
+      setPeriodMonths(Number(periodSelect.value) || 12);
+      renderPriceBandLoadingState();
+      refresh();
+      return;
+    }
+    const select = event.target.closest("[data-price-band-filter]");
+    if (!select) return;
+    if (select.dataset.priceBandFilter === "area") {
+      state.priceBandAreaKey = select.value || "all";
+    } else if (select.dataset.priceBandFilter === "end") {
+      state.priceBandEndKey = select.value || "";
+    } else {
+      state.priceBandStartKey = select.value || "";
+    }
     state.priceBandPage = 1;
     renderPriceBandLoadingState();
     refresh();
@@ -369,6 +400,39 @@ function closeMapDisplaySettingsPanels() {
   });
 }
 
+function setGrowthRateBandMode(mode) {
+  const nextMode = normalizeGrowthRateBandMode(mode);
+  if (state.growthRateBandMode === nextMode) {
+    syncGrowthRateBandModeControls();
+    return;
+  }
+  state.growthRateBandMode = nextMode;
+  try {
+    window.localStorage.setItem(growthRateBandModeStorageKey, nextMode);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  syncGrowthRateBandModeControls();
+  refreshGrowthRateBandModeViews();
+}
+
+function syncGrowthRateBandModeControls() {
+  const activeMode = activeGrowthRateBandMode();
+  els.growthRateBandModeButtons.forEach((button) => {
+    const isActive = normalizeGrowthRateBandMode(button.dataset.growthRateBandMode) === activeMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function refreshGrowthRateBandModeViews() {
+  if (state.activeTab === "design") {
+    renderDesignTab();
+    return;
+  }
+  void refresh();
+}
+
 function positionOpenTabMoreMenus() {
   document.querySelectorAll(".tab-more-menu[open]").forEach(positionTabMoreMenu);
 }
@@ -477,13 +541,15 @@ async function loadActiveViewData() {
     const requestId = ++state.priceBandRequestId;
     renderPriceBandLoadingState();
     const priceBandParams = new URLSearchParams(params);
-    priceBandParams.set("basis", state.priceBandBasis);
-    if (state.priceBandKey !== "") priceBandParams.set("bandKey", state.priceBandKey);
+    priceBandParams.set("basis", "start");
+    if (state.priceBandStartKey !== "") priceBandParams.set("startBandKey", state.priceBandStartKey);
+    if (state.priceBandEndKey !== "") priceBandParams.set("endBandKey", state.priceBandEndKey);
+    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") priceBandParams.set("areaBandKey", state.priceBandAreaKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
-    const otherBasis = state.priceBandBasis === "end" ? "start" : "end";
     const otherPriceBandParams = new URLSearchParams(params);
-    otherPriceBandParams.set("basis", otherBasis);
+    otherPriceBandParams.set("basis", "end");
+    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") otherPriceBandParams.set("areaBandKey", state.priceBandAreaKey);
     otherPriceBandParams.set("page", "1");
     otherPriceBandParams.set("pageSize", "10");
     const [result, otherResult] = await Promise.all([

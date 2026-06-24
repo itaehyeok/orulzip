@@ -52,11 +52,11 @@
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
   --rank-bg: #ffffff;
-  --rank-border: #5262d6;
-  --rank-text: #2939a8;
+  --rank-border: var(--growth-marker-border, #5262d6);
+  --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
-  --rank-badge-bg: #eef2ff;
-  --rank-badge-text: #2939a8;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #eef2ff);
+  --rank-badge-text: var(--growth-marker-badge-text, #2939a8);
   --apartment-marker-outer-width: 138px;
   --apartment-marker-rank-box-width: 116px;
   --apartment-marker-name-font-size: 10px;
@@ -357,41 +357,45 @@
 
 .apartment-rank-marker.rank-chip-white {
   --rank-bg: #ffffff;
-  --rank-border: #5262d6;
-  --rank-text: #2939a8;
+  --rank-border: var(--growth-marker-border, #5262d6);
+  --rank-text: var(--growth-marker-text, #2939a8);
   --rank-muted: #667085;
-  --rank-badge-bg: #eef2ff;
-  --rank-badge-text: #2939a8;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #eef2ff);
+  --rank-badge-text: var(--growth-marker-badge-text, #2939a8);
+}
+
+.apartment-rank-marker.rank-chip-white .apartment-marker-rank-list em {
+  border: 1px solid var(--growth-marker-badge-border, rgba(82, 98, 214, 0.18));
 }
 
 .apartment-rank-marker.rank-chip-stack {
-  --rank-bg: #eef2ff;
-  --rank-border: #5b68d9;
-  --rank-text: #3040a7;
-  --rank-muted: #5360bc;
-  --rank-badge-bg: #3040a7;
-  --rank-badge-text: #ffffff;
+  --rank-bg: #ffffff;
+  --rank-border: var(--growth-marker-border, #5b68d9);
+  --rank-text: var(--growth-marker-text, #3040a7);
+  --rank-muted: #667085;
+  --rank-badge-bg: var(--growth-marker-badge-bg, rgba(255, 255, 255, 0.92));
+  --rank-badge-text: var(--growth-marker-text, #3040a7);
 }
 
 .apartment-rank-marker.rank-chip-table {
-  --rank-bg: #eef2ff;
-  --rank-border: #5b68d9;
-  --rank-text: #3040a7;
-  --rank-muted: #5360bc;
+  --rank-bg: #ffffff;
+  --rank-border: var(--growth-marker-border, #5b68d9);
+  --rank-text: var(--growth-marker-text, #3040a7);
+  --rank-muted: #667085;
   --rank-badge-bg: #ffffff;
-  --rank-badge-text: #3040a7;
+  --rank-badge-text: var(--growth-marker-badge-text, #3040a7);
   text-align: left;
 }
 
 .apartment-rank-marker.rank-chip-table .apartment-marker-rank-list {
   overflow: hidden;
   gap: var(--apartment-marker-rank-row-gap, 0);
-  border: 1px solid rgba(48, 64, 167, 0.18);
+  border: 1px solid var(--growth-marker-badge-border, rgba(48, 64, 167, 0.18));
   border-radius: 6px;
 }
 
 .apartment-rank-marker.rank-chip-table .apartment-marker-rank-list em {
-  border-bottom: 1px solid rgba(48, 64, 167, 0.14);
+  border-bottom: 1px solid var(--growth-marker-badge-border, rgba(48, 64, 167, 0.14));
   border-radius: 0;
 }
 
@@ -400,17 +404,17 @@
 }
 
 .apartment-rank-marker.rank-chip-dark {
-  --rank-bg: #111827;
-  --rank-border: #ffffff;
-  --rank-text: #ffffff;
-  --rank-muted: #c7d2fe;
-  --rank-badge-bg: #ffffff;
-  --rank-badge-text: #111827;
+  --rank-bg: #ffffff;
+  --rank-border: var(--growth-marker-border, #ffffff);
+  --rank-text: var(--growth-marker-text, #111827);
+  --rank-muted: #667085;
+  --rank-badge-bg: var(--growth-marker-badge-bg, #ffffff);
+  --rank-badge-text: var(--growth-marker-badge-text, #111827);
 }
 
 .apartment-rank-marker:not(.selected):hover {
-  --rank-bg: #f4f8ff;
-  --rank-border: #307aff;
+  --rank-bg: #ffffff;
+  --rank-border: var(--growth-marker-hover-border, #307aff);
 }
 
 .apartment-rank-marker.no-data:not(.selected):hover {
@@ -419,8 +423,8 @@
 }
 
 .apartment-rank-marker.rank-chip-dark:not(.selected):hover {
-  --rank-bg: #1f2937;
-  --rank-border: #93c5fd;
+  --rank-bg: #ffffff;
+  --rank-border: var(--growth-marker-hover-border, #93c5fd);
 }
 
 .apartment-rank-marker.apartment-marker-region-like {

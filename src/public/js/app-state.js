@@ -36,6 +36,25 @@ const tabTitles = {
   analytics: "방문분석 - 오를집"
 };
 
+const growthRateBandModeStorageKey = "orulzip.growthRateBandMode";
+const defaultGrowthRateBandMode = "3";
+
+function normalizeGrowthRateBandMode(mode) {
+  return String(mode) === "4" ? "4" : defaultGrowthRateBandMode;
+}
+
+function readStoredGrowthRateBandMode() {
+  try {
+    return normalizeGrowthRateBandMode(window.localStorage.getItem(growthRateBandModeStorageKey));
+  } catch {
+    return defaultGrowthRateBandMode;
+  }
+}
+
+function activeGrowthRateBandMode() {
+  return normalizeGrowthRateBandMode(state.growthRateBandMode);
+}
+
 const state = {
   regions: [],
   regionStats: [],
@@ -53,6 +72,8 @@ const state = {
   zoomNaverInfoWindowPinned: false,
   zoomNaverHoverWindow: null,
   zoomNaverHoverWindowCloseTimer: null,
+  zoomMapPointerTrackingBound: false,
+  zoomMapLastPointer: null,
   mapTransitionTimer: null,
   lastZoomMapRenderLevel: null,
   userLocationMarker: null,
@@ -87,6 +108,9 @@ const state = {
   pendingMapApartmentFocus: null,
   mapPopupDetail: null,
   mapPopupSelectedAreaTypeId: null,
+  mapPopupPreferredApartmentId: null,
+  mapPopupPreferredAreaM2: null,
+  mapPopupRankLinksEnabled: true,
   mapPopupCloseSuppressedUntil: 0,
   focusedMapApartmentId: null,
   activeGraphDesignId: null,
@@ -103,12 +127,16 @@ const state = {
   activeLogoDesignId: null,
   activeMapHeaderDesignId: null,
   activeGrowthRateColorDesignId: null,
+  growthRateBandMode: readStoredGrowthRateBandMode(),
   minHouseholdCount: 100,
-  priceBandBasis: "start",
-  priceBandKey: "",
+  priceBandStartKey: "",
+  priceBandEndKey: "",
+  priceBandAreaKey: "all",
   priceBandPage: 1,
   priceBandPageSize: 50,
   priceBandRequestId: 0,
+  priceBandDetailRequestId: 0,
+  priceBandDetailApartmentId: null,
   markerLineGapPx: null,
   regionMarkerDesignByLevel: null,
   regionMarkerDisplayByLevel: null,
@@ -427,11 +455,22 @@ const els = {
   neighborhoodRows: document.querySelector("#neighborhoodRows"),
   neighborhoodCount: document.querySelector("#neighborhoodCount"),
   householdFilterToggles: document.querySelectorAll("[data-household-filter-toggle]"),
+  growthRateBandModeButtons: document.querySelectorAll("[data-growth-rate-band-mode]"),
   priceBandView: document.querySelector("#priceBandView"),
   priceBandRows: document.querySelector("#priceBandRows"),
   priceBandCount: document.querySelector("#priceBandCount"),
   priceBandSummary: document.querySelector("#priceBandSummary"),
   priceBandPagination: document.querySelector("#priceBandPagination"),
+  priceBandDetailPanel: document.querySelector("#priceBandDetailPanel"),
+  priceBandDetailTitle: document.querySelector("#priceBandDetailTitle"),
+  priceBandDetailMeta: document.querySelector("#priceBandDetailMeta"),
+  priceBandDetailRanks: document.querySelector("#priceBandDetailRanks"),
+  priceBandDetailPyeongGrowth: document.querySelector("#priceBandDetailPyeongGrowth"),
+  priceBandDetailCloseBtn: document.querySelector("#priceBandDetailCloseBtn"),
+  priceBandDetailStats: document.querySelector("#priceBandDetailStats"),
+  priceBandDetailChart: document.querySelector("#priceBandDetailChart"),
+  priceBandDetailTooltip: document.querySelector("#priceBandDetailTooltip"),
+  priceBandDetailTradeHistory: document.querySelector("#priceBandDetailTradeHistory"),
   analyticsView: document.querySelector("#analyticsView"),
   analyticsDaysSelect: document.querySelector("#analyticsDaysSelect"),
   analyticsEnvironmentSelect: document.querySelector("#analyticsEnvironmentSelect"),

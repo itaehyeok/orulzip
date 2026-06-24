@@ -141,18 +141,16 @@ function trimPercentFixed(value, digits) {
 }
 
 function growthRateTone(rate, rank = null, total = null) {
+  if (rate === null || rate === undefined || rate === "") return "growth-rate-no-data";
   const number = Number(rate);
   if (!Number.isFinite(number)) return "growth-rate-no-data";
-  if (number < 0) return "growth-rate-negative";
-  if (number === 0) return "growth-rate-neutral";
-
-  const percentile = growthRankPercentile(rank, total);
-  if (percentile !== null) {
-    if (percentile <= 1) return "growth-rate-top-1";
-    if (percentile <= 5) return "growth-rate-top-2";
-    if (percentile <= 15) return "growth-rate-top-3";
+  if (number <= 0) return "growth-rate-negative";
+  if (activeGrowthRateBandMode() === "3") {
+    return number >= 0.1 ? "growth-rate-top-1" : "growth-rate-top-3";
   }
-  return "growth-rate-positive";
+  if (number >= 0.2) return "growth-rate-top-1";
+  if (number >= 0.1) return "growth-rate-top-2";
+  return "growth-rate-top-3";
 }
 
 function growthRateToneClass(rate, rank = null, total = null) {

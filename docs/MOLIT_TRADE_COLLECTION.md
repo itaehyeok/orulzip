@@ -12,6 +12,20 @@ This document tracks the public apartment trade data collection setup. Keep this
 - Data format: XML
 - Required key: `MOLIT_APT_TRADE_SERVICE_KEY`
 
+## Household Count Source
+
+- Provider: 공공데이터포털 / 한국부동산원
+- API: 한국부동산원_공동주택 단지 식별정보 조회 서비스
+- Detail function: 공동주택 단지 식별정보 기본정보 조회
+- Endpoint: `/AptIdInfoSvc/v1/getAptInfo`
+- Data format: JSON
+- Required key: `REB_APT_IDENTITY_SERVICE_KEY`
+- Compatibility key: `DATA_GO_KR_SERVICE_KEY`
+
+The `100세대 이상` filter uses REB household counts matched to `molit_complexes` first. KB `apartments.household_count` remains as a fallback only when a MOLIT complex has no REB match.
+
+After daily MOLIT collection, `REB_APT_IDENTITY_MATCH_ON_MOLIT_SYNC=1` refreshes matches from already synced REB rows so newly discovered MOLIT complexes can receive household counts without another public API fetch.
+
 ## Current Collection Scope
 
 - Data is stored only in `molit_` tables.
@@ -90,6 +104,25 @@ Follow logs:
 docker logs -f orulzip-data-collector-molit-daily-collector
 ```
 
+Sync REB apartment identity rows and refresh household-count matches:
+
+```sh
+docker compose run --rm web npm run sync:reb-apartments
+```
+
+Rebuild MOLIT map and price-band caches after the first REB sync:
+
+```sh
+docker compose run --rm web npm run refresh:molit-map-cache -- --skip-complex-sync
+docker compose run --rm web npm run refresh:price-band-cache
+```
+
+Refresh matches from already synced REB rows without calling the public API:
+
+```sh
+docker compose run --rm web npm run sync:reb-apartments -- --match-only
+```
+
 Resume behavior:
 
 - Completed `(target_region_id, lawd_cd, year_month)` fetches are skipped.
@@ -100,5 +133,8 @@ Resume behavior:
 
 - `molit_trade_deals`: raw and normalized MOLIT trade rows
 - `molit_trade_fetches`: fetch status by target, LAWD code, and month
+- `reb_apt_identity_raw`: raw REB apartment identity rows
+- `reb_apt_identity_apartment_norm`: normalized REB apartment rows used for matching
+- `molit_complexes.reb_*`: selected REB match and household count used by map/ranking caches
 
 The source value for stored trade rows is `molit_apt_trade_detail`.

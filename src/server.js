@@ -399,6 +399,9 @@ const server = createServer(async (req, res) => {
       const filters = queryFilters(url);
       const basis = url.searchParams.get("basis") || "start";
       const bandKey = url.searchParams.get("bandKey") || "";
+      const startBandKey = url.searchParams.get("startBandKey") || "";
+      const endBandKey = url.searchParams.get("endBandKey") || "";
+      const areaBandKey = url.searchParams.get("areaBandKey") || "all";
       const page = Number(url.searchParams.get("page") || 1);
       const pageSize = Number(url.searchParams.get("pageSize") || 50);
       return json(res, await readPriceBandRankPage({
@@ -407,6 +410,9 @@ const server = createServer(async (req, res) => {
         startMonth: filters.start,
         endMonth: filters.end,
         bandKey,
+        startBandKey,
+        endBandKey,
+        areaBandKey,
         minHouseholdCount: filters.minHouseholdCount,
         page,
         pageSize

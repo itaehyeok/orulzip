@@ -106,9 +106,47 @@ td:nth-child(4) {
   align-items: baseline;
   gap: 8px;
   justify-self: end;
+  border: 1px solid var(--growth-rate-neutral-border);
   border-radius: 999px;
-  background: #fff1ee;
+  background: #ffffff;
+  color: var(--growth-rate-neutral);
   padding: 4px 9px;
+}
+
+.price-band-area-metric-chip.growth-rate-top-1 {
+  border-color: var(--growth-rate-top-1-border);
+  color: var(--growth-rate-top-1);
+}
+
+.price-band-area-metric-chip.growth-rate-top-2 {
+  border-color: var(--growth-rate-top-2-border);
+  color: var(--growth-rate-top-2);
+}
+
+.price-band-area-metric-chip.growth-rate-top-3 {
+  border-color: var(--growth-rate-top-3-border);
+  color: var(--growth-rate-top-3);
+}
+
+.price-band-area-metric-chip.growth-rate-positive {
+  border-color: var(--growth-rate-positive-border);
+  color: var(--growth-rate-positive);
+}
+
+.price-band-area-metric-chip.growth-rate-negative {
+  border-color: var(--growth-rate-negative-border);
+  color: var(--growth-rate-negative);
+}
+
+.price-band-area-metric-chip.growth-rate-no-data {
+  border-color: rgba(152, 162, 179, 0.2);
+  background: #f2f4f7;
+  color: var(--growth-rate-no-data);
+}
+
+.price-band-area-metric-chip .price-band-area-amount,
+.price-band-area-metric-chip .price-band-area-rate {
+  color: currentColor;
 }
 
 .price-band-area-breakdown-line.primary .price-band-area-metric-chip .price-band-area-amount,
@@ -122,6 +160,26 @@ td:nth-child(4) {
 .price-band-area-breakdown-line.secondary .price-band-area-amount,
 .price-band-area-breakdown-line.secondary .price-band-area-rate {
   color: #667085;
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-1 {
+  color: var(--growth-rate-top-1);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-2 {
+  color: var(--growth-rate-top-2);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-top-3 {
+  color: var(--growth-rate-top-3);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-positive {
+  color: var(--growth-rate-positive);
+}
+
+.price-band-area-breakdown-line.secondary .price-band-area-rate.growth-rate-negative {
+  color: var(--growth-rate-negative);
 }
 
 .price-band-area-more-slot {
@@ -510,7 +568,8 @@ td:nth-child(4) {
     min-height: 0;
   }
 
-  .map-apartment-popup {
+  .map-apartment-popup,
+  .price-band-detail-panel {
     position: fixed;
     inset: 0;
     z-index: 1800;
@@ -522,39 +581,47 @@ td:nth-child(4) {
     box-shadow: none;
   }
 
-  .map-apartment-popup .map-popup-head {
+  .map-apartment-popup .map-popup-head,
+  .price-band-detail-panel .map-popup-head {
     padding: calc(12px + var(--map-mobile-safe-top)) 14px 12px;
   }
 
-  .map-apartment-popup .map-popup-chart-wrap {
+  .map-apartment-popup .map-popup-chart-wrap,
+  .price-band-detail-panel .map-popup-chart-wrap {
     min-height: 0;
     overflow-x: hidden;
     padding: 10px 8px 12px;
   }
 
-  .map-apartment-popup .map-popup-chart svg {
+  .map-apartment-popup .map-popup-chart svg,
+  .price-band-detail-panel .map-popup-chart svg {
     width: 100%;
     max-width: 100%;
     height: auto;
   }
 
-  .map-apartment-popup .map-popup-axis-label {
+  .map-apartment-popup .map-popup-axis-label,
+  .price-band-detail-panel .map-popup-axis-label {
     font-size: 13px;
     font-weight: 800;
   }
 
-  .map-apartment-popup .map-popup-period-marker text {
+  .map-apartment-popup .map-popup-period-marker text,
+  .price-band-detail-panel .map-popup-period-marker text {
     font-size: 12px;
     stroke-width: 3.5px;
   }
 
   .map-apartment-popup .map-popup-pyeong-axis-label,
-  .map-apartment-popup .map-popup-pyeong-axis-title {
+  .map-apartment-popup .map-popup-pyeong-axis-title,
+  .price-band-detail-panel .map-popup-pyeong-axis-label,
+  .price-band-detail-panel .map-popup-pyeong-axis-title {
     font-size: 12px;
     font-weight: 850;
   }
 
-  .map-apartment-popup .map-popup-end-label {
+  .map-apartment-popup .map-popup-end-label,
+  .price-band-detail-panel .map-popup-end-label {
     display: none;
   }
 

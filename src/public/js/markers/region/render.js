@@ -5,7 +5,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const layout = regionMarkerAutoLayout(item, level, markerDesign, content);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
-    `--zoom-color: ${growthColor(item.growthRate)}`,
+    growthMarkerStyleVars(item.growthRate),
     regionMarkerStyleInline(level, markerDesign),
     regionMarkerAutoLayoutInline(layout)
   ].filter(Boolean).join("; ");

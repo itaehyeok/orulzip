@@ -189,6 +189,20 @@ export async function initDb() {
       where exclusive_area_m2 is not null
         and deal_amount is not null
         and coalesce(cancel_type, '') = '';
+    create index if not exists molit_trade_deals_month_complex_match_idx
+      on molit_trade_deals (
+        deal_year_month,
+        lawd_cd,
+        (coalesce(trim(legal_dong), '')),
+        (coalesce(trim(jibun), '')),
+        (regexp_replace(lower(coalesce(apt_name, '')), '[^0-9a-z가-힣]', '', 'g')),
+        exclusive_area_m2
+      )
+      include (deal_amount, pyeong_price, deal_year, deal_month, deal_day)
+      where exclusive_area_m2 is not null
+        and deal_amount is not null
+        and pyeong_price is not null
+        and coalesce(cancel_type, '') = '';
 
     create table if not exists molit_complexes (
       id text primary key,
@@ -238,10 +252,80 @@ export async function initDb() {
       add column if not exists sigungu_code text,
       add column if not exists sigungu_name text,
       add column if not exists dong_key text,
-      add column if not exists dong_name text;
+      add column if not exists dong_name text,
+      add column if not exists reb_complex_pk text,
+      add column if not exists reb_household_count integer,
+      add column if not exists reb_dong_count integer,
+      add column if not exists reb_match_score integer,
+      add column if not exists reb_match_source text,
+      add column if not exists reb_matched_at timestamptz;
+
+    create table if not exists reb_apt_identity_raw (
+      complex_pk text primary key,
+      pnu text,
+      adres text,
+      complex_nm1 text,
+      complex_nm2 text,
+      complex_nm3 text,
+      complex_gb_cd text,
+      dong_cnt integer,
+      unit_cnt integer,
+      useapr_dt text,
+      imported_at timestamptz not null default now()
+    );
+
+    alter table reb_apt_identity_raw
+      add column if not exists pnu text,
+      add column if not exists adres text,
+      add column if not exists complex_nm1 text,
+      add column if not exists complex_nm2 text,
+      add column if not exists complex_nm3 text,
+      add column if not exists complex_gb_cd text,
+      add column if not exists dong_cnt integer,
+      add column if not exists unit_cnt integer,
+      add column if not exists useapr_dt text,
+      add column if not exists imported_at timestamptz not null default now();
+
+    create table if not exists reb_apt_identity_apartment_norm (
+      complex_pk text primary key,
+      pnu text,
+      lawd_cd text,
+      adres text,
+      adres_norm text,
+      complex_nm1 text,
+      complex_nm2 text,
+      complex_nm3 text,
+      complex_nm1_norm text,
+      complex_nm2_norm text,
+      complex_nm3_norm text,
+      complex_gb_cd text,
+      dong_cnt integer,
+      unit_cnt integer,
+      useapr_dt text,
+      imported_at timestamptz not null default now()
+    );
+
+    alter table reb_apt_identity_apartment_norm
+      add column if not exists pnu text,
+      add column if not exists lawd_cd text,
+      add column if not exists adres text,
+      add column if not exists adres_norm text,
+      add column if not exists complex_nm1 text,
+      add column if not exists complex_nm2 text,
+      add column if not exists complex_nm3 text,
+      add column if not exists complex_nm1_norm text,
+      add column if not exists complex_nm2_norm text,
+      add column if not exists complex_nm3_norm text,
+      add column if not exists complex_gb_cd text,
+      add column if not exists dong_cnt integer,
+      add column if not exists unit_cnt integer,
+      add column if not exists useapr_dt text,
+      add column if not exists imported_at timestamptz not null default now();
 
     create index if not exists molit_complexes_lawd_dong_idx
       on molit_complexes(lawd_cd, legal_dong);
+    create index if not exists molit_complexes_deal_match_idx
+      on molit_complexes(lawd_cd, legal_dong, jibun, normalized_apt_name);
     create index if not exists molit_complexes_hierarchy_idx
       on molit_complexes(sido_code, sigungu_code, dong_key);
     create index if not exists molit_complexes_coord_idx
@@ -250,6 +334,22 @@ export async function initDb() {
       on molit_complexes(needs_review, distance_to_kb_m desc);
     create index if not exists molit_complexes_name_trgm_idx
       on molit_complexes using gin (normalized_apt_name gin_trgm_ops);
+    create index if not exists molit_complexes_reb_household_idx
+      on molit_complexes(reb_household_count);
+    create index if not exists molit_complexes_reb_complex_idx
+      on molit_complexes(reb_complex_pk);
+    create index if not exists reb_apt_identity_raw_type_idx
+      on reb_apt_identity_raw(complex_gb_cd);
+    create index if not exists reb_apt_identity_raw_unit_idx
+      on reb_apt_identity_raw(unit_cnt);
+    create index if not exists reb_apt_identity_norm_lawd_idx
+      on reb_apt_identity_apartment_norm(lawd_cd);
+    create index if not exists reb_apt_identity_norm_unit_idx
+      on reb_apt_identity_apartment_norm(unit_cnt);
+    create index if not exists reb_apt_identity_norm_adres_trgm_idx
+      on reb_apt_identity_apartment_norm using gin (adres_norm gin_trgm_ops);
+    create index if not exists reb_apt_identity_norm_nm1_trgm_idx
+      on reb_apt_identity_apartment_norm using gin (complex_nm1_norm gin_trgm_ops);
 
     create table if not exists molit_trade_fetches (
       id bigserial primary key,
@@ -467,6 +567,10 @@ export async function initDb() {
 
     alter table price_band_rank_snapshots
       add column if not exists min_household_count integer not null default 0;
+    alter table price_band_rank_snapshots
+      add column if not exists area_band_key text not null default 'all';
+    alter table price_band_rank_snapshots
+      add column if not exists area_band_label text not null default '전체 평형';
 
     do $$
     declare
@@ -517,10 +621,12 @@ export async function initDb() {
 
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
-    create unique index if not exists price_band_rank_snapshots_household_filter_uidx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count);
+    drop index if exists price_band_rank_snapshots_household_filter_uidx;
+    create unique index if not exists price_band_rank_snapshots_household_area_filter_uidx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key);
+    drop index if exists price_band_rank_snapshots_filter_lookup_idx;
     create index if not exists price_band_rank_snapshots_filter_lookup_idx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, updated_at desc);
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, updated_at desc);
     alter table price_band_rank_items
       add column if not exists address text;
     alter table price_band_rank_items

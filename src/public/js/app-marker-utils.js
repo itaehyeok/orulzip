@@ -118,13 +118,77 @@ function markerRankWidthExtra(scope = "region") {
   return (options.showTotal ? 18 : 0) + (options.showPercent ? 34 : 0) + (options.showSuffix ? 6 : 0);
 }
 
+const growthMarkerColorPalette = {
+  top1: {
+    main: "#dc2626",
+    bg: "#ffffff",
+    badgeBg: "#ffe4e6",
+    badgeBorder: "rgba(220, 38, 38, 0.22)",
+    hoverBg: "#ffe4e6"
+  },
+  top2: {
+    main: "#d97706",
+    bg: "#ffffff",
+    badgeBg: "#ffedd5",
+    badgeBorder: "rgba(217, 119, 6, 0.24)",
+    hoverBg: "#ffedd5"
+  },
+  top3: {
+    main: "#16a34a",
+    bg: "#ffffff",
+    badgeBg: "#dcfce7",
+    badgeBorder: "rgba(22, 163, 74, 0.22)",
+    hoverBg: "#dcfce7"
+  },
+  negative: {
+    main: "#2563eb",
+    bg: "#ffffff",
+    badgeBg: "#dbeafe",
+    badgeBorder: "rgba(37, 99, 235, 0.22)",
+    hoverBg: "#dbeafe"
+  }
+};
+
+const growthMarkerNoDataColors = {
+  main: "#667085",
+  bg: "#f2f4f7",
+  badgeBg: "#e4e7ec",
+  badgeBorder: "rgba(102, 112, 133, 0.22)",
+  hoverBg: "#e4e7ec"
+};
+
+function growthMarkerColors(rate) {
+  if (rate === null || rate === undefined || rate === "") return growthMarkerNoDataColors;
+  const number = Number(rate);
+  if (!Number.isFinite(number)) return growthMarkerNoDataColors;
+  if (number <= 0) return growthMarkerColorPalette.negative;
+  if (activeGrowthRateBandMode() === "3") {
+    return number >= 0.1 ? growthMarkerColorPalette.top1 : growthMarkerColorPalette.top3;
+  }
+  if (number >= 0.2) return growthMarkerColorPalette.top1;
+  if (number >= 0.1) return growthMarkerColorPalette.top2;
+  return growthMarkerColorPalette.top3;
+}
+
 function growthColor(rate) {
-  if (!Number.isFinite(rate)) return "#667085";
-  if (rate >= 1) return "#b42318";
-  if (rate >= 0.5) return "#c24132";
-  if (rate >= 0.2) return "#d97706";
-  if (rate >= 0) return "#16805f";
-  return "#2367d1";
+  return growthMarkerColors(rate).main;
+}
+
+function growthMarkerStyleVars(rate) {
+  const colors = growthMarkerColors(rate);
+  return [
+    `--marker-color:${colors.main}`,
+    `--zoom-color:${colors.main}`,
+    `--growth-marker-main:${colors.main}`,
+    `--growth-marker-text:${colors.main}`,
+    `--growth-marker-border:${colors.main}`,
+    `--growth-marker-bg:${colors.bg}`,
+    `--growth-marker-badge-bg:${colors.badgeBg}`,
+    `--growth-marker-badge-text:${colors.main}`,
+    `--growth-marker-badge-border:${colors.badgeBorder}`,
+    `--growth-marker-hover-bg:${colors.hoverBg}`,
+    `--growth-marker-hover-border:${colors.main}`
+  ].join("; ");
 }
 
 function sortableRate(rate) {

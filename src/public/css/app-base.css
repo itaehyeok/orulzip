@@ -18,19 +18,25 @@
   --map-header-chip-active-border: #2367d1;
   --map-header-chip-active-text: #2367d1;
   --map-header-period-bg: #ffffff;
-  --growth-rate-top-1: #b42318;
-  --growth-rate-top-2: #c24132;
-  --growth-rate-top-3: #d97706;
-  --growth-rate-positive: #16805f;
-  --growth-rate-negative: #2367d1;
+  --growth-rate-top-1: #dc2626;
+  --growth-rate-top-2: #d97706;
+  --growth-rate-top-3: #16a34a;
+  --growth-rate-positive: #16a34a;
+  --growth-rate-negative: #2563eb;
   --growth-rate-neutral: #667085;
   --growth-rate-no-data: #98a2b3;
-  --growth-rate-top-1-bg: rgba(180, 35, 24, 0.12);
-  --growth-rate-top-2-bg: rgba(194, 65, 50, 0.1);
-  --growth-rate-top-3-bg: rgba(217, 119, 6, 0.12);
-  --growth-rate-positive-bg: rgba(22, 128, 95, 0.1);
-  --growth-rate-negative-bg: rgba(35, 103, 209, 0.1);
+  --growth-rate-top-1-bg: rgba(220, 38, 38, 0.12);
+  --growth-rate-top-2-bg: rgba(217, 119, 6, 0.1);
+  --growth-rate-top-3-bg: rgba(22, 163, 74, 0.12);
+  --growth-rate-positive-bg: rgba(22, 163, 74, 0.1);
+  --growth-rate-negative-bg: rgba(37, 99, 235, 0.1);
   --growth-rate-neutral-bg: rgba(102, 112, 133, 0.1);
+  --growth-rate-top-1-border: rgba(220, 38, 38, 0.22);
+  --growth-rate-top-2-border: rgba(217, 119, 6, 0.24);
+  --growth-rate-top-3-border: rgba(22, 163, 74, 0.22);
+  --growth-rate-positive-border: rgba(22, 163, 74, 0.22);
+  --growth-rate-negative-border: rgba(37, 99, 235, 0.22);
+  --growth-rate-neutral-border: rgba(102, 112, 133, 0.18);
 }
 
 * {
@@ -438,9 +444,133 @@ input {
 .price-band-summary {
   display: grid;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--line);
   background: #fff;
+}
+
+.price-band-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.price-band-filter-control {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  height: 32px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 0 8px 0 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.price-band-filter-control span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.price-band-filter-control select {
+  width: auto;
+  min-width: 70px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1;
+  outline: 0;
+  padding: 0 22px 0 0;
+  white-space: nowrap;
+}
+
+.price-band-period-filter-control select {
+  min-width: 72px;
+}
+
+.price-band-filter-arrow {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.price-band-filter-total {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin-left: 2px;
+  border: 1px solid #d8e2f0;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #315ca7;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.price-band-area-filter-control select {
+  min-width: 92px;
+}
+
+.price-band-detail-panel {
+  position: fixed;
+  top: var(--map-global-header-height);
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100vw);
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  border-left: 1px solid rgba(16, 24, 40, 0.16);
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: -8px 0 28px rgba(16, 24, 40, 0.18);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.price-band-detail-panel[hidden] {
+  display: none;
+}
+
+.price-band-detail-panel.loading .map-popup-stats {
+  align-items: stretch;
+}
+
+.price-band-detail-panel .map-popup-chart-wrap {
+  min-height: 0;
+  overflow-x: hidden;
+}
+
+.price-band-detail-panel .map-popup-chart svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.price-band-table tr.selected {
+  background: #eef6ff;
 }
 
 .price-band-row {
