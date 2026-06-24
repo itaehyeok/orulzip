@@ -626,6 +626,24 @@ export async function initDb() {
       unique(snapshot_id, band_key, apartment_id)
     );
 
+    create table if not exists price_band_rank_bands (
+      snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
+      band_key integer not null,
+      band_label text not null,
+      basis text not null,
+      apartment_count integer not null default 0,
+      start_sale_price integer,
+      end_sale_price integer,
+      start_pyeong_price integer,
+      end_pyeong_price integer,
+      average_growth_amount integer,
+      average_growth_rate double precision,
+      top_growth_rate double precision,
+      top_apartment_name text,
+      updated_at timestamptz not null default now(),
+      primary key(snapshot_id, band_key)
+    );
+
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
     drop index if exists price_band_rank_snapshots_household_filter_uidx;
@@ -648,6 +666,8 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_bands_snapshot_idx
+      on price_band_rank_bands(snapshot_id, band_key);
 
     create table if not exists app_cache_entries (
       cache_key text primary key,

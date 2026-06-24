@@ -552,20 +552,16 @@ async function loadActiveViewData() {
     if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") priceBandParams.set("areaBandKey", state.priceBandAreaKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
-    const otherPriceBandParams = new URLSearchParams(params);
-    otherPriceBandParams.set("basis", "end");
-    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") otherPriceBandParams.set("areaBandKey", state.priceBandAreaKey);
-    otherPriceBandParams.set("page", "1");
-    otherPriceBandParams.set("pageSize", "10");
-    const [result, otherResult] = await Promise.all([
-      api(`/api/price-band-rankings?${priceBandParams}`),
-      api(`/api/price-band-rankings?${otherPriceBandParams}`)
-    ]);
+    let result;
+    try {
+      result = await api(`/api/price-band-rankings?${priceBandParams}`);
+    } catch (error) {
+      if (state.activeTab !== "priceBands" || requestId !== state.priceBandRequestId) return;
+      renderPriceBandLoadError(error);
+      return;
+    }
     if (state.activeTab !== "priceBands" || requestId !== state.priceBandRequestId) return;
-    renderPriceBandTable(result, {
-      start: result.basis === "start" ? result.bands : otherResult.bands,
-      end: result.basis === "end" ? result.bands : otherResult.bands
-    });
+    renderPriceBandTable(result, result.basisBands);
     await preparePriceBandApartmentDetailFromUrl(result.rows || []);
     return;
   }

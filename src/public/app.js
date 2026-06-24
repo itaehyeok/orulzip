@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260624-price-band-cache-resilience";
+  const version = "20260624-price-band-response-cache";
   const scripts = [
     "app-prelude",
     "app-state",

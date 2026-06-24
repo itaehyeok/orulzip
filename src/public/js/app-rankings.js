@@ -113,7 +113,7 @@ function renderPriceBandTable(result, basisBands = null) {
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
   const areaBands = Array.isArray(result.areaBands) ? result.areaBands : [];
-  const summaryBands = basisBands || {
+  const summaryBands = basisBands || result.basisBands || {
     start: result.basis === "start" ? bands : [],
     end: result.basis === "end" ? bands : []
   };
@@ -433,6 +433,23 @@ function renderPriceBandLoadingState() {
         <strong>랭킹을 불러오는 중입니다.</strong>
       </div>
     `, "price-band-loading-cell");
+  }
+  if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
+}
+
+function renderPriceBandLoadError(error) {
+  els.priceBandView?.removeAttribute("aria-busy");
+  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
+  updatePriceBandTotalBadge("오류");
+  const message = error?.message || "랭킹을 불러오지 못했습니다.";
+  if (els.priceBandCount) {
+    els.priceBandCount.innerHTML = `
+      <span class="price-band-count-main">랭킹을 불러오지 못했습니다.</span>
+      <span class="price-band-count-sub">${escapeHtml(message)}</span>
+    `;
+  }
+  if (els.priceBandRows) {
+    els.priceBandRows.innerHTML = priceBandPlaceholderRow("랭킹을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
   }
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
