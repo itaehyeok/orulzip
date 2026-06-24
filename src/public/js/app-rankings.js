@@ -372,9 +372,9 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
         ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
       </div>
       <div class="price-band-filter-flow">
-        ${renderPriceBandSelect("start", "과거", startBands, selectedStartBandKey)}
+        ${renderPriceBandSelect("start", "과거 가격", startBands, selectedStartBandKey)}
         <span class="price-band-filter-arrow" aria-hidden="true">→</span>
-        ${renderPriceBandSelect("end", "현재", endBands, selectedEndBandKey)}
+        ${renderPriceBandSelect("end", "현재 가격", endBands, selectedEndBandKey)}
         <span class="price-band-filter-total" data-price-band-total>${formatPriceBandTotal(totalRows)}</span>
       </div>
     </div>
