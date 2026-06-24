@@ -355,7 +355,7 @@ td:nth-child(4) {
 
   .price-band-filter-primary {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: 7px;
   }
 

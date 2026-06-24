@@ -501,8 +501,9 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
       <div class="price-band-filter-primary">
         ${renderPriceBandPeriodSelect()}
         ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
+        ${renderPriceBandPrimaryRegionSelect(regionPayload)}
       </div>
-      ${renderPriceBandRegionFilters(regionPayload)}
+      ${renderPriceBandRegionFilters(regionPayload, { includeSido: false })}
       <div class="price-band-filter-flow">
         ${renderPriceBandSelect("start", "과거 가격", startBands, selectedStartBandKey)}
         <span class="price-band-filter-arrow" aria-hidden="true">→</span>
@@ -600,29 +601,42 @@ function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
   `;
 }
 
-function renderPriceBandRegionFilters(region) {
+function renderPriceBandPrimaryRegionSelect(region) {
   const payload = normalizePriceBandRegionPayload(region);
   const { selected, options } = payload;
+  return renderPriceBandRegionSelect("sido", "시도", "전국", options.sidos, selected.sidoCode, { showLabel: false });
+}
+
+function renderPriceBandRegionFilters(region, { includeSido = true } = {}) {
+  const payload = normalizePriceBandRegionPayload(region);
+  const { selected, options } = payload;
+  const controls = [
+    includeSido
+      ? renderPriceBandRegionSelect("sido", "시도", "전국", options.sidos, selected.sidoCode)
+      : "",
+    selected.sidoCode || options.sigungus.length
+      ? renderPriceBandRegionSelect("sigungu", "시군구", "전체 시군구", options.sigungus, selected.sigunguCode)
+      : "",
+    selected.sigunguCode || options.dongs.length
+      ? renderPriceBandRegionSelect("dong", "동", "전체 동", options.dongs, selected.dongKey)
+      : ""
+  ].filter(Boolean);
+  if (!controls.length) return "";
   return `
     <div class="price-band-filter-region" aria-label="실거래가 랭킹 지역 조건">
-      ${renderPriceBandRegionSelect("sido", "시도", "전국", options.sidos, selected.sidoCode)}
-      ${selected.sidoCode || options.sigungus.length
-        ? renderPriceBandRegionSelect("sigungu", "시군구", "전체 시군구", options.sigungus, selected.sigunguCode)
-        : ""}
-      ${selected.sigunguCode || options.dongs.length
-        ? renderPriceBandRegionSelect("dong", "동", "전체 동", options.dongs, selected.dongKey)
-        : ""}
+      ${controls.join("")}
     </div>
   `;
 }
 
-function renderPriceBandRegionSelect(kind, label, allLabel, options, selectedValue) {
+function renderPriceBandRegionSelect(kind, label, allLabel, options, selectedValue, { showLabel = true } = {}) {
   const normalizedSelectedValue = String(selectedValue || "");
   const selectOptions = priceBandRegionOptionsWithSelected(options, normalizedSelectedValue);
   const activeClass = normalizedSelectedValue ? " is-active" : "";
+  const valueOnlyClass = showLabel ? "" : " price-band-filter-control-value-only";
   return `
-    <label class="price-band-filter-control price-band-region-filter-control${activeClass}">
-      <span>${escapeHtml(label)}</span>
+    <label class="price-band-filter-control price-band-region-filter-control${valueOnlyClass}${activeClass}">
+      ${showLabel ? `<span>${escapeHtml(label)}</span>` : ""}
       <select data-price-band-region-filter="${escapeHtml(kind)}" aria-label="${escapeHtml(label)} 필터">
         <option value="" ${normalizedSelectedValue === "" ? "selected" : ""}>${escapeHtml(allLabel)}</option>
         ${selectOptions.map((option) => renderPriceBandRegionOption(option, normalizedSelectedValue)).join("")}
