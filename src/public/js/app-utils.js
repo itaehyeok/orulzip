@@ -101,7 +101,14 @@ function formatInt(value) {
 
 function formatPercent(value) {
   if (!Number.isFinite(value)) return "데이터없음";
-  return `${(value * 100).toFixed(1)}%`;
+  return `${roundedPercentNumber(value, 1).toFixed(1)}%`;
+}
+
+function roundedPercentNumber(value, digits = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  const rounded = Number((number * 100).toFixed(Math.max(0, Number(digits) || 0)));
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 function growthRankPercentile(rank, total) {
@@ -144,7 +151,9 @@ function growthRateTone(rate, rank = null, total = null) {
   if (rate === null || rate === undefined || rate === "") return "growth-rate-no-data";
   const number = Number(rate);
   if (!Number.isFinite(number)) return "growth-rate-no-data";
-  if (number <= 0) return "growth-rate-negative";
+  const displayedPercent = roundedPercentNumber(number, 1);
+  if (displayedPercent === 0) return "growth-rate-neutral";
+  if (displayedPercent < 0) return "growth-rate-negative";
   if (activeGrowthRateBandMode() === "3") {
     return number >= 0.1 ? "growth-rate-top-1" : "growth-rate-top-3";
   }
@@ -163,13 +172,14 @@ function renderGrowthRateText(rate, rank = null, total = null) {
 
 function formatPercentValue(value) {
   if (!Number.isFinite(value)) return "-";
-  return `${(value * 100).toFixed(2)}%`;
+  return `${roundedPercentNumber(value, 2).toFixed(2)}%`;
 }
 
 function formatSignedPercent(value) {
   if (!Number.isFinite(value)) return "-";
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${(value * 100).toFixed(2)}%`;
+  const percent = roundedPercentNumber(value, 2);
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${percent.toFixed(2)}%`;
 }
 
 function formatDecimal(value, digits = 2) {
