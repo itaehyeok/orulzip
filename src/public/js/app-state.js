@@ -76,6 +76,8 @@ const state = {
   zoomMapPointerTrackingBound: false,
   zoomMapLastPointer: null,
   mapTransitionTimer: null,
+  mapFocusStatusTimer: null,
+  mapFocusStatusActive: false,
   lastZoomMapRenderLevel: null,
   userLocationMarker: null,
   userLocationNaverMarker: null,
