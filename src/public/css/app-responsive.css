@@ -320,8 +320,7 @@ td:nth-child(4) {
   }
 
   #priceBandCount .price-band-count-meta {
-    color: #98a2b3;
-    font-size: 11px;
+    display: none;
   }
 
   .price-band-summary {
