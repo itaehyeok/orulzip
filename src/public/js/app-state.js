@@ -8,7 +8,8 @@ const tabRoutes = {
   design: "/design",
   crawl: "/crawl",
   analytics: "/analytics",
-  dataHealth: "/data-health"
+  dataHealth: "/data-health",
+  performance: "/performance"
 };
 
 const routeTabs = {
@@ -24,7 +25,8 @@ const routeTabs = {
   "/design": "design",
   "/crawl": "crawl",
   "/analytics": "analytics",
-  "/data-health": "dataHealth"
+  "/data-health": "dataHealth",
+  "/performance": "performance"
 };
 
 const tabTitles = {
@@ -37,7 +39,8 @@ const tabTitles = {
   design: "디자인 - 오를집",
   crawl: "수집현황 - 오를집",
   analytics: "방문분석 - 오를집",
-  dataHealth: "데이터 상태 - 오를집"
+  dataHealth: "데이터 상태 - 오를집",
+  performance: "성능 측정 - 오를집"
 };
 
 const growthRateBandModeStorageKey = "orulzip.growthRateBandMode";
@@ -504,5 +507,10 @@ const els = {
   dataHealthView: document.querySelector("#dataHealthView"),
   dataHealthSummary: document.querySelector("#dataHealthSummary"),
   dataHealthCheckRows: document.querySelector("#dataHealthCheckRows"),
-  dataHealthRunRows: document.querySelector("#dataHealthRunRows")
+  dataHealthRunRows: document.querySelector("#dataHealthRunRows"),
+  performanceView: document.querySelector("#performanceView"),
+  performanceSummary: document.querySelector("#performanceSummary"),
+  performanceMatrix: document.querySelector("#performanceMatrix"),
+  performanceRunRows: document.querySelector("#performanceRunRows"),
+  performanceRunBtn: document.querySelector("#performanceRunBtn")
 };

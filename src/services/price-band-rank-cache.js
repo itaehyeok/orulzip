@@ -36,6 +36,32 @@ const PRICE_BAND_RANK_CACHE_INDEXES = [
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
   }
 ];
+const PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS = [
+  `create table if not exists price_band_rank_bands (
+    snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
+    band_key integer not null,
+    band_label text not null,
+    basis text not null,
+    apartment_count integer not null default 0,
+    start_sale_price integer,
+    end_sale_price integer,
+    start_pyeong_price integer,
+    end_pyeong_price integer,
+    average_growth_amount integer,
+    average_growth_rate double precision,
+    top_growth_rate double precision,
+    top_apartment_name text,
+    updated_at timestamptz not null default now(),
+    primary key(snapshot_id, band_key)
+  )`
+];
+const PRICE_BAND_RANK_CACHE_BAND_INDEXES = [
+  {
+    name: "price_band_rank_bands_snapshot_idx",
+    statement: `create index concurrently if not exists price_band_rank_bands_snapshot_idx
+      on price_band_rank_bands(snapshot_id, band_key)`
+  }
+];
 const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
   { maxPeriodMonths: 6, startGapMonths: 2, endGapMonths: 2 },
@@ -45,6 +71,21 @@ const MOLIT_PRICE_FRESHNESS_RULES = [
 ];
 
 export async function ensurePriceBandRankCacheIndexes() {
+  for (const statement of PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS) {
+    try {
+      await query(statement);
+    } catch (error) {
+      if (["42501", "42P01"].includes(error?.code)) {
+        console.warn(JSON.stringify({
+          message: "price band cache schema creation skipped",
+          code: error.code,
+          error: error.message
+        }));
+        continue;
+      }
+      throw error;
+    }
+  }
   const names = PRICE_BAND_RANK_CACHE_INDEXES.map((index) => index.name);
   const existingResult = await query(`
     select c.relname as index_name, i.indisvalid, i.indisready
@@ -71,6 +112,51 @@ export async function ensurePriceBandRankCacheIndexes() {
       if (["42501", "42P07"].includes(error?.code)) {
         console.warn(JSON.stringify({
           message: "price band cache index creation skipped",
+          index: index.name,
+          code: error.code,
+          error: error.message
+        }));
+        continue;
+      }
+      throw error;
+    }
+  }
+  await ensurePriceBandRankBandIndexes();
+}
+
+async function ensurePriceBandRankBandIndexes() {
+  const names = PRICE_BAND_RANK_CACHE_BAND_INDEXES.map((index) => index.name);
+  let existingResult;
+  try {
+    existingResult = await query(`
+      select c.relname as index_name, i.indisvalid, i.indisready
+      from pg_class c
+      join pg_index i
+        on i.indexrelid = c.oid
+      join pg_class rel
+        on rel.oid = i.indrelid
+      join pg_namespace nsp
+        on nsp.oid = rel.relnamespace
+      where nsp.nspname = current_schema()
+        and rel.relname = 'price_band_rank_bands'
+        and c.relname = any($1::text[])
+    `, [names]);
+  } catch (error) {
+    if (error?.code === "42P01") return;
+    throw error;
+  }
+  const readyIndexes = new Set(existingResult.rows
+    .filter((row) => row.indisvalid && row.indisready)
+    .map((row) => row.index_name));
+
+  for (const index of PRICE_BAND_RANK_CACHE_BAND_INDEXES) {
+    if (readyIndexes.has(index.name)) continue;
+    try {
+      await query(index.statement);
+    } catch (error) {
+      if (["42501", "42P01", "42P07"].includes(error?.code)) {
+        console.warn(JSON.stringify({
+          message: "price band cache band index creation skipped",
           index: index.name,
           code: error.code,
           error: error.message
@@ -347,6 +433,7 @@ function emptyPriceBandRankPage({
     basis,
     areaBands: PRICE_AREA_BANDS,
     bands: [],
+    basisBands: { start: [], end: [] },
     selectedBandKey: null,
     selectedBand: null,
     selection: {
@@ -396,6 +483,14 @@ async function readPriceBandRankSnapshotPage({
   fallback = null
 }) {
   const bands = await readBands(snapshot.id, basis, { minHouseholdCount });
+  const basisBands = await readBasisBandsForSnapshot({
+    snapshot,
+    source,
+    basis,
+    bands,
+    areaBand,
+    minHouseholdCount
+  });
   const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
   const selectedBand = selectedBandKey === null
     ? null
@@ -406,24 +501,22 @@ async function readPriceBandRankSnapshotPage({
     startBandKey: selectedStartBandKey,
     endBandKey: selectedEndBandKey
   });
-  const countResult = await query(`
-    select count(*)::int as total_rows
-    from price_band_rank_items pbi
-    where ${where.sql}
-  `, where.params);
-  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
+  const totalRows = await readPriceBandTotalRows({
+    snapshot,
+    basis,
+    bands,
+    selectedStartBandKey,
+    selectedEndBandKey,
+    where
+  });
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
   const safePage = totalRows ? Math.min(page, totalPages) : 1;
   const offset = (safePage - 1) * pageSize;
   const rowsResult = totalRows ? await query(`
-    with filtered as (
+    with ordered as (
       select pbi.*
       from price_band_rank_items pbi
       where ${where.sql}
-    ),
-    ordered as (
-      select *
-      from filtered
       order by growth_rate desc nulls last,
                growth_amount desc nulls last,
                end_pyeong_price desc nulls last,
@@ -490,6 +583,7 @@ async function readPriceBandRankSnapshotPage({
     basis: snapshot.basis,
     areaBands: PRICE_AREA_BANDS,
     bands,
+    basisBands,
     selectedBandKey: selectedBand?.bandKey ?? null,
     selectedBand,
     selection: {
@@ -531,6 +625,73 @@ async function readPriceBandRankSnapshotPage({
     },
     rows: rowsResult.rows.map((row) => serializePriceBandItem(row, snapshot.basis))
   };
+}
+
+async function readBasisBandsForSnapshot({
+  snapshot,
+  source,
+  basis,
+  bands,
+  areaBand,
+  minHouseholdCount
+}) {
+  const result = {
+    start: basis === "start" ? bands : [],
+    end: basis === "end" ? bands : []
+  };
+  const otherBasis = basis === "end" ? "start" : "end";
+  try {
+    const otherSnapshot = await readExactPriceBandSnapshot({
+      source: snapshot.source || source,
+      basis: otherBasis,
+      startMonth: snapshot.start_month,
+      endMonth: snapshot.end_month,
+      areaBandKey: areaBand.key,
+      minHouseholdCount
+    });
+    if (otherSnapshot) {
+      result[otherBasis] = await readBands(otherSnapshot.id, otherBasis, { minHouseholdCount });
+    }
+  } catch (error) {
+    console.warn(JSON.stringify({
+      message: "price band counterpart bands read failed",
+      snapshotId: Number(snapshot.id),
+      basis,
+      otherBasis,
+      error: error.message
+    }));
+  }
+  return result;
+}
+
+async function readPriceBandTotalRows({
+  snapshot,
+  basis,
+  bands,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  where
+}) {
+  if (selectedStartBandKey === null && selectedEndBandKey === null) {
+    const snapshotCount = Number(snapshot.item_count);
+    if (Number.isFinite(snapshotCount) && snapshotCount >= 0) return snapshotCount;
+  }
+
+  const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
+  const hasOnlyBasisBandFilter = selectedBandKey !== null
+    && (basis === "end" ? selectedStartBandKey === null : selectedEndBandKey === null);
+  if (hasOnlyBasisBandFilter) {
+    const band = bands.find((item) => item.bandKey === selectedBandKey);
+    const bandCount = Number(band?.apartmentCount);
+    if (Number.isFinite(bandCount) && bandCount >= 0) return bandCount;
+  }
+
+  const countResult = await query(`
+    select count(*)::int as total_rows
+    from price_band_rank_items pbi
+    where ${where.sql}
+  `, where.params);
+  return Number(countResult.rows[0]?.total_rows || 0);
 }
 
 function priceBandCacheStatus(snapshot, fallback = null) {
@@ -644,6 +805,10 @@ async function readPriceBandRankFallbackPage({
     basis,
     areaBands: PRICE_AREA_BANDS,
     bands: ranking.bands || [],
+    basisBands: {
+      start: basis === "start" ? ranking.bands || [] : [],
+      end: basis === "end" ? ranking.bands || [] : []
+    },
     selectedBandKey: selectedBand?.bandKey ?? null,
     selectedBand,
     selection: {
@@ -1079,6 +1244,7 @@ async function savePriceBandRankSnapshot({
         rows.length
       ]);
       const snapshot = snapshotResult.rows[0];
+      await replacePriceBandRankBands(client, snapshot.id, bands, basis);
       await client.query("delete from price_band_rank_items where snapshot_id = $1", [snapshot.id]);
       await insertPriceBandRankItems(client, snapshot.id, rows);
 
@@ -1102,6 +1268,77 @@ async function savePriceBandRankSnapshot({
       throw error;
     }
   });
+}
+
+async function replacePriceBandRankBands(client, snapshotId, bands, basis) {
+  await client.query("savepoint price_band_rank_bands_save");
+  try {
+    await client.query("delete from price_band_rank_bands where snapshot_id = $1", [snapshotId]);
+    await insertPriceBandRankBands(client, snapshotId, bands, basis);
+    await client.query("release savepoint price_band_rank_bands_save");
+  } catch (error) {
+    await client.query("rollback to savepoint price_band_rank_bands_save");
+    if (["42501", "42P01", "42703"].includes(error?.code)) {
+      console.warn(JSON.stringify({
+        message: "price band cache bands save skipped",
+        snapshotId: Number(snapshotId),
+        code: error.code,
+        error: error.message
+      }));
+      return;
+    }
+    throw error;
+  }
+}
+
+async function insertPriceBandRankBands(client, snapshotId, bands, basis) {
+  if (!Array.isArray(bands) || !bands.length) return;
+  const params = [];
+  const values = bands.map((band, index) => {
+    const offset = index * 13;
+    params.push(
+      snapshotId,
+      band.bandKey,
+      band.bandLabel || "",
+      basis,
+      band.apartmentCount || 0,
+      band.startSalePrice ?? null,
+      band.endSalePrice ?? null,
+      band.startPyeongPrice ?? null,
+      band.endPyeongPrice ?? null,
+      band.averageGrowthAmount ?? null,
+      band.averageGrowthRate ?? null,
+      band.topGrowthRate ?? null,
+      band.topApartmentName || ""
+    );
+    return `(
+      $${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4},$${offset + 5},
+      $${offset + 6},$${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},
+      $${offset + 11},$${offset + 12},$${offset + 13},now()
+    )`;
+  });
+
+  await client.query(`
+    insert into price_band_rank_bands (
+      snapshot_id, band_key, band_label, basis, apartment_count,
+      start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
+      average_growth_amount, average_growth_rate, top_growth_rate, top_apartment_name,
+      updated_at
+    ) values ${values.join(",")}
+    on conflict (snapshot_id, band_key) do update set
+      band_label = excluded.band_label,
+      basis = excluded.basis,
+      apartment_count = excluded.apartment_count,
+      start_sale_price = excluded.start_sale_price,
+      end_sale_price = excluded.end_sale_price,
+      start_pyeong_price = excluded.start_pyeong_price,
+      end_pyeong_price = excluded.end_pyeong_price,
+      average_growth_amount = excluded.average_growth_amount,
+      average_growth_rate = excluded.average_growth_rate,
+      top_growth_rate = excluded.top_growth_rate,
+      top_apartment_name = excluded.top_apartment_name,
+      updated_at = now()
+  `, params);
 }
 
 async function insertPriceBandRankItems(client, snapshotId, rows) {
@@ -1150,6 +1387,34 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
 }
 
 async function readBands(snapshotId, basis) {
+  try {
+    const storedResult = await query(`
+      select
+        band_key,
+        band_label,
+        apartment_count,
+        start_sale_price,
+        end_sale_price,
+        start_pyeong_price,
+        end_pyeong_price,
+        average_growth_amount,
+        average_growth_rate,
+        top_growth_rate,
+        top_apartment_name
+      from price_band_rank_bands
+      where snapshot_id = $1
+      order by band_key asc
+    `, [snapshotId]);
+    if (storedResult.rows.length) {
+      return storedResult.rows.map((row) => serializePriceBandBand(row, basis));
+    }
+  } catch (error) {
+    if (!["42P01", "42703", "42501"].includes(error?.code)) throw error;
+  }
+  return readAggregatedBands(snapshotId, basis);
+}
+
+async function readAggregatedBands(snapshotId, basis) {
   const result = await query(`
     with band_stats as (
       select
@@ -1184,7 +1449,11 @@ async function readBands(snapshotId, basis) {
     order by band_key asc
   `, [snapshotId]);
 
-  return result.rows.map((row) => ({
+  return result.rows.map((row) => serializePriceBandBand(row, basis));
+}
+
+function serializePriceBandBand(row, basis) {
+  return {
     bandKey: Number(row.band_key),
     bandLabel: row.band_label || "",
     basis,
@@ -1197,7 +1466,7 @@ async function readBands(snapshotId, basis) {
     averageGrowthRate: row.average_growth_rate === null ? null : Number(row.average_growth_rate),
     topGrowthRate: row.top_growth_rate === null ? null : Number(row.top_growth_rate),
     topApartmentName: row.top_apartment_name || ""
-  }));
+  };
 }
 
 function serializePriceBandItem(row, basis) {

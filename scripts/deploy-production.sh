@@ -9,6 +9,11 @@ DOCKER_NETWORK_NAME="${DOCKER_NETWORK_NAME:-${ORULZIP_DOCKER_NETWORK:-}}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost:3050/map}"
 LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/orulzip-production-deploy.lock}"
 POST_DEPLOY_MOLIT_MAP_CACHE_YEARS="${POST_DEPLOY_MOLIT_MAP_CACHE_YEARS:-}"
+DEPLOY_PERFORMANCE_GATE="${DEPLOY_PERFORMANCE_GATE:-0}"
+DEPLOY_PERFORMANCE_SERVICE="${DEPLOY_PERFORMANCE_SERVICE:-web}"
+DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:-$DEPLOY_BRANCH}"
+PERFORMANCE_MEASUREMENT_WARN_MS="${PERFORMANCE_MEASUREMENT_WARN_MS:-1000}"
+PERFORMANCE_MEASUREMENT_FAIL_MS="${PERFORMANCE_MEASUREMENT_FAIL_MS:-2000}"
 ASKPASS_FILE=""
 
 log() {
@@ -50,6 +55,25 @@ run_post_deploy_tasks() {
     docker compose -p "$COMPOSE_PROJECT_NAME" run --rm web \
       npm run refresh:molit-map-cache -- --years="$POST_DEPLOY_MOLIT_MAP_CACHE_YEARS" --skip-complex-sync
   fi
+}
+
+performance_gate_enabled() {
+  case "$DEPLOY_PERFORMANCE_GATE" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_pre_deploy_performance_gate() {
+  log "running pre-deploy performance gate on service $DEPLOY_PERFORMANCE_SERVICE"
+  log "performance thresholds: warn=${PERFORMANCE_MEASUREMENT_WARN_MS}ms fail=${PERFORMANCE_MEASUREMENT_FAIL_MS}ms"
+  docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -T \
+    -e ORULZIP_DB_INIT=0 \
+    -e ORULZIP_ENVIRONMENT="$DEPLOY_ENVIRONMENT" \
+    -e PERFORMANCE_MEASUREMENT_WARN_MS="$PERFORMANCE_MEASUREMENT_WARN_MS" \
+    -e PERFORMANCE_MEASUREMENT_FAIL_MS="$PERFORMANCE_MEASUREMENT_FAIL_MS" \
+    "$DEPLOY_PERFORMANCE_SERVICE" \
+    npm run check:performance -- --no-save --fail-on-issue
 }
 
 exec 9>"$LOCK_FILE"
@@ -97,8 +121,17 @@ if [ -n "$DOCKER_NETWORK_NAME" ]; then
 fi
 
 export COMPOSE_FILE
-log "building and restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
-docker compose -p "$COMPOSE_PROJECT_NAME" up -d --build
+if performance_gate_enabled; then
+  log "building docker compose service $DEPLOY_PERFORMANCE_SERVICE with $COMPOSE_FILE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" build "$DEPLOY_PERFORMANCE_SERVICE"
+  run_pre_deploy_performance_gate
+  log "performance gate passed"
+  log "restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" up -d --no-build
+else
+  log "building and restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" up -d --build
+fi
 
 log "checking service health at $HEALTHCHECK_URL"
 for attempt in $(seq 1 20); do

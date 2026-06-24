@@ -441,6 +441,23 @@ input {
   color: var(--muted);
 }
 
+#priceBandPagination {
+  min-height: 60px;
+}
+
+#priceBandPagination:empty {
+  min-height: 0;
+}
+
+#priceBandPagination.loading {
+  pointer-events: none;
+}
+
+#priceBandPagination.loading button,
+#priceBandPagination.loading span {
+  opacity: 0.52;
+}
+
 .price-band-summary {
   display: grid;
   gap: 10px;
@@ -453,6 +470,10 @@ input {
 .price-band-count-sub,
 .price-band-count-meta {
   display: block;
+}
+
+#priceBandCount {
+  min-height: 54px;
 }
 
 .price-band-count-main {
@@ -567,6 +588,35 @@ input {
   line-height: 1;
   padding: 0 12px;
   white-space: nowrap;
+}
+
+#priceBandView.price-band-stable-loading .table-wrap {
+  position: relative;
+}
+
+#priceBandView.price-band-stable-loading .price-band-table {
+  pointer-events: none;
+}
+
+#priceBandView.price-band-stable-loading .table-wrap::after {
+  content: "랭킹을 불러오는 중입니다.";
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  left: 16px;
+  z-index: 2;
+  display: grid;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(184, 198, 220, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #475467;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.1);
+  pointer-events: none;
 }
 
 .price-band-area-filter-control select {

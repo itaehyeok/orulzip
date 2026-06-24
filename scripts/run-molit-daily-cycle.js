@@ -53,6 +53,7 @@ if (options.refreshPriceBandCache) {
   runNpm(["run", "refresh:price-band-cache"]);
 }
 runNpm(["run", "check:data-health"]);
+runNpm(["run", "check:performance"]);
 
 console.log(JSON.stringify({
   message: "MOLIT daily cycle finished",

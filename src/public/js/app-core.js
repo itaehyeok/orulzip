@@ -229,6 +229,9 @@ function bindEvents() {
     state.analyticsIncludeInternal = Boolean(els.analyticsIncludeInternalToggle.checked);
     loadAnalyticsDashboard();
   });
+  els.performanceRunBtn?.addEventListener("click", () => {
+    if (typeof runPerformanceMeasurementNow === "function") runPerformanceMeasurementNow();
+  });
   els.priceBandPagination?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-page]");
     if (!button) return;
@@ -552,20 +555,16 @@ async function loadActiveViewData() {
     if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") priceBandParams.set("areaBandKey", state.priceBandAreaKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
-    const otherPriceBandParams = new URLSearchParams(params);
-    otherPriceBandParams.set("basis", "end");
-    if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") otherPriceBandParams.set("areaBandKey", state.priceBandAreaKey);
-    otherPriceBandParams.set("page", "1");
-    otherPriceBandParams.set("pageSize", "10");
-    const [result, otherResult] = await Promise.all([
-      api(`/api/price-band-rankings?${priceBandParams}`),
-      api(`/api/price-band-rankings?${otherPriceBandParams}`)
-    ]);
+    let result;
+    try {
+      result = await api(`/api/price-band-rankings?${priceBandParams}`);
+    } catch (error) {
+      if (state.activeTab !== "priceBands" || requestId !== state.priceBandRequestId) return;
+      renderPriceBandLoadError(error);
+      return;
+    }
     if (state.activeTab !== "priceBands" || requestId !== state.priceBandRequestId) return;
-    renderPriceBandTable(result, {
-      start: result.basis === "start" ? result.bands : otherResult.bands,
-      end: result.basis === "end" ? result.bands : otherResult.bands
-    });
+    renderPriceBandTable(result, result.basisBands);
     await preparePriceBandApartmentDetailFromUrl(result.rows || []);
     return;
   }
@@ -591,6 +590,11 @@ async function loadActiveViewData() {
 
   if (state.activeTab === "dataHealth") {
     await loadDataHealthDashboard();
+    return;
+  }
+
+  if (state.activeTab === "performance") {
+    await loadPerformanceDashboard();
     return;
   }
 
@@ -643,6 +647,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.querySelector("#analyticsView").classList.toggle("active", nextTab === "analytics");
   document.querySelector("#dataHealthView").classList.toggle("active", nextTab === "dataHealth");
+  document.querySelector("#performanceView").classList.toggle("active", nextTab === "performance");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   syncMobileViewportInsets();
   document.title = tabTitles[nextTab] || tabTitles.molitMap;

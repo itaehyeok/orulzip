@@ -626,6 +626,24 @@ export async function initDb() {
       unique(snapshot_id, band_key, apartment_id)
     );
 
+    create table if not exists price_band_rank_bands (
+      snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
+      band_key integer not null,
+      band_label text not null,
+      basis text not null,
+      apartment_count integer not null default 0,
+      start_sale_price integer,
+      end_sale_price integer,
+      start_pyeong_price integer,
+      end_pyeong_price integer,
+      average_growth_amount integer,
+      average_growth_rate double precision,
+      top_growth_rate double precision,
+      top_apartment_name text,
+      updated_at timestamptz not null default now(),
+      primary key(snapshot_id, band_key)
+    );
+
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
     drop index if exists price_band_rank_snapshots_household_filter_uidx;
@@ -648,6 +666,8 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_bands_snapshot_idx
+      on price_band_rank_bands(snapshot_id, band_key);
 
     create table if not exists app_cache_entries (
       cache_key text primary key,
@@ -673,6 +693,25 @@ export async function initDb() {
       on data_health_runs(created_at desc);
     create index if not exists data_health_runs_environment_created_idx
       on data_health_runs(environment, created_at desc);
+
+    create table if not exists performance_measurement_runs (
+      id bigserial primary key,
+      environment text not null default 'unknown',
+      status text not null,
+      started_at timestamptz not null default now(),
+      finished_at timestamptz not null default now(),
+      duration_ms integer not null default 0,
+      issue_count integer not null default 0,
+      warning_count integer not null default 0,
+      summary jsonb not null default '{}'::jsonb,
+      measurements jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now()
+    );
+
+    create index if not exists performance_measurement_runs_created_idx
+      on performance_measurement_runs(created_at desc);
+    create index if not exists performance_measurement_runs_environment_created_idx
+      on performance_measurement_runs(environment, created_at desc);
   `);
 }
 

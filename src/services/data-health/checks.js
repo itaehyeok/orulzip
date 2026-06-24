@@ -236,24 +236,31 @@ async function checkPriceBandCacheMatrix(context) {
   const expectedStarts = context.periodMonths.map((months) => addMonths(context.endMonth, -months));
   const result = await query(`
     select
-      id,
-      basis,
-      period_months,
-      start_month,
-      end_month,
-      min_household_count,
-      area_band_key,
-      area_band_label,
-      band_count,
-      item_count,
-      updated_at
-    from price_band_rank_snapshots
-    where source = 'molit'
-      and end_month = $1
-      and start_month = any($2::text[])
-      and min_household_count = any($3::int[])
-      and area_band_key = any($4::text[])
-      and basis = any($5::text[])
+      s.id,
+      s.basis,
+      s.period_months,
+      s.start_month,
+      s.end_month,
+      s.min_household_count,
+      s.area_band_key,
+      s.area_band_label,
+      s.band_count,
+      s.item_count,
+      s.updated_at,
+      coalesce(b.band_rows, 0)::int as stored_band_count
+    from price_band_rank_snapshots s
+    left join (
+      select snapshot_id, count(*)::int as band_rows
+      from price_band_rank_bands
+      group by snapshot_id
+    ) b
+      on b.snapshot_id = s.id
+    where s.source = 'molit'
+      and s.end_month = $1
+      and s.start_month = any($2::text[])
+      and s.min_household_count = any($3::int[])
+      and s.area_band_key = any($4::text[])
+      and s.basis = any($5::text[])
   `, [
     context.endMonth,
     expectedStarts,
@@ -311,92 +318,142 @@ async function checkPriceBandCacheMatrix(context) {
 }
 
 async function checkPriceBandCacheReadPerformance(context) {
-  const startMonth = addMonths(context.endMonth, -12);
   const minHouseholdCount = DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT;
+  const expectedStarts = context.periodMonths.map((months) => addMonths(context.endMonth, -months));
   const snapshotResult = await query(`
-    select id, start_month, end_month, basis, min_household_count, area_band_key, item_count, updated_at
+    select
+      s.id,
+      s.start_month,
+      s.end_month,
+      s.period_months,
+      s.basis,
+      s.min_household_count,
+      s.area_band_key,
+      s.item_count,
+      s.updated_at,
+      coalesce(b.band_rows, 0)::int as stored_band_count
     from price_band_rank_snapshots
-    where source = 'molit'
-      and basis = 'start'
-      and start_month = $1
-      and end_month = $2
-      and min_household_count = $3
-      and area_band_key = 'all'
-    order by updated_at desc
-    limit 1
-  `, [startMonth, context.endMonth, minHouseholdCount]);
-  const snapshot = snapshotResult.rows[0];
-  if (!snapshot) {
-    return buildCheck({
-      key: "molit_price_band_cache_read_performance",
-      category: "cache",
-      title: "실거래가 랭킹 캐시 조회 성능",
-      status: "fail",
-      message: "성능 확인에 필요한 1년·100세대 캐시 스냅샷이 없습니다.",
-      metrics: { startMonth, endMonth: context.endMonth, minHouseholdCount },
-      details: [{
-        status: "fail",
-        label: "1년 전 대비 · 과거 가격 · 100세대 이상 · 전체 평형",
+    s
+    left join (
+      select snapshot_id, count(*)::int as band_rows
+      from price_band_rank_bands
+      group by snapshot_id
+    ) b
+      on b.snapshot_id = s.id
+    where s.source = 'molit'
+      and s.basis = any($1::text[])
+      and s.start_month = any($2::text[])
+      and s.end_month = $3
+      and s.min_household_count = $4
+      and s.area_band_key = 'all'
+  `, [context.priceBandBases, expectedStarts, context.endMonth, minHouseholdCount]);
+  const snapshots = new Map(snapshotResult.rows.map((row) => [
+    matrixKey(row.start_month, row.min_household_count, row.basis, row.area_band_key),
+    row
+  ]));
+  const details = [];
+  for (const months of context.periodMonths) {
+    const startMonth = addMonths(context.endMonth, -months);
+    for (const basis of context.priceBandBases) {
+      const snapshot = snapshots.get(matrixKey(startMonth, minHouseholdCount, basis, "all"));
+      if (!snapshot) {
+        details.push({
+          status: "fail",
+          label: `${periodLabel(months)} · ${basisLabel(basis)} · ${householdLabel(minHouseholdCount)} · 전체 평형`,
+          months,
+          basis,
+          startMonth,
+          endMonth: context.endMonth,
+          minHouseholdCount,
+          reason: "snapshot_missing"
+        });
+        continue;
+      }
+
+      const storedBandCount = Number(snapshot.stored_band_count || 0);
+      const startedAt = Date.now();
+      const [bandsResult, rowsResult] = await Promise.all([
+        query(`
+          select band_key, apartment_count
+          from price_band_rank_bands
+          where snapshot_id = $1
+          order by band_key asc
+        `, [snapshot.id]),
+        query(`
+          with ordered as (
+            select pbi.*
+            from price_band_rank_items pbi
+            where pbi.snapshot_id = $1
+            order by growth_rate desc nulls last,
+                     growth_amount desc nulls last,
+                     end_pyeong_price desc nulls last,
+                     apartment_name asc
+            limit 50
+          )
+          select ordered.rank, ordered.apartment_id, ordered.apartment_name, ordered.growth_rate,
+                 coalesce(c.reb_household_count, a.household_count, 0)::int as household_count
+          from ordered
+          left join molit_complexes c
+            on c.id = ordered.apartment_id
+          left join apartments a
+            on a.id = c.matched_apartment_id
+        `, [snapshot.id])
+      ]);
+      const durationMs = Date.now() - startedAt;
+      const sampleRows = rowsResult.rows.length;
+      const bandRows = bandsResult.rows.length || storedBandCount;
+      const itemCount = Number(snapshot.item_count || 0);
+      const missingStoredBands = bandRows <= 0;
+      const missingRows = itemCount <= 0 || sampleRows <= 0;
+      const status = missingStoredBands || missingRows || durationMs > 5000
+        ? "fail"
+        : durationMs > 1500
+          ? "warn"
+          : "pass";
+      details.push({
+        status,
+        label: `${periodLabel(months)} · ${basisLabel(basis)} · ${householdLabel(minHouseholdCount)} · 전체 평형`,
+        months,
+        basis,
+        snapshotId: Number(snapshot.id),
         startMonth,
         endMonth: context.endMonth,
         minHouseholdCount,
-        reason: "snapshot_missing"
-      }]
-    });
+        readDurationMs: durationMs,
+        totalRows: itemCount,
+        sampleRows,
+        storedBandCount: bandRows,
+        updatedAt: snapshot.updated_at || null,
+        reason: missingStoredBands
+          ? "stored_bands_missing"
+          : missingRows
+            ? "empty_cache_read"
+            : status === "pass" ? "" : "slow_cache_read"
+      });
+    }
   }
-
-  const startedAt = Date.now();
-  const [countResult, rowsResult] = await Promise.all([
-    query(`
-      select count(*)::int as total_rows
-      from price_band_rank_items
-      where snapshot_id = $1
-    `, [snapshot.id]),
-    query(`
-      select rank, apartment_id, apartment_name, growth_rate
-      from price_band_rank_items
-      where snapshot_id = $1
-      order by growth_rate desc nulls last,
-               growth_amount desc nulls last,
-               end_pyeong_price desc nulls last,
-               apartment_name asc
-      limit 50
-    `, [snapshot.id])
-  ]);
-  const durationMs = Date.now() - startedAt;
-  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
-  const sampleRows = rowsResult.rows.length;
-  const status = durationMs > 5000 ? "fail" : durationMs > 1500 ? "warn" : "pass";
+  const failed = details.filter((item) => item.status === "fail");
+  const warned = details.filter((item) => item.status === "warn");
+  const durations = details.map((item) => Number(item.readDurationMs || 0)).filter(Number.isFinite);
+  const maxDurationMs = durations.length ? Math.max(...durations) : 0;
   return buildCheck({
     key: "molit_price_band_cache_read_performance",
     category: "cache",
     title: "실거래가 랭킹 캐시 조회 성능",
-    status,
-    message: status === "fail"
-      ? `랭킹 캐시 조회가 ${durationMs}ms 걸렸습니다. 사용자 화면 로딩 지연 가능성이 큽니다.`
-      : status === "warn"
-        ? `랭킹 캐시 조회가 ${durationMs}ms 걸려 주의가 필요합니다.`
-        : "랭킹 캐시 조회가 빠르게 응답합니다.",
+    status: failed.length ? "fail" : warned.length ? "warn" : "pass",
+    message: failed.length
+      ? `${failed.length}개 기간/기준의 랭킹 캐시 조회가 실패했거나 너무 느립니다.`
+      : warned.length
+        ? `${warned.length}개 기간/기준의 랭킹 캐시 조회가 느립니다.`
+        : "모든 기간의 랭킹 캐시 조회가 빠르게 응답합니다.",
     metrics: {
-      readDurationMs: durationMs,
-      totalRows,
-      sampleRows,
-      snapshotId: Number(snapshot.id),
-      updatedAt: snapshot.updated_at || null
+      checkedSnapshots: details.length,
+      failedSnapshots: failed.length,
+      warningSnapshots: warned.length,
+      maxReadDurationMs: maxDurationMs,
+      minHouseholdCount
     },
-    details: [{
-      status,
-      label: "1년 전 대비 · 과거 가격 · 100세대 이상 · 전체 평형",
-      snapshotId: Number(snapshot.id),
-      startMonth,
-      endMonth: context.endMonth,
-      minHouseholdCount,
-      readDurationMs: durationMs,
-      totalRows,
-      sampleRows,
-      updatedAt: snapshot.updated_at || null,
-      reason: status === "pass" ? "" : "slow_cache_read"
-    }]
+    details
   });
 }
 
@@ -416,6 +473,7 @@ async function checkPriceBandLongRunningQueries() {
       and now() - query_start > interval '60 seconds'
       and (
         query ilike '%price_band_rank_items%'
+        or query ilike '%price_band_rank_bands%'
         or query ilike '%price_band_rank_snapshots%'
         or (query ilike '%molit_trade_deals%' and query ilike '%with matched as%')
       )
@@ -511,9 +569,10 @@ function priceBandCacheDetail({ row, months, startMonth, endMonth, minHouseholdC
     };
   }
   const bandCount = Number(row.band_count || 0);
+  const storedBandCount = Number(row.stored_band_count || 0);
   const itemCount = Number(row.item_count || 0);
   const stale = isStale(row.updated_at, STALE_CACHE_HOURS);
-  const coreEmpty = areaBandKey === "all" && (bandCount <= 0 || itemCount <= 0);
+  const coreEmpty = areaBandKey === "all" && (bandCount <= 0 || storedBandCount <= 0 || itemCount <= 0);
   const sideEmpty = areaBandKey !== "all" && itemCount <= 0;
   return {
     status: coreEmpty ? "fail" : sideEmpty || stale ? "warn" : "pass",
@@ -527,9 +586,10 @@ function priceBandCacheDetail({ row, months, startMonth, endMonth, minHouseholdC
     areaBandKey: row.area_band_key || areaBandKey,
     areaBandLabel: row.area_band_label || areaBandKey,
     bandCount,
+    storedBandCount,
     itemCount,
     updatedAt: row.updated_at || null,
-    reason: coreEmpty ? "core_empty" : sideEmpty ? "area_empty" : stale ? "stale_cache" : ""
+    reason: coreEmpty ? "core_empty_or_bands_missing" : sideEmpty ? "area_empty" : stale ? "stale_cache" : ""
   };
 }
 

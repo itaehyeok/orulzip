@@ -102,7 +102,7 @@ function renderNeighborhoodTable(result) {
 }
 
 function renderPriceBandTable(result, basisBands = null) {
-  els.priceBandView?.removeAttribute("aria-busy");
+  clearPriceBandLoadingState();
   state.priceBandStartKey = result.selection?.startBandKey === null || result.selection?.startBandKey === undefined
     ? ""
     : String(result.selection.startBandKey);
@@ -113,7 +113,7 @@ function renderPriceBandTable(result, basisBands = null) {
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
   const areaBands = Array.isArray(result.areaBands) ? result.areaBands : [];
-  const summaryBands = basisBands || {
+  const summaryBands = basisBands || result.basisBands || {
     start: result.basis === "start" ? bands : [],
     end: result.basis === "end" ? bands : []
   };
@@ -419,20 +419,64 @@ function renderPriceBandLoadingState() {
   syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
   updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
+  const hasRenderedRows = Boolean(els.priceBandRows?.querySelector("[data-price-band-detail-row]"));
   if (els.priceBandView) els.priceBandView.setAttribute("aria-busy", "true");
+  els.priceBandView?.classList.toggle("price-band-stable-loading", hasRenderedRows);
   if (els.priceBandCount) {
-    els.priceBandCount.innerHTML = `
-      <span class="price-band-count-main">${escapeHtml(selectionLabel)}</span>
-      <span class="price-band-count-sub">랭킹을 불러오는 중입니다.</span>
-    `;
+    renderPriceBandLoadingCount(selectionLabel, hasRenderedRows);
   }
-  if (els.priceBandRows) {
+  if (els.priceBandRows && !hasRenderedRows) {
     els.priceBandRows.innerHTML = priceBandPlaceholderRow(`
       <div class="price-band-loading">
         <span class="price-band-loading-spinner" aria-hidden="true"></span>
         <strong>랭킹을 불러오는 중입니다.</strong>
       </div>
     `, "price-band-loading-cell");
+  }
+  setPriceBandPaginationLoading(true);
+}
+
+function clearPriceBandLoadingState() {
+  els.priceBandView?.removeAttribute("aria-busy");
+  els.priceBandView?.classList.remove("price-band-stable-loading");
+  setPriceBandPaginationLoading(false);
+}
+
+function renderPriceBandLoadingCount(selectionLabel, preserveCurrentText) {
+  const currentSub = preserveCurrentText
+    ? els.priceBandCount.querySelector(".price-band-count-sub")?.textContent || ""
+    : "";
+  const currentMeta = preserveCurrentText
+    ? els.priceBandCount.querySelector(".price-band-count-meta")?.textContent || ""
+    : "";
+  els.priceBandCount.innerHTML = `
+    <span class="price-band-count-main">${escapeHtml(selectionLabel)}</span>
+    <span class="price-band-count-sub">${escapeHtml(currentSub || "랭킹을 불러오는 중입니다.")}</span>
+    <span class="price-band-count-meta">${escapeHtml(currentMeta || "데이터 갱신 중")}</span>
+  `;
+}
+
+function setPriceBandPaginationLoading(isLoading) {
+  if (!els.priceBandPagination) return;
+  els.priceBandPagination.classList.toggle("loading", Boolean(isLoading));
+  els.priceBandPagination.querySelectorAll("button").forEach((button) => {
+    button.disabled = Boolean(isLoading);
+  });
+}
+
+function renderPriceBandLoadError(error) {
+  els.priceBandView?.removeAttribute("aria-busy");
+  syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
+  updatePriceBandTotalBadge("오류");
+  const message = error?.message || "랭킹을 불러오지 못했습니다.";
+  if (els.priceBandCount) {
+    els.priceBandCount.innerHTML = `
+      <span class="price-band-count-main">랭킹을 불러오지 못했습니다.</span>
+      <span class="price-band-count-sub">${escapeHtml(message)}</span>
+    `;
+  }
+  if (els.priceBandRows) {
+    els.priceBandRows.innerHTML = priceBandPlaceholderRow("랭킹을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
   }
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }

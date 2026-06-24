@@ -31,6 +31,10 @@ jobs:
           COMPOSE_FILE: docker-compose.web.yml
           DOCKER_NETWORK_NAME: orulzip-shared
           HEALTHCHECK_URL: http://localhost:3050/map
+          DEPLOY_ENVIRONMENT: production
+          DEPLOY_PERFORMANCE_GATE: "1"
+          PERFORMANCE_MEASUREMENT_WARN_MS: "1000"
+          PERFORMANCE_MEASUREMENT_FAIL_MS: "2000"
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./scripts/deploy-production.sh
