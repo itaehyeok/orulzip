@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
       ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
       ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
@@ -36,8 +36,8 @@ services:
     restart: unless-stopped
     command: ["npm", "run", "refresh:price-band-cache:loop"]
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
-      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: ${PRICE_BAND_CACHE_DB_INIT:-0}
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       PRICE_BAND_CACHE_REFRESH_INTERVAL_MS: ${PRICE_BAND_CACHE_REFRESH_INTERVAL_MS:-86400000}
     networks:
@@ -57,7 +57,7 @@ services:
           sleep ${MOLIT_DAILY_INTERVAL_SECONDS:-86400};
         done
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
       ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}

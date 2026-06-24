@@ -39,6 +39,8 @@ export async function withAnalyticsClient(callback) {
 }
 
 export async function initDb() {
+  if (process.env.ORULZIP_DB_INIT === "0") return { skipped: true };
+
   await query(`
     create extension if not exists pg_trgm;
 

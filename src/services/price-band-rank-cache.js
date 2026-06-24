@@ -1,5 +1,6 @@
 import { query, withClient } from "./db.js";
 import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
+import { notifyTelegramCacheFallback } from "./telegram-notifier.js";
 
 export const DEFAULT_PRICE_BAND_PERIOD_MONTHS = [3, 6, 12, 36, 60];
 export const PRICE_BAND_BASES = ["start", "end"];
@@ -91,6 +92,7 @@ export async function readPriceBandRankPage({
   endBandKey = "",
   areaBandKey = "all",
   minHouseholdCount = 0,
+  environment = "unknown",
   page = 1,
   pageSize = 50
 } = {}) {
@@ -99,6 +101,11 @@ export async function readPriceBandRankPage({
   const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
+  const legacyBandKey = normalizeBandKey(bandKey);
+  const requestedStartBandKey = normalizeBandKey(startBandKey);
+  const requestedEndBandKey = normalizeBandKey(endBandKey);
+  const selectedStartBandKey = requestedStartBandKey ?? (normalizedBasis === "start" ? legacyBandKey : null);
+  const selectedEndBandKey = requestedEndBandKey ?? (normalizedBasis === "end" ? legacyBandKey : null);
   const snapshotResult = await query(`
     select *
     from price_band_rank_snapshots
@@ -113,66 +120,118 @@ export async function readPriceBandRankPage({
   `, [source, normalizedBasis, startMonth, endMonth, normalizedMinHouseholdCount, normalizedAreaBand.key]);
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) {
-    return {
-      period: { startMonth, endMonth },
+    const broaderSnapshot = await readBroaderPriceBandSnapshot({
+      source,
       basis: normalizedBasis,
-      areaBands: PRICE_AREA_BANDS,
-      bands: [],
-      selectedBandKey: null,
-      selectedBand: null,
-      selection: {
-        startBandKey: null,
-        startBand: null,
-        endBandKey: null,
-        endBand: null,
-        areaBandKey: normalizedAreaBand.key,
-        areaBand: normalizedAreaBand
-      },
-      cache: { hit: false, source, basis: normalizedBasis, minHouseholdCount: normalizedMinHouseholdCount, areaBandKey: normalizedAreaBand.key, updatedAt: null },
-      pagination: {
+      startMonth,
+      endMonth,
+      areaBandKey: normalizedAreaBand.key,
+      minHouseholdCount: normalizedMinHouseholdCount
+    });
+    if (broaderSnapshot) {
+      return readPriceBandRankSnapshotPage({
+        snapshot: broaderSnapshot,
+        source,
+        basis: normalizedBasis,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        areaBand: normalizedAreaBand,
+        minHouseholdCount: normalizedMinHouseholdCount,
         page: normalizedPage,
         pageSize: normalizedPageSize,
-        totalRows: 0,
-        totalPages: 0
-      },
-      rows: []
-    };
+        environment,
+        fallback: {
+          reason: "requested household-filtered cache missing; broader cache used",
+          source: "broader-cache"
+        }
+      });
+    }
+    return readPriceBandRankFallbackPage({
+      source,
+      basis: normalizedBasis,
+      startMonth,
+      endMonth,
+      selectedStartBandKey,
+      selectedEndBandKey,
+      areaBand: normalizedAreaBand,
+      minHouseholdCount: normalizedMinHouseholdCount,
+      page: normalizedPage,
+      pageSize: normalizedPageSize,
+      environment,
+      reason: "price band rank cache snapshot missing"
+    });
   }
 
-  const bands = await readBands(snapshot.id, normalizedBasis);
-  const legacyBandKey = normalizeBandKey(bandKey);
-  const requestedStartBandKey = normalizeBandKey(startBandKey);
-  const requestedEndBandKey = normalizeBandKey(endBandKey);
-  const selectedStartBandKey = requestedStartBandKey ?? (normalizedBasis === "start" ? legacyBandKey : null);
-  const selectedEndBandKey = requestedEndBandKey ?? (normalizedBasis === "end" ? legacyBandKey : null);
-  const selectedBandKey = normalizedBasis === "end" ? selectedEndBandKey : selectedStartBandKey;
+  return readPriceBandRankSnapshotPage({
+    snapshot,
+    source,
+    basis: normalizedBasis,
+    selectedStartBandKey,
+    selectedEndBandKey,
+    areaBand: normalizedAreaBand,
+    minHouseholdCount: normalizedMinHouseholdCount,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    environment
+  });
+}
+
+async function readPriceBandRankSnapshotPage({
+  snapshot,
+  source,
+  basis,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  areaBand,
+  minHouseholdCount,
+  page,
+  pageSize,
+  environment,
+  fallback = null
+}) {
+  const bands = await readBands(snapshot.id, basis, { minHouseholdCount });
+  const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
   const selectedBand = selectedBandKey === null
     ? null
     : bands.find((band) => band.bandKey === selectedBandKey) || null;
   const where = buildPriceBandItemWhere({
     snapshotId: snapshot.id,
-    snapshotBasis: normalizedBasis,
+    snapshotBasis: basis,
     startBandKey: selectedStartBandKey,
     endBandKey: selectedEndBandKey
   });
   const countResult = await query(`
     select count(*)::int as total_rows
-    from price_band_rank_items pbi
-    where ${where.sql}
-  `, where.params);
-  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
-  const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / normalizedPageSize)) : 0;
-  const safePage = totalRows ? Math.min(normalizedPage, totalPages) : 1;
-  const offset = (safePage - 1) * normalizedPageSize;
-  const rowsResult = totalRows ? await query(`
-    with filtered as (
-      select pbi.*, coalesce(c.reb_household_count, a.household_count, 0) as household_count
+    from (
+      select coalesce(c.reb_household_count, a.household_count, 0) as household_count
       from price_band_rank_items pbi
       left join molit_complexes c
         on c.id = pbi.apartment_id
       left join apartments a
         on a.id = c.matched_apartment_id
       where ${where.sql}
+    ) filtered_by_price
+    where $${where.params.length + 1}::int <= 0
+       or household_count >= $${where.params.length + 1}::int
+  `, [...where.params, minHouseholdCount]);
+  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
+  const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
+  const safePage = totalRows ? Math.min(page, totalPages) : 1;
+  const offset = (safePage - 1) * pageSize;
+  const rowsResult = totalRows ? await query(`
+    with filtered as (
+      select *
+      from (
+        select pbi.*, coalesce(c.reb_household_count, a.household_count, 0) as household_count
+        from price_band_rank_items pbi
+        left join molit_complexes c
+          on c.id = pbi.apartment_id
+        left join apartments a
+          on a.id = c.matched_apartment_id
+        where ${where.sql}
+      ) filtered_by_price
+      where $${where.params.length + 1}::int <= 0
+         or household_count >= $${where.params.length + 1}::int
     ),
     ranked as (
       select
@@ -188,8 +247,36 @@ export async function readPriceBandRankPage({
     select *
     from ranked
     order by filtered_rank asc
-    limit $${where.params.length + 1} offset $${where.params.length + 2}
-  `, [...where.params, normalizedPageSize, offset]) : { rows: [] };
+    limit $${where.params.length + 2} offset $${where.params.length + 3}
+  `, [...where.params, minHouseholdCount, pageSize, offset]) : { rows: [] };
+
+  if (fallback) {
+    notifyCacheFallback({
+      environment,
+      kind: "실거래가 랭킹",
+      source,
+      period: `${snapshot.start_month || "-"} ~ ${snapshot.end_month || "-"}`,
+      conditions: priceBandFallbackConditions({
+        basis,
+        minHouseholdCount,
+        areaBand,
+        selectedStartBandKey,
+        selectedEndBandKey
+      }),
+      reason: fallback.reason,
+      action: "전체세대 캐시를 필터링해 응답",
+      dedupeKey: priceBandFallbackDedupeKey({
+        source,
+        startMonth: snapshot.start_month,
+        endMonth: snapshot.end_month,
+        minHouseholdCount,
+        areaBand,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        reason: fallback.reason
+      })
+    });
+  }
 
   return {
     period: {
@@ -203,32 +290,165 @@ export async function readPriceBandRankPage({
     selectedBand,
     selection: {
       startBandKey: selectedStartBandKey,
-      startBand: normalizedBasis === "start"
+      startBand: basis === "start"
         ? bands.find((band) => band.bandKey === selectedStartBandKey) || null
         : null,
       endBandKey: selectedEndBandKey,
-      endBand: normalizedBasis === "end"
+      endBand: basis === "end"
         ? bands.find((band) => band.bandKey === selectedEndBandKey) || null
         : null,
-      areaBandKey: snapshot.area_band_key || normalizedAreaBand.key,
-      areaBand: PRICE_AREA_BANDS.find((band) => band.key === (snapshot.area_band_key || normalizedAreaBand.key))
-        || normalizedAreaBand
+      areaBandKey: areaBand.key,
+      areaBand
     },
     cache: {
       hit: true,
+      ...(fallback ? { fallback: true, fallbackSource: fallback.source, reason: fallback.reason } : {}),
       source: snapshot.source,
       basis: snapshot.basis,
-      minHouseholdCount: Number(snapshot.min_household_count || 0),
-      areaBandKey: snapshot.area_band_key || normalizedAreaBand.key,
+      minHouseholdCount,
+      areaBandKey: areaBand.key,
       updatedAt: snapshot.updated_at
     },
     pagination: {
       page: safePage,
-      pageSize: normalizedPageSize,
+      pageSize,
       totalRows,
       totalPages
     },
     rows: rowsResult.rows.map((row) => serializePriceBandItem(row, snapshot.basis))
+  };
+}
+
+async function readBroaderPriceBandSnapshot({
+  source,
+  basis,
+  startMonth,
+  endMonth,
+  areaBandKey,
+  minHouseholdCount
+}) {
+  if (normalizeMinHouseholdCount(minHouseholdCount) <= 0) return null;
+  const result = await query(`
+    select *
+    from price_band_rank_snapshots
+    where source = $1
+      and basis = $2
+      and start_month = $3
+      and end_month = $4
+      and min_household_count = 0
+      and area_band_key = $5
+    order by updated_at desc
+    limit 1
+  `, [source, basis, startMonth, endMonth, areaBandKey]);
+  return result.rows[0] || null;
+}
+
+async function readPriceBandRankFallbackPage({
+  source,
+  basis,
+  startMonth,
+  endMonth,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  areaBand,
+  minHouseholdCount,
+  page,
+  pageSize,
+  environment,
+  reason
+}) {
+  const data = await readMolitPriceBandMonthlyRows(todayKstDateString(), { startMonth, endMonth });
+  const ranking = data.rows.length
+    ? buildMolitPriceBandRankings(data.rows, {
+      startMonth,
+      endMonth,
+      basis,
+      recentByType: data.recentByType,
+      minHouseholdCount,
+      areaBand
+    })
+    : { period: { startMonth, endMonth }, bands: [], allRows: [] };
+  const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
+  const selectedBand = selectedBandKey === null
+    ? null
+    : ranking.bands.find((band) => band.bandKey === selectedBandKey) || null;
+  const rows = filterComputedPriceBandRows(ranking.allRows || [], {
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey
+  }).sort(compareApartmentGrowth);
+  const totalRows = rows.length;
+  const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
+  const safePage = totalRows ? Math.min(page, totalPages) : 1;
+  const offset = (safePage - 1) * pageSize;
+  const pagedRows = rows.slice(offset, offset + pageSize)
+    .map((row, index) => serializeComputedPriceBandItem({ ...row, rank: offset + index + 1 }, basis));
+
+  notifyCacheFallback({
+    environment,
+    kind: "실거래가 랭킹",
+    source,
+    period: `${startMonth || "-"} ~ ${endMonth || "-"}`,
+    conditions: priceBandFallbackConditions({
+      basis,
+      minHouseholdCount,
+      areaBand,
+      selectedStartBandKey,
+      selectedEndBandKey
+    }),
+    reason,
+    action: "실시간 계산으로 응답",
+    dedupeKey: [
+      "price-band-rank",
+      source,
+      startMonth || "",
+      endMonth || "",
+      minHouseholdCount,
+      areaBand.key,
+      selectedStartBandKey ?? "all",
+      selectedEndBandKey ?? "all",
+      reason
+    ].join(":")
+  });
+
+  return {
+    period: {
+      startMonth: ranking.period?.startMonth || startMonth,
+      endMonth: ranking.period?.endMonth || endMonth
+    },
+    basis,
+    areaBands: PRICE_AREA_BANDS,
+    bands: ranking.bands || [],
+    selectedBandKey: selectedBand?.bandKey ?? null,
+    selectedBand,
+    selection: {
+      startBandKey: selectedStartBandKey,
+      startBand: basis === "start"
+        ? ranking.bands.find((band) => band.bandKey === selectedStartBandKey) || null
+        : null,
+      endBandKey: selectedEndBandKey,
+      endBand: basis === "end"
+        ? ranking.bands.find((band) => band.bandKey === selectedEndBandKey) || null
+        : null,
+      areaBandKey: areaBand.key,
+      areaBand
+    },
+    cache: {
+      hit: false,
+      fallback: true,
+      source,
+      basis,
+      minHouseholdCount,
+      areaBandKey: areaBand.key,
+      updatedAt: null,
+      reason
+    },
+    pagination: {
+      page: safePage,
+      pageSize,
+      totalRows,
+      totalPages
+    },
+    rows: pagedRows
   };
 }
 
@@ -776,6 +996,110 @@ function serializePriceBandItem(row, basis) {
     growthRate: row.growth_rate === null ? null : Number(row.growth_rate),
     areaSummaries: normalizeAreaSummaries(row.area_summaries)
   };
+}
+
+function serializeComputedPriceBandItem(row, basis) {
+  return {
+    rank: Number(row.rank || 0),
+    apartmentId: row.apartmentId || "",
+    apartmentName: row.apartmentName || "",
+    neighborhoodName: row.neighborhoodName || "",
+    legalDongCode: row.legalDongCode || "",
+    address: row.address || "",
+    householdCount: Number(row.householdCount || 0),
+    areaTypeCount: Number(row.areaTypeCount || 0),
+    areaLabel: row.areaLabel || "",
+    bandKey: Number(row.bandKey),
+    bandLabel: row.bandLabel || "",
+    basis,
+    startSalePrice: nullableNumber(row.startSalePrice),
+    endSalePrice: nullableNumber(row.endSalePrice),
+    startPyeongPrice: nullableNumber(row.startPyeongPrice),
+    endPyeongPrice: nullableNumber(row.endPyeongPrice),
+    growthAmount: nullableNumber(row.growthAmount),
+    growthRate: nullableNumber(row.growthRate),
+    areaSummaries: normalizeAreaSummaries(row.areaSummaries)
+  };
+}
+
+function filterComputedPriceBandRows(rows, { startBandKey = null, endBandKey = null } = {}) {
+  return rows.filter((row) => {
+    if (!priceInBand(row.startSalePrice, startBandKey)) return false;
+    if (!priceInBand(row.endSalePrice, endBandKey)) return false;
+    return true;
+  });
+}
+
+function priceInBand(price, key) {
+  if (key === null || key === undefined) return true;
+  const range = priceBandRange(key);
+  const number = Number(price);
+  if (!range || !Number.isFinite(number)) return true;
+  if (range.min !== null && number < range.min) return false;
+  if (range.max !== null && number >= range.max) return false;
+  return true;
+}
+
+function priceBandFallbackConditions({
+  basis,
+  minHouseholdCount,
+  areaBand,
+  selectedStartBandKey,
+  selectedEndBandKey
+}) {
+  return [
+    `기준=${basis === "end" ? "현재 가격" : "과거 가격"}`,
+    `${formatHouseholdCondition(minHouseholdCount)}`,
+    `평형=${areaBand?.label || "전체 평형"}`,
+    `과거=${formatBandCondition(selectedStartBandKey)}`,
+    `현재=${formatBandCondition(selectedEndBandKey)}`
+  ].join(" / ");
+}
+
+function priceBandFallbackDedupeKey({
+  source,
+  startMonth,
+  endMonth,
+  minHouseholdCount,
+  areaBand,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  reason
+}) {
+  return [
+    "price-band-rank",
+    source,
+    startMonth || "",
+    endMonth || "",
+    minHouseholdCount,
+    areaBand?.key || "all",
+    selectedStartBandKey ?? "all",
+    selectedEndBandKey ?? "all",
+    reason
+  ].join(":");
+}
+
+function formatHouseholdCondition(minHouseholdCount) {
+  const count = Number(minHouseholdCount || 0);
+  return count > 0 ? `${count}세대 이상` : "전체 세대";
+}
+
+function formatBandCondition(key) {
+  if (key === null || key === undefined) return "전체";
+  return priceBandLabelFromKey(key);
+}
+
+function priceBandLabelFromKey(key) {
+  const number = Number(key);
+  if (!Number.isFinite(number)) return "전체";
+  if (number === 0) return "1억 미만";
+  return `${number}억대`;
+}
+
+function notifyCacheFallback(event) {
+  notifyTelegramCacheFallback(event).catch((error) => {
+    console.warn("Telegram cache fallback alert failed:", error?.message || error);
+  });
 }
 
 function normalizePeriodMonths(values) {
