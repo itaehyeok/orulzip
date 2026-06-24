@@ -23,6 +23,7 @@ async function init() {
   applyMapHeaderDesign();
   applyGrowthRateColorDesign();
   syncGrowthRateBandModeControls();
+  syncMobileViewportInsets();
   setActiveTab(tabFromLocation());
   renderApartmentMarkerStyleEditor();
   renderRegionMarkerStyleEditor();
@@ -82,8 +83,12 @@ function bindEvents() {
     menu.addEventListener("toggle", () => positionTabMoreMenu(menu));
   });
   window.addEventListener("resize", positionOpenTabMoreMenus);
+  window.addEventListener("resize", syncMobileViewportInsets);
   window.addEventListener("scroll", positionOpenTabMoreMenus, { passive: true });
+  window.visualViewport?.addEventListener("resize", syncMobileViewportInsets);
+  window.visualViewport?.addEventListener("scroll", syncMobileViewportInsets, { passive: true });
   window.addEventListener("pageshow", async () => {
+    syncMobileViewportInsets();
     await loadAdminSession();
     renderAdminNavigation();
   });
@@ -632,6 +637,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.querySelector("#analyticsView").classList.toggle("active", nextTab === "analytics");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
+  syncMobileViewportInsets();
   document.title = tabTitles[nextTab] || tabTitles.molitMap;
 
   const nextRoute = tabRoutes[nextTab];
@@ -647,6 +653,19 @@ function tabFromLocation() {
 
 function isMapTab(tab = state.activeTab) {
   return tab === "map" || tab === "molitMap";
+}
+
+function syncMobileViewportInsets() {
+  const root = document.documentElement;
+  if (!root) return;
+  const viewport = window.visualViewport;
+  const isMobileWidth = window.matchMedia?.("(max-width: 820px)")?.matches ?? window.innerWidth <= 820;
+  let bottomInset = 0;
+  if (viewport && isMobileWidth) {
+    const layoutHeight = window.innerHeight || root.clientHeight || 0;
+    bottomInset = Math.max(0, Math.ceil(layoutHeight - viewport.height - viewport.offsetTop));
+  }
+  root.style.setProperty("--map-mobile-browser-bottom-inset", `${bottomInset}px`);
 }
 
 function currentMapSource() {

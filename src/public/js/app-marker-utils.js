@@ -146,6 +146,13 @@ const growthMarkerColorPalette = {
     badgeBg: "#dbeafe",
     badgeBorder: "rgba(37, 99, 235, 0.22)",
     hoverBg: "#dbeafe"
+  },
+  neutral: {
+    main: "#667085",
+    bg: "#ffffff",
+    badgeBg: "#f2f4f7",
+    badgeBorder: "rgba(102, 112, 133, 0.2)",
+    hoverBg: "#f2f4f7"
   }
 };
 
@@ -161,7 +168,9 @@ function growthMarkerColors(rate) {
   if (rate === null || rate === undefined || rate === "") return growthMarkerNoDataColors;
   const number = Number(rate);
   if (!Number.isFinite(number)) return growthMarkerNoDataColors;
-  if (number <= 0) return growthMarkerColorPalette.negative;
+  const displayedPercent = roundedPercentNumber(number, 1);
+  if (displayedPercent === 0) return growthMarkerColorPalette.neutral;
+  if (displayedPercent < 0) return growthMarkerColorPalette.negative;
   if (activeGrowthRateBandMode() === "3") {
     return number >= 0.1 ? growthMarkerColorPalette.top1 : growthMarkerColorPalette.top3;
   }

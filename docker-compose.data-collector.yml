@@ -31,6 +31,7 @@ services:
 
   price-band-cache:
     build: .
+    profiles: ["loop"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-price-band-cache
     restart: unless-stopped
     command: ["npm", "run", "refresh:price-band-cache:loop"]
@@ -44,6 +45,7 @@ services:
 
   molit-daily-collector:
     build: .
+    profiles: ["loop"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-molit-daily-collector
     restart: unless-stopped
     command:

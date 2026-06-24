@@ -9,6 +9,7 @@ RECENT_TARGETS="${MOLIT_NATIONAL_BATCH_RECENT_TARGETS:-all-sido}"
 LIMIT="${MOLIT_NATIONAL_BATCH_LIMIT:-20000}"
 DELAY_MS="${MOLIT_NATIONAL_BATCH_DELAY_MS:-500}"
 GEOCODE_LIMIT="${MOLIT_NATIONAL_BATCH_GEOCODE_LIMIT:-5000}"
+REFRESH_PRICE_BAND_CACHE="${MOLIT_NATIONAL_BATCH_REFRESH_PRICE_BAND_CACHE:-1}"
 LOG_DIR="${MOLIT_NATIONAL_BATCH_LOG_DIR:-$ROOT_DIR/logs}"
 LOCK_FILE="${MOLIT_NATIONAL_BATCH_LOCK_FILE:-$LOG_DIR/molit-national-batch.lock}"
 CRON_MARKER="${MOLIT_NATIONAL_BATCH_CRON_MARKER:-# orulzip molit-national-batch}"
@@ -125,6 +126,13 @@ docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
 
 docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
   npm run refresh:molit-map-cache -- --skip-complex-sync
+
+if [[ "$REFRESH_PRICE_BAND_CACHE" != "0" ]]; then
+  docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
+    npm run refresh:price-band-cache
+else
+  log "Skipping price band rank cache refresh."
+fi
 
 remaining_after="$(remaining_tasks)"
 log "MOLIT national batch remaining after run: $remaining_after"
