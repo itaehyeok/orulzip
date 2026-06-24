@@ -47,6 +47,50 @@ const PRICE_BAND_RANK_CACHE_INDEXES = [
   }
 ];
 const PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS = [
+  `alter table price_band_rank_snapshots
+    add column if not exists status text not null default 'active',
+    add column if not exists activated_at timestamptz,
+    add column if not exists superseded_at timestamptz,
+    add column if not exists build_error text`,
+  `update price_band_rank_snapshots
+    set status = 'active',
+        activated_at = coalesce(activated_at, updated_at)
+    where status = 'active'
+      and activated_at is null`,
+  `do $$
+  declare
+    constraint_name text;
+  begin
+    select con.conname
+      into constraint_name
+    from pg_constraint con
+    join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where nsp.nspname = current_schema()
+      and rel.relname = 'price_band_rank_snapshots'
+      and con.contype = 'u'
+      and array(
+        select att.attname::text
+        from unnest(con.conkey) with ordinality keys(attnum, ord)
+        join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
+        order by keys.ord
+      ) = array['source', 'basis', 'start_month', 'end_month']::text[]
+    limit 1;
+
+    if constraint_name is not null then
+      execute format('alter table price_band_rank_snapshots drop constraint %I', constraint_name);
+    end if;
+  end $$`,
+  `drop index if exists price_band_rank_snapshots_household_filter_uidx`,
+  `drop index if exists price_band_rank_snapshots_household_area_filter_uidx`,
+  `create unique index if not exists price_band_rank_snapshots_active_uidx
+    on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key)
+    where status = 'active'`,
+  `drop index if exists price_band_rank_snapshots_filter_lookup_idx`,
+  `create index if not exists price_band_rank_snapshots_filter_lookup_idx
+    on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, status, updated_at desc)`,
+  `create index if not exists price_band_rank_snapshots_status_idx
+    on price_band_rank_snapshots(status, updated_at desc)`,
   `alter table price_band_rank_items
     add column if not exists sido_code text,
     add column if not exists sido_name text,
@@ -141,6 +185,18 @@ export async function ensurePriceBandRankCacheIndexes() {
   await ensurePriceBandRankBandIndexes();
 }
 
+export async function migratePriceBandRankCacheSchema() {
+  for (const statement of PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS) {
+    await query(statement);
+  }
+  for (const index of PRICE_BAND_RANK_CACHE_INDEXES) {
+    await query(index.statement);
+  }
+  for (const index of PRICE_BAND_RANK_CACHE_BAND_INDEXES) {
+    await query(index.statement);
+  }
+}
+
 async function ensurePriceBandRankBandIndexes() {
   const names = PRICE_BAND_RANK_CACHE_BAND_INDEXES.map((index) => index.name);
   let existingResult;
@@ -219,6 +275,23 @@ export async function refreshPriceBandRankCache({
             areaBand
           });
           if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
+          if (!ranking.bands.length || !(ranking.allRows || []).length) {
+            snapshots.push({
+              source: normalizedSource,
+              basis,
+              periodMonths: monthsBack,
+              startMonth: ranking.period.startMonth,
+              endMonth: ranking.period.endMonth,
+              minHouseholdCount,
+              areaBandKey: areaBand.key,
+              areaBandLabel: areaBand.label,
+              bandCount: ranking.bands.length,
+              itemCount: (ranking.allRows || []).length,
+              skipped: true,
+              reason: "empty-ranking"
+            });
+            continue;
+          }
           const snapshot = await savePriceBandRankSnapshot({
             source: normalizedSource,
             basis,
@@ -401,7 +474,8 @@ async function readExactPriceBandSnapshot({
       and end_month = $4
       and min_household_count = $5
       and area_band_key = $6
-    order by updated_at desc
+      and status = 'active'
+    order by activated_at desc nulls last, updated_at desc
     limit 1
   `, [source, basis, startMonth, endMonth, minHouseholdCount, areaBandKey]);
   return result.rows[0] || null;
@@ -421,6 +495,7 @@ async function readRecentPriceBandSnapshot({
     "basis = $2",
     "min_household_count = $3",
     "area_band_key = $4",
+    "status = 'active'",
     "band_count > 0",
     "item_count > 0"
   ];
@@ -436,7 +511,7 @@ async function readRecentPriceBandSnapshot({
     select *
     from price_band_rank_snapshots
     where ${conditions.join("\n      and ")}
-    order by end_month desc, updated_at desc
+    order by end_month desc, activated_at desc nulls last, updated_at desc
     limit 1
   `, params);
   return result.rows[0] || null;
@@ -858,7 +933,8 @@ async function readBroaderPriceBandSnapshot({
       and end_month = $4
       and min_household_count = 0
       and area_band_key = $5
-    order by updated_at desc
+      and status = 'active'
+    order by activated_at desc nulls last, updated_at desc
     limit 1
   `, [source, basis, startMonth, endMonth, areaBandKey]);
   return result.rows[0] || null;
@@ -1396,20 +1472,19 @@ async function savePriceBandRankSnapshot({
   rows
 }) {
   const normalizedAreaBand = normalizePriceAreaBand(areaBand?.key || areaBand);
+  validatePriceBandRankPayload({ bands, rows });
   return withClient(async (client) => {
     await client.query("begin");
     try {
       const snapshotResult = await client.query(`
         insert into price_band_rank_snapshots (
           source, basis, period_months, start_month, end_month, min_household_count,
-          area_band_key, area_band_label, band_count, item_count, updated_at
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
-        on conflict (source, basis, start_month, end_month, min_household_count, area_band_key) do update set
-          period_months = excluded.period_months,
-          area_band_label = excluded.area_band_label,
-          band_count = excluded.band_count,
-          item_count = excluded.item_count,
-          updated_at = now()
+          area_band_key, area_band_label, band_count, item_count,
+          status, activated_at, superseded_at, build_error, updated_at
+        ) values (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          'building', null, null, null, now()
+        )
         returning *
       `, [
         source,
@@ -1425,12 +1500,51 @@ async function savePriceBandRankSnapshot({
       ]);
       const snapshot = snapshotResult.rows[0];
       await replacePriceBandRankBands(client, snapshot.id, bands, basis);
-      await client.query("delete from price_band_rank_items where snapshot_id = $1", [snapshot.id]);
       await insertPriceBandRankItems(client, snapshot.id, rows);
+      await validateStoredPriceBandRankSnapshot(client, {
+        snapshotId: snapshot.id,
+        expectedBandCount: bands.length,
+        expectedItemCount: rows.length
+      });
+
+      await client.query(`
+        update price_band_rank_snapshots
+        set status = 'superseded',
+            superseded_at = now(),
+            updated_at = now()
+        where source = $1
+          and basis = $2
+          and start_month = $3
+          and end_month = $4
+          and min_household_count = $5
+          and area_band_key = $6
+          and status = 'active'
+          and id <> $7
+      `, [
+        source,
+        basis,
+        startMonth,
+        endMonth,
+        minHouseholdCount,
+        normalizedAreaBand.key,
+        snapshot.id
+      ]);
+
+      const activeResult = await client.query(`
+        update price_band_rank_snapshots
+        set status = 'active',
+            activated_at = now(),
+            superseded_at = null,
+            build_error = null,
+            updated_at = now()
+        where id = $1
+        returning *
+      `, [snapshot.id]);
+      const activeSnapshot = activeResult.rows[0] || snapshot;
 
       await client.query("commit");
       return {
-        id: Number(snapshot.id),
+        id: Number(activeSnapshot.id),
         source,
         basis,
         periodMonths,
@@ -1441,13 +1555,41 @@ async function savePriceBandRankSnapshot({
         areaBandLabel: normalizedAreaBand.label,
         bandCount: bands.length,
         itemCount: rows.length,
-        updatedAt: snapshot.updated_at
+        updatedAt: activeSnapshot.updated_at,
+        activatedAt: activeSnapshot.activated_at
       };
     } catch (error) {
       await client.query("rollback");
       throw error;
     }
   });
+}
+
+function validatePriceBandRankPayload({ bands, rows }) {
+  if (!Array.isArray(bands) || !bands.length) {
+    throw new Error("price band cache build produced no bands");
+  }
+  if (!Array.isArray(rows) || !rows.length) {
+    throw new Error("price band cache build produced no ranking rows");
+  }
+}
+
+async function validateStoredPriceBandRankSnapshot(client, {
+  snapshotId,
+  expectedBandCount,
+  expectedItemCount
+}) {
+  const result = await client.query(`
+    select
+      (select count(*)::int from price_band_rank_bands where snapshot_id = $1) as band_count,
+      (select count(*)::int from price_band_rank_items where snapshot_id = $1) as item_count
+  `, [snapshotId]);
+  const row = result.rows[0] || {};
+  const bandCount = Number(row.band_count || 0);
+  const itemCount = Number(row.item_count || 0);
+  if (bandCount !== expectedBandCount || itemCount !== expectedItemCount) {
+    throw new Error(`price band cache build validation failed: bands ${bandCount}/${expectedBandCount}, rows ${itemCount}/${expectedItemCount}`);
+  }
 }
 
 async function replacePriceBandRankBands(client, snapshotId, bands, basis) {

@@ -137,6 +137,9 @@ fi
 docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
   npm run check:data-health
 
+docker compose -f "$COMPOSE_FILE" run --rm "$SERVICE" \
+  npm run check:price-band-cache -- --fail-on-issue
+
 remaining_after="$(remaining_tasks)"
 log "MOLIT national batch remaining after run: $remaining_after"
 if [[ "$backfill_quota_exhausted" -eq 1 ]]; then

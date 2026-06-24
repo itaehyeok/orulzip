@@ -261,6 +261,7 @@ async function checkPriceBandCacheMatrix(context) {
       and s.min_household_count = any($3::int[])
       and s.area_band_key = any($4::text[])
       and s.basis = any($5::text[])
+      and s.status = 'active'
   `, [
     context.endMonth,
     expectedStarts,
@@ -341,6 +342,7 @@ async function checkPriceBandCacheReadPerformance(context) {
     ) b
       on b.snapshot_id = s.id
     where s.source = 'molit'
+      and s.status = 'active'
       and s.basis = any($1::text[])
       and s.start_month = any($2::text[])
       and s.end_month = $3

@@ -11,6 +11,8 @@ LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/orulzip-production-deploy.lock}"
 POST_DEPLOY_MOLIT_MAP_CACHE_YEARS="${POST_DEPLOY_MOLIT_MAP_CACHE_YEARS:-}"
 DEPLOY_PERFORMANCE_GATE="${DEPLOY_PERFORMANCE_GATE:-0}"
 DEPLOY_PERFORMANCE_SERVICE="${DEPLOY_PERFORMANCE_SERVICE:-web}"
+DEPLOY_PRICE_BAND_GATE="${DEPLOY_PRICE_BAND_GATE:-1}"
+DEPLOY_PRICE_BAND_SCHEMA_MIGRATION="${DEPLOY_PRICE_BAND_SCHEMA_MIGRATION:-1}"
 DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:-$DEPLOY_BRANCH}"
 PERFORMANCE_MEASUREMENT_WARN_MS="${PERFORMANCE_MEASUREMENT_WARN_MS:-1000}"
 PERFORMANCE_MEASUREMENT_FAIL_MS="${PERFORMANCE_MEASUREMENT_FAIL_MS:-2000}"
@@ -65,6 +67,20 @@ performance_gate_enabled() {
   esac
 }
 
+price_band_gate_enabled() {
+  case "$DEPLOY_PRICE_BAND_GATE" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+price_band_schema_migration_enabled() {
+  case "$DEPLOY_PRICE_BAND_SCHEMA_MIGRATION" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 run_pre_deploy_performance_gate() {
   log "running pre-deploy performance gate on service $DEPLOY_PERFORMANCE_SERVICE"
   log "performance thresholds: warn=${PERFORMANCE_MEASUREMENT_WARN_MS}ms fail=${PERFORMANCE_MEASUREMENT_FAIL_MS}ms attempts=${PERFORMANCE_MEASUREMENT_ATTEMPTS}"
@@ -76,6 +92,24 @@ run_pre_deploy_performance_gate() {
     -e PERFORMANCE_MEASUREMENT_ATTEMPTS="$PERFORMANCE_MEASUREMENT_ATTEMPTS" \
     "$DEPLOY_PERFORMANCE_SERVICE" \
     npm run check:performance -- --no-save --fail-on-issue
+}
+
+run_pre_deploy_price_band_gate() {
+  log "running pre-deploy price band cache gate on service $DEPLOY_PERFORMANCE_SERVICE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -T \
+    -e ORULZIP_DB_INIT=0 \
+    -e ORULZIP_ENVIRONMENT="$DEPLOY_ENVIRONMENT" \
+    "$DEPLOY_PERFORMANCE_SERVICE" \
+    npm run check:price-band-cache -- --fail-on-issue
+}
+
+run_price_band_schema_migration() {
+  log "running price band cache schema migration on service $DEPLOY_PERFORMANCE_SERVICE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -T \
+    -e ORULZIP_DB_INIT=0 \
+    -e ORULZIP_ENVIRONMENT="$DEPLOY_ENVIRONMENT" \
+    "$DEPLOY_PERFORMANCE_SERVICE" \
+    npm run migrate:price-band-cache-schema
 }
 
 exec 9>"$LOCK_FILE"
@@ -126,13 +160,26 @@ export COMPOSE_FILE
 if performance_gate_enabled; then
   log "building docker compose service $DEPLOY_PERFORMANCE_SERVICE with $COMPOSE_FILE"
   docker compose -p "$COMPOSE_PROJECT_NAME" build "$DEPLOY_PERFORMANCE_SERVICE"
+  if price_band_schema_migration_enabled; then
+    run_price_band_schema_migration
+  fi
   run_pre_deploy_performance_gate
+  if price_band_gate_enabled; then
+    run_pre_deploy_price_band_gate
+  fi
   log "performance gate passed"
   log "restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
   docker compose -p "$COMPOSE_PROJECT_NAME" up -d --no-build
 else
   log "building and restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
-  docker compose -p "$COMPOSE_PROJECT_NAME" up -d --build
+  docker compose -p "$COMPOSE_PROJECT_NAME" build
+  if price_band_schema_migration_enabled; then
+    run_price_band_schema_migration
+  fi
+  if price_band_gate_enabled; then
+    run_pre_deploy_price_band_gate
+  fi
+  docker compose -p "$COMPOSE_PROJECT_NAME" up -d --no-build
 fi
 
 log "checking service health at $HEALTHCHECK_URL"
