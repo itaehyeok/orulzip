@@ -19,6 +19,14 @@ export const DEFAULT_PRICE_AREA_BAND_KEYS = PRICE_AREA_BANDS.map((band) => band.
 const PRICE_BAND_SOURCE = "molit";
 const PRICE_BAND_CACHE_STALE_HOURS = 36;
 const allowLivePriceBandFallback = process.env.ORULZIP_ALLOW_PRICE_BAND_LIVE_FALLBACK === "1";
+const PRICE_BAND_RANK_CACHE_INDEX_STATEMENTS = [
+  `create index concurrently if not exists price_band_rank_items_snapshot_rank_idx
+    on price_band_rank_items(snapshot_id, rank)`,
+  `create index concurrently if not exists price_band_rank_items_snapshot_growth_idx
+    on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`,
+  `create index concurrently if not exists price_band_rank_items_snapshot_band_growth_idx
+    on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+];
 const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
   { maxPeriodMonths: 6, startGapMonths: 2, endGapMonths: 2 },
@@ -26,6 +34,12 @@ const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 36, startGapMonths: 6, endGapMonths: 3 },
   { maxPeriodMonths: Infinity, startGapMonths: 12, endGapMonths: 3 }
 ];
+
+export async function ensurePriceBandRankCacheIndexes() {
+  for (const statement of PRICE_BAND_RANK_CACHE_INDEX_STATEMENTS) {
+    await query(statement);
+  }
+}
 
 export async function refreshPriceBandRankCache({
   source = PRICE_BAND_SOURCE,
