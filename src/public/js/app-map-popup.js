@@ -24,7 +24,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
   state.mapPopupDetail = null;
   state.mapPopupSelectedAreaTypeId = null;
   if (state.mapApartmentDetails.has(cacheKey)) {
-    renderMapApartmentDetail(state.mapApartmentDetails.get(cacheKey));
+    renderMapApartmentDetail(state.mapApartmentDetails.get(cacheKey), { deferChart: true });
     return;
   }
 
@@ -41,7 +41,7 @@ async function openMapApartmentDetail(apartmentId, seedItem = null) {
     const detail = await api(`${endpoint}?${params}`);
     if (requestId !== state.mapPopupRequestId) return;
     state.mapApartmentDetails.set(cacheKey, detail);
-    renderMapApartmentDetail(detail);
+    renderMapApartmentDetail(detail, { deferChart: true, requestId });
   } catch (error) {
     if (requestId !== state.mapPopupRequestId) return;
     renderMapApartmentError(seedItem, error);
@@ -71,14 +71,15 @@ function renderMapApartmentLoading(seedItem = null) {
   els.mapApartmentPopup.classList.add("loading");
   els.mapPopupTitle.textContent = seedItem?.name || "아파트 시세";
   if (els.mapPopupPyeongGrowth) els.mapPopupPyeongGrowth.innerHTML = "";
-  if (els.mapPopupRanks) els.mapPopupRanks.innerHTML = "";
-  els.mapPopupMeta.textContent = `${seedItem?.neighborhoodName || "-"} / 최근 5년 그래프`;
+  renderMapPopupRanks(mapPopupSeedRankSummary(seedItem), seedItem);
+  els.mapPopupMeta.textContent = mapPopupSeedMeta(seedItem);
   if (els.mapPopupTooltip) els.mapPopupTooltip.hidden = true;
   clearMapPopupTradeHistory();
-  els.mapPopupStats.innerHTML = `
-    <div class="map-popup-loading-card"></div>
-    <div class="map-popup-loading-card"></div>
-  `;
+  els.mapPopupStats.innerHTML = "";
+  renderMapPopupChartLoading();
+}
+
+function renderMapPopupChartLoading() {
   els.mapPopupChart.innerHTML = `
     <div class="map-popup-loading">
       <span class="map-popup-spinner" aria-hidden="true"></span>
@@ -86,6 +87,36 @@ function renderMapApartmentLoading(seedItem = null) {
       <em>선택 평형의 월별 데이터를 준비하고 있습니다.</em>
     </div>
   `;
+}
+
+function mapPopupSeedMeta(seedItem = null) {
+  const location = seedItem?.neighborhoodName || seedItem?.dongName || "-";
+  const areaSummary = String(seedItem?.areaSummary || "").trim();
+  return areaSummary ? `${location} / ${areaSummary}` : location;
+}
+
+function mapPopupSeedRankSummary(seedItem = null) {
+  if (!seedItem) return null;
+  const hasRank = [
+    seedItem.dongRank,
+    seedItem.sigunguRank,
+    seedItem.sidoRank,
+    seedItem.countryRank
+  ].some((rank) => Number.isFinite(Number(rank)));
+  if (!hasRank) return null;
+  return {
+    dongName: seedItem.dongName || seedItem.neighborhoodName || "",
+    sigunguName: seedItem.sigunguName || "",
+    sidoName: seedItem.sidoName || "",
+    dongRank: seedItem.dongRank,
+    dongRankTotal: seedItem.dongRankTotal,
+    sigunguRank: seedItem.sigunguRank,
+    sigunguRankTotal: seedItem.sigunguRankTotal,
+    sidoRank: seedItem.sidoRank,
+    sidoRankTotal: seedItem.sidoRankTotal,
+    countryRank: seedItem.countryRank,
+    countryRankTotal: seedItem.countryRankTotal
+  };
 }
 
 function renderMapApartmentError(seedItem = null, error = null) {
@@ -101,7 +132,7 @@ function renderMapApartmentError(seedItem = null, error = null) {
   clearMapPopupTradeHistory();
 }
 
-function renderMapApartmentDetail(detail) {
+function renderMapApartmentDetail(detail, { deferChart = false, requestId = state.mapPopupRequestId } = {}) {
   els.mapApartmentPopup.classList.remove("loading");
   state.mapPopupDetail = detail;
   if (!detail.apartment) {
@@ -159,7 +190,15 @@ function renderMapApartmentDetail(detail) {
     ${selected ? renderMapPopupAreaSummary(selected, latestMonth) : ""}
   `;
 
-  renderMapPopupChart({ months, series: selectedSeries });
+  if (deferChart) {
+    renderMapPopupChartLoading();
+    requestAnimationFrame(() => {
+      if (requestId !== state.mapPopupRequestId) return;
+      renderMapPopupChart({ months, series: selectedSeries });
+    });
+  } else {
+    renderMapPopupChart({ months, series: selectedSeries });
+  }
   renderMapPopupTradeHistory(selected);
 }
 
