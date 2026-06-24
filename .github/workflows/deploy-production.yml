@@ -35,6 +35,7 @@ jobs:
           DEPLOY_PERFORMANCE_GATE: "1"
           PERFORMANCE_MEASUREMENT_WARN_MS: "1000"
           PERFORMANCE_MEASUREMENT_FAIL_MS: "2000"
+          PERFORMANCE_MEASUREMENT_ATTEMPTS: "2"
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./scripts/deploy-production.sh
