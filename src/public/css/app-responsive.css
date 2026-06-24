@@ -309,9 +309,7 @@ td:nth-child(4) {
   }
 
   #priceBandCount .price-band-count-main {
-    color: #475467;
-    font-size: 14px;
-    font-weight: 850;
+    display: none;
   }
 
   #priceBandCount .price-band-count-sub {
