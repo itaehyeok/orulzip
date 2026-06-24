@@ -1247,14 +1247,22 @@ function bindMapRankingRowEvents(rows) {
       if (event.target.closest("[data-apartment-detail-id]")) return;
       const item = itemById.get(button.dataset.apartmentId);
       if (!item) return;
-      focusMapApartmentFromRanking(item);
+      if (isMobileMapControlsViewport()) {
+        openMapApartmentDetailFromRanking(item);
+      } else {
+        focusMapApartmentFromRanking(item);
+      }
     });
     button.addEventListener("keydown", (event) => {
       if (!["Enter", " "].includes(event.key)) return;
       event.preventDefault();
       const item = itemById.get(button.dataset.apartmentId);
       if (!item) return;
-      focusMapApartmentFromRanking(item);
+      if (isMobileMapControlsViewport()) {
+        openMapApartmentDetailFromRanking(item);
+      } else {
+        focusMapApartmentFromRanking(item);
+      }
     });
   });
   els.mapRankingRows.querySelectorAll("[data-apartment-detail-id]").forEach((button) => {
@@ -1262,9 +1270,7 @@ function bindMapRankingRowEvents(rows) {
       event.stopPropagation();
       const item = itemById.get(button.dataset.apartmentDetailId);
       if (!item) return;
-      setFocusedMapApartment(item);
-      focusMapApartment(item);
-      openMapApartmentDetail(item.id, item);
+      openMapApartmentDetailFromRanking(item);
     });
   });
 }
@@ -1968,6 +1974,12 @@ function focusMapApartmentFromRanking(item) {
   setFocusedMapApartment(item);
   closeMapApartmentPopup();
   focusMapApartment(item);
+}
+
+function openMapApartmentDetailFromRanking(item) {
+  setFocusedMapApartment(item);
+  focusMapApartment(item);
+  openMapApartmentDetail(item.id, item);
 }
 
 function focusMapApartment(item) {

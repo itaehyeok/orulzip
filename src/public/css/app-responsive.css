@@ -704,8 +704,7 @@ td:nth-child(4) {
   }
 
   .map-ranking-detail-btn {
-    min-height: 22px;
-    padding: 0 8px;
+    display: none;
   }
 
   .map-popup-stats {
