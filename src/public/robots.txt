@@ -6,5 +6,6 @@ Disallow: /design
 Disallow: /formula
 Disallow: /terms
 Disallow: /kb-map
+Disallow: /neighborhood
 
 Sitemap: https://orulzip.com/sitemap.xml

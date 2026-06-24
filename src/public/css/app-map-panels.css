@@ -503,6 +503,10 @@
   font-size: 11px;
 }
 
+.map-popup-trade-delta.no-data {
+  text-align: left;
+}
+
 .map-popup-trade-empty {
   padding: 12px;
   border: 1px dashed #d0d5dd;

@@ -280,6 +280,7 @@ td:nth-child(4) {
     --map-mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --map-mobile-browser-bottom-inset: 0px;
     --map-mobile-control-bottom: calc(var(--map-mobile-safe-bottom) + var(--map-mobile-browser-bottom-inset));
+    --map-mobile-ranking-bottom-clearance: 96px;
     --map-global-header-height: calc(99px + var(--map-mobile-safe-top));
   }
 
@@ -663,7 +664,7 @@ td:nth-child(4) {
 
   .map-ranking-toggle:not([hidden]) {
     left: 14px;
-    bottom: calc(14px + var(--map-mobile-control-bottom));
+    bottom: calc(14px + var(--map-mobile-control-bottom) + var(--map-mobile-ranking-bottom-clearance));
     display: inline-flex;
   }
 
@@ -703,8 +704,7 @@ td:nth-child(4) {
   }
 
   .map-ranking-detail-btn {
-    min-height: 22px;
-    padding: 0 8px;
+    display: none;
   }
 
   .map-popup-stats {

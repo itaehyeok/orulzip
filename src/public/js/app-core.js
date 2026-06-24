@@ -648,7 +648,9 @@ function setActiveTab(tab, { push = false } = {}) {
 }
 
 function tabFromLocation() {
-  return routeTabs[normalizeRoute(window.location.pathname)] || "map";
+  const route = normalizeRoute(window.location.pathname);
+  if (route.startsWith("/apartments/") || route.startsWith("/regions/")) return "molitMap";
+  return routeTabs[route] || "molitMap";
 }
 
 function isMapTab(tab = state.activeTab) {

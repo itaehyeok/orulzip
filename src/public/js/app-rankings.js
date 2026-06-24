@@ -140,6 +140,7 @@ function renderPriceBandTable(result, basisBands = null) {
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => {
       const mapLink = priceBandMapApartmentLink(row);
+      const detailLink = apartmentDetailLink(row);
       const isSelected = state.priceBandDetailApartmentId && String(state.priceBandDetailApartmentId) === String(row.apartmentId || "");
       return `
       <tr class="clickable-row${isSelected ? " selected" : ""}" data-price-band-detail-row data-price-band-apartment-id="${escapeHtml(row.apartmentId || "")}">
@@ -148,6 +149,7 @@ function renderPriceBandTable(result, basisBands = null) {
           <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
+            <a href="${escapeHtml(detailLink)}">실거래가 상세</a>
             <a href="${escapeHtml(mapLink)}" data-price-band-map-link>지도에서 보기</a>
             <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
             <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
@@ -497,6 +499,10 @@ function priceBandMapApartmentLink(row) {
   const areaM2 = priceBandRepresentativeAreaM2(row);
   if (areaM2 !== null) params.set("focusAreaM2", areaM2.toFixed(2));
   return `/map?${params}`;
+}
+
+function apartmentDetailLink(row) {
+  return row.apartmentId ? `/apartments/${encodeURIComponent(row.apartmentId)}` : priceBandMapApartmentLink(row);
 }
 
 function hogangnonoApartmentLink(row) {
