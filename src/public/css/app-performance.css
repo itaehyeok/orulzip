@@ -1,0 +1,157 @@
+.performance-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.performance-head {
+  align-items: center;
+}
+
+.performance-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.secondary-action {
+  min-height: 38px;
+  border: 1px solid #cdd6e5;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #1d2939;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.secondary-action:hover {
+  border-color: #84a7e8;
+  color: var(--blue);
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.performance-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.performance-table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+}
+
+.performance-table th,
+.performance-table td {
+  border-bottom: 1px solid #eef1f5;
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.performance-table thead th {
+  background: #f8fafc;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.performance-table tbody th {
+  width: 180px;
+  background: #ffffff;
+}
+
+.performance-table tbody th strong,
+.performance-table tbody th span {
+  display: block;
+}
+
+.performance-table tbody th strong {
+  color: #1d2939;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.performance-table tbody th span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.performance-cell {
+  min-width: 128px;
+  border-left: 1px solid #f1f4f8;
+}
+
+.performance-cell strong,
+.performance-cell span,
+.performance-cell em {
+  display: block;
+}
+
+.performance-cell strong {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.performance-cell span,
+.performance-cell em {
+  margin-top: 5px;
+  color: #667085;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.performance-cell.status-completed strong {
+  color: #16805f;
+}
+
+.performance-cell.status-running strong {
+  color: #b45309;
+}
+
+.performance-cell.status-failed strong {
+  color: #b42318;
+}
+
+.performance-cell.status-pending strong {
+  color: var(--muted);
+}
+
+.performance-measured-at {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.performance-run-table th,
+.performance-run-table td {
+  text-align: left;
+}
+
+.performance-run-table .status-pill.running {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+@media (max-width: 820px) {
+  .performance-head {
+    align-items: stretch;
+  }
+
+  .performance-head .secondary-action {
+    width: 100%;
+  }
+}

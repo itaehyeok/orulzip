@@ -21,6 +21,12 @@ import {
   DATA_HEALTH_ROUTE_SEO,
   readDataHealthApi
 } from "./routes/data-health.js";
+import {
+  PERFORMANCE_APP_ROUTES,
+  PERFORMANCE_PROTECTED_API_ROUTES,
+  PERFORMANCE_ROUTE_SEO,
+  readPerformanceMeasurementApi
+} from "./routes/performance-measurements.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
 import {
@@ -59,8 +65,8 @@ const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replac
 const defaultSeoImagePath = "/og/orulzip-map-preview.png";
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES]);
-const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES, ...PERFORMANCE_APP_ROUTES]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics", ...DATA_HEALTH_APP_ROUTES, ...PERFORMANCE_APP_ROUTES]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
@@ -74,7 +80,8 @@ const protectedApiRoutes = new Set([
   "/api/molit/duplicate-audit",
   "/api/analytics/summary",
   "/api/analytics/visitors",
-  ...DATA_HEALTH_PROTECTED_API_ROUTES
+  ...DATA_HEALTH_PROTECTED_API_ROUTES,
+  ...PERFORMANCE_PROTECTED_API_ROUTES
 ]);
 const writeApiRoutes = new Set(["/api/crawl/start", "/api/sync"]);
 const adminCookieName = "orulzip_admin";
@@ -195,6 +202,7 @@ const routeSeo = new Map([
   }]
 ]);
 for (const [path, seo] of DATA_HEALTH_ROUTE_SEO) routeSeo.set(path, seo);
+for (const [path, seo] of PERFORMANCE_ROUTE_SEO) routeSeo.set(path, seo);
 
 if (shouldInitDb) {
   await initDb();
@@ -347,6 +355,14 @@ const server = createServer(async (req, res) => {
 
     if (DATA_HEALTH_PROTECTED_API_ROUTES.has(url.pathname)) {
       return json(res, await readDataHealthApi(url));
+    }
+
+    if (PERFORMANCE_PROTECTED_API_ROUTES.has(url.pathname)) {
+      return json(res, await readPerformanceMeasurementApi(url, {
+        method: req.method,
+        environment: requestAnalyticsEnvironment,
+        save: !readOnlyMode && url.searchParams.get("save") === "1"
+      }));
     }
 
     if (url.pathname === "/api/filters") {

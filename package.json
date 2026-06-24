@@ -20,6 +20,8 @@
     "refresh:price-band-cache:loop": "node scripts/refresh-price-band-cache-loop.js",
     "refresh:molit-map-cache": "node scripts/refresh-molit-map-cache.js",
     "check:data-health": "node scripts/check-data-health.js",
+    "check:performance": "node scripts/check-performance-measurements.js",
+    "check:performance:loop": "node scripts/performance-measurement-loop.js",
     "backfill:map-dong-apartment-ranks": "node scripts/backfill-map-dong-apartment-ranks.js",
     "check": "node scripts/check.js",
     "check:analytics": "node scripts/check-analytics.js",

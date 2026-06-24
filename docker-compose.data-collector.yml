@@ -43,6 +43,21 @@ services:
     networks:
       - orulzip-shared
 
+  performance-measurements:
+    build: .
+    profiles: ["loop"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-performance-measurements
+    restart: unless-stopped
+    command: ["npm", "run", "check:performance:loop"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_ENVIRONMENT: ${ORULZIP_ENVIRONMENT:-production}
+      ORULZIP_DB_INIT: ${PERFORMANCE_MEASUREMENT_DB_INIT:-0}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      PERFORMANCE_MEASUREMENT_INTERVAL_MS: ${PERFORMANCE_MEASUREMENT_INTERVAL_MS:-600000}
+    networks:
+      - orulzip-shared
+
   molit-daily-collector:
     build: .
     profiles: ["loop"]

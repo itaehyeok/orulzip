@@ -229,6 +229,9 @@ function bindEvents() {
     state.analyticsIncludeInternal = Boolean(els.analyticsIncludeInternalToggle.checked);
     loadAnalyticsDashboard();
   });
+  els.performanceRunBtn?.addEventListener("click", () => {
+    if (typeof runPerformanceMeasurementNow === "function") runPerformanceMeasurementNow();
+  });
   els.priceBandPagination?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-price-band-page]");
     if (!button) return;
@@ -590,6 +593,11 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "performance") {
+    await loadPerformanceDashboard();
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     await loadCrawlTabData();
   }
@@ -639,6 +647,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.querySelector("#analyticsView").classList.toggle("active", nextTab === "analytics");
   document.querySelector("#dataHealthView").classList.toggle("active", nextTab === "dataHealth");
+  document.querySelector("#performanceView").classList.toggle("active", nextTab === "performance");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   syncMobileViewportInsets();
   document.title = tabTitles[nextTab] || tabTitles.molitMap;
