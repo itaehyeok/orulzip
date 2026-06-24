@@ -33,15 +33,17 @@ function renderCollectionSummary() {
   const crawl = status.crawl || {};
   const molit = state.latestMolitStatus;
   const jobs = crawl.jobProgress || [];
+  const kbCoverage = crawl.kbCoverage || [];
   const runningJobs = jobs.filter((item) => ["discovering", "running"].includes(item.job?.status)).length;
   const pendingJobs = jobs.filter((item) => item.job?.status === "requested").length;
   const kbFailed = jobs.reduce((sum, item) => sum + Number(item.job?.failedComplexes || 0), 0);
+  const kbStoredComplexes = kbCoverage.reduce((sum, item) => sum + Number(item.storedComplexes || 0), 0);
   const molitProgress = molit?.progress || {};
   const mapCache = status.mapCache || {};
 
   if (els.collectionSummaryKb) {
     els.collectionSummaryKb.textContent = `${formatInt(runningJobs)}개 진행 중`;
-    els.collectionSummaryKbMeta.textContent = `${formatInt(pendingJobs)}개 대기 · ${formatInt(jobs.length)}개 주요 작업 추적`;
+    els.collectionSummaryKbMeta.textContent = `${formatInt(pendingJobs)}개 대기 · KB 단지 ${formatInt(kbStoredComplexes)}개 저장`;
   }
   if (els.collectionSummaryMolit) {
     const completion = molitCompletionSummary(molit);
@@ -71,12 +73,25 @@ function renderCrawlStatus(crawl) {
     els.crawlDelay.textContent = "-";
     els.crawlTrackedJobs.innerHTML = "";
     els.crawlLogs.innerHTML = "";
+    renderKbCoverage([]);
     return;
   }
 
+  renderKbCoverage(crawl.kbCoverage || []);
   const job = crawl.job;
+  if (!job) {
+    els.crawlSummary.textContent = "작업 없음";
+    els.progressBar.style.width = "0%";
+    els.progressText.textContent = "0%";
+    els.currentComplex.textContent = "-";
+    els.crawlCounts.textContent = "-";
+    els.crawlDelay.textContent = "-";
+    els.crawlTrackedJobs.innerHTML = renderCrawlJobProgress(crawl.jobProgress || []);
+    els.crawlLogs.innerHTML = "";
+    return;
+  }
   const activeProgress = crawlJobProgress({ job, queueCounts: crawl.queueCounts || {}, progress: crawl.progress || 0 });
-  els.crawlSummary.textContent = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치 / ${statusLabel(job.status)}`;
+  els.crawlSummary.textContent = `${crawlJobLabel(job)} / ${statusLabel(job.status)}`;
   els.progressBar.style.width = `${activeProgress.percent}%`;
   els.progressText.textContent = `${activeProgress.percent.toFixed(1)}%`;
   els.currentComplex.textContent = job.currentComplexName || "-";
@@ -86,6 +101,46 @@ function renderCrawlStatus(crawl) {
   els.crawlLogs.innerHTML = (crawl.logs || []).map((log) => {
     const time = new Date(log.createdAt).toLocaleTimeString("ko-KR");
     return `<div>[${time}] ${escapeHtml(log.level)} ${escapeHtml(log.message)}</div>`;
+  }).join("");
+}
+
+function renderKbCoverage(items) {
+  if (!els.kbCoverageGrid) return;
+  if (!items.length) {
+    els.kbCoverageGrid.innerHTML = `<div class="empty crawl-job-empty">지역별 수집률을 불러올 수 없습니다.</div>`;
+    return;
+  }
+
+  els.kbCoverageGrid.innerHTML = items.map((item) => {
+    const percent = Number(item.storedPercent || 0);
+    const activeProgress = item.activeProgressPercent === null || item.activeProgressPercent === undefined
+      ? null
+      : Number(item.activeProgressPercent || 0);
+    const latest = item.latestJob || null;
+    const activeJobs = Number(item.activeJobs || 0);
+    const remaining = Number(item.activePending || 0) + Number(item.activeRunning || 0);
+    const latestText = latest
+      ? `${crawlJobKindLabel(latest)} · ${statusLabel(latest.status)} · ${formatDateTime(latest.updatedAt || latest.createdAt)}`
+      : "최근 작업 없음";
+    return `
+      <article class="kb-coverage-card">
+        <div class="kb-coverage-head">
+          <strong>${escapeHtml(item.regionName || item.regionId || "-")}</strong>
+          <span>${formatInt(item.storedComplexes || 0)} / ${formatInt(item.knownTarget || item.storedComplexes || 0)}개</span>
+        </div>
+        <div class="kb-coverage-percent">${percent.toFixed(1)}%</div>
+        <div class="kb-coverage-track" aria-hidden="true">
+          <span style="width: ${Math.max(0, Math.min(percent, 100))}%"></span>
+        </div>
+        <div class="kb-coverage-meta">
+          <span>면적 타입 ${formatInt(item.areaTypes || 0)}개</span>
+          <span>대상 타일 ${formatInt(item.tileCount || 0)}개</span>
+          <span>${activeJobs ? `진행 ${formatInt(activeJobs)}개 · 남음 ${formatInt(remaining)}개` : "진행 중 작업 없음"}</span>
+          <span>${activeProgress === null ? "작업 진행률 -" : `작업 진행률 ${activeProgress.toFixed(1)}%`}</span>
+        </div>
+        <div class="kb-coverage-latest">${escapeHtml(latestText)}</div>
+      </article>
+    `;
   }).join("");
 }
 
@@ -144,7 +199,7 @@ function renderCrawlJobProgress(items) {
     const status = job.status || "requested";
     const progress = crawlJobProgress(item);
     const activity = crawlJobActivity(item, progress);
-    const label = `${crawlRegionLabel(job.regionId)} ${job.yearsBack}년치`;
+    const label = crawlJobLabel(job);
     return `
       <article class="crawl-job-card">
         <div class="crawl-job-card-head">
@@ -166,6 +221,15 @@ function renderCrawlJobProgress(items) {
       </article>
     `;
   }).join("");
+}
+
+function crawlJobLabel(job) {
+  return `${crawlRegionLabel(job.regionId)} ${crawlJobKindLabel(job)}`;
+}
+
+function crawlJobKindLabel(job) {
+  const yearsBack = Number(job?.yearsBack || 0);
+  return yearsBack > 0 ? `${yearsBack}년치` : "면적정보";
 }
 
 function crawlJobActivity(item, progress) {
@@ -490,7 +554,22 @@ function crawlRegionLabel(regionId) {
     bundang: "분당",
     dongtan: "동탄",
     seoul: "서울",
-    gyeonggi: "경기"
+    gyeonggi: "경기",
+    incheon: "인천",
+    busan: "부산",
+    daegu: "대구",
+    gwangju: "광주",
+    daejeon: "대전",
+    ulsan: "울산",
+    sejong: "세종",
+    gangwon: "강원",
+    chungbuk: "충북",
+    chungnam: "충남",
+    jeonbuk: "전북",
+    jeonnam: "전남",
+    gyeongbuk: "경북",
+    gyeongnam: "경남",
+    jeju: "제주"
   }[regionId] || regionId || "-";
 }
 
@@ -502,6 +581,21 @@ function targetLabel(target) {
   return {
     seoul: "서울",
     gyeonggi: "경기",
+    incheon: "인천",
+    busan: "부산",
+    daegu: "대구",
+    gwangju: "광주",
+    daejeon: "대전",
+    ulsan: "울산",
+    sejong: "세종",
+    gangwon: "강원",
+    chungbuk: "충북",
+    chungnam: "충남",
+    jeonbuk: "전북",
+    jeonnam: "전남",
+    gyeongbuk: "경북",
+    gyeongnam: "경남",
+    jeju: "제주",
     bundang: "분당",
     dongtan: "동탄"
   }[target] || target || "-";

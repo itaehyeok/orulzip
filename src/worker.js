@@ -2,7 +2,7 @@ import { KBPriceProvider } from "./providers/kb-price-provider.js";
 import { initDb, query, withClient } from "./services/db.js";
 import { upsertCollectedData } from "./services/db-store.js";
 import { refreshMapGrowthCacheIfUnlocked } from "./services/map-growth-cache.js";
-import { getRegion } from "./services/region-config.js";
+import { getRegion, legalDongCodePrefixes } from "./services/region-config.js";
 
 const provider = new KBPriceProvider();
 const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
@@ -181,7 +181,10 @@ async function existingSourceComplexIds(region) {
     select q.source_complex_id
     from crawl_queue q
     join crawl_jobs j on j.id = q.job_id
-    where q.status = 'completed'
+    where (
+      q.status = 'completed'
+      or j.status in ('requested', 'discovering', 'running')
+    )
     ${queueRegionClause}
   `, params);
   return new Set(result.rows.map((row) => Number(row.source_complex_id)));
@@ -227,10 +230,15 @@ async function processNextQueueItem(job) {
   try {
     await log(job.id, "info", `Collecting ${claimed.marker?.단지명 || claimed.source_complex_id}`);
     const region = getRegion(job.region_id);
-    const sinceYear = new Date().getFullYear() - Number(job.years_back);
+    const yearsBack = Number(job.years_back || 0);
+    const collectHistoricalPrices = yearsBack > 0;
+    const sinceYear = collectHistoricalPrices
+      ? new Date().getFullYear() - yearsBack
+      : Number.POSITIVE_INFINITY;
     const collected = await provider.collectComplex(job.region_id, claimed.marker, {
       maxAreaTypesPerComplex: job.max_area_types_per_complex,
       sinceYear,
+      collectHistoricalPrices,
       wait: () => politeDelay(job)
     });
 
@@ -273,10 +281,11 @@ async function processNextQueueItem(job) {
 }
 
 function filterCollectedDataForRegion(collected, region) {
-  if (!region?.legalDongCodePrefix) return collected;
+  const prefixes = legalDongCodePrefixes(region);
+  if (!prefixes.length) return collected;
 
   const apartments = collected.apartments.filter((apartment) =>
-    String(apartment.legalDongCode || "").startsWith(region.legalDongCodePrefix)
+    prefixes.some((prefix) => String(apartment.legalDongCode || "").startsWith(prefix))
   );
   const apartmentIds = new Set(apartments.map((apartment) => apartment.id));
   const areaTypes = collected.areaTypes.filter((areaType) => apartmentIds.has(areaType.apartmentId));

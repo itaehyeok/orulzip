@@ -9,6 +9,7 @@
     "tunnel:firebat-db": "scripts/start-firebat-db-tunnel.sh",
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
+    "queue:kb-national": "node scripts/queue-kb-national-crawl.js",
     "sync:molit": "node scripts/sync-molit-trades.js",
     "sync:molit-complexes": "node scripts/sync-molit-complexes.js",
     "sync:reb-apartments": "node scripts/sync-reb-apartment-identity.js",

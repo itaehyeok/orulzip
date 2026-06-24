@@ -29,6 +29,70 @@ services:
     networks:
       - orulzip-shared
 
+  worker-kb-national-1:
+    build: .
+    profiles: ["kb-national"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-kb-national-1
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: ${KB_NATIONAL_WORKER_DB_INIT:-0}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${KB_NATIONAL_WORKER_IDLE_DELAY_MS:-1000}
+      WORKER_REGION_IDS: ${KB_NATIONAL_WORKER_1_REGION_IDS:-seoul,incheon,gyeonggi}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
+  worker-kb-national-2:
+    build: .
+    profiles: ["kb-national"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-kb-national-2
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: ${KB_NATIONAL_WORKER_DB_INIT:-0}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${KB_NATIONAL_WORKER_IDLE_DELAY_MS:-1000}
+      WORKER_REGION_IDS: ${KB_NATIONAL_WORKER_2_REGION_IDS:-busan,ulsan,gyeongnam,jeju}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
+  worker-kb-national-3:
+    build: .
+    profiles: ["kb-national"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-kb-national-3
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: ${KB_NATIONAL_WORKER_DB_INIT:-0}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${KB_NATIONAL_WORKER_IDLE_DELAY_MS:-1000}
+      WORKER_REGION_IDS: ${KB_NATIONAL_WORKER_3_REGION_IDS:-daegu,gyeongbuk,gangwon,chungbuk}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
+  worker-kb-national-4:
+    build: .
+    profiles: ["kb-national"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-kb-national-4
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: ${KB_NATIONAL_WORKER_DB_INIT:-0}
+      ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
+      WORKER_IDLE_DELAY_MS: ${KB_NATIONAL_WORKER_IDLE_DELAY_MS:-1000}
+      WORKER_REGION_IDS: ${KB_NATIONAL_WORKER_4_REGION_IDS:-daejeon,sejong,chungnam,jeonbuk,jeonnam,gwangju}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+    networks:
+      - orulzip-shared
+
   price-band-cache:
     build: .
     profiles: ["loop"]

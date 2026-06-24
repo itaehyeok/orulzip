@@ -67,6 +67,7 @@ export class KBPriceProvider extends PriceDataProvider {
     const complexId = marker.단지기본일련번호;
     const maxAreaTypesPerComplex = Number(options.maxAreaTypesPerComplex || 2);
     const sinceYear = Number(options.sinceYear || new Date().getFullYear() - 10);
+    const collectHistoricalPrices = options.collectHistoricalPrices !== false;
     const wait = options.wait || (async () => {});
 
     const main = await this.fetchComplexMain(complexId);
@@ -74,7 +75,7 @@ export class KBPriceProvider extends PriceDataProvider {
     const typeRows = await this.fetchAreaTypes(complexId);
     await wait();
     const usableTypes = typeRows
-      .filter((row) => Number(row.매매일반거래가 || 0) > 0 && String(row.시세제공여부 || "0") === "1")
+      .filter((row) => isUsableAreaType(row, { collectHistoricalPrices }))
       .slice(0, maxAreaTypesPerComplex);
 
     if (!usableTypes.length) {
@@ -88,6 +89,8 @@ export class KBPriceProvider extends PriceDataProvider {
     for (const typeRow of usableTypes) {
       const areaType = normalizeAreaType(apartment.id, typeRow);
       areaTypes.push(areaType);
+
+      if (!collectHistoricalPrices) continue;
 
       const years = await this.fetchQuoteYears(complexId, typeRow.면적일련번호);
       await wait();
@@ -177,6 +180,13 @@ export class KBPriceProvider extends PriceDataProvider {
     });
     return data?.dataBody?.data?.시세 || [];
   }
+}
+
+function isUsableAreaType(row, { collectHistoricalPrices }) {
+  if (collectHistoricalPrices) {
+    return Number(row.매매일반거래가 || 0) > 0 && String(row.시세제공여부 || "0") === "1";
+  }
+  return Number(row.공급면적 || 0) > 0 || Number(row.전용면적 || 0) > 0;
 }
 
 async function requestJson(path, { method = "GET", params = {}, body = null } = {}) {
