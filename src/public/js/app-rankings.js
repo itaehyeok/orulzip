@@ -161,7 +161,7 @@ function renderPriceBandTable(result, basisBands = null) {
           </span>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
-            <a href="${escapeHtml(detailLink)}">실거래가 상세</a>
+            <a href="${escapeHtml(detailLink)}" data-price-band-detail-link>상세 보기</a>
             <a href="${escapeHtml(mapLink)}" data-price-band-map-link>지도에서 보기</a>
           </span>
         </td>
@@ -200,6 +200,15 @@ function bindPriceBandAreaMoreToggles() {
 
 function bindPriceBandMapLinks(rows = []) {
   const rowByApartmentId = new Map(rows.map((row) => [String(row.apartmentId || ""), row]).filter(([id]) => id));
+  els.priceBandRows?.querySelectorAll("[data-price-band-detail-link]").forEach((link) => {
+    link.addEventListener("click", async (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      event.preventDefault();
+      const row = priceBandRowFromLink(link, rowByApartmentId);
+      if (!row) return;
+      await openPriceBandApartmentDetail(row, { updateUrl: true });
+    });
+  });
   els.priceBandRows?.querySelectorAll("[data-price-band-map-link]").forEach((link) => {
     link.addEventListener("click", async (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -213,22 +222,30 @@ function bindPriceBandMapLinks(rows = []) {
       if (event.target.closest("a, button, select, input, textarea, [role='button']")) return;
       const item = rowByApartmentId.get(String(row.dataset.priceBandApartmentId || ""));
       if (!item) return;
-      await openPriceBandApartmentDetail(item);
+      await openPriceBandApartmentDetail(item, { updateUrl: true });
     });
   });
+}
+
+function priceBandRowFromLink(link, rowByApartmentId) {
+  const row = link.closest("[data-price-band-detail-row]");
+  const apartmentId = String(row?.dataset.priceBandApartmentId || apartmentIdFromDetailHref(link.getAttribute("href")) || "").trim();
+  if (!apartmentId) return null;
+  return rowByApartmentId.get(apartmentId) || { apartmentId };
 }
 
 async function openPriceBandMapDetailLink(href) {
   const normalizedHref = String(href || "").trim();
   if (!normalizedHref) return;
-  closePriceBandApartmentDetail();
+  closePriceBandApartmentDetail({ resetUrl: false });
   window.history.pushState({ tab: "molitMap" }, "", normalizedHref);
   await activateTab("molitMap", { push: false });
 }
 
-async function openPriceBandApartmentDetail(row) {
+async function openPriceBandApartmentDetail(row, { updateUrl = false } = {}) {
   const apartmentId = String(row?.apartmentId || "").trim();
   if (!apartmentId || !els.priceBandDetailPanel) return;
+  if (updateUrl) pushPriceBandApartmentDetailUrl(apartmentId);
   const requestId = ++state.priceBandDetailRequestId;
   state.priceBandDetailApartmentId = apartmentId;
   state.mapPopupDetail = null;
@@ -264,6 +281,54 @@ async function openPriceBandApartmentDetail(row) {
   }
 }
 
+async function preparePriceBandApartmentDetailFromUrl(rows = []) {
+  if (state.activeTab !== "priceBands") return false;
+  const apartmentId = apartmentIdFromDetailRoute();
+  if (!apartmentId) {
+    closePriceBandApartmentDetail({ resetUrl: false });
+    return false;
+  }
+  const row = rows.find((item) => String(item?.apartmentId || "") === apartmentId) || { apartmentId };
+  await openPriceBandApartmentDetail(row, { updateUrl: false });
+  return true;
+}
+
+function pushPriceBandApartmentDetailUrl(apartmentId) {
+  const path = apartmentDetailPath(apartmentId);
+  if (normalizeRoute(window.location.pathname) === path) return;
+  window.history.pushState({ tab: "priceBands", priceBandDetailApartmentId: apartmentId }, "", path);
+  if (typeof trackAnalyticsPageView === "function") trackAnalyticsPageView();
+}
+
+function replacePriceBandApartmentDetailUrl() {
+  if (!apartmentIdFromDetailRoute()) return;
+  window.history.replaceState({ tab: "priceBands" }, "", tabRoutes.priceBands);
+  if (typeof trackAnalyticsPageView === "function") trackAnalyticsPageView();
+}
+
+function apartmentIdFromDetailRoute() {
+  const match = normalizeRoute(window.location.pathname).match(/^\/apartments\/([^/]+)$/);
+  return match ? safeDecodePathPart(match[1]).trim() : "";
+}
+
+function apartmentIdFromDetailHref(href) {
+  try {
+    const url = new URL(String(href || ""), window.location.origin);
+    const match = normalizeRoute(url.pathname).match(/^\/apartments\/([^/]+)$/);
+    return match ? safeDecodePathPart(match[1]).trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+function safeDecodePathPart(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+}
+
 function renderPriceBandApartmentLoading(row) {
   withPriceBandDetailElements(() => renderMapApartmentLoading(priceBandDetailSeedItem(row)));
 }
@@ -276,7 +341,7 @@ function renderPriceBandApartmentDetail(detail) {
   withPriceBandDetailElements(() => renderMapApartmentDetail(detail));
 }
 
-function closePriceBandApartmentDetail() {
+function closePriceBandApartmentDetail({ resetUrl = true } = {}) {
   state.priceBandDetailRequestId += 1;
   state.priceBandDetailApartmentId = null;
   if (els.priceBandDetailPanel) {
@@ -285,6 +350,7 @@ function closePriceBandApartmentDetail() {
   }
   if (els.priceBandDetailTooltip) els.priceBandDetailTooltip.hidden = true;
   updatePriceBandSelectedRow("");
+  if (resetUrl) replacePriceBandApartmentDetailUrl();
 }
 
 function withPriceBandDetailElements(callback) {
@@ -340,7 +406,7 @@ function updatePriceBandSelectedRow(apartmentId) {
 }
 
 function renderPriceBandLoadingState() {
-  closePriceBandApartmentDetail();
+  closePriceBandApartmentDetail({ resetUrl: false });
   syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
   updatePriceBandTotalBadge("불러오는 중");
   const selectionLabel = currentPriceBandSelectionLabel() || "과거 전체 → 현재 전체";
@@ -553,11 +619,16 @@ function priceBandMapApartmentLink(row) {
   if (row.apartmentId) params.set("focusApartmentId", row.apartmentId);
   const areaM2 = priceBandRepresentativeAreaM2(row);
   if (areaM2 !== null) params.set("focusAreaM2", areaM2.toFixed(2));
+  params.set("openDetail", "0");
   return `/map?${params}`;
 }
 
 function apartmentDetailLink(row) {
-  return row.apartmentId ? `/apartments/${encodeURIComponent(row.apartmentId)}` : priceBandMapApartmentLink(row);
+  return row.apartmentId ? apartmentDetailPath(row.apartmentId) : priceBandMapApartmentLink(row);
+}
+
+function apartmentDetailPath(apartmentId) {
+  return `/apartments/${encodeURIComponent(apartmentId)}`;
 }
 
 function priceBandApartmentMeta(row) {

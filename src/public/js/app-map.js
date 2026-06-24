@@ -534,6 +534,7 @@ async function prepareMapApartmentFocusFromUrl() {
   if (
     state.pendingMapApartmentFocus?.id === focus.apartmentId
     && state.pendingMapApartmentFocus?.areaM2 === focus.areaM2
+    && state.pendingMapApartmentFocus?.openDetail === focus.openDetail
     && !state.pendingMapApartmentFocus.resolved
   ) {
     return false;
@@ -567,6 +568,7 @@ async function prepareMapApartmentFocusFromUrl() {
     id: item.id,
     item,
     areaM2: focus.areaM2,
+    openDetail: focus.openDetail,
     resolved: false
   };
 
@@ -576,7 +578,7 @@ async function prepareMapApartmentFocusFromUrl() {
   const period = currentMapPeriodParams();
   const detailCacheKey = `molit:${item.id}:${period.start}:${period.end}:${activeMinHouseholdCount()}`;
   state.mapApartmentDetails.set(detailCacheKey, detail);
-  openMapApartmentDetail(item.id, item);
+  if (focus.openDetail) openMapApartmentDetail(item.id, item);
   moveZoomMapTo(item, apartmentMapZoom, { exactZoom: true });
   setTimeout(() => {
     if (state.pendingMapApartmentFocus?.id === item.id && !state.pendingMapApartmentFocus.resolved && isMapTab()) {
@@ -590,7 +592,8 @@ function mapApartmentFocusFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
   const apartmentId = apartmentRouteFocusIdFromPath() || String(params.get("focusApartmentId") || "").trim();
   const areaM2 = nullableMapFocusNumber(params.get("focusAreaM2"));
-  return apartmentId ? { apartmentId, areaM2 } : null;
+  const openDetail = params.get("openDetail") !== "0";
+  return apartmentId ? { apartmentId, areaM2, openDetail } : null;
 }
 
 function apartmentRouteFocusIdFromPath() {
@@ -620,9 +623,10 @@ function resolvePendingMapApartmentFocus(items = []) {
 
 function clearMapApartmentFocusUrl() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2")) return;
+  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2") && !url.searchParams.has("openDetail")) return;
   url.searchParams.delete("focusApartmentId");
   url.searchParams.delete("focusAreaM2");
+  url.searchParams.delete("openDetail");
   window.history.replaceState({ tab: state.activeTab }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
