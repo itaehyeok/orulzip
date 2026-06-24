@@ -326,6 +326,7 @@ td:nth-child(4) {
     display: grid;
     gap: 3px;
     max-width: 100%;
+    min-height: 16px;
     line-height: 1.35;
   }
 
@@ -401,6 +402,14 @@ td:nth-child(4) {
 
   #priceBandView .table-wrap {
     overflow: visible;
+  }
+
+  #priceBandView.price-band-stable-loading .table-wrap::after {
+    top: 18px;
+    right: 24px;
+    left: 24px;
+    height: 38px;
+    font-size: 13px;
   }
 
   .price-band-table,
