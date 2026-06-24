@@ -149,12 +149,16 @@ function renderPriceBandTable(result, basisBands = null) {
     ? rows.map((row) => {
       const mapLink = priceBandMapApartmentLink(row);
       const detailLink = apartmentDetailLink(row);
+      const moreAreaCount = priceBandAdditionalAreaCount(row);
       const isSelected = state.priceBandDetailApartmentId && String(state.priceBandDetailApartmentId) === String(row.apartmentId || "");
       return `
       <tr class="clickable-row${isSelected ? " selected" : ""}" data-price-band-detail-row data-price-band-apartment-id="${escapeHtml(row.apartmentId || "")}">
         <td>${row.rank}</td>
         <td>
-          <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
+          <span class="price-band-row-title">
+            <strong class="table-main">${escapeHtml(row.apartmentName)}</strong>
+            ${renderPriceBandAreaMoreToggle(moreAreaCount)}
+          </span>
           <span class="muted-cell">${escapeHtml(priceBandApartmentMeta(row))}</span>
           <span class="table-links">
             <a href="${escapeHtml(detailLink)}">실거래가 상세</a>
@@ -177,13 +181,19 @@ function bindPriceBandAreaMoreToggles() {
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const rows = button.closest(".price-band-area-breakdown")?.querySelector(".price-band-area-more-rows");
+      const row = button.closest("[data-price-band-detail-row]");
+      const rows = button.closest(".price-band-area-breakdown")?.querySelector(".price-band-area-more-rows")
+        || row?.querySelector(".price-band-area-more-rows");
       if (!rows) return;
       const isOpen = button.getAttribute("aria-expanded") === "true";
       rows.hidden = isOpen;
       button.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      const moreCount = Number(button.dataset.moreCount || 0);
+      if (moreCount) {
+        button.setAttribute("aria-label", `다른 ${formatInt(moreCount)}개 평형 ${isOpen ? "보기" : "접기"}`);
+      }
       const action = button.querySelector(".price-band-area-more-action");
-      if (action) action.textContent = isOpen ? "보기" : "접기";
+      if (action) action.textContent = isOpen ? (button.dataset.closedLabel || "보기") : (button.dataset.openLabel || "접기");
     });
   });
 }
@@ -564,6 +574,10 @@ function priceBandApartmentMeta(row) {
   return parts.join(" · ");
 }
 
+function priceBandAdditionalAreaCount(row) {
+  return Math.max(priceBandAreaSummaries(row).length - 1, 0);
+}
+
 function renderPriceBandAreaBreakdownCell(row) {
   const summaries = priceBandAreaSummaries(row);
   const primary = summaries[0];
@@ -572,7 +586,7 @@ function renderPriceBandAreaBreakdownCell(row) {
 
   return `
     <div class="price-band-area-breakdown">
-      ${renderPriceBandAreaBreakdownLine(primary, "primary", { moreCount: hidden.length })}
+      ${renderPriceBandAreaBreakdownLine(primary, "primary")}
       ${hidden.length ? `
         <div class="price-band-area-more-rows" hidden>
           ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
@@ -582,28 +596,27 @@ function renderPriceBandAreaBreakdownCell(row) {
   `;
 }
 
-function renderPriceBandAreaBreakdownLine(item, tone, options = {}) {
+function renderPriceBandAreaBreakdownLine(item, tone) {
   const growthTone = Number(item.growthAmount || 0) >= 0 ? "positive" : "negative";
   const rateTone = growthRateToneClass(item.growthRate);
   const metricMarkup = tone === "primary"
     ? `<span class="price-band-area-metric-chip ${rateTone}"><b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate">${formatPercent(item.growthRate)}</strong></span>`
     : `<b class="price-band-area-amount ${growthTone}">${escapeHtml(formatSignedKoreanPriceWithPlus(item.growthAmount))}</b><strong class="price-band-area-rate ${rateTone}">${formatPercent(item.growthRate)}</strong>`;
-  const moreMarkup = options.moreCount
-    ? `
-      <span class="price-band-area-more-slot">
-        <button type="button" class="price-band-area-more-toggle" aria-expanded="false">
-          <span>다른 ${formatInt(options.moreCount)}개 평형</span><span class="price-band-area-more-action">보기</span>
-        </button>
-      </span>
-    `
-    : "";
   return `
     <span class="price-band-area-breakdown-line ${tone}">
       <strong class="price-band-area-label">${escapeHtml(item.areaLabel || "-")}</strong>
       <span class="price-band-area-range">${formatKoreanPrice(item.startSalePrice)} → ${formatKoreanPrice(item.endSalePrice)}</span>
       ${metricMarkup}
-      ${moreMarkup}
     </span>
+  `;
+}
+
+function renderPriceBandAreaMoreToggle(moreCount) {
+  if (!moreCount) return "";
+  return `
+    <button type="button" class="price-band-area-more-toggle price-band-row-more-toggle" aria-expanded="false" aria-label="다른 ${formatInt(moreCount)}개 평형 보기" data-more-count="${moreCount}" data-closed-label="더보기" data-open-label="접기">
+      <span>${formatInt(moreCount)}개</span><span class="price-band-area-more-action">더보기</span>
+    </button>
   `;
 }
 

@@ -235,6 +235,27 @@ td:nth-child(4) {
   color: var(--text);
 }
 
+.price-band-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.price-band-row-title .table-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.price-band-row-more-toggle {
+  flex: 0 0 auto;
+  height: 24px;
+  min-width: 78px;
+  font-size: 11px;
+}
+
 .muted-cell {
   color: var(--muted);
   font-size: 12px;
@@ -472,6 +493,10 @@ td:nth-child(4) {
     white-space: normal;
   }
 
+  .price-band-table .price-band-row-title .table-main {
+    margin-bottom: 0;
+  }
+
   .price-band-table .muted-cell {
     display: block;
     font-size: 12px;
@@ -520,6 +545,8 @@ td:nth-child(4) {
   .price-band-area-breakdown-line.primary .price-band-area-range {
     grid-column: 1 / -1;
     grid-row: 2;
+    color: var(--text);
+    font-weight: 850;
   }
 
   .price-band-area-breakdown-line.secondary .price-band-area-range {
