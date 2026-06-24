@@ -387,6 +387,10 @@ td:nth-child(4) {
     text-align: right;
   }
 
+  .price-band-filter-control-value-only select {
+    text-align: center;
+  }
+
   .price-band-filter-arrow {
     justify-self: center;
   }

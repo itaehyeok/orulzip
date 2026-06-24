@@ -3,11 +3,11 @@ function applyQuickPeriod(years) {
 }
 
 const priceBandPeriodOptions = [
-  { value: 3, label: "3개월 전" },
-  { value: 6, label: "6개월 전" },
-  { value: 12, label: "1년 전" },
-  { value: 36, label: "3년 전" },
-  { value: 60, label: "5년 전" }
+  { value: 3, label: "3개월 전 대비" },
+  { value: 6, label: "6개월 전 대비" },
+  { value: 12, label: "1년 전 대비" },
+  { value: 36, label: "3년 전 대비" },
+  { value: 60, label: "5년 전 대비" }
 ];
 
 function applyQuickPeriodMonths(months) {
@@ -420,8 +420,7 @@ function renderPriceBandCountSummary({
 function renderPriceBandPeriodSelect() {
   const activeMonths = currentPeriodMonths();
   return `
-    <label class="price-band-filter-control price-band-period-filter-control">
-      <span>과거 기준</span>
+    <label class="price-band-filter-control price-band-filter-control-value-only price-band-period-filter-control">
       <select data-price-band-period-select aria-label="가격대 랭킹 과거 기준 기간">
         ${priceBandPeriodOptions.map((option) => `
           <option value="${option.value}" ${option.value === activeMonths ? "selected" : ""}>${escapeHtml(option.label)}</option>
@@ -466,8 +465,7 @@ function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
   const normalizedSelectedKey = selectedAreaBandKey || "all";
   const activeClass = normalizedSelectedKey !== "all" ? " is-active" : "";
   return `
-    <label class="price-band-filter-control price-band-area-filter-control${activeClass}">
-      <span>평형</span>
+    <label class="price-band-filter-control price-band-filter-control-value-only price-band-area-filter-control${activeClass}">
       <select data-price-band-filter="area">
         ${bands.map((band) => {
           const key = String(band.key || "all");

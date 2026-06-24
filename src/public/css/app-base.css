@@ -519,6 +519,10 @@ input {
   color: var(--blue);
 }
 
+.price-band-filter-control-value-only {
+  justify-content: center;
+}
+
 .price-band-filter-control select {
   width: auto;
   min-width: 70px;
@@ -533,8 +537,12 @@ input {
   white-space: nowrap;
 }
 
+.price-band-filter-control-value-only select {
+  text-align: center;
+}
+
 .price-band-period-filter-control select {
-  min-width: 72px;
+  min-width: 92px;
 }
 
 .price-band-filter-arrow {
