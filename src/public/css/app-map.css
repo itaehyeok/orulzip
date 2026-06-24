@@ -3,6 +3,28 @@
   display: none;
 }
 
+.map-transition-status[data-busy="true"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-transition-status[data-busy="true"]::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+  animation: map-focus-status-spin 0.75s linear infinite;
+}
+
+@keyframes map-focus-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .map-transition-dim .apartment-map-marker,
 .map-transition-dim .zoom-cluster-marker,
 .map-transition-badge .apartment-map-marker,

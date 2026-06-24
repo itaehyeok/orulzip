@@ -5,7 +5,8 @@ function normalizeRoute(pathname) {
 
 function tabFromLocation() {
   const route = normalizeRoute(window.location.pathname);
-  if (route.startsWith("/apartments/") || route.startsWith("/regions/")) return "molitMap";
+  if (route.startsWith("/apartments/")) return "priceBands";
+  if (route.startsWith("/regions/")) return "molitMap";
   return routeTabs[route] || "molitMap";
 }
 

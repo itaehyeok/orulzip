@@ -1,5 +1,6 @@
 const telegramApiBaseUrl = "https://api.telegram.org";
 const telegramTimeoutMs = 3500;
+const cacheFallbackAlertState = new Map();
 
 export function shouldNotifyExternalVisitorVisit(event = {}) {
   if (event.eventName !== "page_view") return false;
@@ -34,6 +35,42 @@ export async function notifyTelegramExternalVisitor(event = {}) {
   }
 }
 
+export async function notifyTelegramCacheFallback(event = {}) {
+  const config = telegramConfig();
+  if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
+  if (!isTelegramCacheAlertEnvironment(event.environment)) return { sent: false, reason: "environment_filtered" };
+
+  const key = cacheFallbackAlertKey(event);
+  const throttleMs = positiveNumber(process.env.ORULZIP_TELEGRAM_CACHE_ALERT_THROTTLE_MS, 6 * 60 * 60 * 1000);
+  const now = Date.now();
+  const lastSentAt = cacheFallbackAlertState.get(key) || 0;
+  if (lastSentAt && now - lastSentAt < throttleMs) {
+    return { sent: false, reason: "throttled" };
+  }
+  cacheFallbackAlertState.set(key, now);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
+  try {
+    const response = await fetch(`${telegramApiBaseUrl}/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: telegramCacheFallbackMessage(event),
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function telegramConfig() {
   return {
     botToken: String(process.env.ORULZIP_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim(),
@@ -43,6 +80,15 @@ function telegramConfig() {
 
 function isTelegramVisitorAlertEnvironment(environment) {
   const allowed = String(process.env.ORULZIP_TELEGRAM_VISITOR_ALERT_ENVIRONMENTS || "production")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allowed.length || allowed.includes("all")) return true;
+  return allowed.includes(String(environment || "unknown").toLowerCase());
+}
+
+function isTelegramCacheAlertEnvironment(environment) {
+  const allowed = String(process.env.ORULZIP_TELEGRAM_CACHE_ALERT_ENVIRONMENTS || "production,development")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -71,6 +117,35 @@ function telegramVisitorMessage(event) {
   const summaryLines = visitorSummaryLines(event.summary);
   if (summaryLines.length) lines.push("", "방문 요약", ...summaryLines);
   return lines.join("\n");
+}
+
+function telegramCacheFallbackMessage(event) {
+  const lines = [
+    "오를집 캐시 fallback 발생",
+    `환경: ${event.environment || "unknown"}`,
+    `종류: ${event.kind || "미확인"}`,
+    `기간: ${event.period || "-"}`,
+    `조건: ${event.conditions || "-"}`,
+    `사유: ${event.reason || "캐시 미스"}`,
+    `처리: ${event.action || "실시간 계산으로 응답"}`
+  ];
+  if (event.source) lines.push(`소스: ${event.source}`);
+  if (event.request) lines.push(`요청: ${event.request}`);
+  return lines.join("\n");
+}
+
+function cacheFallbackAlertKey(event) {
+  if (event.dedupeKey) {
+    return [event.environment || "unknown", event.dedupeKey].join("|");
+  }
+  return [
+    event.environment || "unknown",
+    event.kind || "unknown",
+    event.source || "",
+    event.period || "",
+    event.conditions || "",
+    event.reason || ""
+  ].join("|");
 }
 
 function shortVisitorId(visitorId) {
@@ -115,4 +190,9 @@ function visitorSummaryLines(summary) {
 function formatCount(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number).toLocaleString("ko-KR") : "0";
+}
+
+function positiveNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
 }

@@ -449,7 +449,31 @@ input {
   background: #fff;
 }
 
+.price-band-count-main,
+.price-band-count-sub,
+.price-band-count-meta {
+  display: block;
+}
+
+.price-band-count-main {
+  color: #475467;
+  font-weight: 850;
+}
+
+.price-band-count-sub,
+.price-band-count-meta {
+  color: var(--muted);
+}
+
 .price-band-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.price-band-filter-primary,
+.price-band-filter-flow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -474,6 +498,13 @@ input {
   word-break: keep-all;
 }
 
+.price-band-filter-control.is-active {
+  border-color: rgba(35, 103, 209, 0.42);
+  background: #edf4ff;
+  color: var(--blue);
+  box-shadow: 0 1px 2px rgba(35, 103, 209, 0.08);
+}
+
 .price-band-filter-control span {
   flex: 0 0 auto;
   color: var(--muted);
@@ -481,6 +512,15 @@ input {
   line-height: 1;
   white-space: nowrap;
   word-break: keep-all;
+}
+
+.price-band-filter-control.is-active span,
+.price-band-filter-control.is-active select {
+  color: var(--blue);
+}
+
+.price-band-filter-control-value-only {
+  justify-content: center;
 }
 
 .price-band-filter-control select {
@@ -497,8 +537,12 @@ input {
   white-space: nowrap;
 }
 
+.price-band-filter-control-value-only select {
+  text-align: center;
+}
+
 .price-band-period-filter-control select {
-  min-width: 72px;
+  min-width: 92px;
 }
 
 .price-band-filter-arrow {

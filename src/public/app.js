@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260624-seo-routes";
+  const version = "20260624-map-focus-status";
   const scripts = [
     "app-prelude",
     "app-state",

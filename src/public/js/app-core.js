@@ -566,6 +566,7 @@ async function loadActiveViewData() {
       start: result.basis === "start" ? result.bands : otherResult.bands,
       end: result.basis === "end" ? result.bands : otherResult.bands
     });
+    await preparePriceBandApartmentDetailFromUrl(result.rows || []);
     return;
   }
 
@@ -649,7 +650,8 @@ function setActiveTab(tab, { push = false } = {}) {
 
 function tabFromLocation() {
   const route = normalizeRoute(window.location.pathname);
-  if (route.startsWith("/apartments/") || route.startsWith("/regions/")) return "molitMap";
+  if (route.startsWith("/apartments/")) return "priceBands";
+  if (route.startsWith("/regions/")) return "molitMap";
   return routeTabs[route] || "molitMap";
 }
 

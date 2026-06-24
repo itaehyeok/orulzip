@@ -87,6 +87,7 @@ services:
     command: ["npm", "run", "refresh:price-band-cache:loop"]
     environment:
       DATABASE_URL: postgres://orulzip:${POSTGRES_PASSWORD:-orulzip_change_me}@postgres:5432/orulzip
+      ORULZIP_DB_INIT: ${PRICE_BAND_CACHE_DB_INIT:-0}
       PRICE_BAND_CACHE_REFRESH_INTERVAL_MS: ${PRICE_BAND_CACHE_REFRESH_INTERVAL_MS:-86400000}
 
   molit-daily-collector:

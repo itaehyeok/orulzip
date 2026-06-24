@@ -3,6 +3,7 @@ import { refreshAppOverviewCache } from "./app-overview-cache.js";
 import { readDatasetFromDb } from "./db-store.js";
 import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
 import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
+import { notifyTelegramCacheFallback } from "./telegram-notifier.js";
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const DEFAULT_MIN_HOUSEHOLD_COUNTS = [0, 100];
@@ -307,6 +308,21 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
       item_name asc
     limit 2000
   `, params);
+  if (!result.rows.length) {
+    const hasRankItems = await hasApartmentRankItems(snapshot.id);
+    if (!hasRankItems) {
+      notifyCacheFallback({
+        environment: filters.environment,
+        kind: "지도 아파트 마커",
+        source,
+        period: `${snapshot.start_month || "-"} ~ ${snapshot.end_month || "-"}`,
+        conditions: `${formatHouseholdCondition(snapshot.min_household_count)} / zoom=${filters.zoom || "-"}`,
+        reason: "apartment rank bounds cache empty",
+        action: "일반 지도 아파트 캐시로 응답"
+      });
+    }
+    return null;
+  }
 
   return {
     level: "apartment",
@@ -325,6 +341,29 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
     },
     items: result.rows.map(serializeCachedDongApartmentRankItem)
   };
+}
+
+async function hasApartmentRankItems(snapshotId) {
+  const result = await query(`
+    select exists (
+      select 1
+      from map_dong_apartment_rank_items
+      where snapshot_id = $1
+      limit 1
+    ) as has_rank_items
+  `, [snapshotId]);
+  return result.rows[0]?.has_rank_items === true;
+}
+
+function notifyCacheFallback(event) {
+  notifyTelegramCacheFallback(event).catch((error) => {
+    console.warn("Telegram cache fallback alert failed:", error?.message || error);
+  });
+}
+
+function formatHouseholdCondition(minHouseholdCount) {
+  const count = Number(minHouseholdCount || 0);
+  return count > 0 ? `${count}세대 이상` : "전체 세대";
 }
 
 async function readCachedApartmentRankingScope({ snapshot, filters, source, scope }) {

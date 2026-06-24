@@ -460,6 +460,7 @@ const server = createServer(async (req, res) => {
         endBandKey,
         areaBandKey,
         minHouseholdCount: filters.minHouseholdCount,
+        environment: requestAnalyticsEnvironment,
         page,
         pageSize
       }));
@@ -479,7 +480,8 @@ const server = createServer(async (req, res) => {
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || "",
-        minHouseholdCount: minHouseholdCountFromUrl(url, 0)
+        minHouseholdCount: minHouseholdCountFromUrl(url, 0),
+        environment: requestAnalyticsEnvironment
       };
       const cached = await readCachedZoomMapSummary(filters);
       if (cached) return json(res, cached);
@@ -505,7 +507,8 @@ const server = createServer(async (req, res) => {
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || "",
-        minHouseholdCount: minHouseholdCountFromUrl(url)
+        minHouseholdCount: minHouseholdCountFromUrl(url),
+        environment: requestAnalyticsEnvironment
       };
       const cached = await readCachedZoomMapSummary(filters);
       return json(res, cached || {

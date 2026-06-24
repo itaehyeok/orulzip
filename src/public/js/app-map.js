@@ -534,10 +534,12 @@ async function prepareMapApartmentFocusFromUrl() {
   if (
     state.pendingMapApartmentFocus?.id === focus.apartmentId
     && state.pendingMapApartmentFocus?.areaM2 === focus.areaM2
+    && state.pendingMapApartmentFocus?.openDetail === focus.openDetail
     && !state.pendingMapApartmentFocus.resolved
   ) {
     return false;
   }
+  showMapFocusStatus(focus.openDetail ? "아파트 상세를 불러오는 중..." : "아파트 위치로 이동 중...");
   state.mapPopupPreferredAreaM2 = focus.areaM2;
   state.mapPopupPreferredApartmentId = focus.areaM2 ? focus.apartmentId : null;
 
@@ -551,6 +553,7 @@ async function prepareMapApartmentFocusFromUrl() {
   const detail = await api(`/api/molit-apartment-detail?${params}`).catch(() => null);
   const apartment = detail?.apartment;
   if (!apartment || !Number.isFinite(Number(apartment.lat)) || !Number.isFinite(Number(apartment.lng))) {
+    finishMapFocusStatus("위치를 찾지 못했습니다.", { delay: 1200 });
     clearMapApartmentFocusUrl();
     return false;
   }
@@ -567,17 +570,22 @@ async function prepareMapApartmentFocusFromUrl() {
     id: item.id,
     item,
     areaM2: focus.areaM2,
+    openDetail: focus.openDetail,
     resolved: false
   };
 
-  if (!(await initZoomMap())) return false;
+  if (!(await initZoomMap())) {
+    finishMapFocusStatus("지도를 불러오지 못했습니다.", { delay: 1200 });
+    return false;
+  }
   closeMapApartmentPopup();
   setFocusedMapApartment(item);
   const period = currentMapPeriodParams();
   const detailCacheKey = `molit:${item.id}:${period.start}:${period.end}:${activeMinHouseholdCount()}`;
   state.mapApartmentDetails.set(detailCacheKey, detail);
-  openMapApartmentDetail(item.id, item);
+  if (focus.openDetail) openMapApartmentDetail(item.id, item);
   moveZoomMapTo(item, apartmentMapZoom, { exactZoom: true });
+  finishMapFocusStatus("", { delay: Math.round(animatedMapMoveDuration * 1000) + 450 });
   setTimeout(() => {
     if (state.pendingMapApartmentFocus?.id === item.id && !state.pendingMapApartmentFocus.resolved && isMapTab()) {
       loadZoomMapSummary();
@@ -590,7 +598,8 @@ function mapApartmentFocusFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
   const apartmentId = apartmentRouteFocusIdFromPath() || String(params.get("focusApartmentId") || "").trim();
   const areaM2 = nullableMapFocusNumber(params.get("focusAreaM2"));
-  return apartmentId ? { apartmentId, areaM2 } : null;
+  const openDetail = params.get("openDetail") !== "0";
+  return apartmentId ? { apartmentId, areaM2, openDetail } : null;
 }
 
 function apartmentRouteFocusIdFromPath() {
@@ -620,9 +629,10 @@ function resolvePendingMapApartmentFocus(items = []) {
 
 function clearMapApartmentFocusUrl() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2")) return;
+  if (!url.searchParams.has("focusApartmentId") && !url.searchParams.has("focusAreaM2") && !url.searchParams.has("openDetail")) return;
   url.searchParams.delete("focusApartmentId");
   url.searchParams.delete("focusAreaM2");
+  url.searchParams.delete("openDetail");
   window.history.replaceState({ tab: state.activeTab }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -805,9 +815,37 @@ function beginMapTransition(mode, level) {
 function resetMapTransitionState() {
   clearTimeout(state.mapTransitionTimer);
   setMapTransitionClass("");
-  if (els.mapTransitionStatus) {
+  if (els.mapTransitionStatus && !state.mapFocusStatusActive) {
     els.mapTransitionStatus.hidden = true;
+    els.mapTransitionStatus.removeAttribute("aria-busy");
+    els.mapTransitionStatus.removeAttribute("data-busy");
   }
+}
+
+function showMapFocusStatus(label) {
+  if (!els.mapTransitionStatus) return;
+  clearTimeout(state.mapFocusStatusTimer);
+  state.mapFocusStatusActive = true;
+  els.mapTransitionStatus.textContent = label || "아파트 위치로 이동 중...";
+  els.mapTransitionStatus.hidden = false;
+  els.mapTransitionStatus.setAttribute("aria-busy", "true");
+  els.mapTransitionStatus.dataset.busy = "true";
+}
+
+function finishMapFocusStatus(label = "", { delay = 650 } = {}) {
+  if (!els.mapTransitionStatus) return;
+  clearTimeout(state.mapFocusStatusTimer);
+  if (label) {
+    els.mapTransitionStatus.textContent = label;
+    els.mapTransitionStatus.removeAttribute("aria-busy");
+    delete els.mapTransitionStatus.dataset.busy;
+  }
+  state.mapFocusStatusTimer = setTimeout(() => {
+    state.mapFocusStatusActive = false;
+    els.mapTransitionStatus.hidden = true;
+    els.mapTransitionStatus.removeAttribute("aria-busy");
+    els.mapTransitionStatus.removeAttribute("data-busy");
+  }, Math.max(0, Number(delay) || 0));
 }
 
 function setMapTransitionClass(className) {
