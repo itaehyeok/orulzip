@@ -19,13 +19,22 @@ export const DEFAULT_PRICE_AREA_BAND_KEYS = PRICE_AREA_BANDS.map((band) => band.
 const PRICE_BAND_SOURCE = "molit";
 const PRICE_BAND_CACHE_STALE_HOURS = 36;
 const allowLivePriceBandFallback = process.env.ORULZIP_ALLOW_PRICE_BAND_LIVE_FALLBACK === "1";
-const PRICE_BAND_RANK_CACHE_INDEX_STATEMENTS = [
-  `create index concurrently if not exists price_band_rank_items_snapshot_rank_idx
-    on price_band_rank_items(snapshot_id, rank)`,
-  `create index concurrently if not exists price_band_rank_items_snapshot_growth_idx
-    on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`,
-  `create index concurrently if not exists price_band_rank_items_snapshot_band_growth_idx
-    on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+const PRICE_BAND_RANK_CACHE_INDEXES = [
+  {
+    name: "price_band_rank_items_snapshot_rank_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_rank_idx
+      on price_band_rank_items(snapshot_id, rank)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_growth_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_growth_idx
+      on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_band_growth_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_band_growth_idx
+      on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+  }
 ];
 const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: 3, startGapMonths: 1, endGapMonths: 1 },
@@ -36,8 +45,40 @@ const MOLIT_PRICE_FRESHNESS_RULES = [
 ];
 
 export async function ensurePriceBandRankCacheIndexes() {
-  for (const statement of PRICE_BAND_RANK_CACHE_INDEX_STATEMENTS) {
-    await query(statement);
+  const names = PRICE_BAND_RANK_CACHE_INDEXES.map((index) => index.name);
+  const existingResult = await query(`
+    select c.relname as index_name, i.indisvalid, i.indisready
+    from pg_class c
+    join pg_index i
+      on i.indexrelid = c.oid
+    join pg_class rel
+      on rel.oid = i.indrelid
+    join pg_namespace nsp
+      on nsp.oid = rel.relnamespace
+    where nsp.nspname = current_schema()
+      and rel.relname = 'price_band_rank_items'
+      and c.relname = any($1::text[])
+  `, [names]);
+  const readyIndexes = new Set(existingResult.rows
+    .filter((row) => row.indisvalid && row.indisready)
+    .map((row) => row.index_name));
+
+  for (const index of PRICE_BAND_RANK_CACHE_INDEXES) {
+    if (readyIndexes.has(index.name)) continue;
+    try {
+      await query(index.statement);
+    } catch (error) {
+      if (["42501", "42P07"].includes(error?.code)) {
+        console.warn(JSON.stringify({
+          message: "price band cache index creation skipped",
+          index: index.name,
+          code: error.code,
+          error: error.message
+        }));
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
