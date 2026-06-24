@@ -107,7 +107,11 @@ function formatPercent(value) {
 function roundedPercentNumber(value, digits = 1) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 0;
-  const rounded = Number((number * 100).toFixed(Math.max(0, Number(digits) || 0)));
+  const normalizedDigits = Math.max(0, Number(digits) || 0);
+  const percent = number * 100;
+  const minVisiblePercent = 1 / (10 ** normalizedDigits);
+  if (Math.abs(percent) < minVisiblePercent) return 0;
+  const rounded = Number(percent.toFixed(normalizedDigits));
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
