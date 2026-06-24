@@ -2,7 +2,7 @@ const tabRoutes = {
   map: "/kb-map",
   molitMap: "/map",
   neighborhood: "/neighborhood",
-  priceBands: "/price-bands",
+  priceBands: "/apartment-rankings",
   formula: "/formula",
   terms: "/terms",
   design: "/design",
@@ -16,6 +16,7 @@ const routeTabs = {
   "/molit-map": "molitMap",
   "/kb-map": "map",
   "/neighborhood": "neighborhood",
+  "/apartment-rankings": "priceBands",
   "/price-bands": "priceBands",
   "/formula": "formula",
   "/terms": "terms",
@@ -27,7 +28,7 @@ const routeTabs = {
 const tabTitles = {
   molitMap: "오를집 - 아파트 실거래가 상승률 지도",
   map: "KB시세 지도 - 오를집",
-  priceBands: "실거래가 가격대별 아파트 상승률 랭킹 - 오를집",
+  priceBands: "아파트 실거래가 상승률 랭킹 - 오를집",
   neighborhood: "동네별 아파트 상승률 랭킹 - 오를집",
   formula: "시세식 분석 - 오를집",
   terms: "용어 - 오를집",
@@ -262,6 +263,14 @@ const mapHeaderDesignVariantMap = new Map(mapHeaderDesignVariants.map((item) => 
 const homeMapView = {
   center: [37.48, 127.18],
   zoom: 12
+};
+const regionRouteMapViews = {
+  seoul: { center: [37.5665, 126.978], zoom: 11 },
+  gyeonggi: { center: [37.4138, 127.5183], zoom: 10 },
+  incheon: { center: [37.4563, 126.7052], zoom: 11 },
+  busan: { center: [35.1796, 129.0756], zoom: 11 },
+  daegu: { center: [35.8714, 128.6014], zoom: 11 },
+  daejeon: { center: [36.3504, 127.3845], zoom: 11 }
 };
 const apartmentMapZoom = 16;
 const sidoLabelByCode = {

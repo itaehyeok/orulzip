@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260623-growth-band-mode";
+  const version = "20260624-seo-routes";
   const scripts = [
     "app-prelude",
     "app-state",

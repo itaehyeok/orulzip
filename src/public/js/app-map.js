@@ -435,9 +435,10 @@ async function initNaverZoomMap() {
     return true;
   }
 
+  const initialView = initialZoomMapView();
   state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
-    center: new window.naver.maps.LatLng(homeMapView.center[0], homeMapView.center[1]),
-    zoom: homeMapView.zoom,
+    center: new window.naver.maps.LatLng(initialView.center[0], initialView.center[1]),
+    zoom: initialView.zoom,
     zoomControl: shouldShowNaverZoomControl(),
     scaleControl: true,
     mapDataControl: false
@@ -478,9 +479,10 @@ function initLeafletZoomMap() {
     return true;
   }
 
+  const initialView = initialZoomMapView();
   state.zoomMap = L.map(els.zoomMap, {
     scrollWheelZoom: true
-  }).setView(homeMapView.center, homeMapView.zoom);
+  }).setView(initialView.center, initialView.zoom);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
@@ -508,6 +510,21 @@ function shouldSuppressZoomMapLoad() {
   if (Date.now() < suppressedUntil) return true;
   state.zoomMapLoadSuppressedUntil = 0;
   return false;
+}
+
+function initialZoomMapView() {
+  const routeSlug = regionRouteSlugFromPath();
+  return regionRouteMapViews[routeSlug] || homeMapView;
+}
+
+function regionRouteSlugFromPath() {
+  const match = normalizeRoute(window.location.pathname).match(/^\/regions\/([^/]+)$/);
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match[1]).trim();
+  } catch {
+    return match[1].trim();
+  }
 }
 
 async function prepareMapApartmentFocusFromUrl() {
@@ -571,9 +588,19 @@ async function prepareMapApartmentFocusFromUrl() {
 
 function mapApartmentFocusFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
-  const apartmentId = String(params.get("focusApartmentId") || "").trim();
+  const apartmentId = apartmentRouteFocusIdFromPath() || String(params.get("focusApartmentId") || "").trim();
   const areaM2 = nullableMapFocusNumber(params.get("focusAreaM2"));
   return apartmentId ? { apartmentId, areaM2 } : null;
+}
+
+function apartmentRouteFocusIdFromPath() {
+  const match = normalizeRoute(window.location.pathname).match(/^\/apartments\/([^/]+)$/);
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match[1]).trim();
+  } catch {
+    return match[1].trim();
+  }
 }
 
 function nullableMapFocusNumber(value) {

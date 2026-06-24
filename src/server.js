@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import { initAnalyticsDb, initDb } from "./services/db.js";
+import { initAnalyticsDb, initDb, query } from "./services/db.js";
 import {
   createCrawlJob,
   crawlDetails,
@@ -52,7 +52,7 @@ const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
 const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
@@ -85,31 +85,69 @@ const deployedAtKst = process.env.ORULZIP_DEPLOYED_AT_KST || "local";
 const deployCommitSha = normalizeCommitSha(process.env.ORULZIP_COMMIT_SHA) || readLocalCommitSha() || "unknown";
 const deployVersionText = `v ${deployedAtKst} · ${deployCommitSha}`;
 const recentDeployCommits = parseRecentCommitJson(process.env.ORULZIP_RECENT_COMMITS_JSON) || readLocalRecentCommits();
+const regionSeoRoutes = new Map([
+  ["/regions/seoul", {
+    title: "서울 아파트 실거래가 상승률 지도 | 오를집",
+    description: "서울 아파트 실거래가를 기준으로 강남구·송파구·마포구 등 지역별 상승률과 아파트 랭킹을 지도에서 확인하세요.",
+    canonicalPath: "/regions/seoul"
+  }],
+  ["/regions/gyeonggi", {
+    title: "경기 아파트 실거래가 상승률 지도 | 오를집",
+    description: "경기도 아파트 실거래가 상승률을 시군구·동·아파트 단위로 비교하고 상승률 랭킹을 확인하세요.",
+    canonicalPath: "/regions/gyeonggi"
+  }],
+  ["/regions/incheon", {
+    title: "인천 아파트 실거래가 상승률 지도 | 오를집",
+    description: "인천 아파트 실거래가 기반 상승률과 지역별 아파트 랭킹을 지도에서 확인하세요.",
+    canonicalPath: "/regions/incheon"
+  }],
+  ["/regions/busan", {
+    title: "부산 아파트 실거래가 상승률 지도 | 오를집",
+    description: "부산 아파트 실거래가 상승률을 지역별 지도와 아파트 랭킹으로 확인하세요.",
+    canonicalPath: "/regions/busan"
+  }],
+  ["/regions/daegu", {
+    title: "대구 아파트 실거래가 상승률 지도 | 오를집",
+    description: "대구 아파트 실거래가 기준 상승률과 아파트 순위를 지도에서 확인하세요.",
+    canonicalPath: "/regions/daegu"
+  }],
+  ["/regions/daejeon", {
+    title: "대전 아파트 실거래가 상승률 지도 | 오를집",
+    description: "대전 아파트 실거래가 상승률과 지역별 아파트 랭킹을 지도에서 확인하세요.",
+    canonicalPath: "/regions/daejeon"
+  }]
+]);
 const routeSeo = new Map([
   ["/", {
-    title: "오를집 - 아파트 실거래가 상승률 지도",
-    description: "오를집은 아파트 실거래가를 기준으로 지역별·가격대별 상승률과 랭킹을 지도에서 확인하는 부동산 데이터 서비스입니다.",
+    title: "아파트 실거래가 상승률 지도 | 오를집",
+    description: "오를집은 국토부 아파트 실거래가를 기준으로 지역별 상승률, 평당가 변화, 아파트 랭킹을 지도에서 확인하는 부동산 데이터 서비스입니다.",
     canonicalPath: "/map"
   }],
   ["/map", {
-    title: "오를집 - 아파트 실거래가 상승률 지도",
-    description: "서울·경기 아파트 실거래가 상승률을 지도에서 시도, 시군구, 동, 아파트 단위로 확인하세요.",
+    title: "아파트 실거래가 상승률 지도 | 오를집",
+    description: "국토부 아파트 실거래가를 기준으로 전국·지역별 상승률을 시도, 시군구, 동, 아파트 단위 지도에서 확인하세요.",
     canonicalPath: "/map"
   }],
   ["/molit-map", {
-    title: "오를집 - 아파트 실거래가 상승률 지도",
-    description: "국토부 실거래가 기반 아파트 상승률 지도를 확인하세요.",
+    title: "아파트 실거래가 상승률 지도 | 오를집",
+    description: "국토부 아파트 실거래가 기반 상승률 지도와 지역별 아파트 랭킹을 확인하세요.",
     canonicalPath: "/map"
   }],
+  ["/apartment-rankings", {
+    title: "아파트 실거래가 상승률 랭킹 | 오를집",
+    description: "3개월, 6개월, 1년, 3년, 5년 기준 국토부 아파트 실거래가 상승률과 평당가 변화를 랭킹으로 확인하세요.",
+    canonicalPath: "/apartment-rankings"
+  }],
   ["/price-bands", {
-    title: "실거래가 가격대별 아파트 상승률 랭킹 - 오를집",
-    description: "3개월, 6개월, 1년, 3년, 5년 기준으로 실거래가 가격대별 아파트 평균 평당가 상승률 랭킹을 확인하세요.",
-    canonicalPath: "/price-bands"
+    title: "아파트 실거래가 상승률 랭킹 | 오를집",
+    description: "국토부 아파트 실거래가 기반 상승률 랭킹과 평당가 변화를 확인하세요.",
+    canonicalPath: "/apartment-rankings"
   }],
   ["/neighborhood", {
-    title: "동네별 아파트 상승률 랭킹 - 오를집",
-    description: "동네별 아파트 상승률과 평당가격 변화를 그래프와 랭킹으로 확인하세요.",
-    canonicalPath: "/neighborhood"
+    title: "동네별 아파트 실거래가 상승률 랭킹 | 오를집",
+    description: "동네별 아파트 실거래가 상승률과 평당가격 변화를 그래프와 랭킹으로 확인하세요.",
+    canonicalPath: "/neighborhood",
+    robots: "noindex,nofollow"
   }],
   ["/kb-map", {
     title: "KB시세 지도 - 오를집",
@@ -166,6 +204,14 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/admin/session") {
       return json(res, { authenticated: isAdmin });
+    }
+
+    if (normalizedPath === "/price-bands") {
+      return redirectPermanent(res, `/apartment-rankings${url.search || ""}`);
+    }
+
+    if (url.pathname === "/sitemap.xml") {
+      return xml(res, await renderSitemapXml());
     }
 
     if (url.pathname === "/analytics/exclude-me") {
@@ -1031,7 +1077,7 @@ async function serveStatic(pathname, res, { environment = "unknown" } = {}) {
   }
 
   const normalizedPath = normalizeRoute(pathname);
-  const filePath = appRoutes.has(normalizedPath) ? "/index.html" : pathname;
+  const filePath = isAppRoute(normalizedPath) ? "/index.html" : pathname;
   const absolutePath = join(publicDir, filePath);
   let content;
   try {
@@ -1045,7 +1091,7 @@ async function serveStatic(pathname, res, { environment = "unknown" } = {}) {
     throw error;
   }
   if (filePath === "/index.html") {
-    content = injectRouteSeo(content.toString("utf8"), normalizedPath);
+    content = await injectRouteSeo(content.toString("utf8"), normalizedPath);
     content = injectDeployVersion(content, { environment });
   }
 
@@ -1061,6 +1107,15 @@ function normalizeRoute(pathname) {
   return normalized || "/";
 }
 
+function isAppRoute(routePath) {
+  return appRoutes.has(routePath) || regionSeoRoutes.has(routePath) || Boolean(apartmentRouteId(routePath));
+}
+
+function apartmentRouteId(routePath) {
+  const match = String(routePath || "").match(/^\/apartments\/([^/]+)$/);
+  return match ? safeDecodeURIComponent(match[1]).trim() : "";
+}
+
 function contentType(filePath) {
   return {
     ".html": "text/html; charset=utf-8",
@@ -1072,8 +1127,8 @@ function contentType(filePath) {
   }[extname(filePath)] || "application/octet-stream";
 }
 
-function injectRouteSeo(html, routePath) {
-  const seo = routeSeo.get(routePath) || routeSeo.get("/map");
+async function injectRouteSeo(html, routePath) {
+  const seo = await seoForRoute(routePath);
   const canonicalUrl = absoluteUrl(seo.canonicalPath || routePath);
   const title = seo.title;
   const description = seo.description;
@@ -1091,6 +1146,112 @@ function injectRouteSeo(html, routePath) {
     .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
 }
 
+async function seoForRoute(routePath) {
+  if (routeSeo.has(routePath)) return routeSeo.get(routePath);
+  if (regionSeoRoutes.has(routePath)) return regionSeoRoutes.get(routePath);
+  const apartmentId = apartmentRouteId(routePath);
+  if (apartmentId) return apartmentSeo(apartmentId);
+  return routeSeo.get("/map");
+}
+
+async function apartmentSeo(apartmentId) {
+  try {
+    const result = await query(`
+      select
+        id,
+        apt_name,
+        legal_dong,
+        address,
+        sido_name,
+        sigungu_name,
+        dong_name,
+        build_year,
+        deal_count
+      from molit_complexes
+      where id = $1
+      limit 1
+    `, [apartmentId]);
+    const row = result.rows[0];
+    if (!row) {
+      return {
+        title: "아파트 실거래가 상세 | 오를집",
+        description: "오를집에서 아파트 실거래가 상승률 지도와 랭킹을 확인하세요.",
+        canonicalPath: apartmentCanonicalPath(apartmentId),
+        robots: "noindex,follow"
+      };
+    }
+
+    const location = apartmentLocationText(row);
+    const locationPrefix = location ? `${location} ` : "";
+    const details = [
+      row.build_year ? `${row.build_year}년 준공` : "",
+      Number(row.deal_count) > 0 ? `실거래 ${Number(row.deal_count).toLocaleString("ko-KR")}건` : ""
+    ].filter(Boolean).join(", ");
+    return {
+      title: `${row.apt_name} 아파트 실거래가·상승률 | 오를집`,
+      description: `${locationPrefix}${row.apt_name} 아파트 매매 실거래가, 평당가 변화와 상승률 랭킹을 확인하세요.${details ? ` ${details}.` : ""}`,
+      canonicalPath: apartmentCanonicalPath(row.id)
+    };
+  } catch (error) {
+    console.warn("Apartment SEO lookup failed:", error?.message || error);
+    return {
+      title: "아파트 실거래가 상세 | 오를집",
+      description: "오를집에서 아파트 실거래가 상승률 지도와 랭킹을 확인하세요.",
+      canonicalPath: apartmentCanonicalPath(apartmentId),
+      robots: "noindex,follow"
+    };
+  }
+}
+
+function apartmentLocationText(row) {
+  const sidoName = String(row.sido_name || "").trim();
+  const sigunguName = stripSidoPrefix(row.sigungu_name, sidoName);
+  const parts = [sidoName, sigunguName, row.dong_name || row.legal_dong]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return String(row.address || "").split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
+}
+
+function stripSidoPrefix(sigunguName, sidoName) {
+  const sigungu = String(sigunguName || "").trim();
+  const sido = String(sidoName || "").trim();
+  if (!sigungu || !sido) return sigungu;
+  const [firstPart, ...rest] = sigungu.split(/\s+/);
+  if (sameSidoName(firstPart, sido) && rest.length) return rest.join(" ");
+  return sigungu;
+}
+
+function sameSidoName(left, right) {
+  return normalizeSidoName(left) === normalizeSidoName(right);
+}
+
+function normalizeSidoName(value) {
+  const aliases = new Map([
+    ["서울특별시", "서울"],
+    ["부산광역시", "부산"],
+    ["대구광역시", "대구"],
+    ["인천광역시", "인천"],
+    ["광주광역시", "광주"],
+    ["대전광역시", "대전"],
+    ["울산광역시", "울산"],
+    ["세종특별자치시", "세종"],
+    ["경기도", "경기"],
+    ["강원특별자치도", "강원"],
+    ["강원도", "강원"],
+    ["충청북도", "충북"],
+    ["충청남도", "충남"],
+    ["전북특별자치도", "전북"],
+    ["전라북도", "전북"],
+    ["전라남도", "전남"],
+    ["경상북도", "경북"],
+    ["경상남도", "경남"],
+    ["제주특별자치도", "제주"]
+  ]);
+  const normalized = String(value || "").replace(/\s+/g, "");
+  return aliases.get(normalized) || normalized;
+}
+
 function injectDeployVersion(html, { environment = "unknown" } = {}) {
   const deployBadgeHidden = environment === "production" ? "hidden" : "";
 
@@ -1105,6 +1266,66 @@ function injectDeployVersion(html, { environment = "unknown" } = {}) {
 
 function absoluteUrl(pathname) {
   return `${siteOrigin}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function apartmentCanonicalPath(apartmentId) {
+  return `/apartments/${encodeURIComponent(apartmentId)}`;
+}
+
+async function renderSitemapXml() {
+  const entries = [
+    sitemapUrlEntry("/map", { priority: "1.0" }),
+    sitemapUrlEntry("/apartment-rankings", { priority: "0.9" }),
+    ...Array.from(regionSeoRoutes.keys()).map((path) => sitemapUrlEntry(path, { priority: "0.8" }))
+  ];
+
+  try {
+    const result = await query(`
+      with latest as (
+        select id
+        from map_growth_snapshots
+        where source = 'molit'
+          and period_years = 1
+          and min_household_count = $1
+        order by end_month desc, updated_at desc
+        limit 1
+      )
+      select
+        mgi.apartment_id,
+        max(mgi.updated_at) as updated_at
+      from map_growth_items mgi
+      join latest on latest.id = mgi.snapshot_id
+      where mgi.level = 'apartment'
+        and mgi.apartment_id is not null
+        and mgi.has_data = true
+      group by mgi.apartment_id
+      order by max(mgi.growth_rate) desc nulls last, min(mgi.item_name) asc
+      limit 1000
+    `, [DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT]);
+
+    for (const row of result.rows) {
+      entries.push(sitemapUrlEntry(apartmentCanonicalPath(row.apartment_id), {
+        priority: "0.6",
+        lastmod: row.updated_at ? new Date(row.updated_at).toISOString().slice(0, 10) : ""
+      }));
+    }
+  } catch (error) {
+    console.warn("Dynamic sitemap apartment URLs failed:", error?.message || error);
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.join("\n")}
+</urlset>`;
+}
+
+function sitemapUrlEntry(pathname, { changefreq = "daily", priority = "0.7", lastmod = "" } = {}) {
+  return `  <url>
+    <loc>${escapeXml(absoluteUrl(pathname))}</loc>${lastmod ? `
+    <lastmod>${escapeXml(lastmod)}</lastmod>` : ""}
+    <changefreq>${escapeXml(changefreq)}</changefreq>
+    <priority>${escapeXml(priority)}</priority>
+  </url>`;
 }
 
 function normalizeCommitSha(value) {
@@ -1171,6 +1392,18 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function escapeXml(value) {
+  return escapeAttribute(value).replace(/'/g, "&apos;");
+}
+
+function safeDecodeURIComponent(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
 }
 
 function isAdminRequest(req) {
@@ -1465,6 +1698,22 @@ function html(res, body, status = 200) {
 function json(res, payload, status = 200, headers = {}) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...headers });
   res.end(JSON.stringify(payload));
+}
+
+function xml(res, body, status = 200) {
+  res.writeHead(status, {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(body);
+}
+
+function redirectPermanent(res, location) {
+  res.writeHead(301, {
+    Location: location,
+    "Cache-Control": "no-store"
+  });
+  res.end();
 }
 
 async function readFormBody(req) {
