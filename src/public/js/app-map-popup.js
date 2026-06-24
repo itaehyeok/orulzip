@@ -495,8 +495,8 @@ function mapPopupTradeDateLabel(trade) {
 function renderMapPopupTradeGrowth(comparison) {
   if (!comparison || !Number.isFinite(comparison.growthRate)) {
     return `
-      <b class="map-popup-trade-delta no-data">-</b>
-      <b class="map-popup-trade-growth no-data">-</b>
+      <b class="map-popup-trade-delta no-data" title="비교 기준 월의 같은 평형 평균가가 없어 상승액과 상승률을 계산할 수 없습니다.">이전 기준가 없음</b>
+      <b class="map-popup-trade-growth no-data" aria-label="상승률 계산 불가"></b>
     `;
   }
   const tone = mapPopupTradeGrowthTone(comparison.growthRate);
