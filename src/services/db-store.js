@@ -435,6 +435,8 @@ export async function kbCollectionCoverage() {
     const knownTarget = storedComplexes + activePending + activeRunning + activeFailed;
     const activeTotal = Number(queueRow.active_total || 0);
     const activeDone = Number(queueRow.active_completed || 0) + Number(queueRow.active_failed || 0);
+    const activeJobs = Number(queueRow.active_jobs || 0);
+    const targetReady = !activeJobs || activeTotal > 0 || activePending || activeRunning || activeFailed;
 
     return {
       regionId: region.id,
@@ -444,8 +446,9 @@ export async function kbCollectionCoverage() {
       storedComplexes,
       areaTypes: Number(storedRow.area_types || 0),
       knownTarget,
-      storedPercent: knownTarget ? Math.round((storedComplexes / knownTarget) * 1000) / 10 : 0,
-      activeJobs: Number(queueRow.active_jobs || 0),
+      storedPercent: targetReady && knownTarget ? Math.round((storedComplexes / knownTarget) * 1000) / 10 : null,
+      targetReady: Boolean(targetReady),
+      activeJobs,
       activeTotal,
       activeCompleted: Number(queueRow.active_completed || 0),
       activeFailed: Number(queueRow.active_failed || 0),

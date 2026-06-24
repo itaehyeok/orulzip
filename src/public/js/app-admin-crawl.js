@@ -112,7 +112,11 @@ function renderKbCoverage(items) {
   }
 
   els.kbCoverageGrid.innerHTML = items.map((item) => {
-    const percent = Number(item.storedPercent || 0);
+    const percent = item.storedPercent === null || item.storedPercent === undefined
+      ? null
+      : Number(item.storedPercent || 0);
+    const percentWidth = percent === null ? 0 : Math.max(0, Math.min(percent, 100));
+    const percentText = percent === null ? "확인중" : `${percent.toFixed(1)}%`;
     const activeProgress = item.activeProgressPercent === null || item.activeProgressPercent === undefined
       ? null
       : Number(item.activeProgressPercent || 0);
@@ -126,11 +130,11 @@ function renderKbCoverage(items) {
       <article class="kb-coverage-card">
         <div class="kb-coverage-head">
           <strong>${escapeHtml(item.regionName || item.regionId || "-")}</strong>
-          <span>${formatInt(item.storedComplexes || 0)} / ${formatInt(item.knownTarget || item.storedComplexes || 0)}개</span>
+          <span>${item.targetReady ? `${formatInt(item.storedComplexes || 0)} / ${formatInt(item.knownTarget || item.storedComplexes || 0)}개` : `${formatInt(item.storedComplexes || 0)}개 저장`}</span>
         </div>
-        <div class="kb-coverage-percent">${percent.toFixed(1)}%</div>
+        <div class="kb-coverage-percent">${escapeHtml(percentText)}</div>
         <div class="kb-coverage-track" aria-hidden="true">
-          <span style="width: ${Math.max(0, Math.min(percent, 100))}%"></span>
+          <span style="width: ${percentWidth}%"></span>
         </div>
         <div class="kb-coverage-meta">
           <span>면적 타입 ${formatInt(item.areaTypes || 0)}개</span>
