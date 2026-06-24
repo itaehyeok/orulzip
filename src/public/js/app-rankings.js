@@ -159,8 +159,6 @@ function renderPriceBandTable(result, basisBands = null) {
           <span class="table-links">
             <a href="${escapeHtml(detailLink)}">실거래가 상세</a>
             <a href="${escapeHtml(mapLink)}" data-price-band-map-link>지도에서 보기</a>
-            <a href="${escapeHtml(naverApartmentLink(row))}" target="_blank" rel="noopener noreferrer">네이버지도</a>
-            <a href="${escapeHtml(hogangnonoApartmentLink(row))}" target="_blank" rel="noopener noreferrer">호갱노노</a>
           </span>
         </td>
         <td>${escapeHtml(formatPriceBandLocation(row))}</td>
@@ -531,11 +529,6 @@ function formatPriceBandLocation(row) {
   return row.neighborhoodName || "-";
 }
 
-function naverApartmentLink(row) {
-  const query = compactSearchQuery([row.address, row.apartmentName]) || row.apartmentName || "";
-  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
-}
-
 function priceBandMapApartmentLink(row) {
   const params = new URLSearchParams();
   if (row.apartmentId) params.set("focusApartmentId", row.apartmentId);
@@ -546,11 +539,6 @@ function priceBandMapApartmentLink(row) {
 
 function apartmentDetailLink(row) {
   return row.apartmentId ? `/apartments/${encodeURIComponent(row.apartmentId)}` : priceBandMapApartmentLink(row);
-}
-
-function hogangnonoApartmentLink(row) {
-  const query = compactSearchQuery([row.apartmentName, formatPriceBandLocation(row)]);
-  return `https://hogangnono.com/search?q=${encodeURIComponent(query)}`;
 }
 
 function priceBandApartmentMeta(row) {
@@ -568,14 +556,12 @@ function priceBandApartmentMeta(row) {
 function renderPriceBandAreaBreakdownCell(row) {
   const summaries = priceBandAreaSummaries(row);
   const primary = summaries[0];
-  const secondary = summaries[1];
-  const hidden = summaries.slice(2);
+  const hidden = summaries.slice(1);
   if (!primary) return "-";
 
   return `
     <div class="price-band-area-breakdown">
       ${renderPriceBandAreaBreakdownLine(primary, "primary", { moreCount: hidden.length })}
-      ${secondary ? renderPriceBandAreaBreakdownLine(secondary, "secondary") : ""}
       ${hidden.length ? `
         <div class="price-band-area-more-rows" hidden>
           ${hidden.map((item) => renderPriceBandAreaBreakdownLine(item, "secondary")).join("")}
@@ -655,10 +641,6 @@ function formatSignedKoreanPriceWithPlus(value) {
   if (!Number.isFinite(number)) return "-";
   if (number === 0) return "0만";
   return `${number > 0 ? "+" : ""}${formatSignedKoreanPrice(number)}`;
-}
-
-function compactSearchQuery(parts) {
-  return parts.map((part) => String(part || "").trim()).filter(Boolean).join(" ");
 }
 
 function renderPriceBandPagination(pagination) {
