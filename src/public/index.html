@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
-    <link rel="stylesheet" href="/styles.css?v=20260624-map-focus-status">
+    <link rel="stylesheet" href="/styles.css?v=20260624-data-health">
   </head>
   <body>
     <main class="app-shell">
@@ -44,6 +44,7 @@
                 <div class="map-admin-menu-list">
                   <a data-tab="design" data-admin-only href="/design" hidden>디자인</a>
                   <a data-tab="crawl" data-admin-only href="/crawl" hidden>수집현황</a>
+                  <a data-tab="dataHealth" data-admin-only href="/data-health" hidden>데이터 상태</a>
                   <a data-tab="neighborhood" data-admin-only href="/neighborhood" hidden>동네별</a>
                   <a data-tab="formula" data-admin-only href="/formula" hidden>시세식</a>
                   <a data-tab="terms" data-admin-only href="/terms" hidden>용어</a>
@@ -1315,6 +1316,51 @@
               </thead>
               <tbody id="analyticsRecentEventRows">
                 <tr><td colspan="5" class="empty">불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="dataHealthView" class="view">
+        <section class="panel data-health-panel">
+          <div class="panel-head">
+            <h2>데이터 상태</h2>
+            <span>실거래가 수집 · 지도 캐시 · 실거래가 랭킹 캐시</span>
+          </div>
+          <div id="dataHealthSummary" class="data-health-summary-grid">
+            <div class="data-health-empty">데이터 상태를 불러오는 중입니다.</div>
+          </div>
+        </section>
+
+        <section class="panel data-health-panel">
+          <div class="panel-head">
+            <h2>검증 항목</h2>
+            <span>운영 화면에 필요한 필수 데이터 조합</span>
+          </div>
+          <div id="dataHealthCheckRows" class="data-health-check-grid">
+            <div class="data-health-empty">검증 항목을 불러오는 중입니다.</div>
+          </div>
+        </section>
+
+        <section class="panel data-health-panel">
+          <div class="panel-head">
+            <h2>최근 실행</h2>
+            <span>일일 배치 검증 이력</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-health-run-table">
+              <thead>
+                <tr>
+                  <th>상태</th>
+                  <th>환경</th>
+                  <th>완료 시각</th>
+                  <th>실패 / 주의</th>
+                  <th>기준월</th>
+                </tr>
+              </thead>
+              <tbody id="dataHealthRunRows">
+                <tr><td colspan="5" class="empty">최근 실행 이력을 불러오는 중입니다.</td></tr>
               </tbody>
             </table>
           </div>

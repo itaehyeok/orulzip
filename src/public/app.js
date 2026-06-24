@@ -1,11 +1,12 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260624-map-focus-status";
+  const version = "20260624-data-health";
   const scripts = [
     "app-prelude",
     "app-state",
     "app-core",
     "app-admin-crawl",
+    "app-data-health",
     "app-map",
     "app-map-popup",
     "app-design",

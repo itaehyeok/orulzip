@@ -71,6 +71,33 @@ export async function notifyTelegramCacheFallback(event = {}) {
   }
 }
 
+export async function notifyTelegramDataHealth(event = {}) {
+  const config = telegramConfig();
+  if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
+  if (!isTelegramDataHealthEnvironment(event.environment)) return { sent: false, reason: "environment_filtered" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
+  try {
+    const response = await fetch(`${telegramApiBaseUrl}/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: telegramDataHealthMessage(event),
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function telegramConfig() {
   return {
     botToken: String(process.env.ORULZIP_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim(),
@@ -89,6 +116,15 @@ function isTelegramVisitorAlertEnvironment(environment) {
 
 function isTelegramCacheAlertEnvironment(environment) {
   const allowed = String(process.env.ORULZIP_TELEGRAM_CACHE_ALERT_ENVIRONMENTS || "production,development")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allowed.length || allowed.includes("all")) return true;
+  return allowed.includes(String(environment || "unknown").toLowerCase());
+}
+
+function isTelegramDataHealthEnvironment(environment) {
+  const allowed = String(process.env.ORULZIP_TELEGRAM_DATA_HEALTH_ENVIRONMENTS || "production")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -132,6 +168,36 @@ function telegramCacheFallbackMessage(event) {
   if (event.source) lines.push(`소스: ${event.source}`);
   if (event.request) lines.push(`요청: ${event.request}`);
   return lines.join("\n");
+}
+
+function telegramDataHealthMessage(event) {
+  const summary = event.summary || {};
+  const checks = Array.isArray(event.checks) ? event.checks : [];
+  const issueChecks = checks.filter((check) => check.status === "fail");
+  const warningChecks = checks.filter((check) => check.status === "warn");
+  const lines = [
+    `오를집 데이터 상태 ${dataHealthStatusLabel(event.status)}`,
+    `환경: ${event.environment || "unknown"}`,
+    `기준월: ${summary.endMonth || "-"}`,
+    `최근수집: ${Array.isArray(summary.recentMonths) ? summary.recentMonths.join(", ") : "-"}`,
+    `결과: 실패 ${formatCount(summary.issueCount)} · 주의 ${formatCount(summary.warningCount)}`
+  ];
+  const topChecks = [...issueChecks, ...warningChecks].slice(0, 8);
+  if (topChecks.length) {
+    lines.push("", "점검 항목");
+    for (const check of topChecks) {
+      lines.push(`- ${dataHealthStatusLabel(check.status)} ${check.title || check.key}: ${check.message || "-"}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function dataHealthStatusLabel(status) {
+  return {
+    pass: "정상",
+    warn: "주의",
+    fail: "실패"
+  }[status] || "미확인";
 }
 
 function cacheFallbackAlertKey(event) {

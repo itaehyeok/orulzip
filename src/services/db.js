@@ -644,6 +644,24 @@ export async function initDb() {
       created_at timestamptz not null default now(),
       refreshed_at timestamptz not null default now()
     );
+
+    create table if not exists data_health_runs (
+      id bigserial primary key,
+      environment text not null default 'unknown',
+      status text not null,
+      started_at timestamptz not null default now(),
+      finished_at timestamptz not null default now(),
+      issue_count integer not null default 0,
+      warning_count integer not null default 0,
+      summary jsonb not null default '{}'::jsonb,
+      checks jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now()
+    );
+
+    create index if not exists data_health_runs_created_idx
+      on data_health_runs(created_at desc);
+    create index if not exists data_health_runs_environment_created_idx
+      on data_health_runs(environment, created_at desc);
   `);
 }
 
