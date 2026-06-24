@@ -196,12 +196,18 @@ function dataHealthMetricLabel(key) {
     apartmentDataCount: "데이터 단지",
     bandCount: "가격대",
     itemCount: "단지",
-    updatedAt: "갱신시각"
+    updatedAt: "갱신시각",
+    readDurationMs: "조회시간",
+    sampleRows: "샘플",
+    snapshotId: "스냅샷",
+    longRunningQueries: "장기 쿼리",
+    fiveMinuteQueries: "5분+ 쿼리"
   }[key] || key;
 }
 
 function dataHealthMetricValue(value, key = "") {
   if (typeof value === "number") {
+    if (/Ms$/.test(key)) return `${formatInt(value)}ms`;
     if (/Rate$/.test(key) || (Math.abs(value) > 0 && Math.abs(value) < 1)) return `${(value * 100).toFixed(1)}%`;
     return formatInt(value);
   }
@@ -216,7 +222,9 @@ function dataHealthDetailReason(detail) {
     empty_level: `비어 있음${detail.missingLevels?.length ? ` · ${detail.missingLevels.join(", ")}` : ""}`,
     stale_cache: "갱신 지연",
     core_empty: "핵심 데이터 없음",
-    area_empty: "해당 평형 데이터 없음"
+    area_empty: "해당 평형 데이터 없음",
+    slow_cache_read: `조회 지연${detail.readDurationMs ? ` · ${formatInt(detail.readDurationMs)}ms` : ""}`,
+    long_running_query: `장기 실행${detail.ageSeconds ? ` · ${formatInt(detail.ageSeconds)}초` : ""}`
   }[detail.reason] || "";
   if (reason) return reason;
   if (detail.missingLawdCount) return `미완료 ${formatInt(detail.missingLawdCount)}개`;

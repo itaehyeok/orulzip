@@ -17,7 +17,9 @@ const CHECKS = [
   checkRecentTradeDeals,
   checkMolitComplexCoverage,
   checkMapCacheMatrix,
-  checkPriceBandCacheMatrix
+  checkPriceBandCacheMatrix,
+  checkPriceBandCacheReadPerformance,
+  checkPriceBandLongRunningQueries
 ];
 
 export async function runDataHealthChecks(context) {
@@ -303,6 +305,151 @@ async function checkPriceBandCacheMatrix(context) {
       foundSnapshots: details.filter((item) => item.snapshotId).length,
       failedSnapshots: failed.length,
       warningSnapshots: warned.length
+    },
+    details
+  });
+}
+
+async function checkPriceBandCacheReadPerformance(context) {
+  const startMonth = addMonths(context.endMonth, -12);
+  const minHouseholdCount = DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT;
+  const snapshotResult = await query(`
+    select id, start_month, end_month, basis, min_household_count, area_band_key, item_count, updated_at
+    from price_band_rank_snapshots
+    where source = 'molit'
+      and basis = 'start'
+      and start_month = $1
+      and end_month = $2
+      and min_household_count = $3
+      and area_band_key = 'all'
+    order by updated_at desc
+    limit 1
+  `, [startMonth, context.endMonth, minHouseholdCount]);
+  const snapshot = snapshotResult.rows[0];
+  if (!snapshot) {
+    return buildCheck({
+      key: "molit_price_band_cache_read_performance",
+      category: "cache",
+      title: "실거래가 랭킹 캐시 조회 성능",
+      status: "fail",
+      message: "성능 확인에 필요한 1년·100세대 캐시 스냅샷이 없습니다.",
+      metrics: { startMonth, endMonth: context.endMonth, minHouseholdCount },
+      details: [{
+        status: "fail",
+        label: "1년 전 대비 · 과거 가격 · 100세대 이상 · 전체 평형",
+        startMonth,
+        endMonth: context.endMonth,
+        minHouseholdCount,
+        reason: "snapshot_missing"
+      }]
+    });
+  }
+
+  const startedAt = Date.now();
+  const [countResult, rowsResult] = await Promise.all([
+    query(`
+      select count(*)::int as total_rows
+      from price_band_rank_items
+      where snapshot_id = $1
+    `, [snapshot.id]),
+    query(`
+      select rank, apartment_id, apartment_name, growth_rate
+      from price_band_rank_items
+      where snapshot_id = $1
+      order by growth_rate desc nulls last,
+               growth_amount desc nulls last,
+               end_pyeong_price desc nulls last,
+               apartment_name asc
+      limit 50
+    `, [snapshot.id])
+  ]);
+  const durationMs = Date.now() - startedAt;
+  const totalRows = Number(countResult.rows[0]?.total_rows || 0);
+  const sampleRows = rowsResult.rows.length;
+  const status = durationMs > 5000 ? "fail" : durationMs > 1500 ? "warn" : "pass";
+  return buildCheck({
+    key: "molit_price_band_cache_read_performance",
+    category: "cache",
+    title: "실거래가 랭킹 캐시 조회 성능",
+    status,
+    message: status === "fail"
+      ? `랭킹 캐시 조회가 ${durationMs}ms 걸렸습니다. 사용자 화면 로딩 지연 가능성이 큽니다.`
+      : status === "warn"
+        ? `랭킹 캐시 조회가 ${durationMs}ms 걸려 주의가 필요합니다.`
+        : "랭킹 캐시 조회가 빠르게 응답합니다.",
+    metrics: {
+      readDurationMs: durationMs,
+      totalRows,
+      sampleRows,
+      snapshotId: Number(snapshot.id),
+      updatedAt: snapshot.updated_at || null
+    },
+    details: [{
+      status,
+      label: "1년 전 대비 · 과거 가격 · 100세대 이상 · 전체 평형",
+      snapshotId: Number(snapshot.id),
+      startMonth,
+      endMonth: context.endMonth,
+      minHouseholdCount,
+      readDurationMs: durationMs,
+      totalRows,
+      sampleRows,
+      updatedAt: snapshot.updated_at || null,
+      reason: status === "pass" ? "" : "slow_cache_read"
+    }]
+  });
+}
+
+async function checkPriceBandLongRunningQueries() {
+  const result = await query(`
+    select
+      pid,
+      usename,
+      wait_event_type,
+      wait_event,
+      extract(epoch from now() - query_start)::int as age_seconds,
+      left(regexp_replace(query, E'[\\n\\r\\t ]+', ' ', 'g'), 240) as query_text
+    from pg_stat_activity
+    where datname = current_database()
+      and state = 'active'
+      and pid <> pg_backend_pid()
+      and now() - query_start > interval '60 seconds'
+      and (
+        query ilike '%price_band_rank_items%'
+        or query ilike '%price_band_rank_snapshots%'
+        or (query ilike '%molit_trade_deals%' and query ilike '%with matched as%')
+      )
+    order by query_start asc
+    limit 20
+  `);
+  const details = result.rows.map((row) => {
+    const ageSeconds = Number(row.age_seconds || 0);
+    return {
+      status: ageSeconds >= 300 ? "fail" : "warn",
+      label: `PID ${row.pid}`,
+      pid: Number(row.pid),
+      user: row.usename || "",
+      waitEventType: row.wait_event_type || "",
+      waitEvent: row.wait_event || "",
+      ageSeconds,
+      queryText: row.query_text || "",
+      reason: "long_running_query"
+    };
+  });
+  const failed = details.filter((item) => item.status === "fail");
+  return buildCheck({
+    key: "molit_price_band_long_running_queries",
+    category: "cache",
+    title: "실거래가 랭킹 장기 실행 쿼리",
+    status: failed.length ? "fail" : details.length ? "warn" : "pass",
+    message: failed.length
+      ? `${failed.length}개 랭킹 관련 쿼리가 5분 이상 실행 중입니다.`
+      : details.length
+        ? `${details.length}개 랭킹 관련 쿼리가 1분 이상 실행 중입니다.`
+        : "랭킹 관련 장기 실행 쿼리가 없습니다.",
+    metrics: {
+      longRunningQueries: details.length,
+      fiveMinuteQueries: failed.length
     },
     details
   });
