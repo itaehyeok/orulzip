@@ -32,7 +32,7 @@ try {
     const tileCount = listTiles(region).length;
     const maxTiles = maxTilesArg === "all" ? tileCount : Math.min(numberArg(maxTilesArg, tileCount), tileCount);
 
-    if (!dryRun && skipActive && await hasActiveJob(dbModule.query, region.id)) {
+    if (!dryRun && skipActive && await hasActiveJob(dbModule.query, region.id, yearsBack)) {
       results.push({
         regionId: region.id,
         regionName: region.name,
@@ -88,13 +88,14 @@ try {
   if (dbModule) await dbModule.closeDb();
 }
 
-async function hasActiveJob(dbQuery, regionId) {
+async function hasActiveJob(dbQuery, regionId, yearsBack) {
   const result = await dbQuery(`
     select count(*)::int as count
     from crawl_jobs
     where region_id = $1
+      and years_back = $2
       and status in ('requested', 'discovering', 'running')
-  `, [regionId]);
+  `, [regionId, yearsBack]);
   return Number(result.rows[0]?.count || 0) > 0;
 }
 

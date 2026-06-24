@@ -7,9 +7,10 @@ import { getRegion, legalDongCodePrefixes } from "./services/region-config.js";
 const provider = new KBPriceProvider();
 const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
 const workerRegionIds = parseWorkerRegionIds(process.env.WORKER_REGION_IDS || "");
+const workerYearsBack = parseNumberList(process.env.WORKER_YEARS_BACKS || "");
 
 await initDb();
-console.log(`KB worker started${workerRegionIds.length ? ` for ${workerRegionIds.join(",")}` : ""}`);
+console.log(`KB worker started${workerRegionIds.length ? ` for ${workerRegionIds.join(",")}` : ""}${workerYearsBack.length ? ` / years_back ${workerYearsBack.join(",")}` : ""}`);
 
 while (true) {
   try {
@@ -44,12 +45,18 @@ async function getRunnableJob() {
     params.push(workerRegionIds);
     regionClause = `and region_id = any($${params.length}::text[])`;
   }
+  let yearsBackClause = "";
+  if (workerYearsBack.length) {
+    params.push(workerYearsBack);
+    yearsBackClause = `and years_back = any($${params.length}::int[])`;
+  }
 
   const result = await query(`
     select *
     from crawl_jobs
     where status in ('requested', 'discovering', 'running')
       ${regionClause}
+      ${yearsBackClause}
     order by created_at asc
     limit 1
   `, params);
@@ -183,7 +190,8 @@ async function existingSourceComplexIds(region) {
     join crawl_jobs j on j.id = q.job_id
     where (
       q.status = 'completed'
-      or j.status in ('requested', 'discovering', 'running')
+      or j.status in ('discovering', 'running')
+      or (j.status = 'requested' and j.years_back = 0)
     )
     ${queueRegionClause}
   `, params);
@@ -390,6 +398,13 @@ function parseWorkerRegionIds(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseNumberList(value) {
+  return value
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
 }
 
 function dedupeBy(items, key) {

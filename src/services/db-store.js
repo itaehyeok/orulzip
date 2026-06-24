@@ -377,20 +377,48 @@ export async function kbCollectionCoverage() {
       where row_number = 1
     `, [regionIds]),
     query(`
+      with active_jobs as (
+        select *
+        from crawl_jobs
+        where region_id = any($1::text[])
+          and (
+            status in ('discovering', 'running')
+            or (status = 'requested' and years_back = 0)
+          )
+      ),
+      job_summary as (
+        select
+          region_id,
+          count(*)::int as active_jobs,
+          coalesce(sum(total_complexes), 0)::int as active_total,
+          coalesce(sum(completed_complexes), 0)::int as active_completed,
+          coalesce(sum(failed_complexes), 0)::int as active_failed
+        from active_jobs
+        group by region_id
+      ),
+      queue_summary as (
+        select
+          j.region_id,
+          count(q.id) filter (where q.status = 'pending')::int as active_pending,
+          count(q.id) filter (where q.status = 'running')::int as active_running,
+          count(q.id) filter (where q.status = 'completed')::int as active_queue_completed,
+          count(q.id) filter (where q.status = 'failed')::int as active_queue_failed
+        from active_jobs j
+        left join crawl_queue q on q.job_id = j.id
+        group by j.region_id
+      )
       select
-        j.region_id,
-        count(*) filter (where j.status in ('requested', 'discovering', 'running'))::int as active_jobs,
-        coalesce(sum(j.total_complexes) filter (where j.status in ('requested', 'discovering', 'running')), 0)::int as active_total,
-        coalesce(sum(j.completed_complexes) filter (where j.status in ('requested', 'discovering', 'running')), 0)::int as active_completed,
-        coalesce(sum(j.failed_complexes) filter (where j.status in ('requested', 'discovering', 'running')), 0)::int as active_failed,
-        count(q.id) filter (where j.status in ('requested', 'discovering', 'running') and q.status = 'pending')::int as active_pending,
-        count(q.id) filter (where j.status in ('requested', 'discovering', 'running') and q.status = 'running')::int as active_running,
-        count(q.id) filter (where j.status in ('requested', 'discovering', 'running') and q.status = 'completed')::int as active_queue_completed,
-        count(q.id) filter (where j.status in ('requested', 'discovering', 'running') and q.status = 'failed')::int as active_queue_failed
-      from crawl_jobs j
-      left join crawl_queue q on q.job_id = j.id
-      where j.region_id = any($1::text[])
-      group by j.region_id
+        coalesce(js.region_id, qs.region_id) as region_id,
+        coalesce(js.active_jobs, 0)::int as active_jobs,
+        coalesce(js.active_total, 0)::int as active_total,
+        coalesce(js.active_completed, 0)::int as active_completed,
+        coalesce(js.active_failed, 0)::int as active_failed,
+        coalesce(qs.active_pending, 0)::int as active_pending,
+        coalesce(qs.active_running, 0)::int as active_running,
+        coalesce(qs.active_queue_completed, 0)::int as active_queue_completed,
+        coalesce(qs.active_queue_failed, 0)::int as active_queue_failed
+      from job_summary js
+      full join queue_summary qs on qs.region_id = js.region_id
     `, [regionIds])
   ]);
 
@@ -408,7 +436,7 @@ export async function kbCollectionCoverage() {
     const activeFailed = Number(queueRow.active_queue_failed || 0);
     const knownTarget = storedComplexes + activePending + activeRunning + activeFailed;
     const activeTotal = Number(queueRow.active_total || 0);
-    const activeDone = Number(queueRow.active_queue_completed || 0) + Number(queueRow.active_queue_failed || 0);
+    const activeDone = Number(queueRow.active_completed || 0) + Number(queueRow.active_failed || 0);
 
     return {
       regionId: region.id,
