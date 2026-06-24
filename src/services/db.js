@@ -613,6 +613,12 @@ export async function initDb() {
       apartment_name text not null,
       neighborhood_name text,
       legal_dong_code text,
+      sido_code text,
+      sido_name text,
+      sigungu_code text,
+      sigungu_name text,
+      dong_key text,
+      dong_name text,
       area_type_count integer not null default 0,
       area_label text,
       start_sale_price integer,
@@ -656,6 +662,13 @@ export async function initDb() {
       add column if not exists address text;
     alter table price_band_rank_items
       add column if not exists area_summaries jsonb;
+    alter table price_band_rank_items
+      add column if not exists sido_code text,
+      add column if not exists sido_name text,
+      add column if not exists sigungu_code text,
+      add column if not exists sigungu_name text,
+      add column if not exists dong_key text,
+      add column if not exists dong_name text;
     create index if not exists price_band_rank_items_band_idx
       on price_band_rank_items(snapshot_id, band_key, rank);
     create index if not exists price_band_rank_items_apartment_idx
@@ -666,6 +679,10 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_items_snapshot_region_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key);
+    create index if not exists price_band_rank_items_snapshot_region_growth_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_bands_snapshot_idx
       on price_band_rank_bands(snapshot_id, band_key);
 

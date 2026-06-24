@@ -494,6 +494,7 @@ input {
 }
 
 .price-band-filter-primary,
+.price-band-filter-region,
 .price-band-filter-flow {
   display: flex;
   flex-wrap: wrap;
@@ -621,6 +622,10 @@ input {
 
 .price-band-area-filter-control select {
   min-width: 92px;
+}
+
+.price-band-region-filter-control select {
+  min-width: 94px;
 }
 
 .price-band-detail-panel {

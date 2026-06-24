@@ -34,9 +34,26 @@ const PRICE_BAND_RANK_CACHE_INDEXES = [
     name: "price_band_rank_items_snapshot_band_growth_idx",
     statement: `create index concurrently if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_region_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_region_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_region_growth_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_region_growth_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
   }
 ];
 const PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS = [
+  `alter table price_band_rank_items
+    add column if not exists sido_code text,
+    add column if not exists sido_name text,
+    add column if not exists sigungu_code text,
+    add column if not exists sigungu_name text,
+    add column if not exists dong_key text,
+    add column if not exists dong_name text`,
   `create table if not exists price_band_rank_bands (
     snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
     band_key integer not null,
@@ -234,6 +251,9 @@ export async function readPriceBandRankPage({
   startBandKey = "",
   endBandKey = "",
   areaBandKey = "all",
+  sidoCode = "",
+  sigunguCode = "",
+  dongKey = "",
   minHouseholdCount = 0,
   environment = "unknown",
   page = 1,
@@ -241,6 +261,7 @@ export async function readPriceBandRankPage({
 } = {}) {
   const normalizedBasis = basis === "end" ? "end" : "start";
   const normalizedAreaBand = normalizePriceAreaBand(areaBandKey);
+  const regionFilter = normalizePriceBandRegionFilter({ sidoCode, sigunguCode, dongKey });
   const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
@@ -275,6 +296,7 @@ export async function readPriceBandRankPage({
         selectedStartBandKey,
         selectedEndBandKey,
         areaBand: normalizedAreaBand,
+        regionFilter,
         minHouseholdCount: normalizedMinHouseholdCount,
         page: normalizedPage,
         pageSize: normalizedPageSize,
@@ -298,7 +320,8 @@ export async function readPriceBandRankPage({
           minHouseholdCount: normalizedMinHouseholdCount,
           areaBand: normalizedAreaBand,
           selectedStartBandKey,
-          selectedEndBandKey
+          selectedEndBandKey,
+          regionFilter
         }),
         reason: "price band rank cache snapshot missing",
         action: "실시간 대형 계산을 막고 빈 응답 반환",
@@ -310,6 +333,7 @@ export async function readPriceBandRankPage({
           areaBand: normalizedAreaBand,
           selectedStartBandKey,
           selectedEndBandKey,
+          regionFilter,
           reason: "cache-missing-no-live-fallback"
         })
       });
@@ -321,6 +345,7 @@ export async function readPriceBandRankPage({
         selectedStartBandKey,
         selectedEndBandKey,
         areaBand: normalizedAreaBand,
+        regionFilter,
         minHouseholdCount: normalizedMinHouseholdCount,
         page: normalizedPage,
         pageSize: normalizedPageSize,
@@ -335,6 +360,7 @@ export async function readPriceBandRankPage({
       selectedStartBandKey,
       selectedEndBandKey,
       areaBand: normalizedAreaBand,
+      regionFilter,
       minHouseholdCount: normalizedMinHouseholdCount,
       page: normalizedPage,
       pageSize: normalizedPageSize,
@@ -350,6 +376,7 @@ export async function readPriceBandRankPage({
     selectedStartBandKey,
     selectedEndBandKey,
     areaBand: normalizedAreaBand,
+    regionFilter,
     minHouseholdCount: normalizedMinHouseholdCount,
     page: normalizedPage,
     pageSize: normalizedPageSize,
@@ -423,11 +450,13 @@ function emptyPriceBandRankPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
   reason
 }) {
+  const region = buildPriceBandRegionPayload(regionFilter);
   return {
     period: { startMonth, endMonth },
     basis,
@@ -442,8 +471,10 @@ function emptyPriceBandRankPage({
       endBandKey: selectedEndBandKey,
       endBand: null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: false,
       status: "missing",
@@ -476,6 +507,7 @@ async function readPriceBandRankSnapshotPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
@@ -499,7 +531,15 @@ async function readPriceBandRankSnapshotPage({
     snapshotId: snapshot.id,
     snapshotBasis: basis,
     startBandKey: selectedStartBandKey,
-    endBandKey: selectedEndBandKey
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
+  const region = await readPriceBandRegionOptions({
+    snapshotId: snapshot.id,
+    snapshotBasis: basis,
+    selectedStartBandKey,
+    selectedEndBandKey,
+    regionFilter
   });
   const totalRows = await readPriceBandTotalRows({
     snapshot,
@@ -507,6 +547,7 @@ async function readPriceBandRankSnapshotPage({
     bands,
     selectedStartBandKey,
     selectedEndBandKey,
+    regionFilter,
     where
   });
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
@@ -556,7 +597,8 @@ async function readPriceBandRankSnapshotPage({
         minHouseholdCount,
         areaBand,
         selectedStartBandKey,
-        selectedEndBandKey
+        selectedEndBandKey,
+        regionFilter
       }),
       reason: fallback.reason,
       action: fallback.source === "recent-cache"
@@ -570,6 +612,7 @@ async function readPriceBandRankSnapshotPage({
         areaBand,
         selectedStartBandKey,
         selectedEndBandKey,
+        regionFilter,
         reason: fallback.reason
       })
     });
@@ -596,8 +639,10 @@ async function readPriceBandRankSnapshotPage({
         ? bands.find((band) => band.bandKey === selectedEndBandKey) || null
         : null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: true,
       status: priceBandCacheStatus(snapshot, fallback),
@@ -670,9 +715,11 @@ async function readPriceBandTotalRows({
   bands,
   selectedStartBandKey,
   selectedEndBandKey,
+  regionFilter,
   where
 }) {
-  if (selectedStartBandKey === null && selectedEndBandKey === null) {
+  const hasRegionFilter = hasPriceBandRegionFilter(regionFilter);
+  if (!hasRegionFilter && selectedStartBandKey === null && selectedEndBandKey === null) {
     const snapshotCount = Number(snapshot.item_count);
     if (Number.isFinite(snapshotCount) && snapshotCount >= 0) return snapshotCount;
   }
@@ -680,7 +727,7 @@ async function readPriceBandTotalRows({
   const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
   const hasOnlyBasisBandFilter = selectedBandKey !== null
     && (basis === "end" ? selectedStartBandKey === null : selectedEndBandKey === null);
-  if (hasOnlyBasisBandFilter) {
+  if (!hasRegionFilter && hasOnlyBasisBandFilter) {
     const band = bands.find((item) => item.bandKey === selectedBandKey);
     const bandCount = Number(band?.apartmentCount);
     if (Number.isFinite(bandCount) && bandCount >= 0) return bandCount;
@@ -692,6 +739,93 @@ async function readPriceBandTotalRows({
     where ${where.sql}
   `, where.params);
   return Number(countResult.rows[0]?.total_rows || 0);
+}
+
+async function readPriceBandRegionOptions({
+  snapshotId,
+  snapshotBasis,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  regionFilter
+}) {
+  const selected = normalizePriceBandRegionFilter(regionFilter);
+  const [sidos, sigungus, dongs] = await Promise.all([
+    readPriceBandRegionOptionRows({
+      snapshotId,
+      snapshotBasis,
+      selectedStartBandKey,
+      selectedEndBandKey,
+      groupKey: "sido"
+    }),
+    selected.sidoCode
+      ? readPriceBandRegionOptionRows({
+        snapshotId,
+        snapshotBasis,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        regionFilter: { sidoCode: selected.sidoCode },
+        groupKey: "sigungu"
+      })
+      : Promise.resolve([]),
+    selected.sigunguCode
+      ? readPriceBandRegionOptionRows({
+        snapshotId,
+        snapshotBasis,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        regionFilter: {
+          sidoCode: selected.sidoCode,
+          sigunguCode: selected.sigunguCode
+        },
+        groupKey: "dong"
+      })
+      : Promise.resolve([])
+  ]);
+  return buildPriceBandRegionPayload(selected, { sidos, sigungus, dongs });
+}
+
+async function readPriceBandRegionOptionRows({
+  snapshotId,
+  snapshotBasis,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  regionFilter = {},
+  groupKey
+}) {
+  const where = buildPriceBandItemWhere({
+    snapshotId,
+    snapshotBasis,
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
+  const group = priceBandRegionGroupColumns(groupKey);
+  const result = await query(`
+    select
+      pbi.${group.codeColumn} as code,
+      max(nullif(pbi.${group.nameColumn}, '')) as name,
+      count(*)::int as count
+    from price_band_rank_items pbi
+    where ${where.sql}
+      and coalesce(pbi.${group.codeColumn}, '') <> ''
+    group by pbi.${group.codeColumn}
+    order by name asc nulls last, code asc
+  `, where.params);
+  return result.rows.map((row) => ({
+    code: row.code || "",
+    name: row.name || row.code || "",
+    count: Number(row.count || 0)
+  }));
+}
+
+function priceBandRegionGroupColumns(groupKey) {
+  if (groupKey === "dong") {
+    return { codeColumn: "dong_key", nameColumn: "dong_name" };
+  }
+  if (groupKey === "sigungu") {
+    return { codeColumn: "sigungu_code", nameColumn: "sigungu_name" };
+  }
+  return { codeColumn: "sido_code", nameColumn: "sido_name" };
 }
 
 function priceBandCacheStatus(snapshot, fallback = null) {
@@ -738,6 +872,7 @@ async function readPriceBandRankFallbackPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
@@ -761,8 +896,14 @@ async function readPriceBandRankFallbackPage({
     : ranking.bands.find((band) => band.bandKey === selectedBandKey) || null;
   const rows = filterComputedPriceBandRows(ranking.allRows || [], {
     startBandKey: selectedStartBandKey,
-    endBandKey: selectedEndBandKey
+    endBandKey: selectedEndBandKey,
+    regionFilter
   }).sort(compareApartmentGrowth);
+  const region = buildComputedPriceBandRegionOptions(ranking.allRows || [], {
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
   const totalRows = rows.length;
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
   const safePage = totalRows ? Math.min(page, totalPages) : 1;
@@ -780,21 +921,22 @@ async function readPriceBandRankFallbackPage({
       minHouseholdCount,
       areaBand,
       selectedStartBandKey,
-      selectedEndBandKey
+      selectedEndBandKey,
+      regionFilter
     }),
     reason,
     action: "실시간 계산으로 응답",
-    dedupeKey: [
-      "price-band-rank",
+    dedupeKey: priceBandFallbackDedupeKey({
       source,
-      startMonth || "",
-      endMonth || "",
+      startMonth,
+      endMonth,
       minHouseholdCount,
-      areaBand.key,
-      selectedStartBandKey ?? "all",
-      selectedEndBandKey ?? "all",
+      areaBand,
+      selectedStartBandKey,
+      selectedEndBandKey,
+      regionFilter,
       reason
-    ].join(":")
+    })
   });
 
   return {
@@ -821,8 +963,10 @@ async function readPriceBandRankFallbackPage({
         ? ranking.bands.find((band) => band.bandKey === selectedEndBandKey) || null
         : null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: false,
       fallback: true,
@@ -847,7 +991,8 @@ function buildPriceBandItemWhere({
   snapshotId,
   snapshotBasis = "start",
   startBandKey = null,
-  endBandKey = null
+  endBandKey = null,
+  regionFilter = {}
 }) {
   const clauses = ["pbi.snapshot_id = $1"];
   const params = [snapshotId];
@@ -867,10 +1012,27 @@ function buildPriceBandItemWhere({
     key: endBandKey,
     column: "end_sale_price"
   });
+  appendPriceBandRegionClauses({ clauses, params, regionFilter });
   return {
     sql: clauses.join("\n      and "),
     params
   };
+}
+
+function appendPriceBandRegionClauses({ clauses, params, regionFilter }) {
+  const filter = normalizePriceBandRegionFilter(regionFilter);
+  if (filter.sidoCode) {
+    params.push(filter.sidoCode);
+    clauses.push(`pbi.sido_code = $${params.length}`);
+  }
+  if (filter.sigunguCode) {
+    params.push(filter.sigunguCode);
+    clauses.push(`pbi.sigungu_code = $${params.length}`);
+  }
+  if (filter.dongKey) {
+    params.push(filter.dongKey);
+    clauses.push(`pbi.dong_key = $${params.length}`);
+  }
 }
 
 function appendPriceBandClause({
@@ -920,8 +1082,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           c.dong_key as legal_dong_code,
           c.address,
           c.sido_code,
+          c.sido_name,
           c.sigungu_code,
+          c.sigungu_name,
           c.dong_key,
+          c.dong_name,
           c.build_year,
           c.deal_count as apartment_deal_count,
           c.first_month,
@@ -958,8 +1123,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           legal_dong_code,
           address,
           sido_code,
+          sido_name,
           sigungu_code,
+          sigungu_name,
           dong_key,
+          dong_name,
           build_year,
           apartment_deal_count,
           first_month,
@@ -974,7 +1142,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           count(*)::int as deal_count
         from matched
         group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
-                 sido_code, sigungu_code, dong_key, build_year, apartment_deal_count,
+                 sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name, build_year, apartment_deal_count,
                  first_month, last_month, lat, lng, household_count, exclusive_area_m2, deal_year_month
       ),
       start_rows as (
@@ -1012,8 +1180,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         legal_dong_code,
         address,
         sido_code,
+        sido_name,
         sigungu_code,
+        sigungu_name,
         dong_key,
+        dong_name,
         build_year,
         apartment_deal_count,
         first_month,
@@ -1035,8 +1206,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         legal_dong_code,
         address,
         sido_code,
+        sido_name,
         sigungu_code,
+        sigungu_name,
         dong_key,
+        dong_name,
         build_year,
         apartment_deal_count,
         first_month,
@@ -1149,6 +1323,12 @@ function buildMolitPriceBandRankings(rows, {
       neighborhoodName: apartmentGroup.apartment.neighborhoodName,
       legalDongCode: apartmentGroup.apartment.legalDongCode,
       address: apartmentGroup.apartment.address,
+      sidoCode: apartmentGroup.apartment.sidoCode,
+      sidoName: apartmentGroup.apartment.sidoName,
+      sigunguCode: apartmentGroup.apartment.sigunguCode,
+      sigunguName: apartmentGroup.apartment.sigunguName,
+      dongKey: apartmentGroup.apartment.dongKey,
+      dongName: apartmentGroup.apartment.dongName,
       householdCount: apartmentGroup.apartment.householdCount,
       areaTypeCount: typeSummaries.length,
       areaLabel: representative.areaLabel,
@@ -1347,7 +1527,7 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
     const chunk = rows.slice(start, start + chunkSize);
     const params = [];
     const values = chunk.map((row, index) => {
-      const offset = index * 18;
+      const offset = index * 24;
       params.push(
         snapshotId,
         row.bandKey,
@@ -1358,6 +1538,12 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
         row.neighborhoodName || "",
         row.legalDongCode || "",
         row.address || "",
+        row.sidoCode || "",
+        row.sidoName || "",
+        row.sigunguCode || "",
+        row.sigunguName || "",
+        row.dongKey || "",
+        row.dongName || "",
         row.areaTypeCount || 0,
         row.areaLabel || "",
         row.startSalePrice ?? null,
@@ -1371,14 +1557,17 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
       return `(
         $${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4},$${offset + 5},$${offset + 6},
         $${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},$${offset + 11},
-        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},$${offset + 18}::jsonb,now()
+        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},
+        $${offset + 18},$${offset + 19},$${offset + 20},$${offset + 21},$${offset + 22},$${offset + 23},$${offset + 24}::jsonb,now()
       )`;
     });
 
     await client.query(`
       insert into price_band_rank_items (
         snapshot_id, band_key, band_label, rank, apartment_id, apartment_name,
-        neighborhood_name, legal_dong_code, address, area_type_count, area_label,
+        neighborhood_name, legal_dong_code, address,
+        sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
+        area_type_count, area_label,
         start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
         growth_amount, growth_rate, area_summaries, updated_at
       ) values ${values.join(",")}
@@ -1477,6 +1666,12 @@ function serializePriceBandItem(row, basis) {
     neighborhoodName: row.neighborhood_name || "",
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
     householdCount: Number(row.household_count || 0),
     areaTypeCount: Number(row.area_type_count || 0),
     areaLabel: row.area_label || "",
@@ -1501,6 +1696,12 @@ function serializeComputedPriceBandItem(row, basis) {
     neighborhoodName: row.neighborhoodName || "",
     legalDongCode: row.legalDongCode || "",
     address: row.address || "",
+    sidoCode: row.sidoCode || "",
+    sidoName: row.sidoName || "",
+    sigunguCode: row.sigunguCode || "",
+    sigunguName: row.sigunguName || "",
+    dongKey: row.dongKey || "",
+    dongName: row.dongName || "",
     householdCount: Number(row.householdCount || 0),
     areaTypeCount: Number(row.areaTypeCount || 0),
     areaLabel: row.areaLabel || "",
@@ -1517,12 +1718,49 @@ function serializeComputedPriceBandItem(row, basis) {
   };
 }
 
-function filterComputedPriceBandRows(rows, { startBandKey = null, endBandKey = null } = {}) {
+function filterComputedPriceBandRows(rows, { startBandKey = null, endBandKey = null, regionFilter = {} } = {}) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
   return rows.filter((row) => {
     if (!priceInBand(row.startSalePrice, startBandKey)) return false;
     if (!priceInBand(row.endSalePrice, endBandKey)) return false;
+    if (region.sidoCode && row.sidoCode !== region.sidoCode) return false;
+    if (region.sigunguCode && row.sigunguCode !== region.sigunguCode) return false;
+    if (region.dongKey && row.dongKey !== region.dongKey) return false;
     return true;
   });
+}
+
+function buildComputedPriceBandRegionOptions(rows, {
+  startBandKey = null,
+  endBandKey = null,
+  regionFilter = {}
+} = {}) {
+  const selected = normalizePriceBandRegionFilter(regionFilter);
+  const allRows = filterComputedPriceBandRows(rows, { startBandKey, endBandKey });
+  const sidoRows = allRows;
+  const sigunguRows = selected.sidoCode
+    ? allRows.filter((row) => row.sidoCode === selected.sidoCode)
+    : [];
+  const dongRows = selected.sigunguCode
+    ? sigunguRows.filter((row) => row.sigunguCode === selected.sigunguCode)
+    : [];
+  return buildPriceBandRegionPayload(selected, {
+    sidos: computedRegionOptions(sidoRows, "sidoCode", "sidoName"),
+    sigungus: computedRegionOptions(sigunguRows, "sigunguCode", "sigunguName"),
+    dongs: computedRegionOptions(dongRows, "dongKey", "dongName")
+  });
+}
+
+function computedRegionOptions(rows, codeKey, nameKey) {
+  const groups = new Map();
+  for (const row of rows) {
+    const code = String(row[codeKey] || "").trim();
+    if (!code) continue;
+    const current = groups.get(code) || { code, name: String(row[nameKey] || code).trim() || code, count: 0 };
+    current.count += 1;
+    groups.set(code, current);
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "ko") || a.code.localeCompare(b.code));
 }
 
 function priceInBand(price, key) {
@@ -1540,11 +1778,13 @@ function priceBandFallbackConditions({
   minHouseholdCount,
   areaBand,
   selectedStartBandKey,
-  selectedEndBandKey
+  selectedEndBandKey,
+  regionFilter
 }) {
   return [
     `기준=${basis === "end" ? "현재 가격" : "과거 가격"}`,
     `${formatHouseholdCondition(minHouseholdCount)}`,
+    `지역=${formatRegionCondition(regionFilter)}`,
     `평형=${areaBand?.label || "전체 평형"}`,
     `과거=${formatBandCondition(selectedStartBandKey)}`,
     `현재=${formatBandCondition(selectedEndBandKey)}`
@@ -1559,8 +1799,10 @@ function priceBandFallbackDedupeKey({
   areaBand,
   selectedStartBandKey,
   selectedEndBandKey,
+  regionFilter,
   reason
 }) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
   return [
     "price-band-rank",
     source,
@@ -1568,6 +1810,9 @@ function priceBandFallbackDedupeKey({
     endMonth || "",
     minHouseholdCount,
     areaBand?.key || "all",
+    region.sidoCode || "all",
+    region.sigunguCode || "all",
+    region.dongKey || "all",
     selectedStartBandKey ?? "all",
     selectedEndBandKey ?? "all",
     reason
@@ -1582,6 +1827,14 @@ function formatHouseholdCondition(minHouseholdCount) {
 function formatBandCondition(key) {
   if (key === null || key === undefined) return "전체";
   return priceBandLabelFromKey(key);
+}
+
+function formatRegionCondition(regionFilter) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
+  if (region.dongKey) return region.dongKey;
+  if (region.sigunguCode) return region.sigunguCode;
+  if (region.sidoCode) return region.sidoCode;
+  return "전국";
 }
 
 function priceBandLabelFromKey(key) {
@@ -1631,6 +1884,36 @@ function normalizePriceAreaBand(value) {
   return PRICE_AREA_BANDS.find((band) => band.key === String(key || "")) || PRICE_AREA_BANDS[0];
 }
 
+function normalizePriceBandRegionFilter(value = {}) {
+  const dongKey = String(value.dongKey || "").trim();
+  let sigunguCode = String(value.sigunguCode || "").trim();
+  let sidoCode = String(value.sidoCode || "").trim();
+  if (!sigunguCode && /^\d{5}/.test(dongKey)) sigunguCode = dongKey.slice(0, 5);
+  if (!sidoCode && /^\d{5}$/.test(sigunguCode)) sidoCode = sigunguCode.slice(0, 2);
+  return {
+    sidoCode: /^\d{2}$/.test(sidoCode) ? sidoCode : "",
+    sigunguCode: /^\d{5}$/.test(sigunguCode) ? sigunguCode : "",
+    dongKey
+  };
+}
+
+function hasPriceBandRegionFilter(regionFilter = {}) {
+  const normalized = normalizePriceBandRegionFilter(regionFilter);
+  return Boolean(normalized.sidoCode || normalized.sigunguCode || normalized.dongKey);
+}
+
+function buildPriceBandRegionPayload(selected = {}, options = {}) {
+  const normalized = normalizePriceBandRegionFilter(selected);
+  return {
+    selected: normalized,
+    options: {
+      sidos: Array.isArray(options.sidos) ? options.sidos : [],
+      sigungus: Array.isArray(options.sigungus) ? options.sigungus : [],
+      dongs: Array.isArray(options.dongs) ? options.dongs : []
+    }
+  };
+}
+
 function normalizeBandKey(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -1670,8 +1953,11 @@ function molitApartmentFromRow(row) {
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
     sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
     sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
     dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
     buildYear: row.build_year === null ? null : Number(row.build_year),
     dealCount: Number(row.apartment_deal_count || 0),
     householdCount: Number(row.household_count || 0),

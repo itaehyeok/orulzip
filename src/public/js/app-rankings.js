@@ -110,6 +110,10 @@ function renderPriceBandTable(result, basisBands = null) {
     ? ""
     : String(result.selection.endBandKey);
   state.priceBandAreaKey = result.selection?.areaBandKey || state.priceBandAreaKey || "all";
+  const region = normalizePriceBandRegionPayload(result.region, result.selection?.region);
+  state.priceBandSidoCode = region.selected.sidoCode || "";
+  state.priceBandSigunguCode = region.selected.sigunguCode || "";
+  state.priceBandDongKey = region.selected.dongKey || "";
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const bands = Array.isArray(result.bands) ? result.bands : [];
   const areaBands = Array.isArray(result.areaBands) ? result.areaBands : [];
@@ -137,6 +141,7 @@ function renderPriceBandTable(result, basisBands = null) {
   const selectionLabel = priceBandSelectionLabel(selectedStartBand, selectedEndBand);
   els.priceBandCount.innerHTML = renderPriceBandCountSummary({
     selectionLabel,
+    regionLabel: priceBandRegionLabel(region),
     areaLabel: selectedAreaBand?.label || "전체 평형",
     householdLabel,
     totalRows: pagination.totalRows,
@@ -144,7 +149,7 @@ function renderPriceBandTable(result, basisBands = null) {
     rangeLabel: pagination.totalRows ? `${formatInt(start)}-${formatInt(end)}` : "",
     cacheLabel
   });
-  renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows);
+  renderPriceBandSummary(summaryBands, areaBands, state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey, pagination.totalRows, region);
   els.priceBandRows.innerHTML = rows.length
     ? rows.map((row) => {
       const mapLink = priceBandMapApartmentLink(row);
@@ -465,7 +470,7 @@ function setPriceBandPaginationLoading(isLoading) {
 }
 
 function renderPriceBandLoadError(error) {
-  els.priceBandView?.removeAttribute("aria-busy");
+  clearPriceBandLoadingState();
   syncPriceBandFilterControls(state.priceBandStartKey, state.priceBandEndKey, state.priceBandAreaKey);
   updatePriceBandTotalBadge("오류");
   const message = error?.message || "랭킹을 불러오지 못했습니다.";
@@ -481,12 +486,13 @@ function renderPriceBandLoadError(error) {
   if (els.priceBandPagination) els.priceBandPagination.innerHTML = "";
 }
 
-function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey, totalRows = 0) {
+function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey, totalRows = 0, region = null) {
   if (!els.priceBandSummary) return;
   const startBands = Array.isArray(basisBands?.start) ? basisBands.start : [];
   const endBands = Array.isArray(basisBands?.end) ? basisBands.end : [];
   const areaBandOptions = Array.isArray(areaBands) ? areaBands : [];
-  if (!startBands.length && !endBands.length && !areaBandOptions.length) {
+  const regionPayload = normalizePriceBandRegionPayload(region);
+  if (!startBands.length && !endBands.length && !areaBandOptions.length && !regionPayload.options.sidos.length) {
     els.priceBandSummary.innerHTML = `<div class="empty">표시할 가격대가 없습니다.</div>`;
     return;
   }
@@ -496,6 +502,7 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
         ${renderPriceBandPeriodSelect()}
         ${renderPriceAreaBandSelect(areaBandOptions, selectedAreaBandKey)}
       </div>
+      ${renderPriceBandRegionFilters(regionPayload)}
       <div class="price-band-filter-flow">
         ${renderPriceBandSelect("start", "과거 가격", startBands, selectedStartBandKey)}
         <span class="price-band-filter-arrow" aria-hidden="true">→</span>
@@ -508,6 +515,7 @@ function renderPriceBandSummary(basisBands, areaBands, selectedStartBandKey, sel
 
 function renderPriceBandCountSummary({
   selectionLabel,
+  regionLabel,
   areaLabel,
   householdLabel,
   totalRows,
@@ -516,6 +524,7 @@ function renderPriceBandCountSummary({
   cacheLabel
 }) {
   const subParts = [
+    regionLabel || "전국",
     areaLabel || "전체 평형",
     householdLabel,
     `총 ${formatInt(totalRows || 0)}개`
@@ -591,15 +600,68 @@ function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
   `;
 }
 
+function renderPriceBandRegionFilters(region) {
+  const payload = normalizePriceBandRegionPayload(region);
+  const { selected, options } = payload;
+  return `
+    <div class="price-band-filter-region" aria-label="실거래가 랭킹 지역 조건">
+      ${renderPriceBandRegionSelect("sido", "시도", "전국", options.sidos, selected.sidoCode)}
+      ${selected.sidoCode || options.sigungus.length
+        ? renderPriceBandRegionSelect("sigungu", "시군구", "전체 시군구", options.sigungus, selected.sigunguCode)
+        : ""}
+      ${selected.sigunguCode || options.dongs.length
+        ? renderPriceBandRegionSelect("dong", "동", "전체 동", options.dongs, selected.dongKey)
+        : ""}
+    </div>
+  `;
+}
+
+function renderPriceBandRegionSelect(kind, label, allLabel, options, selectedValue) {
+  const normalizedSelectedValue = String(selectedValue || "");
+  const selectOptions = priceBandRegionOptionsWithSelected(options, normalizedSelectedValue);
+  const activeClass = normalizedSelectedValue ? " is-active" : "";
+  return `
+    <label class="price-band-filter-control price-band-region-filter-control${activeClass}">
+      <span>${escapeHtml(label)}</span>
+      <select data-price-band-region-filter="${escapeHtml(kind)}" aria-label="${escapeHtml(label)} 필터">
+        <option value="" ${normalizedSelectedValue === "" ? "selected" : ""}>${escapeHtml(allLabel)}</option>
+        ${selectOptions.map((option) => renderPriceBandRegionOption(option, normalizedSelectedValue)).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function priceBandRegionOptionsWithSelected(options, selectedValue) {
+  const normalizedOptions = normalizePriceBandRegionOptions(options);
+  if (selectedValue && !normalizedOptions.some((option) => option.code === selectedValue)) {
+    normalizedOptions.unshift({ code: selectedValue, name: selectedValue, count: 0 });
+  }
+  return normalizedOptions;
+}
+
+function renderPriceBandRegionOption(option, selectedValue) {
+  const code = String(option?.code || "");
+  if (!code) return "";
+  const count = Number(option?.count || 0);
+  const countText = Number.isFinite(count) && count > 0 ? ` ${formatInt(count)}개` : "";
+  return `<option value="${escapeHtml(code)}" ${code === selectedValue ? "selected" : ""}>${escapeHtml(`${option?.name || code}${countText}`)}</option>`;
+}
+
 function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey, selectedAreaBandKey) {
   if (!els.priceBandSummary) return;
   const startSelect = els.priceBandSummary.querySelector('[data-price-band-filter="start"]');
   const endSelect = els.priceBandSummary.querySelector('[data-price-band-filter="end"]');
   const areaSelect = els.priceBandSummary.querySelector('[data-price-band-filter="area"]');
+  const sidoSelect = els.priceBandSummary.querySelector('[data-price-band-region-filter="sido"]');
+  const sigunguSelect = els.priceBandSummary.querySelector('[data-price-band-region-filter="sigungu"]');
+  const dongSelect = els.priceBandSummary.querySelector('[data-price-band-region-filter="dong"]');
   if (startSelect) startSelect.value = selectedStartBandKey === null || selectedStartBandKey === undefined ? "" : String(selectedStartBandKey);
   if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
   if (areaSelect) areaSelect.value = selectedAreaBandKey || "all";
-  [startSelect, endSelect, areaSelect].forEach(syncPriceBandFilterActiveState);
+  if (sidoSelect) sidoSelect.value = state.priceBandSidoCode || "";
+  if (sigunguSelect) sigunguSelect.value = state.priceBandSigunguCode || "";
+  if (dongSelect) dongSelect.value = state.priceBandDongKey || "";
+  [startSelect, endSelect, areaSelect, sidoSelect, sigunguSelect, dongSelect].forEach(syncPriceBandFilterActiveState);
 }
 
 function syncPriceBandFilterActiveState(select) {
@@ -651,6 +713,50 @@ function findPriceAreaBand(bands, bandKey) {
 
 function formatPriceBandTotal(totalRows) {
   return `총 ${formatInt(totalRows || 0)}개 단지`;
+}
+
+function normalizePriceBandRegionPayload(region = null, selectedFallback = null) {
+  const selected = normalizePriceBandRegionSelection(region?.selected || selectedFallback || {});
+  const options = region?.options || {};
+  return {
+    selected,
+    options: {
+      sidos: normalizePriceBandRegionOptions(options.sidos),
+      sigungus: normalizePriceBandRegionOptions(options.sigungus),
+      dongs: normalizePriceBandRegionOptions(options.dongs)
+    }
+  };
+}
+
+function normalizePriceBandRegionSelection(value = {}) {
+  return {
+    sidoCode: String(value.sidoCode || ""),
+    sigunguCode: String(value.sigunguCode || ""),
+    dongKey: String(value.dongKey || "")
+  };
+}
+
+function normalizePriceBandRegionOptions(options) {
+  return (Array.isArray(options) ? options : [])
+    .map((option) => ({
+      code: String(option?.code || ""),
+      name: String(option?.name || option?.code || ""),
+      count: Number(option?.count || 0)
+    }))
+    .filter((option) => option.code);
+}
+
+function priceBandRegionLabel(region) {
+  const payload = normalizePriceBandRegionPayload(region);
+  const { selected, options } = payload;
+  if (selected.dongKey) return findPriceBandRegionOptionLabel(options.dongs, selected.dongKey) || selected.dongKey;
+  if (selected.sigunguCode) return findPriceBandRegionOptionLabel(options.sigungus, selected.sigunguCode) || selected.sigunguCode;
+  if (selected.sidoCode) return findPriceBandRegionOptionLabel(options.sidos, selected.sidoCode) || selected.sidoCode;
+  return "전국";
+}
+
+function findPriceBandRegionOptionLabel(options, code) {
+  return (Array.isArray(options) ? options : []).find((option) => option.code === code)?.name || "";
 }
 
 function formatPriceBandLocation(row) {
