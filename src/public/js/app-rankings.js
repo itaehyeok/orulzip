@@ -424,8 +424,9 @@ function renderPriceBandPeriodSelect() {
 function renderPriceBandSelect(kind, label, bands, selectedBandKey) {
   const normalizedSelectedKey = selectedBandKey === null || selectedBandKey === undefined ? "" : String(selectedBandKey);
   const options = priceBandOptionsWithSelected(bands, normalizedSelectedKey);
+  const activeClass = normalizedSelectedKey !== "" ? " is-active" : "";
   return `
-    <label class="price-band-filter-control">
+    <label class="price-band-filter-control${activeClass}">
       <span>${label}</span>
       <select data-price-band-filter="${kind}">
         <option value="" ${normalizedSelectedKey === "" ? "selected" : ""}>전체</option>
@@ -453,8 +454,9 @@ function renderPriceAreaBandSelect(areaBands, selectedAreaBandKey) {
     ? areaBands
     : [{ key: "all", label: "전체 평형" }];
   const normalizedSelectedKey = selectedAreaBandKey || "all";
+  const activeClass = normalizedSelectedKey !== "all" ? " is-active" : "";
   return `
-    <label class="price-band-filter-control price-band-area-filter-control">
+    <label class="price-band-filter-control price-band-area-filter-control${activeClass}">
       <span>평형</span>
       <select data-price-band-filter="area">
         ${bands.map((band) => {
@@ -474,6 +476,15 @@ function syncPriceBandFilterControls(selectedStartBandKey, selectedEndBandKey, s
   if (startSelect) startSelect.value = selectedStartBandKey === null || selectedStartBandKey === undefined ? "" : String(selectedStartBandKey);
   if (endSelect) endSelect.value = selectedEndBandKey === null || selectedEndBandKey === undefined ? "" : String(selectedEndBandKey);
   if (areaSelect) areaSelect.value = selectedAreaBandKey || "all";
+  [startSelect, endSelect, areaSelect].forEach(syncPriceBandFilterActiveState);
+}
+
+function syncPriceBandFilterActiveState(select) {
+  const control = select?.closest(".price-band-filter-control");
+  if (!control) return;
+  const isAreaFilter = select.dataset.priceBandFilter === "area";
+  const value = isAreaFilter ? select.value || "all" : select.value || "";
+  control.classList.toggle("is-active", isAreaFilter ? value !== "all" : value !== "");
 }
 
 function updatePriceBandTotalBadge(label) {

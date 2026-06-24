@@ -498,6 +498,13 @@ input {
   word-break: keep-all;
 }
 
+.price-band-filter-control.is-active {
+  border-color: rgba(35, 103, 209, 0.42);
+  background: #edf4ff;
+  color: var(--blue);
+  box-shadow: 0 1px 2px rgba(35, 103, 209, 0.08);
+}
+
 .price-band-filter-control span {
   flex: 0 0 auto;
   color: var(--muted);
@@ -505,6 +512,11 @@ input {
   line-height: 1;
   white-space: nowrap;
   word-break: keep-all;
+}
+
+.price-band-filter-control.is-active span,
+.price-band-filter-control.is-active select {
+  color: var(--blue);
 }
 
 .price-band-filter-control select {
