@@ -11,6 +11,16 @@ const result = await runPerformanceMeasurements({
   environment,
   save
 });
+const issueDetails = result.measurements
+  .filter((item) => item.status !== "pass")
+  .map((item) => ({
+    unit: item.unitLabel,
+    period: item.periodLabel,
+    status: item.status,
+    durationMs: item.durationMs,
+    dataCount: item.dataCount,
+    message: item.message
+  }));
 
 console.log(JSON.stringify({
   status: result.status,
@@ -21,6 +31,8 @@ console.log(JSON.stringify({
   issueCount: result.issueCount,
   warningCount: result.warningCount,
   measurementCount: result.summary?.measurementCount || result.measurements?.length || 0,
+  slowest: result.summary?.slowest || null,
+  issues: issueDetails,
   saved: Boolean(result.id),
   id: result.id || null
 }, null, 2));
