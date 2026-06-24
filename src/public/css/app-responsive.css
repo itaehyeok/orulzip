@@ -280,7 +280,7 @@ td:nth-child(4) {
     --map-mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --map-mobile-browser-bottom-inset: 0px;
     --map-mobile-control-bottom: calc(var(--map-mobile-safe-bottom) + var(--map-mobile-browser-bottom-inset));
-    --map-mobile-ranking-bottom-clearance: 58px;
+    --map-mobile-ranking-bottom-clearance: 96px;
     --map-global-header-height: calc(99px + var(--map-mobile-safe-top));
   }
 
