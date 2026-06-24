@@ -50,6 +50,7 @@ const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 3050);
 const host = process.env.HOST || "127.0.0.1";
 const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replace(/\/+$/, "");
+const defaultSeoImagePath = "/og/orulzip-map-preview.png";
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
 const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
@@ -1124,6 +1125,7 @@ function contentType(filePath) {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
+    ".png": "image/png",
     ".svg": "image/svg+xml; charset=utf-8",
     ".txt": "text/plain; charset=utf-8",
     ".xml": "application/xml; charset=utf-8"
@@ -1136,6 +1138,7 @@ async function injectRouteSeo(html, routePath) {
   const title = seo.title;
   const description = seo.description;
   const robots = seo.robots || "index,follow";
+  const imageUrl = absoluteUrl(seo.imagePath || defaultSeoImagePath);
 
   return html
     .replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(title)}</title>`)
@@ -1145,8 +1148,11 @@ async function injectRouteSeo(html, routePath) {
     .replace(/<meta property="og:title" content="[^"]*">/s, `<meta property="og:title" content="${escapeAttribute(title)}">`)
     .replace(/<meta property="og:description" content="[^"]*">/s, `<meta property="og:description" content="${escapeAttribute(description)}">`)
     .replace(/<meta property="og:url" content="[^"]*">/s, `<meta property="og:url" content="${escapeAttribute(canonicalUrl)}">`)
+    .replace(/<meta property="og:image" content="[^"]*">/s, `<meta property="og:image" content="${escapeAttribute(imageUrl)}">`)
+    .replace(/<meta name="twitter:card" content="[^"]*">/s, `<meta name="twitter:card" content="summary_large_image">`)
     .replace(/<meta name="twitter:title" content="[^"]*">/s, `<meta name="twitter:title" content="${escapeAttribute(title)}">`)
-    .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`);
+    .replace(/<meta name="twitter:description" content="[^"]*">/s, `<meta name="twitter:description" content="${escapeAttribute(description)}">`)
+    .replace(/<meta name="twitter:image" content="[^"]*">/s, `<meta name="twitter:image" content="${escapeAttribute(imageUrl)}">`);
 }
 
 async function seoForRoute(routePath) {
