@@ -307,6 +307,7 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
       item_name asc
     limit 2000
   `, params);
+  if (!result.rows.length) return null;
 
   return {
     level: "apartment",
