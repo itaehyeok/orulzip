@@ -589,6 +589,11 @@ async function loadActiveViewData() {
     return;
   }
 
+  if (state.activeTab === "dataHealth") {
+    await loadDataHealthDashboard();
+    return;
+  }
+
   if (state.activeTab === "crawl") {
     await loadCrawlTabData();
   }
@@ -637,6 +642,7 @@ function setActiveTab(tab, { push = false } = {}) {
   document.querySelector("#designView").classList.toggle("active", nextTab === "design");
   document.querySelector("#crawlView").classList.toggle("active", nextTab === "crawl");
   document.querySelector("#analyticsView").classList.toggle("active", nextTab === "analytics");
+  document.querySelector("#dataHealthView").classList.toggle("active", nextTab === "dataHealth");
   document.body.classList.toggle("map-shell-mode", isMapTab(nextTab));
   syncMobileViewportInsets();
   document.title = tabTitles[nextTab] || tabTitles.molitMap;

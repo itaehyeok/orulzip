@@ -15,6 +15,7 @@ import {
 } from "./services/db-store.js";
 import { regions } from "./services/region-config.js";
 import { tradeCollectionStatus } from "./services/molit-trade-store.js";
+import { readDataHealthStatus } from "./services/data-health.js";
 import { buildFormulaAnalysis } from "./services/formula-analysis.js";
 import { searchMapTargets } from "./services/map-search.js";
 import {
@@ -53,8 +54,8 @@ const siteOrigin = (process.env.PUBLIC_SITE_URL || "https://orulzip.com").replac
 const defaultSeoImagePath = "/og/orulzip-map-preview.png";
 const readOnlyMode = process.env.ORULZIP_READ_ONLY === "1";
 const shouldInitDb = process.env.ORULZIP_DB_INIT !== "0";
-const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
-const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics"]);
+const appRoutes = new Set(["/", "/map", "/molit-map", "/kb-map", "/neighborhood", "/apartment-rankings", "/price-bands", "/formula", "/terms", "/design", "/crawl", "/analytics", "/data-health"]);
+const protectedAppRoutes = new Set(["/kb-map", "/neighborhood", "/formula", "/terms", "/design", "/crawl", "/analytics", "/data-health"]);
 const protectedApiRoutes = new Set([
   "/api/crawl/details",
   "/api/crawl/start",
@@ -67,7 +68,8 @@ const protectedApiRoutes = new Set([
   "/api/molit/coordinate-audit",
   "/api/molit/duplicate-audit",
   "/api/analytics/summary",
-  "/api/analytics/visitors"
+  "/api/analytics/visitors",
+  "/api/data-health"
 ]);
 const writeApiRoutes = new Set(["/api/crawl/start", "/api/sync"]);
 const adminCookieName = "orulzip_admin";
@@ -184,6 +186,12 @@ const routeSeo = new Map([
     title: "방문분석 - 오를집",
     description: "오를집 내부 방문 분석 화면입니다.",
     canonicalPath: "/analytics",
+    robots: "noindex,nofollow"
+  }],
+  ["/data-health", {
+    title: "데이터 상태 - 오를집",
+    description: "오를집 운영 데이터 수집과 캐시 검증 상태 화면입니다.",
+    canonicalPath: "/data-health",
     robots: "noindex,nofollow"
   }]
 ]);
@@ -334,6 +342,12 @@ const server = createServer(async (req, res) => {
         includeInternal: url.searchParams.get("includeInternal") === "1",
         environment: analyticsRequestedEnvironment(url.searchParams.get("environment"), requestAnalyticsEnvironment),
         limit: Number(url.searchParams.get("limit") || 100)
+      }));
+    }
+
+    if (url.pathname === "/api/data-health") {
+      return json(res, await readDataHealthStatus({
+        limit: Number(url.searchParams.get("limit") || 10)
       }));
     }
 

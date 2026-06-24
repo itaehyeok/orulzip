@@ -7,7 +7,8 @@ const tabRoutes = {
   terms: "/terms",
   design: "/design",
   crawl: "/crawl",
-  analytics: "/analytics"
+  analytics: "/analytics",
+  dataHealth: "/data-health"
 };
 
 const routeTabs = {
@@ -22,7 +23,8 @@ const routeTabs = {
   "/terms": "terms",
   "/design": "design",
   "/crawl": "crawl",
-  "/analytics": "analytics"
+  "/analytics": "analytics",
+  "/data-health": "dataHealth"
 };
 
 const tabTitles = {
@@ -34,7 +36,8 @@ const tabTitles = {
   terms: "용어 - 오를집",
   design: "디자인 - 오를집",
   crawl: "수집현황 - 오를집",
-  analytics: "방문분석 - 오를집"
+  analytics: "방문분석 - 오를집",
+  dataHealth: "데이터 상태 - 오를집"
 };
 
 const growthRateBandModeStorageKey = "orulzip.growthRateBandMode";
@@ -497,5 +500,9 @@ const els = {
   analyticsPageRows: document.querySelector("#analyticsPageRows"),
   analyticsEventRows: document.querySelector("#analyticsEventRows"),
   analyticsVisitorRows: document.querySelector("#analyticsVisitorRows"),
-  analyticsRecentEventRows: document.querySelector("#analyticsRecentEventRows")
+  analyticsRecentEventRows: document.querySelector("#analyticsRecentEventRows"),
+  dataHealthView: document.querySelector("#dataHealthView"),
+  dataHealthSummary: document.querySelector("#dataHealthSummary"),
+  dataHealthCheckRows: document.querySelector("#dataHealthCheckRows"),
+  dataHealthRunRows: document.querySelector("#dataHealthRunRows")
 };
