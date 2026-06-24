@@ -385,7 +385,7 @@ async function readPriceBandRankSnapshotPage({
     )
     select
       paged.*,
-      coalesce(nullif(paged.household_count, 0), c.reb_household_count, a.household_count, 0)::int as household_count
+      coalesce(c.reb_household_count, a.household_count, 0)::int as household_count
     from paged
     left join molit_complexes c
       on c.id = paged.apartment_id
@@ -1052,7 +1052,7 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
     const chunk = rows.slice(start, start + chunkSize);
     const params = [];
     const values = chunk.map((row, index) => {
-      const offset = index * 19;
+      const offset = index * 18;
       params.push(
         snapshotId,
         row.bandKey,
@@ -1063,7 +1063,6 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
         row.neighborhoodName || "",
         row.legalDongCode || "",
         row.address || "",
-        row.householdCount || 0,
         row.areaTypeCount || 0,
         row.areaLabel || "",
         row.startSalePrice ?? null,
@@ -1076,15 +1075,15 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
       );
       return `(
         $${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4},$${offset + 5},$${offset + 6},
-        $${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},$${offset + 11},$${offset + 12},
-        $${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},$${offset + 18},$${offset + 19}::jsonb,now()
+        $${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},$${offset + 11},
+        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},$${offset + 18}::jsonb,now()
       )`;
     });
 
     await client.query(`
       insert into price_band_rank_items (
         snapshot_id, band_key, band_label, rank, apartment_id, apartment_name,
-        neighborhood_name, legal_dong_code, address, household_count, area_type_count, area_label,
+        neighborhood_name, legal_dong_code, address, area_type_count, area_label,
         start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
         growth_amount, growth_rate, area_summaries, updated_at
       ) values ${values.join(",")}
