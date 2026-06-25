@@ -200,6 +200,23 @@ function bindEvents() {
       refresh();
       return;
     }
+    const regionSelect = event.target.closest("[data-price-band-region-filter]");
+    if (regionSelect) {
+      if (regionSelect.dataset.priceBandRegionFilter === "sido") {
+        state.priceBandSidoCode = regionSelect.value || "";
+        state.priceBandSigunguCode = "";
+        state.priceBandDongKey = "";
+      } else if (regionSelect.dataset.priceBandRegionFilter === "sigungu") {
+        state.priceBandSigunguCode = regionSelect.value || "";
+        state.priceBandDongKey = "";
+      } else {
+        state.priceBandDongKey = regionSelect.value || "";
+      }
+      state.priceBandPage = 1;
+      renderPriceBandLoadingState();
+      refresh();
+      return;
+    }
     const select = event.target.closest("[data-price-band-filter]");
     if (!select) return;
     if (select.dataset.priceBandFilter === "area") {
@@ -553,6 +570,9 @@ async function loadActiveViewData() {
     if (state.priceBandStartKey !== "") priceBandParams.set("startBandKey", state.priceBandStartKey);
     if (state.priceBandEndKey !== "") priceBandParams.set("endBandKey", state.priceBandEndKey);
     if (state.priceBandAreaKey && state.priceBandAreaKey !== "all") priceBandParams.set("areaBandKey", state.priceBandAreaKey);
+    if (state.priceBandSidoCode) priceBandParams.set("sidoCode", state.priceBandSidoCode);
+    if (state.priceBandSigunguCode) priceBandParams.set("sigunguCode", state.priceBandSigunguCode);
+    if (state.priceBandDongKey) priceBandParams.set("dongKey", state.priceBandDongKey);
     priceBandParams.set("page", String(state.priceBandPage));
     priceBandParams.set("pageSize", String(state.priceBandPageSize));
     let result;

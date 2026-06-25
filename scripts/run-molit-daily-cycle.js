@@ -53,6 +53,7 @@ if (options.refreshPriceBandCache) {
   runNpm(["run", "refresh:price-band-cache"]);
 }
 runNpm(["run", "check:data-health"]);
+runNpm(["run", "check:price-band-cache", "--", "--fail-on-issue"]);
 runNpm(["run", "check:performance"]);
 
 console.log(JSON.stringify({

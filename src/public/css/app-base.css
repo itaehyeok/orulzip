@@ -494,6 +494,7 @@ input {
 }
 
 .price-band-filter-primary,
+.price-band-filter-region,
 .price-band-filter-flow {
   display: flex;
   flex-wrap: wrap;
@@ -621,6 +622,10 @@ input {
 
 .price-band-area-filter-control select {
   min-width: 92px;
+}
+
+.price-band-region-filter-control select {
+  min-width: 94px;
 }
 
 .price-band-detail-panel {
@@ -941,6 +946,79 @@ input {
   padding: 28px 16px;
 }
 
+.kb-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kb-coverage-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.kb-coverage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kb-coverage-head strong {
+  font-size: 15px;
+}
+
+.kb-coverage-head span,
+.kb-coverage-meta,
+.kb-coverage-latest {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kb-coverage-percent {
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.kb-coverage-track {
+  height: 8px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f7;
+}
+
+.kb-coverage-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #16a34a;
+}
+
+.kb-coverage-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 8px;
+  margin-top: 10px;
+}
+
+.kb-coverage-meta span,
+.kb-coverage-latest {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-coverage-latest {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
 .completion-list {
   display: grid;
   gap: 10px;
@@ -1059,6 +1137,11 @@ input {
 }
 
 .status-pill.pending {
+  background: #f2f4f7;
+  color: var(--muted);
+}
+
+.status-pill.requested {
   background: #f2f4f7;
   color: var(--muted);
 }

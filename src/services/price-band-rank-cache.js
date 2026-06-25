@@ -34,9 +34,70 @@ const PRICE_BAND_RANK_CACHE_INDEXES = [
     name: "price_band_rank_items_snapshot_band_growth_idx",
     statement: `create index concurrently if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_region_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_region_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key)`
+  },
+  {
+    name: "price_band_rank_items_snapshot_region_growth_idx",
+    statement: `create index concurrently if not exists price_band_rank_items_snapshot_region_growth_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc)`
   }
 ];
 const PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS = [
+  `alter table price_band_rank_snapshots
+    add column if not exists status text not null default 'active',
+    add column if not exists activated_at timestamptz,
+    add column if not exists superseded_at timestamptz,
+    add column if not exists build_error text`,
+  `update price_band_rank_snapshots
+    set status = 'active',
+        activated_at = coalesce(activated_at, updated_at)
+    where status = 'active'
+      and activated_at is null`,
+  `do $$
+  declare
+    constraint_name text;
+  begin
+    select con.conname
+      into constraint_name
+    from pg_constraint con
+    join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where nsp.nspname = current_schema()
+      and rel.relname = 'price_band_rank_snapshots'
+      and con.contype = 'u'
+      and array(
+        select att.attname::text
+        from unnest(con.conkey) with ordinality keys(attnum, ord)
+        join pg_attribute att on att.attrelid = con.conrelid and att.attnum = keys.attnum
+        order by keys.ord
+      ) = array['source', 'basis', 'start_month', 'end_month']::text[]
+    limit 1;
+
+    if constraint_name is not null then
+      execute format('alter table price_band_rank_snapshots drop constraint %I', constraint_name);
+    end if;
+  end $$`,
+  `drop index if exists price_band_rank_snapshots_household_filter_uidx`,
+  `drop index if exists price_band_rank_snapshots_household_area_filter_uidx`,
+  `create unique index if not exists price_band_rank_snapshots_active_uidx
+    on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key)
+    where status = 'active'`,
+  `drop index if exists price_band_rank_snapshots_filter_lookup_idx`,
+  `create index if not exists price_band_rank_snapshots_filter_lookup_idx
+    on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, status, updated_at desc)`,
+  `create index if not exists price_band_rank_snapshots_status_idx
+    on price_band_rank_snapshots(status, updated_at desc)`,
+  `alter table price_band_rank_items
+    add column if not exists sido_code text,
+    add column if not exists sido_name text,
+    add column if not exists sigungu_code text,
+    add column if not exists sigungu_name text,
+    add column if not exists dong_key text,
+    add column if not exists dong_name text`,
   `create table if not exists price_band_rank_bands (
     snapshot_id bigint not null references price_band_rank_snapshots(id) on delete cascade,
     band_key integer not null,
@@ -124,6 +185,18 @@ export async function ensurePriceBandRankCacheIndexes() {
   await ensurePriceBandRankBandIndexes();
 }
 
+export async function migratePriceBandRankCacheSchema() {
+  for (const statement of PRICE_BAND_RANK_CACHE_SCHEMA_STATEMENTS) {
+    await query(statement);
+  }
+  for (const index of PRICE_BAND_RANK_CACHE_INDEXES) {
+    await query(index.statement);
+  }
+  for (const index of PRICE_BAND_RANK_CACHE_BAND_INDEXES) {
+    await query(index.statement);
+  }
+}
+
 async function ensurePriceBandRankBandIndexes() {
   const names = PRICE_BAND_RANK_CACHE_BAND_INDEXES.map((index) => index.name);
   let existingResult;
@@ -202,6 +275,23 @@ export async function refreshPriceBandRankCache({
             areaBand
           });
           if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
+          if (!ranking.bands.length || !(ranking.allRows || []).length) {
+            snapshots.push({
+              source: normalizedSource,
+              basis,
+              periodMonths: monthsBack,
+              startMonth: ranking.period.startMonth,
+              endMonth: ranking.period.endMonth,
+              minHouseholdCount,
+              areaBandKey: areaBand.key,
+              areaBandLabel: areaBand.label,
+              bandCount: ranking.bands.length,
+              itemCount: (ranking.allRows || []).length,
+              skipped: true,
+              reason: "empty-ranking"
+            });
+            continue;
+          }
           const snapshot = await savePriceBandRankSnapshot({
             source: normalizedSource,
             basis,
@@ -234,6 +324,9 @@ export async function readPriceBandRankPage({
   startBandKey = "",
   endBandKey = "",
   areaBandKey = "all",
+  sidoCode = "",
+  sigunguCode = "",
+  dongKey = "",
   minHouseholdCount = 0,
   environment = "unknown",
   page = 1,
@@ -241,6 +334,7 @@ export async function readPriceBandRankPage({
 } = {}) {
   const normalizedBasis = basis === "end" ? "end" : "start";
   const normalizedAreaBand = normalizePriceAreaBand(areaBandKey);
+  const regionFilter = normalizePriceBandRegionFilter({ sidoCode, sigunguCode, dongKey });
   const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
   const normalizedPage = Math.max(1, Number(page) || 1);
   const normalizedPageSize = Math.max(10, Math.min(Number(pageSize) || 50, 100));
@@ -275,6 +369,7 @@ export async function readPriceBandRankPage({
         selectedStartBandKey,
         selectedEndBandKey,
         areaBand: normalizedAreaBand,
+        regionFilter,
         minHouseholdCount: normalizedMinHouseholdCount,
         page: normalizedPage,
         pageSize: normalizedPageSize,
@@ -298,7 +393,8 @@ export async function readPriceBandRankPage({
           minHouseholdCount: normalizedMinHouseholdCount,
           areaBand: normalizedAreaBand,
           selectedStartBandKey,
-          selectedEndBandKey
+          selectedEndBandKey,
+          regionFilter
         }),
         reason: "price band rank cache snapshot missing",
         action: "실시간 대형 계산을 막고 빈 응답 반환",
@@ -310,6 +406,7 @@ export async function readPriceBandRankPage({
           areaBand: normalizedAreaBand,
           selectedStartBandKey,
           selectedEndBandKey,
+          regionFilter,
           reason: "cache-missing-no-live-fallback"
         })
       });
@@ -321,6 +418,7 @@ export async function readPriceBandRankPage({
         selectedStartBandKey,
         selectedEndBandKey,
         areaBand: normalizedAreaBand,
+        regionFilter,
         minHouseholdCount: normalizedMinHouseholdCount,
         page: normalizedPage,
         pageSize: normalizedPageSize,
@@ -335,6 +433,7 @@ export async function readPriceBandRankPage({
       selectedStartBandKey,
       selectedEndBandKey,
       areaBand: normalizedAreaBand,
+      regionFilter,
       minHouseholdCount: normalizedMinHouseholdCount,
       page: normalizedPage,
       pageSize: normalizedPageSize,
@@ -350,6 +449,7 @@ export async function readPriceBandRankPage({
     selectedStartBandKey,
     selectedEndBandKey,
     areaBand: normalizedAreaBand,
+    regionFilter,
     minHouseholdCount: normalizedMinHouseholdCount,
     page: normalizedPage,
     pageSize: normalizedPageSize,
@@ -374,7 +474,8 @@ async function readExactPriceBandSnapshot({
       and end_month = $4
       and min_household_count = $5
       and area_band_key = $6
-    order by updated_at desc
+      and status = 'active'
+    order by activated_at desc nulls last, updated_at desc
     limit 1
   `, [source, basis, startMonth, endMonth, minHouseholdCount, areaBandKey]);
   return result.rows[0] || null;
@@ -394,6 +495,7 @@ async function readRecentPriceBandSnapshot({
     "basis = $2",
     "min_household_count = $3",
     "area_band_key = $4",
+    "status = 'active'",
     "band_count > 0",
     "item_count > 0"
   ];
@@ -409,7 +511,7 @@ async function readRecentPriceBandSnapshot({
     select *
     from price_band_rank_snapshots
     where ${conditions.join("\n      and ")}
-    order by end_month desc, updated_at desc
+    order by end_month desc, activated_at desc nulls last, updated_at desc
     limit 1
   `, params);
   return result.rows[0] || null;
@@ -423,11 +525,13 @@ function emptyPriceBandRankPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
   reason
 }) {
+  const region = buildPriceBandRegionPayload(regionFilter);
   return {
     period: { startMonth, endMonth },
     basis,
@@ -442,8 +546,10 @@ function emptyPriceBandRankPage({
       endBandKey: selectedEndBandKey,
       endBand: null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: false,
       status: "missing",
@@ -476,6 +582,7 @@ async function readPriceBandRankSnapshotPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
@@ -499,7 +606,15 @@ async function readPriceBandRankSnapshotPage({
     snapshotId: snapshot.id,
     snapshotBasis: basis,
     startBandKey: selectedStartBandKey,
-    endBandKey: selectedEndBandKey
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
+  const region = await readPriceBandRegionOptions({
+    snapshotId: snapshot.id,
+    snapshotBasis: basis,
+    selectedStartBandKey,
+    selectedEndBandKey,
+    regionFilter
   });
   const totalRows = await readPriceBandTotalRows({
     snapshot,
@@ -507,6 +622,7 @@ async function readPriceBandRankSnapshotPage({
     bands,
     selectedStartBandKey,
     selectedEndBandKey,
+    regionFilter,
     where
   });
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
@@ -556,7 +672,8 @@ async function readPriceBandRankSnapshotPage({
         minHouseholdCount,
         areaBand,
         selectedStartBandKey,
-        selectedEndBandKey
+        selectedEndBandKey,
+        regionFilter
       }),
       reason: fallback.reason,
       action: fallback.source === "recent-cache"
@@ -570,6 +687,7 @@ async function readPriceBandRankSnapshotPage({
         areaBand,
         selectedStartBandKey,
         selectedEndBandKey,
+        regionFilter,
         reason: fallback.reason
       })
     });
@@ -596,8 +714,10 @@ async function readPriceBandRankSnapshotPage({
         ? bands.find((band) => band.bandKey === selectedEndBandKey) || null
         : null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: true,
       status: priceBandCacheStatus(snapshot, fallback),
@@ -670,9 +790,11 @@ async function readPriceBandTotalRows({
   bands,
   selectedStartBandKey,
   selectedEndBandKey,
+  regionFilter,
   where
 }) {
-  if (selectedStartBandKey === null && selectedEndBandKey === null) {
+  const hasRegionFilter = hasPriceBandRegionFilter(regionFilter);
+  if (!hasRegionFilter && selectedStartBandKey === null && selectedEndBandKey === null) {
     const snapshotCount = Number(snapshot.item_count);
     if (Number.isFinite(snapshotCount) && snapshotCount >= 0) return snapshotCount;
   }
@@ -680,7 +802,7 @@ async function readPriceBandTotalRows({
   const selectedBandKey = basis === "end" ? selectedEndBandKey : selectedStartBandKey;
   const hasOnlyBasisBandFilter = selectedBandKey !== null
     && (basis === "end" ? selectedStartBandKey === null : selectedEndBandKey === null);
-  if (hasOnlyBasisBandFilter) {
+  if (!hasRegionFilter && hasOnlyBasisBandFilter) {
     const band = bands.find((item) => item.bandKey === selectedBandKey);
     const bandCount = Number(band?.apartmentCount);
     if (Number.isFinite(bandCount) && bandCount >= 0) return bandCount;
@@ -692,6 +814,93 @@ async function readPriceBandTotalRows({
     where ${where.sql}
   `, where.params);
   return Number(countResult.rows[0]?.total_rows || 0);
+}
+
+async function readPriceBandRegionOptions({
+  snapshotId,
+  snapshotBasis,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  regionFilter
+}) {
+  const selected = normalizePriceBandRegionFilter(regionFilter);
+  const [sidos, sigungus, dongs] = await Promise.all([
+    readPriceBandRegionOptionRows({
+      snapshotId,
+      snapshotBasis,
+      selectedStartBandKey,
+      selectedEndBandKey,
+      groupKey: "sido"
+    }),
+    selected.sidoCode
+      ? readPriceBandRegionOptionRows({
+        snapshotId,
+        snapshotBasis,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        regionFilter: { sidoCode: selected.sidoCode },
+        groupKey: "sigungu"
+      })
+      : Promise.resolve([]),
+    selected.sigunguCode
+      ? readPriceBandRegionOptionRows({
+        snapshotId,
+        snapshotBasis,
+        selectedStartBandKey,
+        selectedEndBandKey,
+        regionFilter: {
+          sidoCode: selected.sidoCode,
+          sigunguCode: selected.sigunguCode
+        },
+        groupKey: "dong"
+      })
+      : Promise.resolve([])
+  ]);
+  return buildPriceBandRegionPayload(selected, { sidos, sigungus, dongs });
+}
+
+async function readPriceBandRegionOptionRows({
+  snapshotId,
+  snapshotBasis,
+  selectedStartBandKey,
+  selectedEndBandKey,
+  regionFilter = {},
+  groupKey
+}) {
+  const where = buildPriceBandItemWhere({
+    snapshotId,
+    snapshotBasis,
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
+  const group = priceBandRegionGroupColumns(groupKey);
+  const result = await query(`
+    select
+      pbi.${group.codeColumn} as code,
+      max(nullif(pbi.${group.nameColumn}, '')) as name,
+      count(*)::int as count
+    from price_band_rank_items pbi
+    where ${where.sql}
+      and coalesce(pbi.${group.codeColumn}, '') <> ''
+    group by pbi.${group.codeColumn}
+    order by name asc nulls last, code asc
+  `, where.params);
+  return result.rows.map((row) => ({
+    code: row.code || "",
+    name: row.name || row.code || "",
+    count: Number(row.count || 0)
+  }));
+}
+
+function priceBandRegionGroupColumns(groupKey) {
+  if (groupKey === "dong") {
+    return { codeColumn: "dong_key", nameColumn: "dong_name" };
+  }
+  if (groupKey === "sigungu") {
+    return { codeColumn: "sigungu_code", nameColumn: "sigungu_name" };
+  }
+  return { codeColumn: "sido_code", nameColumn: "sido_name" };
 }
 
 function priceBandCacheStatus(snapshot, fallback = null) {
@@ -724,7 +933,8 @@ async function readBroaderPriceBandSnapshot({
       and end_month = $4
       and min_household_count = 0
       and area_band_key = $5
-    order by updated_at desc
+      and status = 'active'
+    order by activated_at desc nulls last, updated_at desc
     limit 1
   `, [source, basis, startMonth, endMonth, areaBandKey]);
   return result.rows[0] || null;
@@ -738,6 +948,7 @@ async function readPriceBandRankFallbackPage({
   selectedStartBandKey,
   selectedEndBandKey,
   areaBand,
+  regionFilter,
   minHouseholdCount,
   page,
   pageSize,
@@ -761,8 +972,14 @@ async function readPriceBandRankFallbackPage({
     : ranking.bands.find((band) => band.bandKey === selectedBandKey) || null;
   const rows = filterComputedPriceBandRows(ranking.allRows || [], {
     startBandKey: selectedStartBandKey,
-    endBandKey: selectedEndBandKey
+    endBandKey: selectedEndBandKey,
+    regionFilter
   }).sort(compareApartmentGrowth);
+  const region = buildComputedPriceBandRegionOptions(ranking.allRows || [], {
+    startBandKey: selectedStartBandKey,
+    endBandKey: selectedEndBandKey,
+    regionFilter
+  });
   const totalRows = rows.length;
   const totalPages = totalRows ? Math.max(1, Math.ceil(totalRows / pageSize)) : 0;
   const safePage = totalRows ? Math.min(page, totalPages) : 1;
@@ -780,21 +997,22 @@ async function readPriceBandRankFallbackPage({
       minHouseholdCount,
       areaBand,
       selectedStartBandKey,
-      selectedEndBandKey
+      selectedEndBandKey,
+      regionFilter
     }),
     reason,
     action: "실시간 계산으로 응답",
-    dedupeKey: [
-      "price-band-rank",
+    dedupeKey: priceBandFallbackDedupeKey({
       source,
-      startMonth || "",
-      endMonth || "",
+      startMonth,
+      endMonth,
       minHouseholdCount,
-      areaBand.key,
-      selectedStartBandKey ?? "all",
-      selectedEndBandKey ?? "all",
+      areaBand,
+      selectedStartBandKey,
+      selectedEndBandKey,
+      regionFilter,
       reason
-    ].join(":")
+    })
   });
 
   return {
@@ -821,8 +1039,10 @@ async function readPriceBandRankFallbackPage({
         ? ranking.bands.find((band) => band.bandKey === selectedEndBandKey) || null
         : null,
       areaBandKey: areaBand.key,
-      areaBand
+      areaBand,
+      region: region.selected
     },
+    region,
     cache: {
       hit: false,
       fallback: true,
@@ -847,7 +1067,8 @@ function buildPriceBandItemWhere({
   snapshotId,
   snapshotBasis = "start",
   startBandKey = null,
-  endBandKey = null
+  endBandKey = null,
+  regionFilter = {}
 }) {
   const clauses = ["pbi.snapshot_id = $1"];
   const params = [snapshotId];
@@ -867,10 +1088,27 @@ function buildPriceBandItemWhere({
     key: endBandKey,
     column: "end_sale_price"
   });
+  appendPriceBandRegionClauses({ clauses, params, regionFilter });
   return {
     sql: clauses.join("\n      and "),
     params
   };
+}
+
+function appendPriceBandRegionClauses({ clauses, params, regionFilter }) {
+  const filter = normalizePriceBandRegionFilter(regionFilter);
+  if (filter.sidoCode) {
+    params.push(filter.sidoCode);
+    clauses.push(`pbi.sido_code = $${params.length}`);
+  }
+  if (filter.sigunguCode) {
+    params.push(filter.sigunguCode);
+    clauses.push(`pbi.sigungu_code = $${params.length}`);
+  }
+  if (filter.dongKey) {
+    params.push(filter.dongKey);
+    clauses.push(`pbi.dong_key = $${params.length}`);
+  }
 }
 
 function appendPriceBandClause({
@@ -920,8 +1158,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           c.dong_key as legal_dong_code,
           c.address,
           c.sido_code,
+          c.sido_name,
           c.sigungu_code,
+          c.sigungu_name,
           c.dong_key,
+          c.dong_name,
           c.build_year,
           c.deal_count as apartment_deal_count,
           c.first_month,
@@ -958,8 +1199,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           legal_dong_code,
           address,
           sido_code,
+          sido_name,
           sigungu_code,
+          sigungu_name,
           dong_key,
+          dong_name,
           build_year,
           apartment_deal_count,
           first_month,
@@ -974,7 +1218,7 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
           count(*)::int as deal_count
         from matched
         group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
-                 sido_code, sigungu_code, dong_key, build_year, apartment_deal_count,
+                 sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name, build_year, apartment_deal_count,
                  first_month, last_month, lat, lng, household_count, exclusive_area_m2, deal_year_month
       ),
       start_rows as (
@@ -1012,8 +1256,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         legal_dong_code,
         address,
         sido_code,
+        sido_name,
         sigungu_code,
+        sigungu_name,
         dong_key,
+        dong_name,
         build_year,
         apartment_deal_count,
         first_month,
@@ -1035,8 +1282,11 @@ async function readMolitPriceBandMonthlyRows(today, { startMonth, endMonth }) {
         legal_dong_code,
         address,
         sido_code,
+        sido_name,
         sigungu_code,
+        sigungu_name,
         dong_key,
+        dong_name,
         build_year,
         apartment_deal_count,
         first_month,
@@ -1149,6 +1399,12 @@ function buildMolitPriceBandRankings(rows, {
       neighborhoodName: apartmentGroup.apartment.neighborhoodName,
       legalDongCode: apartmentGroup.apartment.legalDongCode,
       address: apartmentGroup.apartment.address,
+      sidoCode: apartmentGroup.apartment.sidoCode,
+      sidoName: apartmentGroup.apartment.sidoName,
+      sigunguCode: apartmentGroup.apartment.sigunguCode,
+      sigunguName: apartmentGroup.apartment.sigunguName,
+      dongKey: apartmentGroup.apartment.dongKey,
+      dongName: apartmentGroup.apartment.dongName,
       householdCount: apartmentGroup.apartment.householdCount,
       areaTypeCount: typeSummaries.length,
       areaLabel: representative.areaLabel,
@@ -1216,20 +1472,19 @@ async function savePriceBandRankSnapshot({
   rows
 }) {
   const normalizedAreaBand = normalizePriceAreaBand(areaBand?.key || areaBand);
+  validatePriceBandRankPayload({ bands, rows });
   return withClient(async (client) => {
     await client.query("begin");
     try {
       const snapshotResult = await client.query(`
         insert into price_band_rank_snapshots (
           source, basis, period_months, start_month, end_month, min_household_count,
-          area_band_key, area_band_label, band_count, item_count, updated_at
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
-        on conflict (source, basis, start_month, end_month, min_household_count, area_band_key) do update set
-          period_months = excluded.period_months,
-          area_band_label = excluded.area_band_label,
-          band_count = excluded.band_count,
-          item_count = excluded.item_count,
-          updated_at = now()
+          area_band_key, area_band_label, band_count, item_count,
+          status, activated_at, superseded_at, build_error, updated_at
+        ) values (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          'building', null, null, null, now()
+        )
         returning *
       `, [
         source,
@@ -1245,12 +1500,51 @@ async function savePriceBandRankSnapshot({
       ]);
       const snapshot = snapshotResult.rows[0];
       await replacePriceBandRankBands(client, snapshot.id, bands, basis);
-      await client.query("delete from price_band_rank_items where snapshot_id = $1", [snapshot.id]);
       await insertPriceBandRankItems(client, snapshot.id, rows);
+      await validateStoredPriceBandRankSnapshot(client, {
+        snapshotId: snapshot.id,
+        expectedBandCount: bands.length,
+        expectedItemCount: rows.length
+      });
+
+      await client.query(`
+        update price_band_rank_snapshots
+        set status = 'superseded',
+            superseded_at = now(),
+            updated_at = now()
+        where source = $1
+          and basis = $2
+          and start_month = $3
+          and end_month = $4
+          and min_household_count = $5
+          and area_band_key = $6
+          and status = 'active'
+          and id <> $7
+      `, [
+        source,
+        basis,
+        startMonth,
+        endMonth,
+        minHouseholdCount,
+        normalizedAreaBand.key,
+        snapshot.id
+      ]);
+
+      const activeResult = await client.query(`
+        update price_band_rank_snapshots
+        set status = 'active',
+            activated_at = now(),
+            superseded_at = null,
+            build_error = null,
+            updated_at = now()
+        where id = $1
+        returning *
+      `, [snapshot.id]);
+      const activeSnapshot = activeResult.rows[0] || snapshot;
 
       await client.query("commit");
       return {
-        id: Number(snapshot.id),
+        id: Number(activeSnapshot.id),
         source,
         basis,
         periodMonths,
@@ -1261,13 +1555,41 @@ async function savePriceBandRankSnapshot({
         areaBandLabel: normalizedAreaBand.label,
         bandCount: bands.length,
         itemCount: rows.length,
-        updatedAt: snapshot.updated_at
+        updatedAt: activeSnapshot.updated_at,
+        activatedAt: activeSnapshot.activated_at
       };
     } catch (error) {
       await client.query("rollback");
       throw error;
     }
   });
+}
+
+function validatePriceBandRankPayload({ bands, rows }) {
+  if (!Array.isArray(bands) || !bands.length) {
+    throw new Error("price band cache build produced no bands");
+  }
+  if (!Array.isArray(rows) || !rows.length) {
+    throw new Error("price band cache build produced no ranking rows");
+  }
+}
+
+async function validateStoredPriceBandRankSnapshot(client, {
+  snapshotId,
+  expectedBandCount,
+  expectedItemCount
+}) {
+  const result = await client.query(`
+    select
+      (select count(*)::int from price_band_rank_bands where snapshot_id = $1) as band_count,
+      (select count(*)::int from price_band_rank_items where snapshot_id = $1) as item_count
+  `, [snapshotId]);
+  const row = result.rows[0] || {};
+  const bandCount = Number(row.band_count || 0);
+  const itemCount = Number(row.item_count || 0);
+  if (bandCount !== expectedBandCount || itemCount !== expectedItemCount) {
+    throw new Error(`price band cache build validation failed: bands ${bandCount}/${expectedBandCount}, rows ${itemCount}/${expectedItemCount}`);
+  }
 }
 
 async function replacePriceBandRankBands(client, snapshotId, bands, basis) {
@@ -1347,7 +1669,7 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
     const chunk = rows.slice(start, start + chunkSize);
     const params = [];
     const values = chunk.map((row, index) => {
-      const offset = index * 18;
+      const offset = index * 24;
       params.push(
         snapshotId,
         row.bandKey,
@@ -1358,6 +1680,12 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
         row.neighborhoodName || "",
         row.legalDongCode || "",
         row.address || "",
+        row.sidoCode || "",
+        row.sidoName || "",
+        row.sigunguCode || "",
+        row.sigunguName || "",
+        row.dongKey || "",
+        row.dongName || "",
         row.areaTypeCount || 0,
         row.areaLabel || "",
         row.startSalePrice ?? null,
@@ -1371,14 +1699,17 @@ async function insertPriceBandRankItems(client, snapshotId, rows) {
       return `(
         $${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4},$${offset + 5},$${offset + 6},
         $${offset + 7},$${offset + 8},$${offset + 9},$${offset + 10},$${offset + 11},
-        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},$${offset + 18}::jsonb,now()
+        $${offset + 12},$${offset + 13},$${offset + 14},$${offset + 15},$${offset + 16},$${offset + 17},
+        $${offset + 18},$${offset + 19},$${offset + 20},$${offset + 21},$${offset + 22},$${offset + 23},$${offset + 24}::jsonb,now()
       )`;
     });
 
     await client.query(`
       insert into price_band_rank_items (
         snapshot_id, band_key, band_label, rank, apartment_id, apartment_name,
-        neighborhood_name, legal_dong_code, address, area_type_count, area_label,
+        neighborhood_name, legal_dong_code, address,
+        sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
+        area_type_count, area_label,
         start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
         growth_amount, growth_rate, area_summaries, updated_at
       ) values ${values.join(",")}
@@ -1477,6 +1808,12 @@ function serializePriceBandItem(row, basis) {
     neighborhoodName: row.neighborhood_name || "",
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
+    sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
+    sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
+    dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
     householdCount: Number(row.household_count || 0),
     areaTypeCount: Number(row.area_type_count || 0),
     areaLabel: row.area_label || "",
@@ -1501,6 +1838,12 @@ function serializeComputedPriceBandItem(row, basis) {
     neighborhoodName: row.neighborhoodName || "",
     legalDongCode: row.legalDongCode || "",
     address: row.address || "",
+    sidoCode: row.sidoCode || "",
+    sidoName: row.sidoName || "",
+    sigunguCode: row.sigunguCode || "",
+    sigunguName: row.sigunguName || "",
+    dongKey: row.dongKey || "",
+    dongName: row.dongName || "",
     householdCount: Number(row.householdCount || 0),
     areaTypeCount: Number(row.areaTypeCount || 0),
     areaLabel: row.areaLabel || "",
@@ -1517,12 +1860,49 @@ function serializeComputedPriceBandItem(row, basis) {
   };
 }
 
-function filterComputedPriceBandRows(rows, { startBandKey = null, endBandKey = null } = {}) {
+function filterComputedPriceBandRows(rows, { startBandKey = null, endBandKey = null, regionFilter = {} } = {}) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
   return rows.filter((row) => {
     if (!priceInBand(row.startSalePrice, startBandKey)) return false;
     if (!priceInBand(row.endSalePrice, endBandKey)) return false;
+    if (region.sidoCode && row.sidoCode !== region.sidoCode) return false;
+    if (region.sigunguCode && row.sigunguCode !== region.sigunguCode) return false;
+    if (region.dongKey && row.dongKey !== region.dongKey) return false;
     return true;
   });
+}
+
+function buildComputedPriceBandRegionOptions(rows, {
+  startBandKey = null,
+  endBandKey = null,
+  regionFilter = {}
+} = {}) {
+  const selected = normalizePriceBandRegionFilter(regionFilter);
+  const allRows = filterComputedPriceBandRows(rows, { startBandKey, endBandKey });
+  const sidoRows = allRows;
+  const sigunguRows = selected.sidoCode
+    ? allRows.filter((row) => row.sidoCode === selected.sidoCode)
+    : [];
+  const dongRows = selected.sigunguCode
+    ? sigunguRows.filter((row) => row.sigunguCode === selected.sigunguCode)
+    : [];
+  return buildPriceBandRegionPayload(selected, {
+    sidos: computedRegionOptions(sidoRows, "sidoCode", "sidoName"),
+    sigungus: computedRegionOptions(sigunguRows, "sigunguCode", "sigunguName"),
+    dongs: computedRegionOptions(dongRows, "dongKey", "dongName")
+  });
+}
+
+function computedRegionOptions(rows, codeKey, nameKey) {
+  const groups = new Map();
+  for (const row of rows) {
+    const code = String(row[codeKey] || "").trim();
+    if (!code) continue;
+    const current = groups.get(code) || { code, name: String(row[nameKey] || code).trim() || code, count: 0 };
+    current.count += 1;
+    groups.set(code, current);
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "ko") || a.code.localeCompare(b.code));
 }
 
 function priceInBand(price, key) {
@@ -1540,11 +1920,13 @@ function priceBandFallbackConditions({
   minHouseholdCount,
   areaBand,
   selectedStartBandKey,
-  selectedEndBandKey
+  selectedEndBandKey,
+  regionFilter
 }) {
   return [
     `기준=${basis === "end" ? "현재 가격" : "과거 가격"}`,
     `${formatHouseholdCondition(minHouseholdCount)}`,
+    `지역=${formatRegionCondition(regionFilter)}`,
     `평형=${areaBand?.label || "전체 평형"}`,
     `과거=${formatBandCondition(selectedStartBandKey)}`,
     `현재=${formatBandCondition(selectedEndBandKey)}`
@@ -1559,8 +1941,10 @@ function priceBandFallbackDedupeKey({
   areaBand,
   selectedStartBandKey,
   selectedEndBandKey,
+  regionFilter,
   reason
 }) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
   return [
     "price-band-rank",
     source,
@@ -1568,6 +1952,9 @@ function priceBandFallbackDedupeKey({
     endMonth || "",
     minHouseholdCount,
     areaBand?.key || "all",
+    region.sidoCode || "all",
+    region.sigunguCode || "all",
+    region.dongKey || "all",
     selectedStartBandKey ?? "all",
     selectedEndBandKey ?? "all",
     reason
@@ -1582,6 +1969,14 @@ function formatHouseholdCondition(minHouseholdCount) {
 function formatBandCondition(key) {
   if (key === null || key === undefined) return "전체";
   return priceBandLabelFromKey(key);
+}
+
+function formatRegionCondition(regionFilter) {
+  const region = normalizePriceBandRegionFilter(regionFilter);
+  if (region.dongKey) return region.dongKey;
+  if (region.sigunguCode) return region.sigunguCode;
+  if (region.sidoCode) return region.sidoCode;
+  return "전국";
 }
 
 function priceBandLabelFromKey(key) {
@@ -1631,6 +2026,36 @@ function normalizePriceAreaBand(value) {
   return PRICE_AREA_BANDS.find((band) => band.key === String(key || "")) || PRICE_AREA_BANDS[0];
 }
 
+function normalizePriceBandRegionFilter(value = {}) {
+  const dongKey = String(value.dongKey || "").trim();
+  let sigunguCode = String(value.sigunguCode || "").trim();
+  let sidoCode = String(value.sidoCode || "").trim();
+  if (!sigunguCode && /^\d{5}/.test(dongKey)) sigunguCode = dongKey.slice(0, 5);
+  if (!sidoCode && /^\d{5}$/.test(sigunguCode)) sidoCode = sigunguCode.slice(0, 2);
+  return {
+    sidoCode: /^\d{2}$/.test(sidoCode) ? sidoCode : "",
+    sigunguCode: /^\d{5}$/.test(sigunguCode) ? sigunguCode : "",
+    dongKey
+  };
+}
+
+function hasPriceBandRegionFilter(regionFilter = {}) {
+  const normalized = normalizePriceBandRegionFilter(regionFilter);
+  return Boolean(normalized.sidoCode || normalized.sigunguCode || normalized.dongKey);
+}
+
+function buildPriceBandRegionPayload(selected = {}, options = {}) {
+  const normalized = normalizePriceBandRegionFilter(selected);
+  return {
+    selected: normalized,
+    options: {
+      sidos: Array.isArray(options.sidos) ? options.sidos : [],
+      sigungus: Array.isArray(options.sigungus) ? options.sigungus : [],
+      dongs: Array.isArray(options.dongs) ? options.dongs : []
+    }
+  };
+}
+
 function normalizeBandKey(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -1670,8 +2095,11 @@ function molitApartmentFromRow(row) {
     legalDongCode: row.legal_dong_code || "",
     address: row.address || "",
     sidoCode: row.sido_code || "",
+    sidoName: row.sido_name || "",
     sigunguCode: row.sigungu_code || "",
+    sigunguName: row.sigungu_name || "",
     dongKey: row.dong_key || "",
+    dongName: row.dong_name || "",
     buildYear: row.build_year === null ? null : Number(row.build_year),
     dealCount: Number(row.apartment_deal_count || 0),
     householdCount: Number(row.household_count || 0),

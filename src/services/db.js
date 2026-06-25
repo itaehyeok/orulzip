@@ -567,6 +567,10 @@ export async function initDb() {
       min_household_count integer not null default 0,
       band_count integer not null default 0,
       item_count integer not null default 0,
+      status text not null default 'active',
+      activated_at timestamptz,
+      superseded_at timestamptz,
+      build_error text,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       unique(source, basis, start_month, end_month)
@@ -578,6 +582,19 @@ export async function initDb() {
       add column if not exists area_band_key text not null default 'all';
     alter table price_band_rank_snapshots
       add column if not exists area_band_label text not null default '전체 평형';
+    alter table price_band_rank_snapshots
+      add column if not exists status text not null default 'active';
+    alter table price_band_rank_snapshots
+      add column if not exists activated_at timestamptz;
+    alter table price_band_rank_snapshots
+      add column if not exists superseded_at timestamptz;
+    alter table price_band_rank_snapshots
+      add column if not exists build_error text;
+    update price_band_rank_snapshots
+      set status = 'active',
+          activated_at = coalesce(activated_at, updated_at)
+      where status = 'active'
+        and activated_at is null;
 
     do $$
     declare
@@ -613,6 +630,12 @@ export async function initDb() {
       apartment_name text not null,
       neighborhood_name text,
       legal_dong_code text,
+      sido_code text,
+      sido_name text,
+      sigungu_code text,
+      sigungu_name text,
+      dong_key text,
+      dong_name text,
       area_type_count integer not null default 0,
       area_label text,
       start_sale_price integer,
@@ -647,15 +670,26 @@ export async function initDb() {
     create index if not exists price_band_rank_snapshots_lookup_idx
       on price_band_rank_snapshots(source, basis, start_month, end_month, updated_at desc);
     drop index if exists price_band_rank_snapshots_household_filter_uidx;
-    create unique index if not exists price_band_rank_snapshots_household_area_filter_uidx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key);
+    drop index if exists price_band_rank_snapshots_household_area_filter_uidx;
+    create unique index if not exists price_band_rank_snapshots_active_uidx
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key)
+      where status = 'active';
     drop index if exists price_band_rank_snapshots_filter_lookup_idx;
     create index if not exists price_band_rank_snapshots_filter_lookup_idx
-      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, updated_at desc);
+      on price_band_rank_snapshots(source, basis, start_month, end_month, min_household_count, area_band_key, status, updated_at desc);
+    create index if not exists price_band_rank_snapshots_status_idx
+      on price_band_rank_snapshots(status, updated_at desc);
     alter table price_band_rank_items
       add column if not exists address text;
     alter table price_band_rank_items
       add column if not exists area_summaries jsonb;
+    alter table price_band_rank_items
+      add column if not exists sido_code text,
+      add column if not exists sido_name text,
+      add column if not exists sigungu_code text,
+      add column if not exists sigungu_name text,
+      add column if not exists dong_key text,
+      add column if not exists dong_name text;
     create index if not exists price_band_rank_items_band_idx
       on price_band_rank_items(snapshot_id, band_key, rank);
     create index if not exists price_band_rank_items_apartment_idx
@@ -666,6 +700,10 @@ export async function initDb() {
       on price_band_rank_items(snapshot_id, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_items_snapshot_band_growth_idx
       on price_band_rank_items(snapshot_id, band_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
+    create index if not exists price_band_rank_items_snapshot_region_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key);
+    create index if not exists price_band_rank_items_snapshot_region_growth_idx
+      on price_band_rank_items(snapshot_id, sido_code, sigungu_code, dong_key, growth_rate desc nulls last, growth_amount desc nulls last, end_pyeong_price desc nulls last, apartment_name asc);
     create index if not exists price_band_rank_bands_snapshot_idx
       on price_band_rank_bands(snapshot_id, band_key);
 

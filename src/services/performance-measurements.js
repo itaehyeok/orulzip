@@ -152,7 +152,8 @@ async function readLatestPriceBandSnapshotsByPeriod() {
       and basis = 'start'
       and min_household_count = $2
       and area_band_key = 'all'
-    order by end_month desc, updated_at desc
+      and status = 'active'
+    order by end_month desc, activated_at desc nulls last, updated_at desc
   `, [SOURCE, MIN_HOUSEHOLD_COUNT]);
   return selectSnapshotsByPeriod(result.rows, (row) => Number(row.period_months || monthsBetween(row.start_month, row.end_month)));
 }

@@ -1,5 +1,6 @@
 import { query, withClient } from "./db.js";
 import { readAppOverviewCache } from "./app-overview-cache.js";
+import { kbCollectionRegions, legalDongCodePrefixes, listTiles } from "./region-config.js";
 
 export async function readDatasetFromDb() {
   const [apartments, areaTypes, monthlyPrices] = await Promise.all([
@@ -67,10 +68,10 @@ export async function readFilterOptions({ regionId = "" } = {}) {
   };
 }
 
-export async function readStatusOverview() {
+export async function readStatusOverview({ includeCrawl = true } = {}) {
   const [overview, crawl] = await Promise.all([
     readAppOverviewCache(),
-    crawlStatus()
+    includeCrawl ? crawlStatus() : Promise.resolve(null)
   ]);
 
   return {
@@ -218,21 +219,25 @@ export async function createCrawlJob(options) {
 
 export async function crawlStatus() {
   const job = await latestJob();
-  if (!job) return null;
-  const [queue, logs, trackedJobs] = await Promise.all([
-    query(`
-      select status, count(*)::int as count
-      from crawl_queue
-      where job_id = $1
-      group by status
-    `, [job.id]),
-    query(`
-      select level, message, details, created_at
-      from crawl_logs
-      where job_id = $1
-      order by created_at desc
-      limit 20
-    `, [job.id]),
+  const collectionRegionIds = kbCollectionRegions().map((region) => region.id);
+  const [queue, logs, trackedJobs, kbCoverage] = await Promise.all([
+    job
+      ? query(`
+        select status, count(*)::int as count
+        from crawl_queue
+        where job_id = $1
+        group by status
+      `, [job.id])
+      : { rows: [] },
+    job
+      ? query(`
+        select level, message, details, created_at
+        from crawl_logs
+        where job_id = $1
+        order by created_at desc
+        limit 20
+      `, [job.id])
+      : { rows: [] },
     query(`
       select *
       from (
@@ -243,14 +248,19 @@ export async function crawlStatus() {
             order by j.created_at desc
           ) as row_number
         from crawl_jobs j
-        where j.region_id in ('seoul', 'gyeonggi')
-          and j.years_back in (3, 10)
+        where j.region_id = any($1::text[])
+          and (
+            j.status in ('requested', 'discovering', 'running')
+            or j.years_back in (0, 3, 10)
+            or j.created_at >= now() - interval '7 days'
+          )
       ) ranked
       where row_number = 1
       order by
-        case region_id when 'seoul' then 0 when 'gyeonggi' then 1 else 2 end,
+        array_position($1::text[], region_id),
         years_back
-    `)
+    `, [collectionRegionIds]),
+    kbCollectionCoverage()
   ]);
   const trackedIds = trackedJobs.rows.map((row) => row.id);
   const trackedQueue = trackedIds.length
@@ -313,8 +323,153 @@ export async function crawlStatus() {
     trackedJobs: trackedJobs.rows,
     trackedQueue: trackedQueue.rows,
     trackedRecent: trackedRecent.rows,
-    trackedRecentLabels: trackedRecentLabels.rows
+    trackedRecentLabels: trackedRecentLabels.rows,
+    kbCoverage
   };
+}
+
+export async function kbCollectionCoverage() {
+  const regionDefinitions = kbCollectionRegions().map((region) => ({
+    id: region.id,
+    name: region.name,
+    prefixes: legalDongCodePrefixes(region),
+    tileCount: listTiles(region).length
+  }));
+  const regionIds = regionDefinitions.map((region) => region.id);
+  if (!regionDefinitions.length) return [];
+
+  const [stored, jobs, queue] = await Promise.all([
+    query(`
+      with defs as (
+        select
+          value->>'id' as id,
+          value->>'name' as name,
+          coalesce((value->>'tileCount')::int, 0) as tile_count,
+          array(select jsonb_array_elements_text(value->'prefixes')) as prefixes
+        from jsonb_array_elements($1::jsonb) value
+      )
+      select
+        d.id,
+        d.name,
+        d.tile_count,
+        count(distinct a.source_complex_id)::int as stored_complexes,
+        count(distinct at.id)::int as area_types
+      from defs d
+      left join apartments a
+        on a.region_id = d.id
+        or exists (
+          select 1
+          from unnest(d.prefixes) prefix
+          where coalesce(a.legal_dong_code, '') like prefix || '%'
+        )
+      left join area_types at on at.apartment_id = a.id
+      group by d.id, d.name, d.tile_count
+    `, [JSON.stringify(regionDefinitions)]),
+    query(`
+      select *
+      from (
+        select
+          j.*,
+          row_number() over (partition by j.region_id order by j.created_at desc) as row_number
+        from crawl_jobs j
+        where j.region_id = any($1::text[])
+      ) ranked
+      where row_number = 1
+    `, [regionIds]),
+    query(`
+      with active_jobs as (
+        select *
+        from crawl_jobs
+        where region_id = any($1::text[])
+          and years_back = 0
+          and status in ('requested', 'discovering', 'running')
+      ),
+      job_summary as (
+        select
+          region_id,
+          count(*)::int as active_jobs,
+          coalesce(sum(total_complexes), 0)::int as active_total,
+          coalesce(sum(completed_complexes), 0)::int as active_completed,
+          coalesce(sum(failed_complexes), 0)::int as active_failed
+        from active_jobs
+        group by region_id
+      ),
+      queue_summary as (
+        select
+          j.region_id,
+          count(q.id) filter (where q.status = 'pending')::int as active_pending,
+          count(q.id) filter (where q.status = 'running')::int as active_running,
+          count(q.id) filter (where q.status = 'completed')::int as active_queue_completed,
+          count(q.id) filter (where q.status = 'failed')::int as active_queue_failed
+        from active_jobs j
+        left join crawl_queue q on q.job_id = j.id
+        group by j.region_id
+      )
+      select
+        coalesce(js.region_id, qs.region_id) as region_id,
+        coalesce(js.active_jobs, 0)::int as active_jobs,
+        coalesce(js.active_total, 0)::int as active_total,
+        coalesce(js.active_completed, 0)::int as active_completed,
+        coalesce(js.active_failed, 0)::int as active_failed,
+        coalesce(qs.active_pending, 0)::int as active_pending,
+        coalesce(qs.active_running, 0)::int as active_running,
+        coalesce(qs.active_queue_completed, 0)::int as active_queue_completed,
+        coalesce(qs.active_queue_failed, 0)::int as active_queue_failed
+      from job_summary js
+      full join queue_summary qs on qs.region_id = js.region_id
+    `, [regionIds])
+  ]);
+
+  const storedByRegion = new Map(stored.rows.map((row) => [row.id, row]));
+  const latestJobByRegion = new Map(jobs.rows.map((row) => [row.region_id, row]));
+  const queueByRegion = new Map(queue.rows.map((row) => [row.region_id, row]));
+
+  return regionDefinitions.map((region) => {
+    const storedRow = storedByRegion.get(region.id) || {};
+    const jobRow = latestJobByRegion.get(region.id) || null;
+    const queueRow = queueByRegion.get(region.id) || {};
+    const storedComplexes = Number(storedRow.stored_complexes || 0);
+    const activePending = Number(queueRow.active_pending || 0);
+    const activeRunning = Number(queueRow.active_running || 0);
+    const activeFailed = Number(queueRow.active_queue_failed || 0);
+    const knownTarget = storedComplexes + activePending + activeRunning + activeFailed;
+    const activeTotal = Number(queueRow.active_total || 0);
+    const activeDone = Number(queueRow.active_completed || 0) + Number(queueRow.active_failed || 0);
+    const activeJobs = Number(queueRow.active_jobs || 0);
+    const targetReady = !activeJobs || activeTotal > 0 || activePending || activeRunning || activeFailed;
+
+    return {
+      regionId: region.id,
+      regionName: region.name,
+      prefixes: region.prefixes,
+      tileCount: Number(storedRow.tile_count || region.tileCount || 0),
+      storedComplexes,
+      areaTypes: Number(storedRow.area_types || 0),
+      knownTarget,
+      storedPercent: targetReady && knownTarget ? Math.round((storedComplexes / knownTarget) * 1000) / 10 : null,
+      targetReady: Boolean(targetReady),
+      activeJobs,
+      activeTotal,
+      activeCompleted: Number(queueRow.active_completed || 0),
+      activeFailed: Number(queueRow.active_failed || 0),
+      activePending,
+      activeRunning,
+      activeQueueCompleted: Number(queueRow.active_queue_completed || 0),
+      activeQueueFailed: Number(queueRow.active_queue_failed || 0),
+      activeProgressPercent: activeTotal ? Math.round((activeDone / activeTotal) * 1000) / 10 : null,
+      latestJob: jobRow ? {
+        id: Number(jobRow.id),
+        status: jobRow.status,
+        yearsBack: Number(jobRow.years_back || 0),
+        totalComplexes: Number(jobRow.total_complexes || 0),
+        completedComplexes: Number(jobRow.completed_complexes || 0),
+        failedComplexes: Number(jobRow.failed_complexes || 0),
+        createdAt: jobRow.created_at,
+        updatedAt: jobRow.updated_at,
+        finishedAt: jobRow.finished_at
+      } : null
+    };
+  });
 }
 
 export async function crawlDetails({ status = "", limit = 200 } = {}) {

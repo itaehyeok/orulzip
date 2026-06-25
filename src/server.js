@@ -378,7 +378,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/status") {
-      const status = await readStatusOverview();
+      const status = await readStatusOverview({ includeCrawl: isAdmin });
       const payload = {
         meta: status.meta,
         counts: status.counts,
@@ -477,6 +477,9 @@ const server = createServer(async (req, res) => {
       const startBandKey = url.searchParams.get("startBandKey") || "";
       const endBandKey = url.searchParams.get("endBandKey") || "";
       const areaBandKey = url.searchParams.get("areaBandKey") || "all";
+      const sidoCode = url.searchParams.get("sidoCode") || "";
+      const sigunguCode = url.searchParams.get("sigunguCode") || "";
+      const dongKey = url.searchParams.get("dongKey") || "";
       const page = Number(url.searchParams.get("page") || 1);
       const pageSize = Number(url.searchParams.get("pageSize") || 50);
       return json(res, await readPriceBandRankPage({
@@ -488,6 +491,9 @@ const server = createServer(async (req, res) => {
         startBandKey,
         endBandKey,
         areaBandKey,
+        sidoCode,
+        sigunguCode,
+        dongKey,
         minHouseholdCount: filters.minHouseholdCount,
         environment: requestAnalyticsEnvironment,
         page,
@@ -993,7 +999,7 @@ function serializeCrawlStatus(crawl) {
   if (!crawl) return null;
   const job = serializeJob(crawl.job);
   const queueCounts = Object.fromEntries(crawl.queue.map((row) => [row.status, row.count]));
-  const total = job.totalComplexes || 0;
+  const total = job?.totalComplexes || 0;
   const done = (queueCounts.completed || 0) + (queueCounts.failed || 0);
   const trackedQueueByJob = new Map();
   for (const row of crawl.trackedQueue || []) {
@@ -1043,6 +1049,7 @@ function serializeCrawlStatus(crawl) {
         }
       };
     }),
+    kbCoverage: crawl.kbCoverage || [],
     logs: crawl.logs.map((row) => ({
       level: row.level,
       message: row.message,
