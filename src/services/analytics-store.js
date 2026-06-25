@@ -418,7 +418,7 @@ export async function readAnalyticsVisitors({ days = 7, includeAdmin = false, in
 }
 
 export async function readExternalVisitorAlertSummary({ environment = "production" } = {}) {
-  const normalizedEnvironment = normalizedAnalyticsEnvironment(environment);
+  const normalizedEnvironment = normalizeAnalyticsEnvironment(environment);
   const result = await analyticsQuery(`
     select
       count(distinct e.visitor_id) filter (where e.created_at >= now() - interval '30 minutes')::integer as active_visitors_30m,
