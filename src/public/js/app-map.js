@@ -637,11 +637,23 @@ function clearMapApartmentFocusUrl() {
 }
 
 async function loadZoomMapSummary() {
-  if (!(await initZoomMap())) return;
   const requestId = ++state.zoomMapRequestId;
+  showMapLoadingOverlay("지도를 준비하는 중...", { requestId });
+  if (!(await initZoomMap())) {
+    hideMapLoadingOverlay({
+      requestId,
+      message: "지도를 불러오지 못했습니다.",
+      delay: 1400
+    });
+    return;
+  }
+  if (requestId !== state.zoomMapRequestId) return;
   const params = new URLSearchParams();
   const view = currentZoomMapView();
-  if (!view) return;
+  if (!view) {
+    hideMapLoadingOverlay({ requestId });
+    return;
+  }
   const { zoom, bounds } = view;
   params.set("zoom", String(zoom));
   params.set("north", String(bounds.north));
@@ -653,9 +665,26 @@ async function loadZoomMapSummary() {
   appendHouseholdFilterParam(params);
 
   const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
-  const data = await api(`${endpoint}?${params}`);
-  if (requestId !== state.zoomMapRequestId) return;
-  renderZoomMapSummary(data);
+  showMapLoadingOverlay("지도 데이터를 가져오는 중...", { requestId });
+  try {
+    const data = await api(`${endpoint}?${params}`);
+    if (requestId !== state.zoomMapRequestId) return;
+    const itemCount = Array.isArray(data.items) ? data.items.length : 0;
+    if (itemCount >= 500) {
+      showMapLoadingOverlay(`마커 ${formatInt(itemCount)}개를 그리는 중...`, { requestId, delay: 0 });
+      await waitForNextFrame();
+      if (requestId !== state.zoomMapRequestId) return;
+    }
+    renderZoomMapSummary(data);
+    hideMapLoadingOverlay({ requestId });
+  } catch (error) {
+    if (requestId !== state.zoomMapRequestId) return;
+    hideMapLoadingOverlay({
+      requestId,
+      message: "지도를 불러오지 못했습니다.",
+      delay: 1400
+    });
+  }
 }
 
 function currentZoomMapView() {
@@ -820,6 +849,68 @@ function resetMapTransitionState() {
     els.mapTransitionStatus.removeAttribute("aria-busy");
     els.mapTransitionStatus.removeAttribute("data-busy");
   }
+}
+
+function showMapLoadingOverlay(label = "지도 데이터를 가져오는 중...", { requestId = state.zoomMapRequestId, delay = 180 } = {}) {
+  if (!els.mapLoadingOverlay) return;
+  clearTimeout(state.mapLoadingTimer);
+  state.mapLoadingRequestId = requestId;
+  setMapLoadingOverlayLabel(label);
+  els.mapLoadingOverlay.dataset.state = "loading";
+  els.mapLoadingOverlay.setAttribute("aria-busy", "true");
+
+  const show = () => {
+    if (state.mapLoadingRequestId !== requestId) return;
+    els.mapLoadingOverlay.hidden = false;
+  };
+
+  if (!els.mapLoadingOverlay.hidden || Number(delay) <= 0) {
+    show();
+    return;
+  }
+
+  state.mapLoadingTimer = setTimeout(show, Math.max(0, Number(delay) || 0));
+}
+
+function hideMapLoadingOverlay({ requestId = state.mapLoadingRequestId, message = "", delay = 0 } = {}) {
+  if (!els.mapLoadingOverlay || state.mapLoadingRequestId !== requestId) return;
+  clearTimeout(state.mapLoadingTimer);
+
+  if (message) {
+    setMapLoadingOverlayLabel(message);
+    els.mapLoadingOverlay.dataset.state = "error";
+    els.mapLoadingOverlay.removeAttribute("aria-busy");
+    els.mapLoadingOverlay.hidden = false;
+    state.mapLoadingTimer = setTimeout(() => {
+      if (state.mapLoadingRequestId !== requestId) return;
+      state.mapLoadingRequestId = 0;
+      els.mapLoadingOverlay.hidden = true;
+      els.mapLoadingOverlay.dataset.state = "loading";
+      els.mapLoadingOverlay.setAttribute("aria-busy", "true");
+    }, Math.max(0, Number(delay) || 0));
+    return;
+  }
+
+  state.mapLoadingRequestId = 0;
+  els.mapLoadingOverlay.hidden = true;
+  els.mapLoadingOverlay.dataset.state = "loading";
+  els.mapLoadingOverlay.setAttribute("aria-busy", "true");
+}
+
+function setMapLoadingOverlayLabel(label) {
+  if (els.mapLoadingLabel) {
+    els.mapLoadingLabel.textContent = label || "지도 데이터를 가져오는 중...";
+  }
+}
+
+function waitForNextFrame() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 16);
+  });
 }
 
 function showMapFocusStatus(label) {
