@@ -1,6 +1,6 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
 @import url("/css/app-base.css?v=20260623-growth-green-band");
-@import url("/css/app-header.css?v=20260623-growth-band-mode");
+@import url("/css/app-header.css?v=20260627-map-growth-amount");
 @import url("/css/app-map.css?v=20260626-map-loading-visual-ready");
 @import url("/css/app-map-panels.css?v=20260623-floating-detail-panel");
 @import url("/css/app-design.css?v=20260623-growth-color-standard");
@@ -9,4 +9,4 @@
 @import url("/css/app-performance.css?v=20260624-performance-measurements");
 @import url("/css/markers/region.css?v=20260623-marker-showcase-lab");
 @import url("/css/markers/apartment.css?v=20260623-marker-showcase-lab");
-@import url("/css/app-responsive.css?v=20260625-price-band-filter-row");
+@import url("/css/app-responsive.css?v=20260627-map-growth-amount");

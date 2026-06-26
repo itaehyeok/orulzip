@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
-    <link rel="stylesheet" href="/styles.css?v=20260626-map-loading-visual-ready">
+    <link rel="stylesheet" href="/styles.css?v=20260627-map-growth-amount">
   </head>
   <body>
     <main class="app-shell">
@@ -140,6 +140,13 @@
                   <option value="12" selected>1년 전 대비</option>
                   <option value="36">3년 전 대비</option>
                   <option value="60">5년 전 대비</option>
+                </select>
+              </label>
+              <label class="map-growth-metric-select">
+                <span class="sr-only">지도 표시 기준</span>
+                <select data-map-growth-metric-select aria-label="지도 표시 기준">
+                  <option value="rate" selected>상승률</option>
+                  <option value="amount">상승액</option>
                 </select>
               </label>
             </div>
@@ -1598,6 +1605,6 @@
       </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260626-map-loading-visual-ready"></script>
+    <script src="/app.js?v=20260627-map-growth-amount"></script>
   </body>
 </html>

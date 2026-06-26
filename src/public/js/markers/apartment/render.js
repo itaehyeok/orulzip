@@ -15,10 +15,10 @@ function apartmentMarkerLegacyHtml(item, design = activeApartmentMarkerDesign())
   const detailRows = [
     display.name && name ? `<small class="apartment-marker-name-row" data-apartment-marker-info="name">${escapeHtml(name)}</small>` : "",
     display.area && area ? `<small class="apartment-marker-area-row" data-apartment-marker-info="area">${escapeHtml(area)}</small>` : "",
-    display.rate ? `<strong class="apartment-marker-rate-row ${growthRateToneClass(item.growthRate, item.countryRank, item.countryRankTotal)}" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
+    display.rate ? `<strong class="apartment-marker-rate-row ${mapGrowthMetricToneClass(item, item.countryRank, item.countryRankTotal)}" data-apartment-marker-info="rate">${hasData ? formatMapGrowthMetricValue(item) : "데이터없음"}</strong>` : ""
   ].filter(Boolean).join("");
   return `
-    <div class="apartment-map-marker apartment-rank-marker ${escapeHtml(design.className)} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="${style.borderEnabled ? "on" : "off"}" data-apartment-marker-shadow="${style.shadowEnabled ? "on" : "off"}" style="${growthMarkerStyleVars(item.growthRate)}; ${apartmentMarkerStyleInline(design)}">
+    <div class="apartment-map-marker apartment-rank-marker ${escapeHtml(design.className)} ${hasData ? "" : "no-data"} ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="${style.borderEnabled ? "on" : "off"}" data-apartment-marker-shadow="${style.shadowEnabled ? "on" : "off"}" style="${mapGrowthMarkerStyleVars(item)}; ${apartmentMarkerStyleInline(design)}">
       ${detailRows}
       ${rankLines.length ? `
         <span class="apartment-marker-rank-list">
@@ -51,10 +51,10 @@ function apartmentMarkerRegionLikeHtml(item, design = activeApartmentMarkerDesig
   const detailRows = [
     display.name && name ? `<small class="apartment-marker-name-row" data-apartment-marker-info="name">${escapeHtml(name)}</small>` : "",
     display.area && area ? `<small class="apartment-marker-area-row" data-apartment-marker-info="area">${escapeHtml(area)}</small>` : "",
-    display.rate ? `<strong class="apartment-marker-rate-row ${hasData ? growthRateToneClass(item.growthRate, item.countryRank, item.countryRankTotal) : ""}" data-apartment-marker-info="rate">${hasData ? formatPercent(item.growthRate) : "데이터없음"}</strong>` : ""
+    display.rate ? `<strong class="apartment-marker-rate-row ${hasData ? mapGrowthMetricToneClass(item, item.countryRank, item.countryRankTotal) : ""}" data-apartment-marker-info="rate">${hasData ? formatMapGrowthMetricValue(item) : "데이터없음"}</strong>` : ""
   ].filter(Boolean).join("");
   return `
-    <div class="${markerClasses}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="${growthMarkerStyleVars(item.growthRate)}; ${apartmentMarkerRegionStyleInline(item, design)}">
+    <div class="${markerClasses}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="${mapGrowthMarkerStyleVars(item)}; ${apartmentMarkerRegionStyleInline(item, design)}">
       ${detailRows}
       ${rankLines.length ? `
         <span class="apartment-marker-rank-list">
@@ -74,7 +74,7 @@ function apartmentMarkerNoDataHtml(item = {}) {
   const isSelected = item.id && item.id === state.focusedMapApartmentId;
   const name = String(item.name || "").trim();
   return `
-    <div class="apartment-map-marker apartment-rank-marker apartment-marker-no-data no-data ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="${growthMarkerStyleVars(item.growthRate)};">
+    <div class="apartment-map-marker apartment-rank-marker apartment-marker-no-data no-data ${isSelected ? "selected" : ""}" data-map-apartment-marker-id="${escapeHtml(item.id || "")}" data-selected-apartment-name="${escapeHtml(name)}" data-apartment-marker-border="off" data-apartment-marker-shadow="off" style="${mapGrowthMarkerStyleVars(item)};">
       <span class="apartment-marker-no-data-period">${escapeHtml(apartmentMarkerNoDataPeriodLabel())}</span>
       <strong class="apartment-marker-no-data-message">거래 없음</strong>
     </div>
@@ -98,10 +98,10 @@ function apartmentMarkerAllRankRows(item) {
   const sigunguLabel = shortZoomLabel(item.sigunguName || item.address || "", "sigungu") || "구";
   const sidoLabel = zoomRankSidoLabel(item);
   return [
-    apartmentRankRow("dong", dongLabel, item.dongRank, item.dongRankTotal, item.growthRate),
-    apartmentRankRow("sigungu", sigunguLabel, item.sigunguRank, item.sigunguRankTotal, item.growthRate),
-    apartmentRankRow("sido", sidoLabel, item.sidoRank, item.sidoRankTotal, item.growthRate),
-    apartmentRankRow("national", "전국", item.countryRank, item.countryRankTotal, item.growthRate),
+    apartmentRankRow("dong", dongLabel, item.dongRank, item.dongRankTotal, mapGrowthMetricRankInlineValue(item)),
+    apartmentRankRow("sigungu", sigunguLabel, item.sigunguRank, item.sigunguRankTotal, mapGrowthMetricRankInlineValue(item)),
+    apartmentRankRow("sido", sidoLabel, item.sidoRank, item.sidoRankTotal, mapGrowthMetricRankInlineValue(item)),
+    apartmentRankRow("national", "전국", item.countryRank, item.countryRankTotal, mapGrowthMetricRankInlineValue(item)),
     apartmentRankPercentRow("nationalPercent", "전국", item.countryRank, item.countryRankTotal)
   ];
 }
@@ -200,7 +200,7 @@ function apartmentMarkerRegionLayout(item, style = activeApartmentMarkerStyle())
   const hasData = item?.hasData !== false;
   const display = activeApartmentMarkerDisplay();
   const rows = hasData ? apartmentMarkerRankLines(item) : [];
-  const rateText = hasData ? formatPercent(item?.growthRate) : "데이터없음";
+  const rateText = hasData ? formatMapGrowthMetricValue(item) : "데이터없음";
   const topTextWidth = Math.max(
     display.name ? estimateRegionMarkerTextWidth(String(item?.name || ""), 8) : 0,
     display.area ? estimateRegionMarkerTextWidth(apartmentMarkerAreaLabel(item), 7) : 0,

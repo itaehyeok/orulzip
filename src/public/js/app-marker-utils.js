@@ -2,8 +2,7 @@ function zoomGroupPopup(item) {
   return `
     <strong>${escapeHtml(item.name)}</strong><br>
     아파트 ${formatInt(item.apartmentCount)}개 / 면적 ${formatInt(item.areaCount)}개<br>
-    평균 상승액 ${formatMoney(item.growthAmount)}<br>
-    평균 상승률 ${renderGrowthRateText(item.growthRate, item.countryRank, item.countryRankTotal)}
+    평균 ${escapeHtml(mapGrowthMetricLabel())} ${renderMapGrowthMetricText(item, item.countryRank, item.countryRankTotal)}
   `;
 }
 
@@ -105,6 +104,37 @@ function formatMarkerRankText(rank, total, scope = "region", growthRate = null) 
   return text;
 }
 
+function mapGrowthMetricLabel() {
+  return activeSupportedMapGrowthMetric() === "amount" ? "상승액" : "상승률";
+}
+
+function mapGrowthMetricValue(item = {}) {
+  return activeSupportedMapGrowthMetric() === "amount" ? item.growthAmount : item.growthRate;
+}
+
+function formatMapGrowthMetricValue(item = {}, { compact = true, empty = "데이터없음" } = {}) {
+  if (item.hasData === false) return empty;
+  if (activeSupportedMapGrowthMetric() === "amount") {
+    const amount = Number(item.growthAmount);
+    if (!Number.isFinite(amount)) return empty;
+    return compact ? formatCompactSignedKoreanPrice(amount) : formatSignedKoreanPriceWithPlus(amount);
+  }
+  return formatPercent(item.growthRate);
+}
+
+function renderMapGrowthMetricText(item = {}, rank = null, total = null) {
+  return `<span class="${mapGrowthMetricToneClass(item, rank, total)}">${formatMapGrowthMetricValue(item)}</span>`;
+}
+
+function mapGrowthMetricToneClass(item = {}, rank = null, total = null) {
+  if (activeSupportedMapGrowthMetric() !== "amount") return growthRateToneClass(item.growthRate, rank, total);
+  return `growth-rate-tone ${amountGrowthTone(item.growthAmount)}`;
+}
+
+function mapGrowthMetricRankInlineValue(item = {}) {
+  return activeSupportedMapGrowthMetric() === "amount" ? null : item.growthRate;
+}
+
 function formatMarkerRankRatioText(rank, total) {
   return formatRankText(rank, total);
 }
@@ -179,6 +209,23 @@ function growthMarkerColors(rate) {
   return growthMarkerColorPalette.top3;
 }
 
+function amountGrowthTone(amount) {
+  if (amount === null || amount === undefined || amount === "") return "growth-rate-no-data";
+  const number = Number(amount);
+  if (!Number.isFinite(number)) return "growth-rate-no-data";
+  const rounded = Math.round(number);
+  if (rounded === 0) return "growth-rate-neutral";
+  return rounded < 0 ? "growth-rate-negative" : "growth-rate-top-1";
+}
+
+function amountMarkerColors(amount) {
+  const tone = amountGrowthTone(amount);
+  if (tone === "growth-rate-no-data") return growthMarkerNoDataColors;
+  if (tone === "growth-rate-neutral") return growthMarkerColorPalette.neutral;
+  if (tone === "growth-rate-negative") return growthMarkerColorPalette.negative;
+  return growthMarkerColorPalette.top1;
+}
+
 function growthColor(rate) {
   return growthMarkerColors(rate).main;
 }
@@ -200,10 +247,37 @@ function growthMarkerStyleVars(rate) {
   ].join("; ");
 }
 
+function mapGrowthMarkerStyleVars(item = {}) {
+  if (activeSupportedMapGrowthMetric() !== "amount") return growthMarkerStyleVars(item.growthRate);
+  const colors = amountMarkerColors(item.growthAmount);
+  return [
+    `--marker-color:${colors.main}`,
+    `--zoom-color:${colors.main}`,
+    `--growth-marker-main:${colors.main}`,
+    `--growth-marker-text:${colors.main}`,
+    `--growth-marker-border:${colors.main}`,
+    `--growth-marker-bg:${colors.bg}`,
+    `--growth-marker-badge-bg:${colors.badgeBg}`,
+    `--growth-marker-badge-text:${colors.main}`,
+    `--growth-marker-badge-border:${colors.badgeBorder}`,
+    `--growth-marker-hover-bg:${colors.hoverBg}`,
+    `--growth-marker-hover-border:${colors.main}`
+  ].join("; ");
+}
+
 function sortableRate(rate) {
   return Number.isFinite(rate) ? Number(rate) : -Infinity;
 }
 
+function sortableMapGrowthMetric(item = {}) {
+  const value = Number(mapGrowthMetricValue(item));
+  return Number.isFinite(value) ? value : -Infinity;
+}
+
 function rateClass(rate, rank = null, total = null) {
   return growthRateToneClass(rate, rank, total);
+}
+
+function mapGrowthMetricClass(item = {}, rank = null, total = null) {
+  return mapGrowthMetricToneClass(item, rank, total);
 }

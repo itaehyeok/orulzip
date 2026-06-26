@@ -515,6 +515,7 @@ const server = createServer(async (req, res) => {
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || "",
+        metric: url.searchParams.get("metric") || "",
         minHouseholdCount: minHouseholdCountFromUrl(url, 0),
         environment: requestAnalyticsEnvironment
       };
@@ -542,6 +543,7 @@ const server = createServer(async (req, res) => {
         sigunguCode: url.searchParams.get("sigunguCode") || "",
         sidoCode: url.searchParams.get("sidoCode") || "",
         rankingScope: url.searchParams.get("rankingScope") || "",
+        metric: url.searchParams.get("metric") || "",
         minHouseholdCount: minHouseholdCountFromUrl(url),
         environment: requestAnalyticsEnvironment
       };
@@ -550,7 +552,7 @@ const server = createServer(async (req, res) => {
         level: zoomAggregationLevel(filters.zoom),
         zoom: filters.zoom,
         period: { startMonth: filters.start, endMonth: filters.end },
-        cache: { hit: false, source: "molit", minHouseholdCount: filters.minHouseholdCount, updatedAt: null },
+        cache: { hit: false, source: "molit", metric: filters.metric || "rate", minHouseholdCount: filters.minHouseholdCount, updatedAt: null },
         items: []
       });
     }
@@ -573,6 +575,7 @@ const server = createServer(async (req, res) => {
         apartmentId,
         startMonth: url.searchParams.get("start") || "",
         endMonth: url.searchParams.get("end") || "",
+        metric: url.searchParams.get("metric") || "",
         minHouseholdCount: minHouseholdCountFromUrl(url)
       }));
     }
@@ -982,7 +985,8 @@ async function attachApartmentRankSummary(detail, {
   source = "kb",
   apartmentId = "",
   startMonth = "",
-  endMonth = ""
+  endMonth = "",
+  metric = ""
 } = {}) {
   return {
     ...detail,
@@ -990,7 +994,8 @@ async function attachApartmentRankSummary(detail, {
       source,
       apartmentId,
       startMonth,
-      endMonth
+      endMonth,
+      metric
     })
   };
 }
@@ -1329,6 +1334,7 @@ async function renderSitemapXml() {
         select id
         from map_growth_snapshots
         where source = 'molit'
+          and metric = 'rate'
           and period_years = 1
           and min_household_count = $1
         order by end_month desc, updated_at desc

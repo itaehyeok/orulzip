@@ -89,6 +89,9 @@ export async function initDb() {
     create index if not exists monthly_prices_month_idx on monthly_prices(year_month);
     create index if not exists apartments_region_idx on apartments(region_id);
     create index if not exists apartments_neighborhood_idx on apartments(neighborhood_name);
+    create index if not exists area_types_apartment_exclusive_area_idx
+      on area_types(apartment_id, exclusive_area_m2)
+      where exclusive_area_m2 is not null;
 
     create table if not exists crawl_jobs (
       id bigserial primary key,
@@ -382,6 +385,7 @@ export async function initDb() {
     create table if not exists map_growth_snapshots (
       id bigserial primary key,
       source text not null default 'kb',
+      metric text not null default 'rate',
       period_years integer not null,
       start_month text not null,
       end_month text not null,
@@ -389,12 +393,16 @@ export async function initDb() {
       apartment_count integer not null default 0,
       area_count integer not null default 0,
       created_at timestamptz not null default now(),
-      updated_at timestamptz not null default now(),
-      unique(source, period_years, start_month, end_month)
+      updated_at timestamptz not null default now()
     );
 
     alter table map_growth_snapshots
       add column if not exists min_household_count integer not null default 0;
+    alter table map_growth_snapshots
+      add column if not exists metric text not null default 'rate';
+    update map_growth_snapshots
+      set metric = 'rate'
+      where metric is null or metric = '';
 
     do $$
     declare
@@ -442,8 +450,12 @@ export async function initDb() {
       area_summary text,
       growth_rate double precision,
       growth_amount integer,
+      start_sale_price integer,
+      end_sale_price integer,
       start_pyeong_price integer,
       end_pyeong_price integer,
+      representative_area_m2 numeric,
+      representative_basis text,
       has_data boolean not null default true,
       updated_at timestamptz not null default now(),
       primary key(snapshot_id, level, item_key)
@@ -456,13 +468,23 @@ export async function initDb() {
       add column if not exists sigungu_name text,
       add column if not exists dong_key text,
       add column if not exists dong_name text;
+    alter table map_growth_items
+      add column if not exists start_sale_price integer,
+      add column if not exists end_sale_price integer,
+      add column if not exists representative_area_m2 numeric,
+      add column if not exists representative_basis text;
 
     create index if not exists map_growth_snapshots_period_idx
       on map_growth_snapshots(source, start_month, end_month, updated_at desc);
+    drop index if exists map_growth_snapshots_household_filter_uidx;
     create unique index if not exists map_growth_snapshots_household_filter_uidx
-      on map_growth_snapshots(source, period_years, start_month, end_month, min_household_count);
+      on map_growth_snapshots(source, metric, period_years, start_month, end_month, min_household_count);
     create index if not exists map_growth_snapshots_filter_lookup_idx
       on map_growth_snapshots(source, start_month, end_month, min_household_count, updated_at desc);
+    create index if not exists map_growth_snapshots_metric_period_idx
+      on map_growth_snapshots(source, metric, start_month, end_month, updated_at desc);
+    create index if not exists map_growth_snapshots_metric_filter_lookup_idx
+      on map_growth_snapshots(source, metric, start_month, end_month, min_household_count, updated_at desc);
     create index if not exists map_growth_items_lookup_idx
       on map_growth_items(snapshot_id, level, lat, lng);
     create index if not exists map_growth_items_hierarchy_idx
@@ -497,13 +519,23 @@ export async function initDb() {
       area_summary text,
       growth_rate double precision,
       growth_amount integer,
+      start_sale_price integer,
+      end_sale_price integer,
       start_pyeong_price integer,
       end_pyeong_price integer,
+      representative_area_m2 numeric,
+      representative_basis text,
       has_data boolean not null default true,
       updated_at timestamptz not null default now(),
       primary key(snapshot_id, dong_key, dong_rank),
       unique(snapshot_id, dong_key, apartment_id)
     );
+
+    alter table map_dong_apartment_rank_items
+      add column if not exists start_sale_price integer,
+      add column if not exists end_sale_price integer,
+      add column if not exists representative_area_m2 numeric,
+      add column if not exists representative_basis text;
 
     create index if not exists map_dong_apartment_rank_lookup_idx
       on map_dong_apartment_rank_items(snapshot_id, dong_key, dong_rank);

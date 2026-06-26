@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260626-map-loading-visual-ready";
+  const version = "20260627-map-growth-amount";
   const scripts = [
     "app-prelude",
     "app-state",

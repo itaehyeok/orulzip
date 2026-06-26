@@ -8,6 +8,9 @@ import { notifyTelegramCacheFallback } from "./telegram-notifier.js";
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const DEFAULT_MIN_HOUSEHOLD_COUNTS = [0, 100];
 export const DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT = 100;
+export const MAP_GROWTH_METRIC_RATE = "rate";
+export const MAP_GROWTH_METRIC_AMOUNT = "amount";
+export const DEFAULT_MAP_GROWTH_METRICS = [MAP_GROWTH_METRIC_RATE, MAP_GROWTH_METRIC_AMOUNT];
 const MAP_CACHE_REFRESH_LOCK_ID = 442061301;
 const MOLIT_APARTMENT_DETAIL_GRAPH_MONTHS = 60;
 const MOLIT_APARTMENT_DETAIL_COMPARISON_MONTHS = 60;
@@ -21,6 +24,35 @@ const MOLIT_PRICE_FRESHNESS_RULES = [
   { maxPeriodMonths: Infinity, startGapMonths: 12, endGapMonths: 3 }
 ];
 
+export function normalizeMapGrowthMetric(value) {
+  return String(value || "").trim().toLowerCase() === MAP_GROWTH_METRIC_AMOUNT
+    ? MAP_GROWTH_METRIC_AMOUNT
+    : MAP_GROWTH_METRIC_RATE;
+}
+
+function normalizeMapGrowthMetrics(values = DEFAULT_MAP_GROWTH_METRICS) {
+  const list = (Array.isArray(values) ? values : String(values || "").split(","))
+    .map(normalizeMapGrowthMetric);
+  return [...new Set(list.length ? list : DEFAULT_MAP_GROWTH_METRICS)];
+}
+
+function mapGrowthMetricOrderSql(metric, alias = "") {
+  const column = normalizeMapGrowthMetric(metric) === MAP_GROWTH_METRIC_AMOUNT
+    ? "growth_amount"
+    : "growth_rate";
+  return `${alias ? `${alias}.` : ""}${column} desc nulls last`;
+}
+
+function compareMetricValues(a, b, metric = MAP_GROWTH_METRIC_RATE) {
+  const field = normalizeMapGrowthMetric(metric) === MAP_GROWTH_METRIC_AMOUNT ? "growthAmount" : "growthRate";
+  return sortableNumber(b?.[field]) - sortableNumber(a?.[field]);
+}
+
+function sortableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : -Infinity;
+}
+
 export async function readMapGrowthCacheOverview() {
   const result = await query(`
     select
@@ -30,6 +62,7 @@ export async function readMapGrowthCacheOverview() {
       max(end_month) as end_month
     from map_growth_snapshots
     where source = 'kb'
+      and metric = 'rate'
   `);
   const row = result.rows[0] || {};
   return {
@@ -46,6 +79,7 @@ export async function readCachedZoomMapSummary(filters) {
   if (!startMonth || !endMonth) return null;
   const source = filters.source || "kb";
   const minHouseholdCount = normalizeMinHouseholdCount(filters.minHouseholdCount);
+  const metric = normalizeMapGrowthMetric(filters.metric);
 
   const snapshotResult = await query(`
     select *
@@ -54,9 +88,10 @@ export async function readCachedZoomMapSummary(filters) {
       and start_month = $1
       and end_month = $2
       and min_household_count = $4
+      and metric = $5
     order by updated_at desc
     limit 1
-  `, [startMonth, endMonth, source, minHouseholdCount]);
+  `, [startMonth, endMonth, source, minHouseholdCount, metric]);
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
 
@@ -90,6 +125,8 @@ export async function readCachedZoomMapSummary(filters) {
   const params = [snapshot.id, level];
   const apartmentScopeClause = level === "apartment" ? apartmentScopeWhereClause(filters, params) : "";
   const boundsClause = apartmentScopeClause ? "" : boundsWhereClause(filters, params);
+  const metricOrder = mapGrowthMetricOrderSql(metric, "mgi");
+  const bareMetricOrder = mapGrowthMetricOrderSql(metric);
   const itemsResult = level === "apartment"
     ? await query(`
       with ranked as (
@@ -102,7 +139,7 @@ export async function readCachedZoomMapSummary(filters) {
             )
             order by
               mgi.has_data desc,
-              mgi.growth_rate desc nulls last,
+              ${metricOrder},
               mgi.item_name asc
           )::int as dong_rank,
           count(*) over (
@@ -115,7 +152,7 @@ export async function readCachedZoomMapSummary(filters) {
             partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
             order by
               mgi.has_data desc,
-              mgi.growth_rate desc nulls last,
+              ${metricOrder},
               mgi.item_name asc
           )::int as sigungu_rank,
           count(*) over (
@@ -125,7 +162,7 @@ export async function readCachedZoomMapSummary(filters) {
             partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
             order by
               mgi.has_data desc,
-              mgi.growth_rate desc nulls last,
+              ${metricOrder},
               mgi.item_name asc
           )::int as sido_rank,
           count(*) over (
@@ -134,7 +171,7 @@ export async function readCachedZoomMapSummary(filters) {
           row_number() over (
             order by
               mgi.has_data desc,
-              mgi.growth_rate desc nulls last,
+              ${metricOrder},
               mgi.item_name asc
           )::int as country_rank,
           count(*) over ()::int as country_rank_total
@@ -149,7 +186,7 @@ export async function readCachedZoomMapSummary(filters) {
         ${boundsClause}
       order by
         has_data desc,
-        growth_rate desc nulls last,
+        ${bareMetricOrder},
         apartment_count desc,
         item_name asc
       limit 2000
@@ -163,7 +200,7 @@ export async function readCachedZoomMapSummary(filters) {
               partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as sigungu_rank,
             count(*) over (
@@ -173,7 +210,7 @@ export async function readCachedZoomMapSummary(filters) {
               partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as sido_rank,
             count(*) over (
@@ -182,7 +219,7 @@ export async function readCachedZoomMapSummary(filters) {
             row_number() over (
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as country_rank,
             count(*) over ()::int as country_rank_total
@@ -196,7 +233,7 @@ export async function readCachedZoomMapSummary(filters) {
           ${boundsClause}
         order by
           has_data desc,
-          growth_rate desc nulls last,
+          ${bareMetricOrder},
           apartment_count desc,
           item_name asc
       `, params)
@@ -209,7 +246,7 @@ export async function readCachedZoomMapSummary(filters) {
               partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as sido_rank,
             count(*) over (
@@ -218,7 +255,7 @@ export async function readCachedZoomMapSummary(filters) {
             row_number() over (
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as country_rank,
             count(*) over ()::int as country_rank_total
@@ -232,7 +269,7 @@ export async function readCachedZoomMapSummary(filters) {
           ${boundsClause}
         order by
           has_data desc,
-          growth_rate desc nulls last,
+          ${bareMetricOrder},
           apartment_count desc,
           item_name asc
       `, params)
@@ -244,7 +281,7 @@ export async function readCachedZoomMapSummary(filters) {
             row_number() over (
               order by
                 mgi.has_data desc,
-                mgi.growth_rate desc nulls last,
+                ${metricOrder},
                 mgi.item_name asc
             )::int as country_rank,
             count(*) over ()::int as country_rank_total
@@ -258,7 +295,7 @@ export async function readCachedZoomMapSummary(filters) {
           ${boundsClause}
         order by
           has_data desc,
-          growth_rate desc nulls last,
+          ${bareMetricOrder},
           apartment_count desc,
           item_name asc
       `, params)
@@ -270,7 +307,7 @@ export async function readCachedZoomMapSummary(filters) {
         ${boundsClause}
       order by
         has_data desc,
-        growth_rate desc nulls last,
+        ${bareMetricOrder},
         apartment_count desc,
         item_name asc
     `, params);
@@ -285,6 +322,7 @@ export async function readCachedZoomMapSummary(filters) {
     cache: {
       hit: true,
       source,
+      metric,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
       minHouseholdCount: Number(snapshot.min_household_count || 0)
@@ -296,6 +334,8 @@ export async function readCachedZoomMapSummary(filters) {
 async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
   const params = [snapshot.id];
   const boundsClause = boundsWhereClause(filters, params);
+  const metric = normalizeMapGrowthMetric(snapshot.metric);
+  const metricOrder = mapGrowthMetricOrderSql(metric);
   const result = await query(`
     select *
     from map_dong_apartment_rank_items
@@ -303,7 +343,7 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
       ${boundsClause}
     order by
       has_data desc,
-      growth_rate desc nulls last,
+      ${metricOrder},
       apartment_count desc,
       item_name asc
     limit 2000
@@ -334,6 +374,7 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
     cache: {
       hit: true,
       source,
+      metric,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
       minHouseholdCount: Number(snapshot.min_household_count || 0),
@@ -418,6 +459,7 @@ async function readCachedApartmentRankingScope({ snapshot, filters, source, scop
     cache: {
       hit: true,
       source,
+      metric: normalizeMapGrowthMetric(snapshot.metric),
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
       minHouseholdCount: Number(snapshot.min_household_count || 0),
@@ -454,12 +496,14 @@ function normalizedApartmentRankingScope(value, filters) {
 
 export async function refreshMolitMapGrowthCache({
   periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS,
-  minHouseholdCounts = DEFAULT_MIN_HOUSEHOLD_COUNTS
+  minHouseholdCounts = DEFAULT_MIN_HOUSEHOLD_COUNTS,
+  metrics = DEFAULT_MAP_GROWTH_METRICS
 } = {}) {
   const today = todayKstDateString();
   const endMonth = today.slice(0, 7).replace("-", "");
   const snapshots = [];
   const householdFilters = normalizeMinHouseholdCounts(minHouseholdCounts);
+  const metricFilters = normalizeMapGrowthMetrics(metrics);
   for (const period of normalizedPeriods(periodYears)) {
     const startMonth = addMonths(endMonth, -period.months);
     const data = await readMolitMatchedMonthlyRows(today, {
@@ -469,23 +513,27 @@ export async function refreshMolitMapGrowthCache({
     });
     if (!data.rows.length) continue;
     for (const minHouseholdCount of householdFilters) {
-      const items = buildMolitCacheItems(data.rows, {
-        startMonth,
-        endMonth,
-        recentByType: data.recentByType,
-        minHouseholdCount
-      });
-      const snapshot = await saveSnapshot({
-        source: "molit",
-        periodYears: period.storageYears,
-        startMonth,
-        endMonth,
-        minHouseholdCount,
-        apartmentCount: items.apartmentCount,
-        areaCount: items.areaCount,
-        items: items.rows
-      });
-      snapshots.push(snapshot);
+      for (const metric of metricFilters) {
+        const items = buildMolitCacheItems(data.rows, {
+          startMonth,
+          endMonth,
+          recentByType: data.recentByType,
+          minHouseholdCount,
+          metric
+        });
+        const snapshot = await saveSnapshot({
+          source: "molit",
+          metric,
+          periodYears: period.storageYears,
+          startMonth,
+          endMonth,
+          minHouseholdCount,
+          apartmentCount: items.apartmentCount,
+          areaCount: items.areaCount,
+          items: items.rows
+        });
+        snapshots.push(snapshot);
+      }
     }
   }
 
@@ -501,10 +549,13 @@ export async function readApartmentMapRankSummary({
   apartmentId,
   startMonth = "",
   endMonth = "",
-  minHouseholdCount = 0
+  minHouseholdCount = 0,
+  metric = MAP_GROWTH_METRIC_RATE
 } = {}) {
   if (!apartmentId || !startMonth || !endMonth) return null;
   const normalizedMinHouseholdCount = normalizeMinHouseholdCount(minHouseholdCount);
+  const normalizedMetric = normalizeMapGrowthMetric(metric);
+  const metricOrder = mapGrowthMetricOrderSql(normalizedMetric, "mgi");
   const result = await query(`
     with snapshot as (
       select id
@@ -513,6 +564,7 @@ export async function readApartmentMapRankSummary({
         and start_month = $2
         and end_month = $3
         and min_household_count = $5
+        and metric = $6
       order by updated_at desc
       limit 1
     ),
@@ -523,7 +575,7 @@ export async function readApartmentMapRankSummary({
           partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as dong_rank,
         count(*) over (
@@ -533,7 +585,7 @@ export async function readApartmentMapRankSummary({
           partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.item_key from 1 for 5))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as sigungu_rank,
         count(*) over (
@@ -543,7 +595,7 @@ export async function readApartmentMapRankSummary({
           partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.item_key from 1 for 2))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as sido_rank,
         count(*) over (
@@ -552,7 +604,7 @@ export async function readApartmentMapRankSummary({
         row_number() over (
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as country_rank,
         count(*) over ()::int as country_rank_total
@@ -564,11 +616,12 @@ export async function readApartmentMapRankSummary({
     from ranked
     where apartment_id = $4
     limit 1
-  `, [source, startMonth, endMonth, apartmentId, normalizedMinHouseholdCount]);
+  `, [source, startMonth, endMonth, apartmentId, normalizedMinHouseholdCount, normalizedMetric]);
   const row = result.rows[0];
   if (!row) return null;
   return {
     source,
+    metric: normalizedMetric,
     startMonth,
     endMonth,
     minHouseholdCount: normalizedMinHouseholdCount,
@@ -789,6 +842,7 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
     if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
     const items = buildCacheItems(dataset, ranking.rows);
     const snapshot = await saveSnapshot({
+      metric: MAP_GROWTH_METRIC_RATE,
       periodYears: period.storageYears,
       startMonth: ranking.period.startMonth,
       endMonth: ranking.period.endMonth,
@@ -925,6 +979,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
           c.legal_dong,
           c.jibun,
           c.normalized_apt_name,
+          c.matched_apartment_id,
           coalesce(c.reb_household_count, a.household_count, 0) as household_count
         from molit_complexes c
         left join apartments a
@@ -954,6 +1009,7 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
           c.lng,
           c.household_count,
           round(d.exclusive_area_m2::numeric, 2) as exclusive_area_m2,
+          coalesce(area_type.household_count, 0)::int as area_household_count,
           d.deal_year_month,
           d.deal_amount,
           d.pyeong_price
@@ -963,6 +1019,16 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
          and c.legal_dong = coalesce(trim(d.legal_dong), '')
          and c.jibun = coalesce(trim(d.jibun), '')
          and c.normalized_apt_name = regexp_replace(lower(coalesce(d.apt_name, '')), '[^0-9a-z가-힣]', '', 'g')
+        left join lateral (
+          select at.household_count
+          from area_types at
+          where at.apartment_id = c.matched_apartment_id
+            and at.exclusive_area_m2 is not null
+            and at.household_count > 0
+            and abs(at.exclusive_area_m2 - d.exclusive_area_m2) <= 0.5
+          order by abs(at.exclusive_area_m2 - d.exclusive_area_m2), at.household_count desc
+          limit 1
+        ) area_type on true
         where d.exclusive_area_m2 is not null
           and d.deal_amount is not null
           and d.pyeong_price is not null
@@ -991,12 +1057,14 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
           lng,
           household_count,
           exclusive_area_m2,
+          max(area_household_count)::int as area_household_count,
           deal_year_month,
           round(avg(deal_amount))::int as sale_mid,
           min(deal_amount)::int as sale_low,
           max(deal_amount)::int as sale_high,
           round(avg(pyeong_price))::int as pyeong_price,
-          count(*)::int as deal_count
+          count(*)::int as deal_count,
+          (sum(count(*)) over (partition by apartment_id, exclusive_area_m2))::int as type_deal_count
         from matched
         group by apartment_id, apartment_name, neighborhood_name, legal_dong_code, address,
                  sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
@@ -1050,12 +1118,14 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
         lng,
         household_count,
         exclusive_area_m2,
+        area_household_count,
         deal_year_month,
         sale_mid,
         sale_low,
         sale_high,
         pyeong_price,
-        deal_count
+        deal_count,
+        type_deal_count
       from start_rows
       union all
       select
@@ -1078,12 +1148,14 @@ async function readMolitMatchedMonthlyRows(today, { startMonth, endMonth, minHou
         lng,
         household_count,
         exclusive_area_m2,
+        area_household_count,
         deal_year_month,
         sale_mid,
         sale_low,
         sale_high,
         pyeong_price,
-        deal_count
+        deal_count,
+        type_deal_count
       from end_rows
       order by apartment_id, exclusive_area_m2, deal_year_month
     `, [startMonth, endMonth, queryStartMonth, normalizeMinHouseholdCount(minHouseholdCount)]),
@@ -1135,8 +1207,10 @@ function buildMolitCacheItems(rows, {
   startMonth,
   endMonth,
   recentByType = new Map(),
-  minHouseholdCount = 0
+  minHouseholdCount = 0,
+  metric = MAP_GROWTH_METRIC_RATE
 }) {
+  const normalizedMetric = normalizeMapGrowthMetric(metric);
   const apartments = groupMolitRows(rows, recentByType);
   const eligibleApartments = [...apartments.values()]
     .filter((apartmentGroup) => Number(apartmentGroup.apartment?.householdCount || 0) >= minHouseholdCount);
@@ -1150,30 +1224,28 @@ function buildMolitCacheItems(rows, {
     const typeSummaries = [...apartmentGroup.types.values()].map((type) => {
       const start = carriedMolitPriceAtOrBefore(type.monthly, startMonth);
       const end = type.recentPrice || carriedMolitPriceAtOrBefore(type.monthly, endMonth);
-      if (!start || !end || !start.pyeongPrice) return null;
+      if (!start || !end || !start.pyeongPrice || !start.saleMid || !end.saleMid) return null;
       if (!isMolitPriceFreshForMonth(start, startMonth, freshness.startGapMonths)) return null;
       if (!isMolitPriceFreshForMonth(end, endMonth, freshness.endGapMonths)) return null;
-      return { type, start, end };
+      return {
+        type,
+        start,
+        end,
+        growthRate: start.pyeongPrice ? (end.pyeongPrice - start.pyeongPrice) / start.pyeongPrice : null,
+        growthAmount: end.pyeongPrice - start.pyeongPrice,
+        saleGrowthRate: start.saleMid ? (end.saleMid - start.saleMid) / start.saleMid : null,
+        saleGrowthAmount: end.saleMid - start.saleMid
+      };
     }).filter(Boolean);
     if (!typeSummaries.length) continue;
 
-    const startPyeongPrice = average(typeSummaries.map((item) => item.start.pyeongPrice));
-    const endPyeongPrice = average(typeSummaries.map((item) => item.end.pyeongPrice));
-    if (!startPyeongPrice || !endPyeongPrice) continue;
-
-    rankingRows.push({
-      apartmentId: apartmentGroup.apartment.id,
-      apartment: apartmentGroup.apartment,
-      areaTypeCount: typeSummaries.length,
-      areaLabel: `${typeSummaries.length}개 타입`,
-      growthRate: (endPyeongPrice - startPyeongPrice) / startPyeongPrice,
-      growthAmount: endPyeongPrice - startPyeongPrice,
-      startPyeongPrice,
-      endPyeongPrice
-    });
+    const rankingRow = normalizedMetric === MAP_GROWTH_METRIC_AMOUNT
+      ? buildMolitAmountRankingRow(apartmentGroup, typeSummaries)
+      : buildMolitRateRankingRow(apartmentGroup, typeSummaries);
+    if (rankingRow) rankingRows.push(rankingRow);
   }
 
-  const apartmentItems = summarizeApartments(rankingRows).map((item) => ({
+  const apartmentItems = summarizeApartments(rankingRows, normalizedMetric).map((item) => ({
     level: "apartment",
     itemKey: item.id,
     itemName: item.name,
@@ -1188,8 +1260,12 @@ function buildMolitCacheItems(rows, {
     areaSummary: item.areaSummary,
     growthRate: item.growthRate,
     growthAmount: item.growthAmount,
+    startSalePrice: item.startSalePrice,
+    endSalePrice: item.endSalePrice,
     startPyeongPrice: item.startPyeongPrice,
     endPyeongPrice: item.endPyeongPrice,
+    representativeAreaM2: item.representativeAreaM2,
+    representativeBasis: item.representativeBasis,
     hasData: true
   }));
   const includedIds = new Set(apartmentItems.map((item) => item.apartmentId));
@@ -1215,17 +1291,78 @@ function buildMolitCacheItems(rows, {
       areaSummary: "데이터없음",
       growthRate: null,
       growthAmount: null,
+      startSalePrice: null,
+      endSalePrice: null,
       startPyeongPrice: null,
       endPyeongPrice: null,
+      representativeAreaM2: null,
+      representativeBasis: "",
       hasData: false
     }));
-  const groupItems = ["sido", "sigungu", "dong"].flatMap((level) => summarizeGroups(rankingRows, level));
+  const groupItems = ["sido", "sigungu", "dong"].flatMap((level) => summarizeGroups(rankingRows, level, normalizedMetric));
 
   return {
     apartmentCount: apartmentItems.length,
     areaCount: rankingRows.reduce((sum, row) => sum + Number(row.areaTypeCount || 1), 0),
     rows: [...groupItems, ...apartmentItems, ...noDataApartmentItems]
   };
+}
+
+function buildMolitRateRankingRow(apartmentGroup, typeSummaries) {
+  const startPyeongPrice = average(typeSummaries.map((item) => item.start.pyeongPrice));
+  const endPyeongPrice = average(typeSummaries.map((item) => item.end.pyeongPrice));
+  if (!startPyeongPrice || !endPyeongPrice) return null;
+
+  return {
+    apartmentId: apartmentGroup.apartment.id,
+    apartment: apartmentGroup.apartment,
+    areaTypeCount: typeSummaries.length,
+    areaLabel: `${typeSummaries.length}개 타입`,
+    growthRate: (endPyeongPrice - startPyeongPrice) / startPyeongPrice,
+    growthAmount: endPyeongPrice - startPyeongPrice,
+    startSalePrice: null,
+    endSalePrice: null,
+    startPyeongPrice,
+    endPyeongPrice,
+    representativeAreaM2: null,
+    representativeBasis: ""
+  };
+}
+
+function buildMolitAmountRankingRow(apartmentGroup, typeSummaries) {
+  const representative = selectRepresentativeMolitAmountType(typeSummaries);
+  if (!representative || !representative.start.saleMid || !representative.end.saleMid) return null;
+
+  return {
+    apartmentId: apartmentGroup.apartment.id,
+    apartment: apartmentGroup.apartment,
+    areaTypeCount: 1,
+    areaLabel: formatRepresentativeMolitAreaLabel(representative.type),
+    growthRate: representative.saleGrowthRate,
+    growthAmount: representative.saleGrowthAmount,
+    startSalePrice: representative.start.saleMid,
+    endSalePrice: representative.end.saleMid,
+    startPyeongPrice: representative.start.pyeongPrice,
+    endPyeongPrice: representative.end.pyeongPrice,
+    representativeAreaM2: representative.type.exclusiveAreaM2,
+    representativeBasis: representative.type.areaHouseholdCount > 0 ? "household_count" : "deal_count"
+  };
+}
+
+function selectRepresentativeMolitAmountType(typeSummaries) {
+  return [...typeSummaries].sort((a, b) => {
+    const householdDiff = Number(b.type.areaHouseholdCount || 0) - Number(a.type.areaHouseholdCount || 0);
+    if (householdDiff) return householdDiff;
+    const dealDiff = Number(b.type.totalDealCount || 0) - Number(a.type.totalDealCount || 0);
+    if (dealDiff) return dealDiff;
+    return Math.abs(Number(b.saleGrowthAmount || 0)) - Math.abs(Number(a.saleGrowthAmount || 0));
+  })[0] || null;
+}
+
+function formatRepresentativeMolitAreaLabel(type) {
+  const area = Number(type?.exclusiveAreaM2);
+  if (!Number.isFinite(area) || area <= 0) return "대표 평형";
+  return `전용 ${area.toFixed(2)}㎡`;
 }
 
 function groupMolitRows(rows, recentByType = new Map()) {
@@ -1244,11 +1381,15 @@ function groupMolitRows(rows, recentByType = new Map()) {
       apartment.types.set(typeKey, {
         typeKey,
         exclusiveAreaM2: Number(row.exclusive_area_m2),
+        areaHouseholdCount: 0,
+        totalDealCount: 0,
         recentPrice: recentByType.get(molitTypeKey(apartmentId, row.exclusive_area_m2)) || null,
         monthly: new Map()
       });
     }
     const type = apartment.types.get(typeKey);
+    type.areaHouseholdCount = Math.max(type.areaHouseholdCount || 0, Number(row.area_household_count || 0));
+    type.totalDealCount = Math.max(type.totalDealCount || 0, Number(row.type_deal_count || 0));
     type.monthly.set(row.deal_year_month, serializeMolitPrice(row));
   }
   return apartments;
@@ -1294,7 +1435,8 @@ function serializeMolitPrice(row) {
     saleLow: Number(row.sale_low || 0),
     saleHigh: Number(row.sale_high || 0),
     pyeongPrice: Number(row.pyeong_price || 0),
-    dealCount: Number(row.deal_count || 0)
+    dealCount: Number(row.deal_count || 0),
+    typeDealCount: Number(row.type_deal_count || 0)
   };
 }
 
@@ -1346,6 +1488,7 @@ function molitTypeKey(apartmentId, exclusiveAreaM2) {
 
 async function saveSnapshot({
   source = "kb",
+  metric = MAP_GROWTH_METRIC_RATE,
   periodYears,
   startMonth,
   endMonth,
@@ -1355,18 +1498,19 @@ async function saveSnapshot({
   items
 }) {
   return withClient(async (client) => {
+    const normalizedMetric = normalizeMapGrowthMetric(metric);
     await client.query("begin");
     try {
       const snapshotResult = await client.query(`
         insert into map_growth_snapshots (
-          source, period_years, start_month, end_month, min_household_count, apartment_count, area_count, updated_at
-        ) values ($1, $2, $3, $4, $5, $6, $7, now())
-        on conflict (source, period_years, start_month, end_month, min_household_count) do update set
+          source, metric, period_years, start_month, end_month, min_household_count, apartment_count, area_count, updated_at
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+        on conflict (source, metric, period_years, start_month, end_month, min_household_count) do update set
           apartment_count = excluded.apartment_count,
           area_count = excluded.area_count,
           updated_at = now()
         returning *
-      `, [source, periodYears, startMonth, endMonth, minHouseholdCount, apartmentCount, areaCount]);
+      `, [source, normalizedMetric, periodYears, startMonth, endMonth, minHouseholdCount, apartmentCount, areaCount]);
       const snapshot = snapshotResult.rows[0];
       await client.query("delete from map_growth_items where snapshot_id = $1", [snapshot.id]);
 
@@ -1376,9 +1520,10 @@ async function saveSnapshot({
             snapshot_id, level, item_key, item_name, apartment_id, neighborhood_name, address,
             sido_code, sido_name, sigungu_code, sigungu_name, dong_key, dong_name,
             lat, lng, apartment_count, area_count, area_summary, growth_rate, growth_amount,
-            start_pyeong_price, end_pyeong_price, has_data, updated_at
+            start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
+            representative_area_m2, representative_basis, has_data, updated_at
           ) values (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now()
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,now()
           )
         `, [
           snapshot.id,
@@ -1401,8 +1546,12 @@ async function saveSnapshot({
           item.areaSummary || "",
           item.growthRate,
           item.growthAmount,
+          item.startSalePrice ?? null,
+          item.endSalePrice ?? null,
           item.startPyeongPrice,
           item.endPyeongPrice,
+          item.representativeAreaM2 ?? null,
+          item.representativeBasis || "",
           item.hasData !== false
         ]);
       }
@@ -1412,6 +1561,7 @@ async function saveSnapshot({
       return {
         id: Number(snapshot.id),
         source,
+        metric: normalizedMetric,
         periodYears,
         startMonth,
         endMonth,
@@ -1430,6 +1580,9 @@ async function saveSnapshot({
 }
 
 async function refreshDongApartmentRankItems(client, snapshotId) {
+  const snapshotResult = await client.query("select metric from map_growth_snapshots where id = $1", [snapshotId]);
+  const metric = normalizeMapGrowthMetric(snapshotResult.rows[0]?.metric);
+  const metricOrder = mapGrowthMetricOrderSql(metric, "mgi");
   await client.query("delete from map_dong_apartment_rank_items where snapshot_id = $1", [snapshotId]);
   const result = await client.query(`
     insert into map_dong_apartment_rank_items (
@@ -1438,7 +1591,8 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
       apartment_id, item_name, neighborhood_name, address,
       sido_code, sido_name, sigungu_code, sigungu_name,
       lat, lng, apartment_count, area_count, area_summary,
-      growth_rate, growth_amount, start_pyeong_price, end_pyeong_price, has_data, updated_at
+      growth_rate, growth_amount, start_sale_price, end_sale_price, start_pyeong_price, end_pyeong_price,
+      representative_area_m2, representative_basis, has_data, updated_at
     )
     select
       snapshot_id,
@@ -1467,8 +1621,12 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
       area_summary,
       growth_rate,
       growth_amount,
+      start_sale_price,
+      end_sale_price,
       start_pyeong_price,
       end_pyeong_price,
+      representative_area_m2,
+      representative_basis,
       has_data,
       now()
     from (
@@ -1479,7 +1637,7 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
           partition by coalesce(nullif(mgi.dong_key, ''), concat(mgi.address, ':', mgi.neighborhood_name))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as dong_rank,
         count(*) over (
@@ -1489,7 +1647,7 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
           partition by coalesce(nullif(mgi.sigungu_code, ''), substring(mgi.dong_key from 1 for 5))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as sigungu_rank,
         count(*) over (
@@ -1499,7 +1657,7 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
           partition by coalesce(nullif(mgi.sido_code, ''), substring(mgi.dong_key from 1 for 2))
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as sido_rank,
         count(*) over (
@@ -1508,7 +1666,7 @@ async function refreshDongApartmentRankItems(client, snapshotId) {
         row_number() over (
           order by
             mgi.has_data desc,
-            mgi.growth_rate desc nulls last,
+            ${metricOrder},
             mgi.item_name asc
         )::int as country_rank,
         count(*) over ()::int as country_rank_total
@@ -1593,7 +1751,8 @@ export async function backfillMapDongApartmentRankItems({ source = "molit", only
   });
 }
 
-function summarizeGroups(rows, level) {
+function summarizeGroups(rows, level, metric = MAP_GROWTH_METRIC_RATE) {
+  const normalizedMetric = normalizeMapGrowthMetric(metric);
   const groups = new Map();
   for (const row of rows) {
     const group = zoomGroupInfo(row, rows, level);
@@ -1633,10 +1792,11 @@ function summarizeGroups(rows, level) {
       growthAmount: Math.round(average(group.growthAmounts)),
       hasData: true
     }))
-    .sort((a, b) => b.apartmentCount - a.apartmentCount || b.growthRate - a.growthRate);
+    .sort((a, b) => b.apartmentCount - a.apartmentCount || compareMetricValues(a, b, normalizedMetric));
 }
 
-function summarizeApartments(rows) {
+function summarizeApartments(rows, metric = MAP_GROWTH_METRIC_RATE) {
+  const normalizedMetric = normalizeMapGrowthMetric(metric);
   return rows.map((row) => {
     const hierarchy = hierarchyFromApartment(row.apartment);
     return {
@@ -1651,10 +1811,14 @@ function summarizeApartments(rows) {
       areaSummary: row.areaLabel || "-",
       growthRate: row.growthRate,
       growthAmount: Math.round(row.growthAmount),
+      startSalePrice: row.startSalePrice === null || row.startSalePrice === undefined ? null : Math.round(row.startSalePrice),
+      endSalePrice: row.endSalePrice === null || row.endSalePrice === undefined ? null : Math.round(row.endSalePrice),
       startPyeongPrice: Math.round(row.startPyeongPrice),
-      endPyeongPrice: Math.round(row.endPyeongPrice)
+      endPyeongPrice: Math.round(row.endPyeongPrice),
+      representativeAreaM2: row.representativeAreaM2 === null || row.representativeAreaM2 === undefined ? null : Number(row.representativeAreaM2),
+      representativeBasis: row.representativeBasis || ""
     };
-  });
+  }).sort((a, b) => compareMetricValues(a, b, normalizedMetric) || a.name.localeCompare(b.name));
 }
 
 function hierarchyFromApartment(apartment = {}) {
@@ -1798,8 +1962,12 @@ function serializeCachedItem(row, level) {
       neighborhoodName: row.neighborhood_name || "",
       address: row.address || "",
       areaSummary: row.area_summary || "",
+      startSalePrice: row.start_sale_price === null ? null : Number(row.start_sale_price),
+      endSalePrice: row.end_sale_price === null ? null : Number(row.end_sale_price),
       startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
       endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
+      representativeAreaM2: row.representative_area_m2 === null ? null : Number(row.representative_area_m2),
+      representativeBasis: row.representative_basis || "",
       dongRank: row.dong_rank === null || row.dong_rank === undefined ? null : Number(row.dong_rank),
       dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total),
       sigunguRank: row.sigungu_rank === null || row.sigungu_rank === undefined ? null : Number(row.sigungu_rank),
@@ -1844,8 +2012,12 @@ function serializeCachedDongApartmentRankItem(row) {
     neighborhoodName: row.neighborhood_name || "",
     address: row.address || "",
     areaSummary: row.area_summary || "",
+    startSalePrice: row.start_sale_price === null ? null : Number(row.start_sale_price),
+    endSalePrice: row.end_sale_price === null ? null : Number(row.end_sale_price),
     startPyeongPrice: row.start_pyeong_price === null ? null : Number(row.start_pyeong_price),
     endPyeongPrice: row.end_pyeong_price === null ? null : Number(row.end_pyeong_price),
+    representativeAreaM2: row.representative_area_m2 === null ? null : Number(row.representative_area_m2),
+    representativeBasis: row.representative_basis || "",
     dongRank: row.dong_rank === null || row.dong_rank === undefined ? null : Number(row.dong_rank),
     dongRankTotal: row.dong_rank_total === null || row.dong_rank_total === undefined ? null : Number(row.dong_rank_total),
     sigunguRank: row.sigungu_rank === null || row.sigungu_rank === undefined ? null : Number(row.sigungu_rank),

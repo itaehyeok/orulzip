@@ -179,6 +179,7 @@ async function checkMapCacheMatrix(context) {
   const result = await query(`
     select
       s.id,
+      s.metric,
       s.start_month,
       s.end_month,
       s.min_household_count,
@@ -196,18 +197,28 @@ async function checkMapCacheMatrix(context) {
       and s.end_month = $1
       and s.start_month = any($2::text[])
       and s.min_household_count = any($3::int[])
+      and s.metric = any($4::text[])
     group by s.id
-  `, [context.endMonth, expectedStarts, context.minHouseholdCounts]);
+  `, [context.endMonth, expectedStarts, context.minHouseholdCounts, context.mapGrowthMetrics]);
   const snapshots = new Map(result.rows.map((row) => [
-    matrixKey(row.start_month, row.min_household_count),
+    matrixKey(row.start_month, row.min_household_count, row.metric),
     row
   ]));
   const details = [];
   for (const months of context.periodMonths) {
     const startMonth = addMonths(context.endMonth, -months);
     for (const minHouseholdCount of context.minHouseholdCounts) {
-      const row = snapshots.get(matrixKey(startMonth, minHouseholdCount));
-      details.push(mapCacheDetail({ row, months, startMonth, endMonth: context.endMonth, minHouseholdCount }));
+      for (const metric of context.mapGrowthMetrics) {
+        const row = snapshots.get(matrixKey(startMonth, minHouseholdCount, metric));
+        details.push(mapCacheDetail({
+          row,
+          months,
+          startMonth,
+          endMonth: context.endMonth,
+          minHouseholdCount,
+          metric
+        }));
+      }
     }
   }
   const failed = details.filter((item) => item.status === "fail");
@@ -223,7 +234,7 @@ async function checkMapCacheMatrix(context) {
         ? `${warned.length}개 지도 캐시 조합이 오래되었습니다.`
         : "지도 캐시 필수 조합이 모두 준비되어 있습니다.",
     metrics: {
-      expectedSnapshots: context.periodMonths.length * context.minHouseholdCounts.length,
+      expectedSnapshots: context.periodMonths.length * context.minHouseholdCounts.length * context.mapGrowthMetrics.length,
       foundSnapshots: details.filter((item) => item.snapshotId).length,
       failedSnapshots: failed.length,
       warningSnapshots: warned.length
@@ -515,15 +526,16 @@ async function checkPriceBandLongRunningQueries() {
   });
 }
 
-function mapCacheDetail({ row, months, startMonth, endMonth, minHouseholdCount }) {
+function mapCacheDetail({ row, months, startMonth, endMonth, minHouseholdCount, metric }) {
   if (!row) {
     return {
       status: "fail",
-      label: `${periodLabel(months)} · ${householdLabel(minHouseholdCount)}`,
+      label: `${periodLabel(months)} · ${mapGrowthMetricLabel(metric)} · ${householdLabel(minHouseholdCount)}`,
       months,
       startMonth,
       endMonth,
       minHouseholdCount,
+      metric,
       reason: "snapshot_missing"
     };
   }
@@ -539,12 +551,13 @@ function mapCacheDetail({ row, months, startMonth, endMonth, minHouseholdCount }
   const failed = missingLevels.length || apartmentDataCount <= 0;
   return {
     status: failed ? "fail" : stale ? "warn" : "pass",
-    label: `${periodLabel(months)} · ${householdLabel(minHouseholdCount)}`,
+    label: `${periodLabel(months)} · ${mapGrowthMetricLabel(row.metric || metric)} · ${householdLabel(minHouseholdCount)}`,
     snapshotId: Number(row.id),
     months,
     startMonth,
     endMonth,
     minHouseholdCount: Number(row.min_household_count || minHouseholdCount),
+    metric: row.metric || metric,
     apartmentCount: Number(row.apartment_count || 0),
     areaCount: Number(row.area_count || 0),
     levelCounts,
@@ -553,6 +566,10 @@ function mapCacheDetail({ row, months, startMonth, endMonth, minHouseholdCount }
     updatedAt: row.updated_at || null,
     reason: failed ? "empty_level" : stale ? "stale_cache" : ""
   };
+}
+
+function mapGrowthMetricLabel(metric) {
+  return metric === "amount" ? "상승액" : "상승률";
 }
 
 function priceBandCacheDetail({ row, months, startMonth, endMonth, minHouseholdCount, basis, areaBandKey }) {

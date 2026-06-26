@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { closeDb, initDb } from "../src/services/db.js";
 import {
   DEFAULT_MAP_CACHE_PERIOD_YEARS,
+  DEFAULT_MAP_GROWTH_METRICS,
   DEFAULT_MIN_HOUSEHOLD_COUNTS,
   refreshMolitMapGrowthCache
 } from "../src/services/map-growth-cache.js";
@@ -24,6 +25,7 @@ if (!options.worker && options.years.length > 1) {
       scriptPath,
       `--years=${year}`,
       `--min-household-counts=${options.minHouseholdCounts.join(",")}`,
+      `--metrics=${options.metrics.join(",")}`,
       "--worker",
       "--skip-complex-sync"
     ], {
@@ -45,7 +47,8 @@ try {
   if (!options.skipComplexSync) await syncMolitComplexes({ geocode: false });
   const result = await refreshMolitMapGrowthCache({
     periodYears: options.years,
-    minHouseholdCounts: options.minHouseholdCounts
+    minHouseholdCounts: options.minHouseholdCounts,
+    metrics: options.metrics
   });
   console.log(JSON.stringify(result, null, 2));
 } finally {
@@ -55,6 +58,7 @@ try {
 function parseArgs(args) {
   const yearsArg = args.find((arg) => arg.startsWith("--years="));
   const minHouseholdCountsArg = args.find((arg) => arg.startsWith("--min-household-counts="));
+  const metricsArg = args.find((arg) => arg.startsWith("--metrics="));
   return {
     years: yearsArg
       ? yearsArg.slice("--years=".length).split(",").map(Number).filter(Number.isFinite)
@@ -62,6 +66,9 @@ function parseArgs(args) {
     minHouseholdCounts: minHouseholdCountsArg
       ? minHouseholdCountsArg.slice("--min-household-counts=".length).split(",").map(Number).filter(Number.isFinite)
       : DEFAULT_MIN_HOUSEHOLD_COUNTS,
+    metrics: metricsArg
+      ? metricsArg.slice("--metrics=".length).split(",").map((value) => value.trim()).filter(Boolean)
+      : DEFAULT_MAP_GROWTH_METRICS,
     worker: args.includes("--worker"),
     skipComplexSync: args.includes("--skip-complex-sync")
   };

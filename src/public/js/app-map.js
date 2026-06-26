@@ -412,8 +412,7 @@ function mapGroupPopup(group) {
   return `
     <strong>${escapeHtml(group.name)}</strong><br>
     아파트 ${formatInt(group.apartmentCount)}개 / 면적 ${formatInt(group.areaCount)}개<br>
-    평균 상승액 ${formatMoney(group.growthAmount)}<br>
-    평균 상승률 ${renderGrowthRateText(group.growthRate)}
+    평균 ${escapeHtml(mapGrowthMetricLabel())} ${renderMapGrowthMetricText(group)}
   `;
 }
 
@@ -554,6 +553,7 @@ async function prepareMapApartmentFocusFromUrl() {
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
   appendHouseholdFilterParam(params);
+  appendMapGrowthMetricParam(params);
 
   const detail = await api(`/api/molit-apartment-detail?${params}`).catch(() => null);
   const apartment = detail?.apartment;
@@ -668,6 +668,7 @@ async function loadZoomMapSummary() {
   if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
   if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
   appendHouseholdFilterParam(params);
+  appendMapGrowthMetricParam(params);
 
   const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
   showMapLoadingOverlay("지도 데이터를 가져오는 중...", { requestId });
@@ -781,8 +782,8 @@ async function renderZoomMapSummary(data) {
   updateZoomMapLevelLabel(data.level);
   els.zoomMapCount.textContent = `${formatInt(items.length)}개 표시`;
   els.zoomMapTitle.textContent = currentMapSource() === "molit"
-    ? `${levelLabel} 실거래가 상승률 지도`
-    : `${levelLabel} 상승률 지도`;
+    ? `${levelLabel} 실거래가 ${mapGrowthMetricLabel()} 지도`
+    : `${levelLabel} ${mapGrowthMetricLabel()} 지도`;
   if (!shouldPreserveMapRankingRender(data.level)) {
     renderMapApartmentRanking(data.level, items);
   }
@@ -1507,8 +1508,8 @@ function sortedMapGroupRankingRows(items) {
 
 function compareMapRankingRows(a, b) {
   if ((a.hasData !== false) !== (b.hasData !== false)) return a.hasData === false ? 1 : -1;
-  const rateDiff = sortableRate(b.growthRate) - sortableRate(a.growthRate);
-  if (rateDiff) return rateDiff;
+  const metricDiff = sortableMapGrowthMetric(b) - sortableMapGrowthMetric(a);
+  if (metricDiff) return metricDiff;
   return String(a.name || "").localeCompare(String(b.name || ""), "ko");
 }
 
@@ -1565,7 +1566,7 @@ function renderMapRankingRows(rows, {
             <em>${escapeHtml(item.neighborhoodName || item.dongName || "-")}${item.areaSummary ? ` · ${escapeHtml(item.areaSummary)}` : ""}</em>
           </span>
           <span class="map-ranking-actions">
-            <span class="map-ranking-rate ${rateClass(item.growthRate, rank, rankTotal)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+            <span class="map-ranking-rate ${mapGrowthMetricClass(item, rank, rankTotal)}">${formatMapGrowthMetricValue(item)}</span>
             <button class="map-ranking-detail-btn" type="button" data-apartment-detail-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 상세 보기">상세</button>
           </span>
         </div>
@@ -1620,7 +1621,7 @@ function renderMapGroupRankingRows(rows, level, {
   setMapRankingTitle({
     prefix: titlePrefix,
     targetLevel: level,
-    suffix: "상승률 랭킹"
+    suffix: `${mapGrowthMetricLabel()} 랭킹`
   });
   els.mapRankingCount.textContent = countText || `${formatInt(rows.length)}개`;
   els.mapRankingRows.innerHTML = rows.length
@@ -1634,7 +1635,7 @@ function renderMapGroupRankingRows(rows, level, {
             <em>${escapeHtml(mapGroupRankingRowSubtitle(item, level))}</em>
           </span>
           <span class="map-ranking-actions">
-            <span class="map-ranking-rate ${rateClass(item.growthRate, rank, rankTotal)}">${item.hasData === false ? "데이터없음" : formatPercent(item.growthRate)}</span>
+            <span class="map-ranking-rate ${mapGrowthMetricClass(item, rank, rankTotal)}">${formatMapGrowthMetricValue(item)}</span>
           </span>
         </div>
       `;
@@ -1785,6 +1786,7 @@ async function loadMapScopedRankingRows(scope, signature = mapScopedRankingSigna
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
     appendHouseholdFilterParam(params);
+    appendMapGrowthMetricParam(params);
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
     if (
@@ -1838,7 +1840,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
   setMapRankingTitle({
     prefix: scope.scopeLabel,
     targetLevel: level,
-    suffix: "상승률 랭킹"
+    suffix: `${mapGrowthMetricLabel()} 랭킹`
   });
   els.mapRankingCount.textContent = "불러오는 중";
   els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오는 중입니다.</div>`;
@@ -1849,6 +1851,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
     if (els.startInput.value) params.set("start", els.startInput.value.replace("-", ""));
     if (els.endInput.value) params.set("end", els.endInput.value.replace("-", ""));
     appendHouseholdFilterParam(params);
+    appendMapGrowthMetricParam(params);
     const endpoint = currentMapSource() === "molit" ? "/api/molit-zoom-map-summary" : "/api/zoom-map-summary";
     const data = await api(`${endpoint}?${params}`);
     const activeScope = state.mapRankingScopes?.[scope.mode];
@@ -1890,7 +1893,7 @@ async function loadMapGroupRankingRows(level, scope, signature = mapGroupRanking
     setMapRankingTitle({
       prefix: scope.scopeLabel,
       targetLevel: level,
-      suffix: "상승률 랭킹"
+      suffix: `${mapGrowthMetricLabel()} 랭킹`
     });
     els.mapRankingCount.textContent = "";
     els.mapRankingRows.innerHTML = `<div class="map-ranking-empty">${escapeHtml(scope.title)}를 불러오지 못했습니다.</div>`;
@@ -2079,7 +2082,7 @@ function mapGroupRankingScope(mode, key, label, total = null, targetLevel = "sid
     targetLevel,
     scopeLabel: label,
     label: mapGroupRankingTabLabel(mode, targetLevel),
-    title: `${label} ${mapGroupRankingLevelLabel(targetLevel)} 상승률 랭킹`,
+    title: `${label} ${mapGroupRankingLevelLabel(targetLevel)} ${mapGrowthMetricLabel()} 랭킹`,
     total: Number(total) || null
   };
 }
@@ -2104,7 +2107,8 @@ function mapRankingPeriodSignature() {
     source: currentMapSource(),
     start: els.startInput.value || "",
     end: els.endInput.value || "",
-    minHouseholdCount: activeMinHouseholdCount()
+    minHouseholdCount: activeMinHouseholdCount(),
+    metric: activeSupportedMapGrowthMetric()
   };
 }
 
@@ -2805,7 +2809,7 @@ function apartmentHoverHtml(item) {
   return `
     <strong>${escapeHtml(item.name)}</strong><br>
     ${escapeHtml(apartmentRegionPath(item) || "-")}<br>
-    상승률 ${hasData ? renderGrowthRateText(item.growthRate, item.countryRank, item.countryRankTotal) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
+    ${escapeHtml(mapGrowthMetricLabel())} ${hasData ? renderMapGrowthMetricText(item, item.countryRank, item.countryRankTotal) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
     ${rankHtml}
   `;
 }
@@ -2828,8 +2832,8 @@ function regionHoverHtml(item, level = "") {
   const parent = regionHoverParentLabel(item, level);
   return `
     <strong>${escapeHtml(regionHoverTitle(item, level))}</strong><br>
-    ${escapeHtml([parent, `${mapAnalyticsPeriodLabel()} 상승률`].filter(Boolean).join(" · "))}<br>
-    상승률 ${hasData ? renderGrowthRateText(item.growthRate, ...regionHoverToneRank(item, level)) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
+    ${escapeHtml([parent, `${mapAnalyticsPeriodLabel()} ${mapGrowthMetricLabel()}`].filter(Boolean).join(" · "))}<br>
+    ${escapeHtml(mapGrowthMetricLabel())} ${hasData ? renderMapGrowthMetricText(item, ...regionHoverToneRank(item, level)) : `<span class="growth-rate-tone growth-rate-no-data">데이터없음</span>`}
     ${rankHtml}
     ${Number(item.apartmentCount) > 0 ? `<div class="region-hover-count">아파트 ${formatInt(item.apartmentCount)}개</div>` : ""}
   `;

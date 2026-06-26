@@ -45,9 +45,15 @@ const tabTitles = {
 
 const growthRateBandModeStorageKey = "orulzip.growthRateBandMode";
 const defaultGrowthRateBandMode = "3";
+const mapGrowthMetricStorageKey = "orulzip.mapGrowthMetric";
+const defaultMapGrowthMetric = "rate";
 
 function normalizeGrowthRateBandMode(mode) {
   return String(mode) === "4" ? "4" : defaultGrowthRateBandMode;
+}
+
+function normalizeMapGrowthMetric(metric) {
+  return String(metric || "").trim().toLowerCase() === "amount" ? "amount" : defaultMapGrowthMetric;
 }
 
 function readStoredGrowthRateBandMode() {
@@ -60,6 +66,18 @@ function readStoredGrowthRateBandMode() {
 
 function activeGrowthRateBandMode() {
   return normalizeGrowthRateBandMode(state.growthRateBandMode);
+}
+
+function readStoredMapGrowthMetric() {
+  try {
+    return normalizeMapGrowthMetric(window.localStorage.getItem(mapGrowthMetricStorageKey));
+  } catch {
+    return defaultMapGrowthMetric;
+  }
+}
+
+function activeMapGrowthMetric() {
+  return normalizeMapGrowthMetric(state.mapGrowthMetric);
 }
 
 const state = {
@@ -141,6 +159,7 @@ const state = {
   activeMapHeaderDesignId: null,
   activeGrowthRateColorDesignId: null,
   growthRateBandMode: readStoredGrowthRateBandMode(),
+  mapGrowthMetric: readStoredMapGrowthMetric(),
   minHouseholdCount: 100,
   priceBandStartKey: "",
   priceBandEndKey: "",
@@ -483,6 +502,7 @@ const els = {
   neighborhoodCount: document.querySelector("#neighborhoodCount"),
   householdFilterToggles: document.querySelectorAll("[data-household-filter-toggle]"),
   growthRateBandModeButtons: document.querySelectorAll("[data-growth-rate-band-mode]"),
+  mapGrowthMetricSelects: document.querySelectorAll("[data-map-growth-metric-select]"),
   priceBandView: document.querySelector("#priceBandView"),
   priceBandRows: document.querySelector("#priceBandRows"),
   priceBandCount: document.querySelector("#priceBandCount"),

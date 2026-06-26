@@ -143,6 +143,7 @@ async function buildAppOverview() {
         max(end_month) as end_month
       from map_growth_snapshots
       where source = 'kb'
+        and metric = 'rate'
     `)
   ]);
 

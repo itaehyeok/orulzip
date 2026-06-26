@@ -810,7 +810,9 @@ td:nth-child(4) {
 
   .map-floating-controls,
   .map-floating-period-select,
-  .map-floating-period-select select {
+  .map-floating-period-select select,
+  .map-growth-metric-select,
+  .map-growth-metric-select select {
     height: 38px;
   }
 
@@ -822,6 +824,13 @@ td:nth-child(4) {
   .map-floating-period-select select {
     width: 112px;
     font-size: 13px;
+  }
+
+  .map-growth-metric-select select {
+    width: 76px;
+    font-size: 13px;
+    padding-left: 12px;
+    padding-right: 26px;
   }
 
   .household-filter-toggle {
