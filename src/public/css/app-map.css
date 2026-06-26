@@ -3,6 +3,59 @@
   display: none;
 }
 
+.map-loading-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 735;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(320px, calc(100% - 32px));
+  min-height: 48px;
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.25;
+  padding: 12px 16px 12px 14px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 18px 42px rgba(16, 24, 40, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.map-loading-overlay[hidden] {
+  display: none;
+}
+
+.map-loading-overlay[data-state="error"] {
+  border-color: rgba(194, 65, 50, 0.26);
+  color: var(--red);
+}
+
+.map-loading-spinner {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(35, 103, 209, 0.18);
+  border-top-color: var(--blue);
+  border-radius: 999px;
+  animation: map-loading-overlay-spin 0.72s linear infinite;
+}
+
+.map-loading-overlay[data-state="error"] .map-loading-spinner {
+  display: none;
+}
+
+@keyframes map-loading-overlay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .map-transition-status[data-busy="true"] {
   display: inline-flex;
   align-items: center;

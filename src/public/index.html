@@ -127,6 +127,10 @@
           <h2 id="zoomMapTitle" class="sr-only">지도</h2>
           <div class="map-canvas-wrap">
             <div id="zoomMap" class="growth-map"></div>
+            <div id="mapLoadingOverlay" class="map-loading-overlay" hidden aria-live="polite" aria-busy="true">
+              <span class="map-loading-spinner" aria-hidden="true"></span>
+              <span data-map-loading-label>지도 데이터를 가져오는 중...</span>
+            </div>
             <div class="map-floating-controls">
               <label class="top-period-select map-floating-period-select">
                 <span class="sr-only">대비 기간</span>
