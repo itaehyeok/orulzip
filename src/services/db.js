@@ -491,6 +491,10 @@ export async function initDb() {
       on map_growth_items(snapshot_id, level, sido_code, sigungu_code, dong_key);
     create index if not exists map_growth_items_snapshot_level_data_idx
       on map_growth_items(snapshot_id, level, has_data);
+    create index if not exists map_growth_items_snapshot_level_rate_order_idx
+      on map_growth_items(snapshot_id, level, has_data desc, growth_rate desc nulls last, apartment_count desc, item_name);
+    create index if not exists map_growth_items_snapshot_level_amount_order_idx
+      on map_growth_items(snapshot_id, level, has_data desc, growth_amount desc nulls last, apartment_count desc, item_name);
 
     create table if not exists map_dong_apartment_rank_items (
       snapshot_id bigint not null references map_growth_snapshots(id) on delete cascade,
@@ -549,6 +553,10 @@ export async function initDb() {
       on map_dong_apartment_rank_items(snapshot_id, apartment_id);
     create index if not exists map_dong_apartment_rank_bounds_idx
       on map_dong_apartment_rank_items(snapshot_id, lat, lng);
+    create index if not exists map_dong_apartment_rank_rate_order_idx
+      on map_dong_apartment_rank_items(snapshot_id, has_data desc, growth_rate desc nulls last, apartment_count desc, item_name);
+    create index if not exists map_dong_apartment_rank_amount_order_idx
+      on map_dong_apartment_rank_items(snapshot_id, has_data desc, growth_amount desc nulls last, apartment_count desc, item_name);
 
     create table if not exists apartment_rank_snapshots (
       id bigserial primary key,

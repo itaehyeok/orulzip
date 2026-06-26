@@ -643,7 +643,8 @@ function clearMapApartmentFocusUrl() {
 
 async function loadZoomMapSummary() {
   const requestId = ++state.zoomMapRequestId;
-  showMapLoadingOverlay("지도를 준비하는 중...", { requestId, delay: 0 });
+  const hasExistingMap = Boolean(state.zoomMap || state.zoomNaverMap);
+  showMapLoadingOverlay("지도를 준비하는 중...", { requestId, delay: hasExistingMap ? 180 : 0 });
   if (!(await initZoomMap())) {
     hideMapLoadingOverlay({
       requestId,
@@ -682,7 +683,7 @@ async function loadZoomMapSummary() {
       if (requestId !== state.zoomMapRequestId) return;
     }
     await renderZoomMapSummary(data);
-    await waitForZoomMapVisualReady(requestId);
+    await waitForZoomMapVisualReady(requestId, itemCount > 0 ? 250 : 700);
     hideMapLoadingOverlay({ requestId });
   } catch (error) {
     if (requestId !== state.zoomMapRequestId) return;
