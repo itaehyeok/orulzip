@@ -643,7 +643,7 @@ function clearMapApartmentFocusUrl() {
 
 async function loadZoomMapSummary() {
   const requestId = ++state.zoomMapRequestId;
-  showMapLoadingOverlay("지도를 준비하는 중...", { requestId });
+  showMapLoadingOverlay("지도를 준비하는 중...", { requestId, delay: 0 });
   if (!(await initZoomMap())) {
     hideMapLoadingOverlay({
       requestId,
