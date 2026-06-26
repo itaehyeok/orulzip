@@ -681,6 +681,7 @@ async function loadZoomMapSummary() {
       if (requestId !== state.zoomMapRequestId) return;
     }
     await renderZoomMapSummary(data);
+    await waitForZoomMapVisualReady(requestId);
     hideMapLoadingOverlay({ requestId });
   } catch (error) {
     if (requestId !== state.zoomMapRequestId) return;
@@ -1042,6 +1043,53 @@ function waitForNextFrame() {
     }
     setTimeout(resolve, 16);
   });
+}
+
+async function waitForZoomMapVisualReady(requestId, timeoutMs = 1600) {
+  await waitForNextFrame();
+  if (requestId !== state.zoomMapRequestId || !els.zoomMap) return;
+  if (hasLoadedZoomMapTile()) return;
+
+  await new Promise((resolve) => {
+    let settled = false;
+    let observer = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      observer?.disconnect();
+      resolve();
+    };
+    const check = () => {
+      if (requestId !== state.zoomMapRequestId || hasLoadedZoomMapTile()) finish();
+    };
+    const timer = setTimeout(finish, Math.max(0, Number(timeoutMs) || 0));
+    observer = new MutationObserver(check);
+    observer.observe(els.zoomMap, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "src", "style"]
+    });
+    for (const image of els.zoomMap.querySelectorAll("img")) {
+      image.addEventListener("load", check, { once: true });
+      image.addEventListener("error", check, { once: true });
+    }
+    check();
+  });
+}
+
+function hasLoadedZoomMapTile() {
+  if (!els.zoomMap) return true;
+  const loadedLeafletTile = els.zoomMap.querySelector(".leaflet-tile-loaded");
+  if (loadedLeafletTile) return true;
+
+  for (const image of els.zoomMap.querySelectorAll("img")) {
+    const rect = image.getBoundingClientRect();
+    if (rect.width < 16 || rect.height < 16) continue;
+    if (image.complete && image.naturalWidth > 0) return true;
+  }
+  return false;
 }
 
 function showMapFocusStatus(label) {
