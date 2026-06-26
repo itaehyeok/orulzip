@@ -88,6 +88,8 @@ const state = {
   userLocationMarker: null,
   userLocationNaverMarker: null,
   zoomMarkerTopZIndex: 10000,
+  mapMarkerRenderId: 0,
+  mapMarkerRenderFrame: null,
   zoomMapTimer: null,
   zoomMapLoadSuppressedUntil: 0,
   zoomMapRequestId: 0,

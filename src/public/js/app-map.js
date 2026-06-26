@@ -6,6 +6,11 @@ const mobileMapControlsQuery = "(max-width: 820px)";
 const markerHoverWindowMarginPx = 12;
 const markerHoverWindowOffsetPx = 12;
 const mapRankingTargetLevels = ["sido", "sigungu", "dong", "apartment"];
+const progressiveMarkerThreshold = 500;
+const progressiveMarkerInitialDesktop = 260;
+const progressiveMarkerInitialMobile = 180;
+const progressiveMarkerBatchDesktop = 180;
+const progressiveMarkerBatchMobile = 100;
 
 function isMobileMapControlsViewport() {
   if (window.matchMedia) return window.matchMedia(mobileMapControlsQuery).matches;
@@ -671,11 +676,11 @@ async function loadZoomMapSummary() {
     if (requestId !== state.zoomMapRequestId) return;
     const itemCount = Array.isArray(data.items) ? data.items.length : 0;
     if (itemCount >= 500) {
-      showMapLoadingOverlay(`마커 ${formatInt(itemCount)}개를 그리는 중...`, { requestId, delay: 0 });
+      showMapLoadingOverlay(`가까운 마커부터 그리는 중... ${formatInt(itemCount)}개`, { requestId, delay: 0 });
       await waitForNextFrame();
       if (requestId !== state.zoomMapRequestId) return;
     }
-    renderZoomMapSummary(data);
+    await renderZoomMapSummary(data);
     hideMapLoadingOverlay({ requestId });
   } catch (error) {
     if (requestId !== state.zoomMapRequestId) return;
@@ -764,7 +769,7 @@ function naverCoordLng(coord) {
   return typeof coord.lng === "function" ? coord.lng() : Number(coord.x ?? coord._lng ?? coord.lng);
 }
 
-function renderZoomMapSummary(data) {
+async function renderZoomMapSummary(data) {
   const items = data.items || [];
   state.latestZoomMapData = { ...data, items };
   const levelLabel = zoomLevelLabel(data.level);
@@ -782,11 +787,12 @@ function renderZoomMapSummary(data) {
   }
   const renderZoom = Number(currentZoomMapView()?.zoom);
   const transitionMode = mapTransitionModeForRender(data.level);
-  renderZoomMapItemsWithTransition(items, data.level, { mode: transitionMode });
+  const renderReady = renderZoomMapItemsWithTransition(items, data.level, { mode: transitionMode });
   const focusResolveDelay = transitionMode === "current" ? 0 : 340;
   setTimeout(() => resolvePendingMapApartmentFocus(items), focusResolveDelay);
   state.lastZoomMapRenderZoom = Number.isFinite(renderZoom) ? renderZoom : null;
   state.lastZoomMapRenderLevel = data.level || null;
+  await renderReady;
 }
 
 function mapTransitionModeForRender(level) {
@@ -797,17 +803,19 @@ function mapTransitionModeForRender(level) {
 
 function renderZoomMapItemsWithTransition(items, level, { mode = "current" } = {}) {
   clearTimeout(state.mapTransitionTimer);
+  cancelProgressiveMarkerRender();
   if (mode === "current" || !hasZoomMapOverlays()) {
     resetMapTransitionState();
-    replaceZoomMapItems(items, level, "");
-    return;
+    return replaceZoomMapItems(items, level, "");
   }
 
   const delay = mode === "fade" ? 180 : 260;
   beginMapTransition(mode, level);
-  state.mapTransitionTimer = setTimeout(() => {
-    replaceZoomMapItems(items, level, mode);
-  }, delay);
+  return new Promise((resolve) => {
+    state.mapTransitionTimer = setTimeout(() => {
+      resolve(replaceZoomMapItems(items, level, mode));
+    }, delay);
+  });
 }
 
 function replaceZoomMapItems(items, level, mode = "") {
@@ -818,19 +826,142 @@ function replaceZoomMapItems(items, level, mode = "") {
     setMapTransitionClass("map-transition-arrived");
   }
 
-  for (const item of items) {
-    if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) continue;
+  const renderableItems = items.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+  if (shouldProgressivelyRenderMarkers(renderableItems, level)) {
+    return renderZoomMapItemsProgressively(renderableItems, level, mode);
+  }
+
+  renderZoomMapItemBatch(renderableItems, level, 0, renderableItems.length);
+  if (mode) {
+    finishZoomMapTransitionAfterRender();
+  }
+  return Promise.resolve();
+}
+
+function shouldProgressivelyRenderMarkers(items, level) {
+  return level === "apartment" && items.length >= progressiveMarkerThreshold;
+}
+
+function renderZoomMapItemsProgressively(items, level, mode = "") {
+  const renderId = nextMapMarkerRenderId();
+  const sortedItems = sortZoomMapItemsByDistance(items, currentZoomMapCenter());
+  const firstEnd = renderZoomMapItemBatch(sortedItems, level, 0, progressiveMarkerInitialBatchSize());
+  updateProgressiveMarkerCount(firstEnd, sortedItems.length);
+  resolvePendingMapApartmentFocus(sortedItems);
+
+  if (firstEnd >= sortedItems.length) {
+    finishProgressiveMarkerRender(renderId, sortedItems.length, mode);
+    return Promise.resolve();
+  }
+
+  scheduleProgressiveMarkerBatch(renderId, sortedItems, level, firstEnd, mode);
+  return Promise.resolve();
+}
+
+function renderZoomMapItemBatch(items, level, startIndex, endIndex) {
+  const end = Math.min(items.length, Math.max(startIndex, endIndex));
+  for (let index = startIndex; index < end; index += 1) {
+    const item = items[index];
     if (level === "apartment") {
       renderZoomApartmentMarker(item);
     } else {
       renderZoomGroupMarker(item, level);
     }
   }
+  return end;
+}
 
+function scheduleProgressiveMarkerBatch(renderId, items, level, startIndex, mode = "") {
+  state.mapMarkerRenderFrame = scheduleMapMarkerRenderFrame(() => {
+    if (state.mapMarkerRenderId !== renderId) return;
+    const nextIndex = renderZoomMapItemBatch(items, level, startIndex, startIndex + progressiveMarkerBatchSize());
+    updateProgressiveMarkerCount(nextIndex, items.length);
+    resolvePendingMapApartmentFocus(items);
+    if (nextIndex < items.length) {
+      scheduleProgressiveMarkerBatch(renderId, items, level, nextIndex, mode);
+      return;
+    }
+    finishProgressiveMarkerRender(renderId, items.length, mode);
+  });
+}
+
+function finishProgressiveMarkerRender(renderId, total, mode = "") {
+  if (state.mapMarkerRenderId !== renderId) return;
+  state.mapMarkerRenderFrame = null;
+  updateProgressiveMarkerCount(total, total);
   if (mode) {
-    clearTimeout(state.mapTransitionTimer);
-    state.mapTransitionTimer = setTimeout(resetMapTransitionState, 360);
+    finishZoomMapTransitionAfterRender();
   }
+}
+
+function nextMapMarkerRenderId() {
+  state.mapMarkerRenderId += 1;
+  return state.mapMarkerRenderId;
+}
+
+function cancelProgressiveMarkerRender() {
+  state.mapMarkerRenderId += 1;
+  if (state.mapMarkerRenderFrame) {
+    cancelScheduledMapMarkerRenderFrame(state.mapMarkerRenderFrame);
+    state.mapMarkerRenderFrame = null;
+  }
+}
+
+function scheduleMapMarkerRenderFrame(callback) {
+  if (typeof requestAnimationFrame === "function") {
+    return { type: "raf", id: requestAnimationFrame(callback) };
+  }
+  return { type: "timeout", id: setTimeout(callback, 16) };
+}
+
+function cancelScheduledMapMarkerRenderFrame(frame) {
+  if (!frame) return;
+  if (frame.type === "raf" && typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(frame.id);
+    return;
+  }
+  clearTimeout(frame.id);
+}
+
+function progressiveMarkerInitialBatchSize() {
+  return isMobileMapControlsViewport() ? progressiveMarkerInitialMobile : progressiveMarkerInitialDesktop;
+}
+
+function progressiveMarkerBatchSize() {
+  return isMobileMapControlsViewport() ? progressiveMarkerBatchMobile : progressiveMarkerBatchDesktop;
+}
+
+function updateProgressiveMarkerCount(rendered, total) {
+  if (!els.zoomMapCount) return;
+  const safeRendered = Math.max(0, Math.min(Number(rendered) || 0, Number(total) || 0));
+  const safeTotal = Math.max(0, Number(total) || 0);
+  els.zoomMapCount.textContent = safeRendered < safeTotal
+    ? `${formatInt(safeRendered)} / ${formatInt(safeTotal)}개 표시 중`
+    : `${formatInt(safeTotal)}개 표시`;
+}
+
+function sortZoomMapItemsByDistance(items, center) {
+  const centerLat = Number(center?.lat);
+  const centerLng = Number(center?.lng);
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) return [...items];
+  const lngWeight = Math.max(0.2, Math.cos(centerLat * Math.PI / 180));
+  return items
+    .map((item, index) => {
+      const latDelta = Number(item.lat) - centerLat;
+      const lngDelta = (Number(item.lng) - centerLng) * lngWeight;
+      return {
+        item,
+        index,
+        distance: latDelta * latDelta + lngDelta * lngDelta
+      };
+    })
+    .sort((a, b) => a.distance - b.distance || a.index - b.index)
+    .map((entry) => entry.item);
+}
+
+function finishZoomMapTransitionAfterRender() {
+  clearTimeout(state.mapTransitionTimer);
+  state.mapTransitionTimer = setTimeout(resetMapTransitionState, 360);
 }
 
 function beginMapTransition(mode, level) {
@@ -2417,6 +2548,7 @@ function nextZoomMarkerTopZIndex() {
 }
 
 function clearZoomMapOverlays() {
+  cancelProgressiveMarkerRender();
   state.zoomMarkerTopZIndex = 10000;
   state.mapApartmentMarkerRefs.clear();
   closeZoomNaverHoverWindow();
