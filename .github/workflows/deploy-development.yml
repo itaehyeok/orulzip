@@ -32,6 +32,7 @@ jobs:
           DOCKER_NETWORK_NAME: orulzip-shared
           DEPLOY_LOCK_FILE: /tmp/orulzip-development-deploy.lock
           HEALTHCHECK_URL: http://localhost:3051/map
+          DEPLOY_DB_MIGRATIONS: "1"
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./scripts/deploy-production.sh

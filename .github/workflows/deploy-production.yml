@@ -32,6 +32,7 @@ jobs:
           DOCKER_NETWORK_NAME: orulzip-shared
           HEALTHCHECK_URL: http://localhost:3050/map
           DEPLOY_ENVIRONMENT: production
+          DEPLOY_DB_MIGRATIONS: "1"
           DEPLOY_PERFORMANCE_GATE: "1"
           PERFORMANCE_MEASUREMENT_WARN_MS: "1000"
           PERFORMANCE_MEASUREMENT_FAIL_MS: "2000"
