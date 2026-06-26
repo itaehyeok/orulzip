@@ -13,6 +13,8 @@ DEPLOY_PERFORMANCE_GATE="${DEPLOY_PERFORMANCE_GATE:-0}"
 DEPLOY_PERFORMANCE_SERVICE="${DEPLOY_PERFORMANCE_SERVICE:-web}"
 DEPLOY_PRICE_BAND_GATE="${DEPLOY_PRICE_BAND_GATE:-1}"
 DEPLOY_PRICE_BAND_SCHEMA_MIGRATION="${DEPLOY_PRICE_BAND_SCHEMA_MIGRATION:-auto}"
+DEPLOY_DB_MIGRATIONS="${DEPLOY_DB_MIGRATIONS:-1}"
+DEPLOY_MIGRATION_SERVICE="${DEPLOY_MIGRATION_SERVICE:-web}"
 DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:-$DEPLOY_BRANCH}"
 PERFORMANCE_MEASUREMENT_WARN_MS="${PERFORMANCE_MEASUREMENT_WARN_MS:-1000}"
 PERFORMANCE_MEASUREMENT_FAIL_MS="${PERFORMANCE_MEASUREMENT_FAIL_MS:-2000}"
@@ -74,6 +76,13 @@ price_band_gate_enabled() {
   esac
 }
 
+db_migrations_enabled() {
+  case "$DEPLOY_DB_MIGRATIONS" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 price_band_schema_migration_enabled() {
   case "$DEPLOY_PRICE_BAND_SCHEMA_MIGRATION" in
     1|true|TRUE|yes|YES|on|ON) return 0 ;;
@@ -115,6 +124,45 @@ price_band_schema_database_url() {
   if [ -n "$explicit_url" ]; then
     printf '%s' "$explicit_url"
   fi
+}
+
+migration_database_url() {
+  local database_url
+  database_url="$(read_deploy_env_value DEPLOY_SCHEMA_DATABASE_URL || true)"
+  if [ -n "$database_url" ]; then
+    printf '%s' "$database_url"
+    return
+  fi
+
+  database_url="$(read_deploy_env_value DATA_COLLECTOR_DATABASE_URL || true)"
+  if [ -n "$database_url" ]; then
+    printf '%s' "$database_url"
+    return
+  fi
+
+  read_deploy_env_value DATABASE_URL || true
+}
+
+run_db_migrations() {
+  if ! db_migrations_enabled; then
+    log "database migrations disabled"
+    return
+  fi
+
+  local database_url
+  database_url="$(migration_database_url)"
+  if [ -z "$database_url" ]; then
+    log "missing DATABASE_URL for database migrations"
+    exit 1
+  fi
+
+  log "running database migrations on service $DEPLOY_MIGRATION_SERVICE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" run --rm --no-deps -T \
+    -e DATABASE_URL="$database_url" \
+    -e ORULZIP_DB_INIT=0 \
+    -e ORULZIP_READ_ONLY=0 \
+    "$DEPLOY_MIGRATION_SERVICE" \
+    npm run migrate:db
 }
 
 run_pre_deploy_performance_gate() {
@@ -208,6 +256,11 @@ export COMPOSE_FILE
 if performance_gate_enabled; then
   log "building docker compose service $DEPLOY_PERFORMANCE_SERVICE with $COMPOSE_FILE"
   docker compose -p "$COMPOSE_PROJECT_NAME" build "$DEPLOY_PERFORMANCE_SERVICE"
+  if [ "$DEPLOY_MIGRATION_SERVICE" != "$DEPLOY_PERFORMANCE_SERVICE" ]; then
+    log "building docker compose service $DEPLOY_MIGRATION_SERVICE with $COMPOSE_FILE"
+    docker compose -p "$COMPOSE_PROJECT_NAME" build "$DEPLOY_MIGRATION_SERVICE"
+  fi
+  run_db_migrations
   if price_band_schema_migration_enabled; then
     run_price_band_schema_migration
   fi
@@ -219,6 +272,9 @@ if performance_gate_enabled; then
   log "restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
   docker compose -p "$COMPOSE_PROJECT_NAME" up -d --no-build
 else
+  log "building docker compose service $DEPLOY_MIGRATION_SERVICE with $COMPOSE_FILE"
+  docker compose -p "$COMPOSE_PROJECT_NAME" build "$DEPLOY_MIGRATION_SERVICE"
+  run_db_migrations
   log "building and restarting docker compose project $COMPOSE_PROJECT_NAME with $COMPOSE_FILE"
   docker compose -p "$COMPOSE_PROJECT_NAME" build
   if price_band_schema_migration_enabled; then

@@ -28,6 +28,7 @@
     "backfill:map-dong-apartment-ranks": "node scripts/backfill-map-dong-apartment-ranks.js",
     "check": "node scripts/check.js",
     "check:analytics": "node scripts/check-analytics.js",
+    "migrate:db": "node scripts/migrate-db.js",
     "migrate:analytics": "node scripts/migrate-analytics-db.js"
   },
   "dependencies": {
