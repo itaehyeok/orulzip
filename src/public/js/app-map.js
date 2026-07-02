@@ -1,5 +1,5 @@
 function useNaverMap() {
-  return state.clientConfig?.maps?.provider === "naver" && state.clientConfig.maps.naverKeyId;
+  return state.clientConfig?.maps?.provider === "naver";
 }
 
 const mobileMapControlsQuery = "(max-width: 820px)";
@@ -53,8 +53,10 @@ function watchNaverAuthFailure(container = els.zoomMap) {
     .then((failed) => {
       state.naverAuthFailureWatch = null;
       if (!failed || !watchedMap || state.zoomNaverMap !== watchedMap) return;
-      fallbackFromNaverZoomMap();
-      if (isMapTab()) loadZoomMapSummary();
+      handleNaverMapLoadFailure(
+        createNaverMapLoadError("auth-failure", "네이버 지도 인증 실패"),
+        { stage: "auth-watch" }
+      );
     })
     .catch(() => {
       state.naverAuthFailureWatch = null;
@@ -66,28 +68,111 @@ function loadNaverSdk() {
   if (state.naverSdkPromise) return state.naverSdkPromise;
 
   const keyId = state.clientConfig?.maps?.naverKeyId;
-  if (!keyId) return Promise.resolve(false);
+  if (state.clientConfig?.maps?.disabled) {
+    return Promise.reject(createNaverMapLoadError("disabled", "네이버 지도가 비활성화되어 있습니다."));
+  }
+  if (!keyId) {
+    return Promise.reject(createNaverMapLoadError("missing-key", "네이버 지도 키가 설정되어 있지 않습니다."));
+  }
 
   state.naverSdkPromise = new Promise((resolve, reject) => {
     const callbackName = "__orulzipNaverMapReady";
+    let settled = false;
+    const finish = (error = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try {
+        delete window[callbackName];
+      } catch {
+        window[callbackName] = undefined;
+      }
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(true);
+    };
     const timeout = setTimeout(() => {
-      reject(new Error("NAVER Maps SDK auth or load timeout"));
+      finish(createNaverMapLoadError("sdk-timeout", "네이버 지도 SDK 로드 시간 초과"));
     }, 6000);
     window[callbackName] = () => {
-      clearTimeout(timeout);
-      resolve(true);
+      finish();
+    };
+    window.navermaps_authFailure = () => {
+      const error = createNaverMapLoadError("auth-failure", "네이버 지도 인증 실패");
+      if (!settled) {
+        finish(error);
+        return;
+      }
+      handleNaverMapLoadFailure(error, { stage: "auth-callback" });
     };
     const script = document.createElement("script");
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(keyId)}&callback=${callbackName}`;
     script.async = true;
     script.onerror = () => {
-      clearTimeout(timeout);
-      reject(new Error("NAVER Maps SDK load failed"));
+      finish(createNaverMapLoadError("sdk-load-failed", "네이버 지도 SDK 스크립트 로드 실패"));
     };
     document.head.appendChild(script);
+  }).catch((error) => {
+    state.naverSdkPromise = null;
+    throw error;
   });
 
   return state.naverSdkPromise;
+}
+
+function createNaverMapLoadError(code, message, cause = null) {
+  const error = new Error(message || "네이버 지도 로딩 실패");
+  error.code = code || "unknown";
+  if (cause) error.cause = cause;
+  return error;
+}
+
+function handleNaverMapLoadFailure(error, context = {}) {
+  clearTimeout(state.naverMapTileWatchTimer);
+  state.naverMapTileWatchTimer = null;
+  clearZoomNaverOverlays();
+  clearNaverUserLocationMarker();
+  state.zoomNaverMap = null;
+  showMapLoadingFailure(naverMapFailureLabel(error));
+  reportNaverMapLoadFailure(error, context);
+  return false;
+}
+
+function naverMapFailureLabel(error) {
+  const reason = error?.message || "원인 미확인";
+  return `지도 로딩 실패 · ${reason}`;
+}
+
+function reportNaverMapLoadFailure(error, context = {}) {
+  const code = String(error?.code || context.code || "unknown");
+  const stage = String(context.stage || "unknown");
+  const commit = document.querySelector(".deploy-version-commit")?.textContent?.trim() || "";
+  const key = [code, stage, window.location.origin, commit].join("|");
+  if (state.naverMapFailureReportKeys.has(key)) return;
+  state.naverMapFailureReportKeys.add(key);
+
+  const body = {
+    code,
+    stage,
+    reason: error?.message || "",
+    message: error?.message || "",
+    stack: error?.stack || "",
+    url: window.location.href,
+    path: window.location.pathname,
+    period: `${els.startInput?.value || "-"}~${els.endInput?.value || "-"}`,
+    viewport: `${window.innerWidth || 0}x${window.innerHeight || 0}@${window.devicePixelRatio || 1}`,
+    userAgent: navigator.userAgent || "",
+    dedupeKey: key
+  };
+
+  fetch("/api/map-load-failure", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    keepalive: true
+  }).catch(() => {});
 }
 
 function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]) {
@@ -133,12 +218,6 @@ function openZoomNaverHoverWindow(position, html, options = {}) {
     state.zoomNaverInfoWindow.close();
   }
   openZoomMarkerHoverWindow(html, markerHoverRectFromAnchorPoint(anchor, options.size, options.anchor));
-}
-
-function openLeafletMarkerHoverWindow(marker, html) {
-  const markerRect = leafletMarkerHoverRect(marker);
-  if (!markerRect) return;
-  openZoomMarkerHoverWindow(html, markerRect);
 }
 
 function openZoomMarkerHoverWindow(html, markerRect) {
@@ -282,19 +361,6 @@ function markerHoverRectFromPointerPoint(point) {
   };
 }
 
-function leafletMarkerHoverRect(marker) {
-  const element = marker?.getElement?.();
-  if (!element || !els.mapCanvasWrap) return null;
-  const markerRect = element.getBoundingClientRect();
-  const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
-  return {
-    left: markerRect.left - wrapRect.left,
-    top: markerRect.top - wrapRect.top,
-    right: markerRect.right - wrapRect.left,
-    bottom: markerRect.bottom - wrapRect.top
-  };
-}
-
 function zoomMarkerHoverBounds() {
   if (!els.mapCanvasWrap || !els.zoomMap) return null;
   const wrapRect = els.mapCanvasWrap.getBoundingClientRect();
@@ -419,16 +485,27 @@ function mapGroupPopup(group) {
 
 async function initZoomMap() {
   bindZoomMapPointerTracking();
-  if (useNaverMap()) {
-    const ready = await initNaverZoomMap();
-    if (ready) return true;
+  if (!useNaverMap()) {
+    return handleNaverMapLoadFailure(
+      createNaverMapLoadError("provider-unavailable", "네이버 지도 설정을 찾지 못했습니다."),
+      { stage: "provider" }
+    );
   }
-  return initLeafletZoomMap();
+  return initNaverZoomMap();
 }
 
 async function initNaverZoomMap() {
-  const loaded = await loadNaverSdk().catch(() => false);
-  if (!loaded || !window.naver?.maps) return false;
+  const loaded = await loadNaverSdk().catch((error) => {
+    handleNaverMapLoadFailure(error, { stage: "sdk" });
+    return false;
+  });
+  if (!loaded) return false;
+  if (!window.naver?.maps) {
+    return handleNaverMapLoadFailure(
+      createNaverMapLoadError("sdk-unavailable", "네이버 지도 SDK를 사용할 수 없습니다."),
+      { stage: "sdk-ready" }
+    );
+  }
 
   if (state.zoomNaverMap) {
     setTimeout(() => {
@@ -441,13 +518,20 @@ async function initNaverZoomMap() {
   }
 
   const initialView = initialZoomMapView();
-  state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
-    center: new window.naver.maps.LatLng(initialView.center[0], initialView.center[1]),
-    zoom: initialView.zoom,
-    zoomControl: shouldShowNaverZoomControl(),
-    scaleControl: true,
-    mapDataControl: false
-  });
+  try {
+    state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
+      center: new window.naver.maps.LatLng(initialView.center[0], initialView.center[1]),
+      zoom: initialView.zoom,
+      zoomControl: shouldShowNaverZoomControl(),
+      scaleControl: true,
+      mapDataControl: false
+    });
+  } catch (error) {
+    return handleNaverMapLoadFailure(
+      createNaverMapLoadError("map-create-failed", error?.message || "네이버 지도 생성 실패", error),
+      { stage: "create" }
+    );
+  }
   bindNaverZoomControlSync();
   window.naver.maps.Event.addListener(state.zoomNaverMap, "zoom_changed", updateZoomMapLevelLabel);
   window.naver.maps.Event.addListener(state.zoomNaverMap, "idle", () => {
@@ -458,48 +542,19 @@ async function initNaverZoomMap() {
   setTimeout(() => window.naver.maps.Event.trigger(state.zoomNaverMap, "resize"), 0);
   updateZoomMapLevelLabel();
   watchNaverAuthFailure();
+  watchNaverMapTileLoad();
   return true;
 }
 
-function fallbackFromNaverZoomMap() {
-  clearZoomNaverOverlays();
-  clearNaverUserLocationMarker();
-  state.zoomNaverMap = null;
-  state.clientConfig.maps.provider = "leaflet";
-  els.zoomMap.innerHTML = "";
-  return false;
-}
-
-function initLeafletZoomMap() {
-  if (!window.L) {
-    els.zoomMap.innerHTML = `<div class="empty">지도 라이브러리를 불러오지 못했습니다.</div>`;
-    return false;
-  }
-
-  if (state.zoomMap) {
-    setTimeout(() => {
-      state.zoomMap.invalidateSize();
-      updateZoomMapLevelLabel();
-    }, 0);
-    return true;
-  }
-
-  const initialView = initialZoomMapView();
-  state.zoomMap = L.map(els.zoomMap, {
-    scrollWheelZoom: true
-  }).setView(initialView.center, initialView.zoom);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(state.zoomMap);
-  state.zoomMapLayer = L.layerGroup().addTo(state.zoomMap);
-  state.zoomMap.on("moveend zoomend", () => {
-    updateZoomMapLevelLabel();
-    scheduleZoomMapLoad();
-  });
-  state.zoomMap.on("click", closeMapApartmentPopupFromMap);
-  updateZoomMapLevelLabel();
-  return true;
+function watchNaverMapTileLoad() {
+  clearTimeout(state.naverMapTileWatchTimer);
+  state.naverMapTileWatchTimer = setTimeout(() => {
+    if (!state.zoomNaverMap || !isMapTab() || hasLoadedZoomMapTile()) return;
+    handleNaverMapLoadFailure(
+      createNaverMapLoadError("tile-timeout", "네이버 지도 타일 응답 지연"),
+      { stage: "tile" }
+    );
+  }, 10000);
 }
 
 function scheduleZoomMapLoad() {
@@ -643,13 +698,10 @@ function clearMapApartmentFocusUrl() {
 
 async function loadZoomMapSummary() {
   const requestId = ++state.zoomMapRequestId;
-  showMapLoadingOverlay("지도를 준비하는 중...", { requestId, delay: 0 });
+  const hasExistingMap = Boolean(state.zoomNaverMap);
+  state.zoomMapLoadSuppressedUntil = Date.now() + 1200;
+  showMapLoadingOverlay("지도를 준비하는 중...", { requestId, delay: hasExistingMap ? 180 : 0 });
   if (!(await initZoomMap())) {
-    hideMapLoadingOverlay({
-      requestId,
-      message: "지도를 불러오지 못했습니다.",
-      delay: 1400
-    });
     return;
   }
   if (requestId !== state.zoomMapRequestId) return;
@@ -681,7 +733,7 @@ async function loadZoomMapSummary() {
       if (requestId !== state.zoomMapRequestId) return;
     }
     await renderZoomMapSummary(data);
-    await waitForZoomMapVisualReady(requestId);
+    await waitForZoomMapVisualReady(requestId, itemCount > 0 ? 250 : 700);
     hideMapLoadingOverlay({ requestId });
   } catch (error) {
     if (requestId !== state.zoomMapRequestId) return;
@@ -709,17 +761,7 @@ function currentZoomMapView() {
     };
   }
 
-  if (!state.zoomMap) return null;
-  const bounds = state.zoomMap.getBounds();
-  return {
-    zoom: state.zoomMap.getZoom(),
-    bounds: {
-      north: bounds.getNorth(),
-      south: bounds.getSouth(),
-      east: bounds.getEast(),
-      west: bounds.getWest()
-    }
-  };
+  return null;
 }
 
 function currentZoomMapCenter() {
@@ -731,12 +773,7 @@ function currentZoomMapCenter() {
     };
   }
 
-  if (!state.zoomMap) return null;
-  const center = state.zoomMap.getCenter();
-  return {
-    lat: Number(center.lat),
-    lng: Number(center.lng)
-  };
+  return null;
 }
 
 function updateZoomMapLevelLabel(level = null) {
@@ -1029,6 +1066,16 @@ function hideMapLoadingOverlay({ requestId = state.mapLoadingRequestId, message 
   els.mapLoadingOverlay.setAttribute("aria-busy", "true");
 }
 
+function showMapLoadingFailure(message = "지도 로딩 실패") {
+  if (!els.mapLoadingOverlay) return;
+  clearTimeout(state.mapLoadingTimer);
+  state.mapLoadingRequestId = state.zoomMapRequestId;
+  setMapLoadingOverlayLabel(message);
+  els.mapLoadingOverlay.dataset.state = "error";
+  els.mapLoadingOverlay.removeAttribute("aria-busy");
+  els.mapLoadingOverlay.hidden = false;
+}
+
 function setMapLoadingOverlayLabel(label) {
   if (els.mapLoadingLabel) {
     els.mapLoadingLabel.textContent = label || "지도 데이터를 가져오는 중...";
@@ -1081,9 +1128,6 @@ async function waitForZoomMapVisualReady(requestId, timeoutMs = 1600) {
 
 function hasLoadedZoomMapTile() {
   if (!els.zoomMap) return true;
-  const loadedLeafletTile = els.zoomMap.querySelector(".leaflet-tile-loaded");
-  if (loadedLeafletTile) return true;
-
   for (const image of els.zoomMap.querySelectorAll("img")) {
     const rect = image.getBoundingClientRect();
     if (rect.width < 16 || rect.height < 16) continue;
@@ -1136,8 +1180,6 @@ function activeMapTransitionDesignId() {
 
 function hasZoomMapOverlays() {
   if (state.zoomNaverMap) return state.zoomNaverOverlays.length > 0;
-  if (!state.zoomMapLayer) return false;
-  if (typeof state.zoomMapLayer.getLayers === "function") return state.zoomMapLayer.getLayers().length > 0;
   return false;
 }
 
@@ -2370,12 +2412,6 @@ function updateFocusedMapApartmentMarker(apartmentId, selected) {
   if (!apartmentId) return;
   const ref = state.mapApartmentMarkerRefs.get(apartmentId);
   if (!ref) return;
-  if (ref.provider === "leaflet") {
-    const markerElement = ref.marker.getElement?.();
-    markerElement?.querySelector(".apartment-map-marker")?.classList.toggle("selected", selected);
-    ref.marker.setZIndexOffset(selected ? nextZoomMarkerTopZIndex() : ref.baseZIndex);
-    return;
-  }
   if (ref.provider === "naver") {
     if (typeof ref.marker.setIcon === "function") {
       ref.marker.setIcon(naverLabelIcon(
@@ -2393,25 +2429,7 @@ function moveZoomMapTo(item, zoom, { exactZoom = false } = {}) {
   if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
   if (state.zoomNaverMap && window.naver?.maps) {
     moveNaverZoomMapTo(item, zoom, { exactZoom });
-    return;
   }
-  if (state.zoomMap) {
-    moveLeafletZoomMapTo(item, zoom, { exactZoom });
-  }
-}
-
-function moveLeafletZoomMapTo(item, zoom, { exactZoom = false } = {}) {
-  const currentZoom = Number(state.zoomMap.getZoom() || 0);
-  const targetZoom = exactZoom ? zoom : Math.max(currentZoom, zoom);
-  if (typeof state.zoomMap.flyTo === "function") {
-    state.zoomMap.flyTo([item.lat, item.lng], targetZoom, {
-      animate: true,
-      duration: animatedMapMoveDuration,
-      easeLinearity: 0.25
-    });
-    return;
-  }
-  state.zoomMap.setView([item.lat, item.lng], targetZoom, { animate: true });
 }
 
 function moveNaverZoomMapTo(item, zoom, { exactZoom = false } = {}) {
@@ -2525,23 +2543,6 @@ function renderUserLocationMarker(item) {
     renderNaverUserLocationMarker(item);
     return;
   }
-  if (!state.zoomMap || !window.L) return;
-
-  const position = [item.lat, item.lng];
-  if (state.userLocationMarker) {
-    state.userLocationMarker.setLatLng(position);
-    return;
-  }
-
-  state.userLocationMarker = L.marker(position, {
-    zIndexOffset: 50000,
-    icon: L.divIcon({
-      className: "map-user-location-marker",
-      html: `<span class="map-user-location-dot" aria-hidden="true"></span>`,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
-    })
-  }).addTo(state.zoomMap);
 }
 
 function renderNaverUserLocationMarker(item) {
@@ -2602,9 +2603,7 @@ function clearZoomMapOverlays() {
   closeZoomNaverHoverWindow();
   if (state.zoomNaverMap) {
     clearZoomNaverOverlays();
-    return;
   }
-  state.zoomMapLayer?.clearLayers();
 }
 
 function clearZoomNaverOverlays() {
@@ -2627,31 +2626,6 @@ function renderZoomGroupMarker(item, level) {
     renderNaverZoomGroupMarker(item, level);
     return;
   }
-  const design = activeRegionMarkerDesign(level);
-  const [width, height] = zoomMarkerSize(level, design, item);
-  const baseZIndex = zoomMarkerBaseZIndex(level);
-  const marker = L.marker([item.lat, item.lng], {
-    zIndexOffset: baseZIndex,
-    icon: L.divIcon({
-      className: "zoom-cluster-marker",
-      html: zoomGroupMarkerContentHtml(item, level, design),
-      iconSize: [width, height],
-      iconAnchor: zoomMarkerAnchor(level, design, item)
-    })
-  }).addTo(state.zoomMapLayer);
-  marker.bindPopup(zoomGroupPopup(item));
-  marker.on("mouseover", () => {
-    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
-    openLeafletMarkerHoverWindow(marker, regionHoverHtml(item, level));
-  });
-  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
-  marker.on("click", (event) => {
-    suppressMapPopupClose();
-    stopLeafletClick(event);
-    closeZoomNaverHoverWindow();
-    closeMapApartmentPopup();
-    moveZoomMapTo(item, zoomGroupTargetZoom(level, state.zoomMap.getZoom()), { exactZoom: true });
-  });
 }
 
 function renderZoomApartmentMarker(item) {
@@ -2659,37 +2633,6 @@ function renderZoomApartmentMarker(item) {
     renderNaverZoomApartmentMarker(item);
     return;
   }
-  const design = activeApartmentMarkerDesign();
-  const [width, height] = apartmentMarkerIconSize(design, item);
-  const baseZIndex = zoomApartmentMarkerBaseZIndex(item);
-  const marker = L.marker([item.lat, item.lng], {
-    zIndexOffset: item.id === state.focusedMapApartmentId ? nextZoomMarkerTopZIndex() : baseZIndex,
-    icon: L.divIcon({
-      className: "apartment-map-marker-shell",
-      html: apartmentMarkerHtml(item, design),
-      iconSize: [width, height],
-      iconAnchor: apartmentMarkerIconAnchor([width, height], design, item)
-    })
-  }).addTo(state.zoomMapLayer);
-  registerMapApartmentMarkerRef(item, {
-    provider: "leaflet",
-    marker,
-    item,
-    design,
-    baseZIndex
-  });
-  marker.on("mouseover", () => {
-    marker.setZIndexOffset(nextZoomMarkerTopZIndex());
-    openLeafletMarkerHoverWindow(marker, apartmentHoverHtml(item));
-  });
-  marker.on("mouseout", () => scheduleZoomNaverHoverWindowClose());
-  marker.on("click", (event) => {
-    suppressMapPopupClose();
-    stopLeafletClick(event);
-    closeZoomNaverHoverWindow();
-    setFocusedMapApartment(item);
-    openMapApartmentDetail(item.id, item);
-  });
 }
 
 function renderNaverZoomGroupMarker(item, level) {
@@ -2774,12 +2717,6 @@ function suppressMapPopupClose() {
 function closeMapApartmentPopupFromMap() {
   if (Date.now() < state.mapPopupCloseSuppressedUntil) return;
   closeMapApartmentPopup();
-}
-
-function stopLeafletClick(event) {
-  if (event?.originalEvent && window.L?.DomEvent) {
-    L.DomEvent.stopPropagation(event.originalEvent);
-  }
 }
 
 function shortDongLabel(value) {

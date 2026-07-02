@@ -49,6 +49,7 @@ import {
 } from "./services/analytics-store.js";
 import {
   notifyTelegramExternalVisitor,
+  notifyTelegramMapLoadFailure,
   shouldNotifyExternalVisitorVisit
 } from "./services/telegram-notifier.js";
 import {
@@ -281,6 +282,31 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (url.pathname === "/api/map-load-failure" && req.method === "POST") {
+      const body = await readLimitedJsonBody(req, 12 * 1024);
+      const event = {
+        environment: requestAnalyticsEnvironment,
+        code: clientText(body.code, 80),
+        stage: clientText(body.stage, 80),
+        reason: clientText(body.reason || body.message, 240),
+        message: clientText(body.message, 240),
+        stack: clientText(body.stack, 1200),
+        url: clientText(body.url, 300) || analyticsPublicUrl(url.pathname),
+        path: clientText(body.path, 160),
+        period: clientText(body.period, 80),
+        viewport: clientText(body.viewport, 80),
+        userAgent: clientText(req.headers["user-agent"] || body.userAgent, 300),
+        deployCommitSha,
+        deployedAtKst,
+        dedupeKey: clientText(body.dedupeKey, 180)
+      };
+      const telegram = await notifyTelegramMapLoadFailure(event).catch((error) => ({
+        sent: false,
+        reason: error?.message || "send_failed"
+      }));
+      return json(res, { ok: true, telegram });
+    }
+
     if (url.pathname === "/admin-logout" || url.pathname === "/logout") {
       res.writeHead(302, {
         "Set-Cookie": clearAdminCookie(),
@@ -397,8 +423,9 @@ const server = createServer(async (req, res) => {
       const naverDisabled = process.env.NAVER_MAP_DISABLED === "1";
       return json(res, {
         maps: {
-          provider: naverKeyId && !naverDisabled ? "naver" : "leaflet",
-          naverKeyId
+          provider: "naver",
+          naverKeyId,
+          disabled: naverDisabled
         }
       });
     }
@@ -1136,9 +1163,17 @@ async function serveStatic(pathname, res, { environment = "unknown" } = {}) {
 
   res.writeHead(200, {
     "Content-Type": contentType(filePath),
-    "Cache-Control": "no-store"
+    "Cache-Control": cacheControlForStatic(filePath)
   });
   res.end(content);
+}
+
+function cacheControlForStatic(filePath) {
+  if (filePath === "/index.html") return "no-store";
+  const ext = extname(filePath);
+  if (ext === ".js" || ext === ".css") return "public, max-age=31536000, immutable";
+  if ([".png", ".svg", ".jpg", ".jpeg", ".webp", ".ico"].includes(ext)) return "public, max-age=86400";
+  return "no-store";
 }
 
 function normalizeRoute(pathname) {
@@ -1165,6 +1200,13 @@ function contentType(filePath) {
     ".txt": "text/plain; charset=utf-8",
     ".xml": "application/xml; charset=utf-8"
   }[extname(filePath)] || "application/octet-stream";
+}
+
+function clientText(value, maxLength = 240) {
+  const text = String(value || "").trim();
+  const limit = Math.max(0, Number(maxLength) || 0);
+  if (!limit || text.length <= limit) return text;
+  return text.slice(0, limit);
 }
 
 async function injectRouteSeo(html, routePath) {

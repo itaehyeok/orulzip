@@ -1,6 +1,7 @@
 const telegramApiBaseUrl = "https://api.telegram.org";
 const telegramTimeoutMs = 3500;
 const cacheFallbackAlertState = new Map();
+const mapLoadFailureAlertState = new Map();
 
 export function shouldNotifyExternalVisitorVisit(event = {}) {
   if (event.eventName !== "page_view") return false;
@@ -98,6 +99,42 @@ export async function notifyTelegramDataHealth(event = {}) {
   }
 }
 
+export async function notifyTelegramMapLoadFailure(event = {}) {
+  const config = telegramConfig();
+  if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
+  if (!isTelegramMapAlertEnvironment(event.environment)) return { sent: false, reason: "environment_filtered" };
+
+  const key = mapLoadFailureAlertKey(event);
+  const throttleMs = positiveNumber(process.env.ORULZIP_TELEGRAM_MAP_ALERT_THROTTLE_MS, 30 * 60 * 1000);
+  const now = Date.now();
+  const lastSentAt = mapLoadFailureAlertState.get(key) || 0;
+  if (lastSentAt && now - lastSentAt < throttleMs) {
+    return { sent: false, reason: "throttled" };
+  }
+  mapLoadFailureAlertState.set(key, now);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
+  try {
+    const response = await fetch(`${telegramApiBaseUrl}/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: telegramMapLoadFailureMessage(event),
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function telegramConfig() {
   return {
     botToken: String(process.env.ORULZIP_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim(),
@@ -125,6 +162,15 @@ function isTelegramCacheAlertEnvironment(environment) {
 
 function isTelegramDataHealthEnvironment(environment) {
   const allowed = String(process.env.ORULZIP_TELEGRAM_DATA_HEALTH_ENVIRONMENTS || "production")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allowed.length || allowed.includes("all")) return true;
+  return allowed.includes(String(environment || "unknown").toLowerCase());
+}
+
+function isTelegramMapAlertEnvironment(environment) {
+  const allowed = String(process.env.ORULZIP_TELEGRAM_MAP_ALERT_ENVIRONMENTS || "production,development")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -170,6 +216,23 @@ function telegramCacheFallbackMessage(event) {
   return lines.join("\n");
 }
 
+function telegramMapLoadFailureMessage(event) {
+  const lines = [
+    "오를집 네이버 지도 로딩 실패",
+    `환경: ${event.environment || "unknown"}`,
+    `원인: ${event.reason || event.message || "미확인"}`,
+    `코드: ${event.code || "unknown"}`,
+    `단계: ${event.stage || "-"}`,
+    `페이지: ${event.url || event.path || "-"}`,
+    `배포: ${event.deployCommitSha || "-"} / ${event.deployedAtKst || "-"}`,
+    `기간: ${event.period || "-"}`,
+    `화면: ${event.viewport || "-"}`
+  ];
+  if (event.userAgent) lines.push(`UA: ${truncateText(event.userAgent, 160)}`);
+  if (event.stack) lines.push("", truncateText(event.stack, 700));
+  return lines.join("\n");
+}
+
 function telegramDataHealthMessage(event) {
   const summary = event.summary || {};
   const checks = Array.isArray(event.checks) ? event.checks : [];
@@ -212,6 +275,26 @@ function cacheFallbackAlertKey(event) {
     event.conditions || "",
     event.reason || ""
   ].join("|");
+}
+
+function mapLoadFailureAlertKey(event) {
+  if (event.dedupeKey) {
+    return [event.environment || "unknown", event.dedupeKey].join("|");
+  }
+  return [
+    event.environment || "unknown",
+    event.code || "unknown",
+    event.stage || "",
+    event.deployCommitSha || "",
+    event.path || ""
+  ].join("|");
+}
+
+function truncateText(value, maxLength) {
+  const text = String(value || "");
+  const limit = Math.max(0, Number(maxLength) || 0);
+  if (!limit || text.length <= limit) return text;
+  return `${text.slice(0, Math.max(0, limit - 1))}…`;
 }
 
 function shortVisitorId(visitorId) {

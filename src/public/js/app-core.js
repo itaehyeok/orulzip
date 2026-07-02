@@ -37,13 +37,20 @@ async function init() {
   ]);
   renderAdminNavigation();
   syncHouseholdFilterToggles();
-  await refresh();
+  if (isMapTab()) {
+    await loadActiveViewData();
+    refreshStatusOnly().catch((error) => {
+      console.warn("Status refresh after map load failed:", error?.message || error);
+    });
+  } else {
+    await refresh();
+  }
   setInterval(refreshStatusOnly, 5000);
 }
 
 async function loadClientConfig() {
   state.clientConfig = await api("/api/client-config").catch(() => ({
-    maps: { provider: "leaflet", naverKeyId: "" }
+    maps: { provider: "naver", naverKeyId: "" }
   }));
 }
 

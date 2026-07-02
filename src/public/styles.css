@@ -1,7 +1,7 @@
 /* Legacy stylesheet entry point. New code lives in src/public/css/. */
 @import url("/css/app-base.css?v=20260623-growth-green-band");
 @import url("/css/app-header.css?v=20260623-growth-band-mode");
-@import url("/css/app-map.css?v=20260626-map-loading-visual-ready");
+@import url("/css/app-map.css?v=20260702-naver-map-only");
 @import url("/css/app-map-panels.css?v=20260623-floating-detail-panel");
 @import url("/css/app-design.css?v=20260623-growth-color-standard");
 @import url("/css/app-analytics.css?v=20260621-analytics-user-info");

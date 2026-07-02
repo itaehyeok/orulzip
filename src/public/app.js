@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260626-map-loading-visual-ready";
+  const version = "20260702-naver-map-only";
   const scripts = [
     "app-prelude",
     "app-state",

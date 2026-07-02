@@ -768,10 +768,6 @@
   font-size: 13px;
 }
 
-.leaflet-popup-content {
-  line-height: 1.55;
-}
-
 .apartment-map-marker-shell {
   background: transparent;
   border: 0;
