@@ -13,6 +13,16 @@ function appendHouseholdFilterParam(params) {
   return params;
 }
 
+function appendMapGrowthMetricParam(params) {
+  params.set("metric", activeSupportedMapGrowthMetric());
+  return params;
+}
+
+function activeSupportedMapGrowthMetric() {
+  if (typeof currentMapSource === "function" && currentMapSource() !== "molit") return "rate";
+  return activeMapGrowthMetric();
+}
+
 function activeMinHouseholdCount() {
   const value = Number(state.minHouseholdCount);
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
@@ -93,6 +103,28 @@ function formatSignedKoreanPrice(value) {
   if (!amount) return "-";
   const sign = amount < 0 ? "-" : "";
   return `${sign}${formatKoreanPrice(Math.abs(amount))}`;
+}
+
+function formatSignedKoreanPriceWithPlus(value) {
+  const amount = Number(value || 0);
+  if (!amount) return "0만";
+  const sign = amount > 0 ? "+" : "-";
+  return `${sign}${formatKoreanPrice(Math.abs(amount))}`;
+}
+
+function formatCompactSignedKoreanPrice(value) {
+  const amount = Number(value || 0);
+  if (!amount) return "0만";
+  const sign = amount > 0 ? "+" : "-";
+  const absAmount = Math.abs(amount);
+  if (absAmount >= 10000) return `${sign}${trimFixedNumber(absAmount / 10000, 1)}억`;
+  if (absAmount >= 1000) return `${sign}${trimFixedNumber(absAmount / 1000, 1)}천만`;
+  return `${sign}${formatInt(absAmount)}만`;
+}
+
+function trimFixedNumber(value, digits = 1) {
+  const fixed = Number(value).toFixed(Math.max(0, Number(digits) || 0));
+  return fixed.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
 }
 
 function formatInt(value) {

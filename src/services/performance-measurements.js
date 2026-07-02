@@ -132,6 +132,7 @@ async function readLatestMapSnapshotsByPeriod() {
     from map_growth_snapshots
     where source = $1
       and min_household_count = $2
+      and metric = 'rate'
     order by end_month desc, updated_at desc
   `, [SOURCE, MIN_HOUSEHOLD_COUNT]);
   return selectSnapshotsByPeriod(result.rows, (row) => monthsBetween(row.start_month, row.end_month));
@@ -229,6 +230,7 @@ async function measureMapSummary(unit, snapshot, environment) {
     start: snapshot.startMonth,
     end: snapshot.endMonth,
     zoom: unit.zoom,
+    metric: "rate",
     minHouseholdCount: MIN_HOUSEHOLD_COUNT,
     environment
   };

@@ -30,9 +30,9 @@ window.orulzipRegionMarkerConfig = {
       // 마커 맨 위 지역명입니다.
       label: ({ dongName }) => dongName,
       // 가장 크게 보이는 상승률입니다.
-      value: ({ growthRate }) => formatPercent(growthRate),
+      value: ({ metricValueText }) => metricValueText,
       // 상승률 바로 밑 괄호 문구입니다.
-      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
+      valueSuffix: ({ periodLabel, metricLabel }) => `(${periodLabel} ${metricLabel})`,
       // 아래 순위 박스입니다. label은 왼쪽 이름, value는 오른쪽 등수/퍼센트입니다.
       rankRows: {
         sigungu: ({ sigunguName, sigunguRankRatioText }) => ({ label: sigunguName, value: sigunguRankRatioText }),
@@ -46,9 +46,9 @@ window.orulzipRegionMarkerConfig = {
       // 마커 맨 위 지역명입니다. 예: 송파구
       label: ({ sigunguName }) => sigunguName,
       // 가장 크게 보이는 상승률입니다. 예: 12.1%
-      value: ({ growthRate }) => formatPercent(growthRate),
+      value: ({ metricValueText }) => metricValueText,
       // 상승률 바로 밑 괄호 문구입니다.
-      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
+      valueSuffix: ({ periodLabel, metricLabel }) => `(${periodLabel} ${metricLabel})`,
       // 아래 순위 박스입니다. 시도 안에서는 등수/전체, 전국은 상위 퍼센트로 표시합니다.
       rankRows: {
         sido: ({ sidoName, sidoRankRatioText }) => ({ label: sidoName, value: sidoRankRatioText }),
@@ -60,9 +60,9 @@ window.orulzipRegionMarkerConfig = {
       // 마커 맨 위 지역명입니다. 예: 경기
       label: ({ sidoName }) => sidoName,
       // 가장 크게 보이는 상승률입니다.
-      value: ({ growthRate }) => formatPercent(growthRate),
+      value: ({ metricValueText }) => metricValueText,
       // 상승률 바로 밑 괄호 문구입니다.
-      valueSuffix: ({ periodLabel }) => `(${periodLabel} 상승률)`,
+      valueSuffix: ({ periodLabel, metricLabel }) => `(${periodLabel} ${metricLabel})`,
       // 시도 마커는 시군구 마커처럼 왼쪽에 "전국", 오른쪽에 전국 내 순위를 표시합니다.
       rankRows: {
         national: ({ countryRankRatioText }) => ({ label: "전국", value: countryRankRatioText })

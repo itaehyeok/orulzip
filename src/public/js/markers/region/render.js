@@ -5,7 +5,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
   const layout = regionMarkerAutoLayout(item, level, markerDesign, content);
   const sizeClass = regionMarkerSizeClass(level);
   const markerStyle = [
-    growthMarkerStyleVars(item.growthRate),
+    mapGrowthMarkerStyleVars(item),
     regionMarkerStyleInline(level, markerDesign),
     regionMarkerAutoLayoutInline(layout)
   ].filter(Boolean).join("; ");
@@ -21,7 +21,7 @@ function zoomGroupMarkerContentHtml(item, level, design = activeRegionMarkerDesi
     <span class="${markerClasses}" style="${markerStyle}">
       ${labelText ? `<small>${escapeHtml(labelText)}</small>` : ""}
       ${(valuePrefixText || valueText || valueSuffixText) ? `
-        <strong class="${growthRateToneClass(item.growthRate, ...zoomGroupToneRank(item, level))}">
+        <strong class="${mapGrowthMetricToneClass(item, ...zoomGroupToneRank(item, level))}">
           ${valuePrefixText ? `<span class="region-marker-value-prefix">${escapeHtml(valuePrefixText)}</span>` : ""}
           ${valueText ? `<span class="region-marker-value-rate">${escapeHtml(valueText)}</span>` : ""}
           ${valueSuffixText ? `<span class="region-marker-value-suffix">${escapeHtml(valueSuffixText)}</span>` : ""}
@@ -88,19 +88,19 @@ function zoomGroupMarkerRankRows(
 function zoomGroupAllRankRows(item, level, design = activeRegionMarkerDesign(level)) {
   if (level === "dong") {
     return [
-      zoomRankRow("sigungu", zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design, item.growthRate),
-      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, item.growthRate),
-      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
+      zoomRankRow("sigungu", zoomRankSigunguLabel(item), "구", item.sigunguRank, item.sigunguRankTotal, design, mapGrowthMetricRankInlineValue(item)),
+      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, mapGrowthMetricRankInlineValue(item)),
+      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, mapGrowthMetricRankInlineValue(item))
     ];
   }
   if (level === "sigungu") {
     return [
-      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, item.growthRate),
-      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
+      zoomRankRow("sido", zoomRankSidoLabel(item), "시", item.sidoRank, item.sidoRankTotal, design, mapGrowthMetricRankInlineValue(item)),
+      zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, mapGrowthMetricRankInlineValue(item))
     ];
   }
   return [
-    zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, item.growthRate)
+    zoomRankRow("national", "전국", "전국", item.countryRank, item.countryRankTotal, design, mapGrowthMetricRankInlineValue(item))
   ];
 }
 
@@ -126,21 +126,23 @@ function zoomGroupMarkerTextContext(item, level, design = activeRegionMarkerDesi
     sigunguName: level === "sigungu" ? zoomGroupCurrentLabel(item, "sigungu") : sigunguLabel,
     sidoName: level === "sido" ? zoomGroupCurrentLabel(item, "sido") : sidoLabel,
     periodLabel: activeMarkerPeriodLabel(),
+    metricLabel: mapGrowthMetricLabel(),
+    metricValueText: formatMapGrowthMetricValue(item),
     growthRate: item.growthRate,
     growthRateText: formatPercent(item.growthRate),
-    sigunguRankText: formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", item.growthRate),
+    sigunguRankText: formatMarkerRankText(item.sigunguRank, item.sigunguRankTotal, "region", mapGrowthMetricRankInlineValue(item)),
     sigunguRankRatioText: formatMarkerRankRatioText(item.sigunguRank, item.sigunguRankTotal),
     sigunguRank: formatMarkerRankNumber(item.sigunguRank),
     sigunguRankTotal: formatMarkerRankNumber(item.sigunguRankTotal),
     sigunguTopPercent: formatMarkerTopPercent(item.sigunguRank, item.sigunguRankTotal),
     sigunguTopPercentShort: formatMarkerTopPercentShort(item.sigunguRank, item.sigunguRankTotal),
-    sidoRankText: formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", item.growthRate),
+    sidoRankText: formatMarkerRankText(item.sidoRank, item.sidoRankTotal, "region", mapGrowthMetricRankInlineValue(item)),
     sidoRankRatioText: formatMarkerRankRatioText(item.sidoRank, item.sidoRankTotal),
     sidoRank: formatMarkerRankNumber(item.sidoRank),
     sidoRankTotal: formatMarkerRankNumber(item.sidoRankTotal),
     sidoTopPercent: formatMarkerTopPercent(item.sidoRank, item.sidoRankTotal),
     sidoTopPercentShort: formatMarkerTopPercentShort(item.sidoRank, item.sidoRankTotal),
-    countryRankText: formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", item.growthRate),
+    countryRankText: formatMarkerRankText(item.countryRank, item.countryRankTotal, "region", mapGrowthMetricRankInlineValue(item)),
     countryRankRatioText: formatMarkerRankRatioText(item.countryRank, item.countryRankTotal),
     countryRank: formatMarkerRankNumber(item.countryRank),
     countryRankTotal: formatMarkerRankNumber(item.countryRankTotal),

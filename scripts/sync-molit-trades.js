@@ -362,6 +362,7 @@ if (!stoppedEarly && !options.skipMapCacheRefresh) {
     reason: cacheResult.reason || "",
     refreshedAt: cacheResult.refreshedAt,
     snapshots: (cacheResult.snapshots || []).map((snapshot) => ({
+      metric: snapshot.metric || "rate",
       periodYears: snapshot.periodYears,
       startMonth: snapshot.startMonth,
       endMonth: snapshot.endMonth,

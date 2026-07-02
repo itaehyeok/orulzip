@@ -17,12 +17,14 @@ async function init() {
   state.activeMapHeaderDesignId = readStoredMapHeaderDesignId();
   state.activeGrowthRateColorDesignId = readStoredGrowthRateColorDesignId();
   state.growthRateBandMode = readStoredGrowthRateBandMode();
+  state.mapGrowthMetric = readStoredMapGrowthMetric();
   state.markerLineGapPx = readStoredMarkerLineGapPx();
   state.activeTransitionDesignId = readStoredTransitionDesignId();
   applyMarkerLineGap();
   applyMapHeaderDesign();
   applyGrowthRateColorDesign();
   syncGrowthRateBandModeControls();
+  syncMapGrowthMetricControls();
   syncMobileViewportInsets();
   setActiveTab(tabFromLocation());
   renderApartmentMarkerStyleEditor();
@@ -105,6 +107,9 @@ function bindEvents() {
   document.querySelector("[data-display-settings-close]")?.addEventListener("click", closeMapDisplaySettingsPanels);
   els.growthRateBandModeButtons.forEach((button) => {
     button.addEventListener("click", () => setGrowthRateBandMode(button.dataset.growthRateBandMode));
+  });
+  els.mapGrowthMetricSelects?.forEach((select) => {
+    select.addEventListener("change", () => setMapGrowthMetric(select.value));
   });
   els.mapPopupCloseBtn.addEventListener("click", closeMapApartmentPopup);
   els.mapPopupStats.addEventListener("change", (event) => {
@@ -463,6 +468,38 @@ function refreshGrowthRateBandModeViews() {
     return;
   }
   void refresh();
+}
+
+function setMapGrowthMetric(metric) {
+  const nextMetric = normalizeMapGrowthMetric(metric);
+  if (state.mapGrowthMetric === nextMetric) {
+    syncMapGrowthMetricControls();
+    return;
+  }
+  state.mapGrowthMetric = nextMetric;
+  try {
+    window.localStorage.setItem(mapGrowthMetricStorageKey, nextMetric);
+  } catch {
+    // localStorage may be disabled in private contexts.
+  }
+  state.mapApartmentDetails.clear();
+  state.mapRankingRequestId += 1;
+  state.mapScopedRankingActiveSignature = "";
+  state.mapScopedRankingPendingSignature = "";
+  state.mapGroupRankingActiveSignature = "";
+  state.mapGroupRankingPendingSignature = "";
+  syncMapGrowthMetricControls();
+  if (state.activeTab === "molitMap" || state.activeTab === "map") {
+    closeMapApartmentPopup();
+  }
+  void refresh();
+}
+
+function syncMapGrowthMetricControls() {
+  const activeMetric = activeMapGrowthMetric();
+  els.mapGrowthMetricSelects?.forEach((select) => {
+    select.value = activeMetric;
+  });
 }
 
 function positionOpenTabMoreMenus() {

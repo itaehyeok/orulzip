@@ -1,5 +1,6 @@
 import {
   DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT,
+  DEFAULT_MAP_GROWTH_METRICS,
   DEFAULT_MIN_HOUSEHOLD_COUNTS
 } from "../map-growth-cache.js";
 import {
@@ -24,6 +25,7 @@ export function buildDataHealthContext() {
     recentMonths: [addMonths(endMonth, -1), endMonth],
     periodMonths: REQUIRED_PERIOD_MONTHS,
     minHouseholdCounts: normalizedMinHouseholdCounts(),
+    mapGrowthMetrics: DEFAULT_MAP_GROWTH_METRICS,
     areaBandKeys: DEFAULT_PRICE_AREA_BAND_KEYS,
     priceBandBases: PRICE_BAND_BASES,
     expectedLawdCount: NATIONWIDE_LAWD_CODES.length
