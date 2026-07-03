@@ -196,8 +196,14 @@ async function queueFromSourceJob(job) {
       and status = 'completed'
     order by source_complex_id, id
   `, [job.source_job_id]);
+  const missingPriceRows = Number(job.years_back || 0) > 0
+    ? await existingApartmentsMissingPrices(job.region_id)
+    : { rows: [] };
 
-  const selected = sourceRows.rows.slice(0, Number(job.max_complexes || sourceRows.rows.length));
+  const selected = dedupeBy([
+    ...sourceRows.rows,
+    ...missingPriceRows.rows
+  ], "source_complex_id").slice(0, Number(job.max_complexes || sourceRows.rows.length + missingPriceRows.rows.length));
   if (!selected.length) {
     await updateJob(job.id, {
       status: "failed",
@@ -233,8 +239,41 @@ async function queueFromSourceJob(job) {
   await log(job.id, "info", `Queued ${selected.length} complexes from source job ${job.source_job_id}`, {
     sourceJobId: Number(job.source_job_id),
     sourceQueueRows: sourceRows.rows.length,
+    missingPriceRows: missingPriceRows.rows.length,
     selected: selected.length
   });
+}
+
+async function existingApartmentsMissingPrices(regionId) {
+  const region = getRegion(regionId);
+  const prefixes = legalDongCodePrefixes(region);
+  const result = await query(`
+    select distinct on (a.source_complex_id)
+      a.source_complex_id,
+      jsonb_build_object(
+        '단지기본일련번호', a.source_complex_id,
+        '단지명', a.name,
+        '읍면동명', coalesce(a.neighborhood_name, ''),
+        '법정동코드', coalesce(a.legal_dong_code, '')
+      ) as marker
+    from apartments a
+    where (
+        a.region_id = $1
+        or exists (
+          select 1
+          from unnest($2::text[]) prefix
+          where coalesce(a.legal_dong_code, '') like prefix || '%'
+        )
+      )
+      and not exists (
+        select 1
+        from area_types at
+        join monthly_prices mp on mp.area_type_id = at.id
+        where at.apartment_id = a.id
+      )
+    order by a.source_complex_id, a.updated_at desc
+  `, [regionId, prefixes]);
+  return result;
 }
 
 async function existingSourceComplexIds(region, { requireMonthlyPrices = false } = {}) {
