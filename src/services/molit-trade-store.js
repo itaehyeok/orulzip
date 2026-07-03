@@ -184,7 +184,7 @@ export async function tradeCollectionSummary() {
 }
 
 export async function tradeCollectionStatus({ limit = 20 } = {}) {
-  const [fetchCounts, targetRows, lawdRows, dongRows, recentRows, overall] = await Promise.all([
+  const [fetchCounts, targetRows, lawdRows, recentRows] = await Promise.all([
     query(`
       select status, count(*)::int as count,
              coalesce(sum(fetched_count),0)::int as fetched_count,
@@ -194,14 +194,15 @@ export async function tradeCollectionStatus({ limit = 20 } = {}) {
       order by status
     `),
     query(`
-      select d.target_region_id,
-             count(*)::int as deals,
-             min(d.deal_year_month) as start_month,
-             max(d.deal_year_month) as end_month,
-             count(distinct d.legal_dong)::int as legal_dongs
-      from molit_trade_deals d
-      group by d.target_region_id
-      order by d.target_region_id
+      select target_region_id,
+             coalesce(sum(saved_count),0)::int as deals,
+             min(year_month) as start_month,
+             max(year_month) as end_month,
+             count(distinct lawd_cd)::int as legal_dongs
+      from molit_trade_fetches
+      where status = 'completed'
+      group by target_region_id
+      order by target_region_id
     `),
     query(`
       select f.target_region_id, f.lawd_cd, f.lawd_name,
@@ -218,36 +219,24 @@ export async function tradeCollectionStatus({ limit = 20 } = {}) {
       order by f.target_region_id, f.lawd_name
     `),
     query(`
-      select target_region_id, legal_dong,
-             count(*)::int as deals,
-             min(deal_year_month) as start_month,
-             max(deal_year_month) as end_month
-      from molit_trade_deals
-      where coalesce(legal_dong, '') <> ''
-      group by target_region_id, legal_dong
-      order by deals desc, target_region_id, legal_dong
-      limit $1
-    `, [limit]),
-    query(`
       select target_region_id, lawd_cd, lawd_name, year_month, status,
              total_count, fetched_count, saved_count, filtered_count, error_message, updated_at
       from molit_trade_fetches
       order by updated_at desc
       limit $1
-    `, [limit]),
-    query(`
-      select count(*)::int as deals,
-             min(deal_year_month) as start_month,
-             max(deal_year_month) as end_month,
-             count(distinct target_region_id)::int as targets,
-             count(distinct legal_dong)::int as legal_dongs
-      from molit_trade_deals
-    `)
+    `, [limit])
   ]);
 
   const counts = Object.fromEntries(fetchCounts.rows.map((row) => [row.status, row]));
+  const overall = {
+    deals: targetRows.rows.reduce((sum, row) => sum + Number(row.deals || 0), 0),
+    start_month: minText(targetRows.rows.map((row) => row.start_month)),
+    end_month: maxText(targetRows.rows.map((row) => row.end_month)),
+    targets: targetRows.rows.length,
+    legal_dongs: lawdRows.rows.filter((row) => Number(row.saved_count || 0) > 0).length
+  };
   return {
-    overall: overall.rows[0] || {},
+    overall,
     fetchCounts: fetchCounts.rows,
     progress: {
       completed: counts.completed?.count || 0,
@@ -259,9 +248,17 @@ export async function tradeCollectionStatus({ limit = 20 } = {}) {
     },
     targets: targetRows.rows,
     lawdRows: lawdRows.rows,
-    dongRows: dongRows.rows,
+    dongRows: [],
     recentRows: recentRows.rows
   };
+}
+
+function minText(values) {
+  return values.filter(Boolean).sort()[0] || "";
+}
+
+function maxText(values) {
+  return values.filter(Boolean).sort().at(-1) || "";
 }
 
 export function fetchKey(lawdCd, yearMonth) {

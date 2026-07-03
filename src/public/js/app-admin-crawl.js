@@ -125,6 +125,8 @@ function renderKbCoverage(items) {
     const latest = item.latestJob || null;
     const activeJobs = Number(item.activeJobs || 0);
     const remaining = Number(item.activePending || 0) + Number(item.activeRunning || 0);
+    const statusClass = activeJobs ? "running" : (pricePercent === 100 ? "completed" : "pending");
+    const statusText = activeJobs ? "수집중" : (pricePercent === 100 ? "완료" : "대기");
     const currentText = item.currentComplexName
       ? `${item.currentLocation ? `${item.currentLocation} · ` : ""}${item.currentComplexName}`
       : "";
@@ -134,52 +136,56 @@ function renderKbCoverage(items) {
     const latestText = latest
       ? `${crawlJobKindLabel(latest)} · ${statusLabel(latest.status)} · ${formatDateTime(latest.updatedAt || latest.createdAt)}`
       : "최근 작업 없음";
+    const primaryLine = currentText
+      ? `현재 ${currentText}`
+      : `${activeJobs ? "작업 준비 중" : latestText}`;
     return `
       <article class="kb-coverage-card">
         <div class="kb-coverage-head">
           <strong>${escapeHtml(item.regionName || item.regionId || "-")}</strong>
-          <span>시세 ${formatInt(item.apartmentsWithPrices || 0)} / ${formatInt(item.storedComplexes || 0)}단지</span>
+          <span class="status-pill ${escapeHtml(statusClass)}">${escapeHtml(statusText)}</span>
         </div>
-        <div class="kb-coverage-percent">${escapeHtml(percentText)}</div>
+        <div class="kb-coverage-main">
+          <div>
+            <span>시세 완료율</span>
+            <strong>${escapeHtml(percentText)}</strong>
+          </div>
+          <em>${formatInt(item.apartmentsWithPrices || 0)} / ${formatInt(item.storedComplexes || 0)}단지</em>
+        </div>
         <div class="kb-coverage-track" aria-hidden="true">
           <span style="width: ${percentWidth}%"></span>
         </div>
-        <div class="kb-coverage-stages">
-          ${kbCoverageStage("단지정보", storedPercent, item.storedComplexes, item.knownTarget || item.storedComplexes)}
-          ${kbCoverageStage("평형정보", areaTypePercent, item.apartmentsWithAreaTypes, item.storedComplexes)}
-          ${kbCoverageStage("시세정보", pricePercent, item.apartmentsWithPrices, item.storedComplexes)}
-          ${kbCoverageStage("최신월", latestPricePercent, item.apartmentsWithLatestPrices, item.apartmentsWithPrices)}
+        <div class="kb-coverage-summary-grid">
+          ${kbCoverageMetric("단지", storedPercent)}
+          ${kbCoverageMetric("평형", areaTypePercent)}
+          ${kbCoverageMetric("최신월", latestPricePercent)}
         </div>
-        <div class="kb-coverage-meta">
-          <span>평형 ${formatInt(item.areaTypes || 0)}개</span>
-          <span>시세 ${formatInt(item.monthlyPrices || 0)}건</span>
-          <span>최신월 ${item.latestPriceMonth ? formatMonth(item.latestPriceMonth) : "-"}</span>
-          <span>누락 ${formatInt(item.missingPriceApartments || 0)}단지</span>
-          <span>${activeJobs ? `진행 ${formatInt(activeJobs)}개 · 남음 ${formatInt(remaining)}개` : "진행 중 작업 없음"}</span>
-          <span>${activeProgress === null ? "작업 진행률 -" : `작업 진행률 ${activeProgress.toFixed(1)}%`}</span>
-        </div>
+        <div class="kb-coverage-current">${escapeHtml(primaryLine)}</div>
         <div class="kb-coverage-eta">${escapeHtml(etaText)}</div>
-        ${currentText ? `<div class="kb-coverage-current">수집 중 ${escapeHtml(currentText)}</div>` : ""}
-        <div class="kb-coverage-latest">${escapeHtml(latestText)}</div>
+        <details class="kb-coverage-details">
+          <summary>상세 보기</summary>
+          <div class="kb-coverage-meta">
+            <span>평형 ${formatInt(item.areaTypes || 0)}개</span>
+            <span>시세 ${formatInt(item.monthlyPrices || 0)}건</span>
+            <span>최신월 ${item.latestPriceMonth ? formatMonth(item.latestPriceMonth) : "-"}</span>
+            <span>시세 누락 ${formatInt(item.missingPriceApartments || 0)}단지</span>
+            <span>${activeJobs ? `진행 ${formatInt(activeJobs)}개 · 남음 ${formatInt(remaining)}개` : "진행 중 작업 없음"}</span>
+            <span>${activeProgress === null ? "작업 진행률 -" : `작업 진행률 ${activeProgress.toFixed(1)}%`}</span>
+          </div>
+          <div class="kb-coverage-latest">${escapeHtml(latestText)}</div>
+        </details>
       </article>
     `;
   }).join("");
 }
 
-function kbCoverageStage(label, percent, count, total) {
+function kbCoverageMetric(label, percent) {
   const value = numberOrNull(percent);
-  const width = value === null ? 0 : Math.max(0, Math.min(value, 100));
   const text = value === null ? "-" : `${value.toFixed(1)}%`;
   return `
-    <div class="kb-coverage-stage">
-      <div>
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(text)}</strong>
-      </div>
-      <div class="kb-coverage-stage-track" aria-hidden="true">
-        <span style="width: ${width}%"></span>
-      </div>
-      <em>${formatInt(count || 0)} / ${formatInt(total || 0)}</em>
+    <div class="kb-coverage-metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(text)}</strong>
     </div>
   `;
 }
