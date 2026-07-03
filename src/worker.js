@@ -6,14 +6,17 @@ import { getRegion, legalDongCodePrefixes } from "./services/region-config.js";
 
 const provider = new KBPriceProvider();
 const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
+const staleRunningMinutes = Number(process.env.WORKER_STALE_RUNNING_MINUTES || 240);
 const workerRegionIds = parseWorkerRegionIds(process.env.WORKER_REGION_IDS || "");
 const workerYearsBack = parseNumberList(process.env.WORKER_YEARS_BACKS || "");
 
 await initDb();
 console.log(`KB worker started${workerRegionIds.length ? ` for ${workerRegionIds.join(",")}` : ""}${workerYearsBack.length ? ` / years_back ${workerYearsBack.join(",")}` : ""}`);
+await recoverStaleRunningItems();
 
 while (true) {
   try {
+    await recoverStaleRunningItems();
     const job = await getRunnableJob();
     if (!job) {
       await sleep(idleDelayMs);
@@ -92,7 +95,9 @@ async function discoverJob(job) {
       wait,
       onProgress: (progress) => updateDiscoveryProgress(job.id, progress)
     });
-    const existingComplexIds = await existingSourceComplexIds(region);
+    const existingComplexIds = await existingSourceComplexIds(region, {
+      requireMonthlyPrices: Number(job.years_back || 0) > 0
+    });
     const unique = dedupeBy(markers, "단지기본일련번호")
       .filter((item) => ["01", "41"].includes(String(item.물건종류 || "")))
       .filter((item) => !existingComplexIds.has(Number(item.단지기본일련번호)))
@@ -176,26 +181,93 @@ async function queueFromSourceJob(job) {
   });
 }
 
-async function existingSourceComplexIds(region) {
-  const regionClause = region.dedupeAgainstAllRegions ? "" : "where region_id = $1";
+async function existingSourceComplexIds(region, { requireMonthlyPrices = false } = {}) {
+  const apartmentConditions = [];
   const queueRegionClause = region.dedupeAgainstAllRegions ? "" : "and j.region_id = $1";
   const params = region.dedupeAgainstAllRegions ? [] : [region.id];
+  if (!region.dedupeAgainstAllRegions) {
+    apartmentConditions.push("region_id = $1");
+  }
+  if (requireMonthlyPrices) {
+    apartmentConditions.push(`
+      exists (
+        select 1
+        from area_types at
+        join monthly_prices mp on mp.area_type_id = at.id
+        where at.apartment_id = apartments.id
+      )
+    `);
+  }
+  const apartmentWhereClause = apartmentConditions.length
+    ? `where ${apartmentConditions.join(" and ")}`
+    : "";
+  const completedQueueClause = requireMonthlyPrices
+    ? "(q.status = 'completed' and j.years_back > 0)"
+    : "q.status = 'completed'";
   const result = await query(`
     select source_complex_id
     from apartments
-    ${regionClause}
+    ${apartmentWhereClause}
     union
     select q.source_complex_id
     from crawl_queue q
     join crawl_jobs j on j.id = q.job_id
     where (
-      q.status = 'completed'
+      ${completedQueueClause}
       or j.status in ('discovering', 'running')
       or (j.status = 'requested' and j.years_back = 0)
     )
     ${queueRegionClause}
   `, params);
   return new Set(result.rows.map((row) => Number(row.source_complex_id)));
+}
+
+async function recoverStaleRunningItems() {
+  if (!Number.isFinite(staleRunningMinutes) || staleRunningMinutes <= 0) return;
+
+  const params = [staleRunningMinutes];
+  let regionClause = "";
+  if (workerRegionIds.length) {
+    params.push(workerRegionIds);
+    regionClause = `and j.region_id = any($${params.length}::text[])`;
+  }
+  let yearsBackClause = "";
+  if (workerYearsBack.length) {
+    params.push(workerYearsBack);
+    yearsBackClause = `and j.years_back = any($${params.length}::int[])`;
+  }
+
+  const result = await query(`
+    with stale as (
+      select q.id, q.job_id
+      from crawl_queue q
+      join crawl_jobs j on j.id = q.job_id
+      where q.status = 'running'
+        and j.status = 'running'
+        and q.started_at < now() - ($1::int * interval '1 minute')
+        ${regionClause}
+        ${yearsBackClause}
+      limit 50
+    ),
+    recovered as (
+      update crawl_queue q
+      set status = 'pending',
+          error_message = coalesce(q.error_message, 'Recovered stale running item'),
+          updated_at = now()
+      from stale
+      where q.id = stale.id
+      returning stale.job_id
+    )
+    select job_id, count(*)::int as count
+    from recovered
+    group by job_id
+  `, params);
+
+  for (const row of result.rows) {
+    await log(row.job_id, "warn", `Recovered ${row.count} stale running crawl item(s)`, {
+      staleRunningMinutes
+    });
+  }
 }
 
 async function processNextQueueItem(job) {

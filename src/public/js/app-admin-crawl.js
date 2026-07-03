@@ -112,17 +112,25 @@ function renderKbCoverage(items) {
   }
 
   els.kbCoverageGrid.innerHTML = items.map((item) => {
-    const percent = item.storedPercent === null || item.storedPercent === undefined
-      ? null
-      : Number(item.storedPercent || 0);
-    const percentWidth = percent === null ? 0 : Math.max(0, Math.min(percent, 100));
-    const percentText = percent === null ? "확인중" : `${percent.toFixed(1)}%`;
+    const storedPercent = numberOrNull(item.storedPercent);
+    const areaTypePercent = numberOrNull(item.areaTypePercent);
+    const pricePercent = numberOrNull(item.pricePercent);
+    const latestPricePercent = numberOrNull(item.latestPricePercent);
+    const headlinePercent = pricePercent ?? storedPercent;
+    const percentWidth = headlinePercent === null ? 0 : Math.max(0, Math.min(headlinePercent, 100));
+    const percentText = headlinePercent === null ? "확인중" : `${headlinePercent.toFixed(1)}%`;
     const activeProgress = item.activeProgressPercent === null || item.activeProgressPercent === undefined
       ? null
       : Number(item.activeProgressPercent || 0);
     const latest = item.latestJob || null;
     const activeJobs = Number(item.activeJobs || 0);
     const remaining = Number(item.activePending || 0) + Number(item.activeRunning || 0);
+    const currentText = item.currentComplexName
+      ? `${item.currentLocation ? `${item.currentLocation} · ` : ""}${item.currentComplexName}`
+      : "";
+    const etaText = item.etaAt
+      ? `${formatDurationHours(item.etaHours)} 남음 · ${formatDateTime(item.etaAt)} 예상`
+      : (remaining ? "처리 속도 산정 중" : "대기 없음");
     const latestText = latest
       ? `${crawlJobKindLabel(latest)} · ${statusLabel(latest.status)} · ${formatDateTime(latest.updatedAt || latest.createdAt)}`
       : "최근 작업 없음";
@@ -130,22 +138,66 @@ function renderKbCoverage(items) {
       <article class="kb-coverage-card">
         <div class="kb-coverage-head">
           <strong>${escapeHtml(item.regionName || item.regionId || "-")}</strong>
-          <span>${item.targetReady ? `${formatInt(item.storedComplexes || 0)} / ${formatInt(item.knownTarget || item.storedComplexes || 0)}개` : `${formatInt(item.storedComplexes || 0)}개 저장`}</span>
+          <span>시세 ${formatInt(item.apartmentsWithPrices || 0)} / ${formatInt(item.storedComplexes || 0)}단지</span>
         </div>
         <div class="kb-coverage-percent">${escapeHtml(percentText)}</div>
         <div class="kb-coverage-track" aria-hidden="true">
           <span style="width: ${percentWidth}%"></span>
         </div>
+        <div class="kb-coverage-stages">
+          ${kbCoverageStage("단지정보", storedPercent, item.storedComplexes, item.knownTarget || item.storedComplexes)}
+          ${kbCoverageStage("평형정보", areaTypePercent, item.apartmentsWithAreaTypes, item.storedComplexes)}
+          ${kbCoverageStage("시세정보", pricePercent, item.apartmentsWithPrices, item.storedComplexes)}
+          ${kbCoverageStage("최신월", latestPricePercent, item.apartmentsWithLatestPrices, item.apartmentsWithPrices)}
+        </div>
         <div class="kb-coverage-meta">
-          <span>면적 타입 ${formatInt(item.areaTypes || 0)}개</span>
-          <span>대상 타일 ${formatInt(item.tileCount || 0)}개</span>
+          <span>평형 ${formatInt(item.areaTypes || 0)}개</span>
+          <span>시세 ${formatInt(item.monthlyPrices || 0)}건</span>
+          <span>최신월 ${item.latestPriceMonth ? formatMonth(item.latestPriceMonth) : "-"}</span>
+          <span>누락 ${formatInt(item.missingPriceApartments || 0)}단지</span>
           <span>${activeJobs ? `진행 ${formatInt(activeJobs)}개 · 남음 ${formatInt(remaining)}개` : "진행 중 작업 없음"}</span>
           <span>${activeProgress === null ? "작업 진행률 -" : `작업 진행률 ${activeProgress.toFixed(1)}%`}</span>
         </div>
+        <div class="kb-coverage-eta">${escapeHtml(etaText)}</div>
+        ${currentText ? `<div class="kb-coverage-current">수집 중 ${escapeHtml(currentText)}</div>` : ""}
         <div class="kb-coverage-latest">${escapeHtml(latestText)}</div>
       </article>
     `;
   }).join("");
+}
+
+function kbCoverageStage(label, percent, count, total) {
+  const value = numberOrNull(percent);
+  const width = value === null ? 0 : Math.max(0, Math.min(value, 100));
+  const text = value === null ? "-" : `${value.toFixed(1)}%`;
+  return `
+    <div class="kb-coverage-stage">
+      <div>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(text)}</strong>
+      </div>
+      <div class="kb-coverage-stage-track" aria-hidden="true">
+        <span style="width: ${width}%"></span>
+      </div>
+      <em>${formatInt(count || 0)} / ${formatInt(total || 0)}</em>
+    </div>
+  `;
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatDurationHours(value) {
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours <= 0) return "계산 중";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}분`;
+  const days = Math.floor(hours / 24);
+  const remainHours = Math.round(hours % 24);
+  if (!days) return `${Math.round(hours)}시간`;
+  return `${days}일 ${remainHours}시간`;
 }
 
 function crawlJobProgress(item) {

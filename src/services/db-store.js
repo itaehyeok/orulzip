@@ -347,30 +347,77 @@ export async function kbCollectionCoverage() {
           coalesce((value->>'tileCount')::int, 0) as tile_count,
           array(select jsonb_array_elements_text(value->'prefixes')) as prefixes
         from jsonb_array_elements($1::jsonb) value
+      ),
+      scoped_apartments as (
+        select
+          d.id as region_id,
+          d.name,
+          d.tile_count,
+          a.id as apartment_id,
+          a.source_complex_id,
+          a.updated_at as apartment_updated_at
+        from defs d
+        left join apartments a
+          on a.region_id = d.id
+          or exists (
+            select 1
+            from unnest(d.prefixes) prefix
+            where coalesce(a.legal_dong_code, '') like prefix || '%'
+          )
+      ),
+      per_apartment as (
+        select
+          region_id,
+          sa.apartment_id,
+          sa.source_complex_id,
+          max(apartment_updated_at) as apartment_updated_at,
+          count(distinct at.id)::int as area_types,
+          count(mp.id)::int as monthly_prices,
+          max(mp.year_month) as latest_price_month,
+          max(mp.updated_at) as latest_price_updated_at
+        from scoped_apartments sa
+        left join area_types at on at.apartment_id = sa.apartment_id
+        left join monthly_prices mp on mp.area_type_id = at.id
+        where sa.apartment_id is not null
+        group by region_id, sa.apartment_id, sa.source_complex_id
+      ),
+      region_latest as (
+        select region_id, max(latest_price_month) as latest_price_month
+        from per_apartment
+        group by region_id
       )
       select
         d.id,
         d.name,
         d.tile_count,
-        count(distinct a.source_complex_id)::int as stored_complexes,
-        count(distinct at.id)::int as area_types
+        count(distinct pa.source_complex_id)::int as stored_complexes,
+        count(distinct pa.apartment_id) filter (where pa.area_types > 0)::int as apartments_with_area_types,
+        count(distinct pa.apartment_id) filter (where pa.monthly_prices > 0)::int as apartments_with_prices,
+        count(distinct pa.apartment_id) filter (
+          where pa.latest_price_month is not null
+            and pa.latest_price_month = rl.latest_price_month
+        )::int as apartments_with_latest_prices,
+        coalesce(sum(pa.area_types), 0)::int as area_types,
+        coalesce(sum(pa.monthly_prices), 0)::int as monthly_prices,
+        rl.latest_price_month,
+        max(pa.apartment_updated_at) as latest_apartment_updated_at,
+        max(pa.latest_price_updated_at) as latest_price_updated_at
       from defs d
-      left join apartments a
-        on a.region_id = d.id
-        or exists (
-          select 1
-          from unnest(d.prefixes) prefix
-          where coalesce(a.legal_dong_code, '') like prefix || '%'
-        )
-      left join area_types at on at.apartment_id = a.id
-      group by d.id, d.name, d.tile_count
+      left join per_apartment pa on pa.region_id = d.id
+      left join region_latest rl on rl.region_id = d.id
+      group by d.id, d.name, d.tile_count, rl.latest_price_month
     `, [JSON.stringify(regionDefinitions)]),
     query(`
       select *
       from (
         select
           j.*,
-          row_number() over (partition by j.region_id order by j.created_at desc) as row_number
+          row_number() over (
+            partition by j.region_id
+            order by
+              case when j.status in ('requested', 'discovering', 'running') then 0 else 1 end,
+              j.created_at desc
+          ) as row_number
         from crawl_jobs j
         where j.region_id = any($1::text[])
       ) ranked
@@ -381,7 +428,6 @@ export async function kbCollectionCoverage() {
         select *
         from crawl_jobs
         where region_id = any($1::text[])
-          and years_back = 0
           and status in ('requested', 'discovering', 'running')
       ),
       job_summary as (
@@ -400,10 +446,53 @@ export async function kbCollectionCoverage() {
           count(q.id) filter (where q.status = 'pending')::int as active_pending,
           count(q.id) filter (where q.status = 'running')::int as active_running,
           count(q.id) filter (where q.status = 'completed')::int as active_queue_completed,
-          count(q.id) filter (where q.status = 'failed')::int as active_queue_failed
+          count(q.id) filter (where q.status = 'failed')::int as active_queue_failed,
+          count(distinct q.source_complex_id) filter (
+            where q.status in ('pending', 'running', 'failed')
+              and qa.id is null
+          )::int as active_unknown_complexes,
+          count(q.id) filter (
+            where q.status = 'completed'
+              and q.completed_at >= now() - interval '10 minutes'
+          )::int as completed_last_10_minutes,
+          count(q.id) filter (
+            where q.status = 'completed'
+              and q.completed_at >= now() - interval '1 hour'
+          )::int as completed_last_hour,
+          count(q.id) filter (
+            where q.status = 'completed'
+              and q.completed_at >= now() - interval '24 hours'
+          )::int as completed_last_day
         from active_jobs j
         left join crawl_queue q on q.job_id = j.id
+        left join apartments qa on qa.source_complex_id = q.source_complex_id
         group by j.region_id
+      ),
+      current_summary as (
+        select distinct on (j.region_id)
+          j.region_id,
+          j.current_complex_id,
+          j.current_complex_name,
+          coalesce(
+            nullif(q.marker->>'시군구명', ''),
+            nullif(q.marker->>'법정동명', ''),
+            nullif(q.marker->>'읍면동명', ''),
+            nullif(q.marker->>'읍면동', ''),
+            nullif(q.marker->>'법정동', ''),
+            nullif(a.neighborhood_name, ''),
+            ''
+          ) as current_location
+        from active_jobs j
+        left join crawl_queue q
+          on q.job_id = j.id
+         and q.status = 'running'
+        left join apartments a
+          on a.region_id = j.region_id
+         and a.source_complex_id = coalesce(q.source_complex_id, j.current_complex_id)
+        order by
+          j.region_id,
+          case j.status when 'running' then 0 when 'discovering' then 1 else 2 end,
+          j.updated_at desc
       )
       select
         coalesce(js.region_id, qs.region_id) as region_id,
@@ -414,9 +503,17 @@ export async function kbCollectionCoverage() {
         coalesce(qs.active_pending, 0)::int as active_pending,
         coalesce(qs.active_running, 0)::int as active_running,
         coalesce(qs.active_queue_completed, 0)::int as active_queue_completed,
-        coalesce(qs.active_queue_failed, 0)::int as active_queue_failed
+        coalesce(qs.active_queue_failed, 0)::int as active_queue_failed,
+        coalesce(qs.active_unknown_complexes, 0)::int as active_unknown_complexes,
+        coalesce(qs.completed_last_10_minutes, 0)::int as completed_last_10_minutes,
+        coalesce(qs.completed_last_hour, 0)::int as completed_last_hour,
+        coalesce(qs.completed_last_day, 0)::int as completed_last_day,
+        cs.current_complex_id,
+        cs.current_complex_name,
+        cs.current_location
       from job_summary js
       full join queue_summary qs on qs.region_id = js.region_id
+      left join current_summary cs on cs.region_id = coalesce(js.region_id, qs.region_id)
     `, [regionIds])
   ]);
 
@@ -429,14 +526,30 @@ export async function kbCollectionCoverage() {
     const jobRow = latestJobByRegion.get(region.id) || null;
     const queueRow = queueByRegion.get(region.id) || {};
     const storedComplexes = Number(storedRow.stored_complexes || 0);
+    const apartmentsWithAreaTypes = Number(storedRow.apartments_with_area_types || 0);
+    const apartmentsWithPrices = Number(storedRow.apartments_with_prices || 0);
+    const apartmentsWithLatestPrices = Number(storedRow.apartments_with_latest_prices || 0);
     const activePending = Number(queueRow.active_pending || 0);
     const activeRunning = Number(queueRow.active_running || 0);
     const activeFailed = Number(queueRow.active_queue_failed || 0);
-    const knownTarget = storedComplexes + activePending + activeRunning + activeFailed;
-    const activeTotal = Number(queueRow.active_total || 0);
-    const activeDone = Number(queueRow.active_completed || 0) + Number(queueRow.active_failed || 0);
+    const activeUnknownComplexes = Number(queueRow.active_unknown_complexes || 0);
+    const knownTarget = storedComplexes + activeUnknownComplexes;
+    const queuedTotal = activePending + activeRunning + Number(queueRow.active_queue_completed || 0) + activeFailed;
+    const activeTotal = Number(queueRow.active_total || 0) || queuedTotal;
+    const activeDone = Number(queueRow.active_queue_completed || 0) + activeFailed;
     const activeJobs = Number(queueRow.active_jobs || 0);
     const targetReady = !activeJobs || activeTotal > 0 || activePending || activeRunning || activeFailed;
+    const remaining = activePending + activeRunning;
+    const completedLast10Minutes = Number(queueRow.completed_last_10_minutes || 0);
+    const completedLastHour = Number(queueRow.completed_last_hour || 0);
+    const completedLastDay = Number(queueRow.completed_last_day || 0);
+    const ratePerHour = completedLastHour
+      || (completedLast10Minutes ? completedLast10Minutes * 6 : 0)
+      || (completedLastDay ? completedLastDay / 24 : 0);
+    const etaHours = remaining && ratePerHour ? remaining / ratePerHour : null;
+    const etaAt = etaHours === null
+      ? null
+      : new Date(Date.now() + etaHours * 60 * 60 * 1000).toISOString();
 
     return {
       regionId: region.id,
@@ -444,19 +557,43 @@ export async function kbCollectionCoverage() {
       prefixes: region.prefixes,
       tileCount: Number(storedRow.tile_count || region.tileCount || 0),
       storedComplexes,
+      apartmentsWithAreaTypes,
+      apartmentsWithPrices,
+      apartmentsWithLatestPrices,
       areaTypes: Number(storedRow.area_types || 0),
+      monthlyPrices: Number(storedRow.monthly_prices || 0),
+      latestPriceMonth: storedRow.latest_price_month || "",
+      latestApartmentUpdatedAt: storedRow.latest_apartment_updated_at || null,
+      latestPriceUpdatedAt: storedRow.latest_price_updated_at || null,
       knownTarget,
       storedPercent: targetReady && knownTarget ? Math.round((storedComplexes / knownTarget) * 1000) / 10 : null,
+      areaTypePercent: storedComplexes ? Math.round((apartmentsWithAreaTypes / storedComplexes) * 1000) / 10 : null,
+      pricePercent: storedComplexes ? Math.round((apartmentsWithPrices / storedComplexes) * 1000) / 10 : null,
+      latestPricePercent: apartmentsWithPrices ? Math.round((apartmentsWithLatestPrices / apartmentsWithPrices) * 1000) / 10 : null,
+      missingAreaTypeApartments: Math.max(0, storedComplexes - apartmentsWithAreaTypes),
+      missingPriceApartments: Math.max(0, storedComplexes - apartmentsWithPrices),
+      missingLatestPriceApartments: Math.max(0, apartmentsWithPrices - apartmentsWithLatestPrices),
       targetReady: Boolean(targetReady),
       activeJobs,
       activeTotal,
-      activeCompleted: Number(queueRow.active_completed || 0),
+      activeCompleted: Number(queueRow.active_queue_completed || 0),
       activeFailed: Number(queueRow.active_failed || 0),
       activePending,
       activeRunning,
+      activeUnknownComplexes,
       activeQueueCompleted: Number(queueRow.active_queue_completed || 0),
       activeQueueFailed: Number(queueRow.active_queue_failed || 0),
       activeProgressPercent: activeTotal ? Math.round((activeDone / activeTotal) * 1000) / 10 : null,
+      completedLast10Minutes,
+      completedLastHour,
+      completedLastDay,
+      ratePerHour: ratePerHour ? Math.round(ratePerHour * 10) / 10 : null,
+      remainingComplexes: remaining,
+      etaHours: etaHours === null ? null : Math.round(etaHours * 10) / 10,
+      etaAt,
+      currentComplexId: queueRow.current_complex_id ? Number(queueRow.current_complex_id) : null,
+      currentComplexName: queueRow.current_complex_name || "",
+      currentLocation: queueRow.current_location || "",
       latestJob: jobRow ? {
         id: Number(jobRow.id),
         status: jobRow.status,
