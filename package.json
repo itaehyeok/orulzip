@@ -10,7 +10,7 @@
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
     "queue:kb-national": "node scripts/queue-kb-national-crawl.js",
-    "queue:kb-national-prices": "node scripts/queue-kb-national-crawl.js --yearsBack=10 --maxAreaTypesPerComplex=50 --maxTiles=all",
+    "queue:kb-national-prices": "node scripts/queue-kb-national-crawl.js --yearsBack=10 --collectInfoFirst=1 --maxAreaTypesPerComplex=50 --maxTiles=all",
     "sync:molit": "node scripts/sync-molit-trades.js",
     "sync:molit-complexes": "node scripts/sync-molit-complexes.js",
     "sync:reb-apartments": "node scripts/sync-reb-apartment-identity.js",

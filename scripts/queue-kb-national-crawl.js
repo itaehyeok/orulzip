@@ -5,6 +5,7 @@ const dryRun = boolArg(args.dryRun, false);
 const skipActive = boolArg(args.skipActive, true);
 const selectedRegionIds = parseRegionIds(args.regions || args.region || "all");
 const yearsBack = numberArg(args.yearsBack, 0);
+const collectInfoFirst = boolArg(args.collectInfoFirst || args.infoFirst, false);
 const maxComplexes = numberArg(args.maxComplexes, 50000);
 const maxAreaTypesPerComplex = numberArg(args.maxAreaTypesPerComplex, 50);
 const delayMinMs = numberArg(args.delayMinMs, 800);
@@ -32,11 +33,12 @@ try {
     const tileCount = listTiles(region).length;
     const maxTiles = maxTilesArg === "all" ? tileCount : Math.min(numberArg(maxTilesArg, tileCount), tileCount);
 
-    if (!dryRun && skipActive && await hasActiveJob(dbModule.query, region.id, yearsBack)) {
+    if (!dryRun && skipActive && await shouldSkipRegion(dbModule.query, region.id, yearsBack, { collectInfoFirst })) {
       results.push({
         regionId: region.id,
         regionName: region.name,
         status: "skipped_active",
+        mode: collectInfoFirst && yearsBack > 0 ? "info-first-with-prices" : (yearsBack > 0 ? "prices" : "area-types-only"),
         maxTiles,
         tileCount
       });
@@ -48,8 +50,10 @@ try {
         regionId: region.id,
         regionName: region.name,
         status: "dry_run",
+        mode: collectInfoFirst && yearsBack > 0 ? "info-first-with-prices" : (yearsBack > 0 ? "prices" : "area-types-only"),
         maxComplexes,
         yearsBack,
+        sourceYearsBack: collectInfoFirst && yearsBack > 0 ? 0 : null,
         maxAreaTypesPerComplex,
         maxTiles,
         tileCount,
@@ -59,21 +63,52 @@ try {
       continue;
     }
 
-    const job = await store.createCrawlJob({
-      regionId: region.id,
-      maxComplexes,
-      yearsBack,
-      maxAreaTypesPerComplex,
-      maxTiles,
-      delayMinMs,
-      delayMaxMs
-    });
+    const created = [];
+    if (collectInfoFirst && yearsBack > 0) {
+      const infoJob = await store.createCrawlJob({
+        regionId: region.id,
+        maxComplexes,
+        yearsBack: 0,
+        maxAreaTypesPerComplex,
+        maxTiles,
+        delayMinMs,
+        delayMaxMs
+      });
+      created.push({ kind: "area-types-only", job: infoJob });
+
+      const priceJob = await store.createCrawlJob({
+        regionId: region.id,
+        maxComplexes,
+        yearsBack,
+        maxAreaTypesPerComplex,
+        maxTiles,
+        delayMinMs,
+        delayMaxMs,
+        sourceJobId: infoJob.id
+      });
+      created.push({ kind: `${yearsBack} years`, job: priceJob, sourceJobId: Number(infoJob.id) });
+    } else {
+      const job = await store.createCrawlJob({
+        regionId: region.id,
+        maxComplexes,
+        yearsBack,
+        maxAreaTypesPerComplex,
+        maxTiles,
+        delayMinMs,
+        delayMaxMs
+      });
+      created.push({ kind: yearsBack > 0 ? `${yearsBack} years` : "area-types-only", job });
+    }
 
     results.push({
       regionId: region.id,
       regionName: region.name,
       status: "queued",
-      jobId: Number(job.id),
+      jobs: created.map((item) => ({
+        kind: item.kind,
+        jobId: Number(item.job.id),
+        sourceJobId: item.sourceJobId || null
+      })),
       maxTiles,
       tileCount
     });
@@ -81,11 +116,18 @@ try {
 
   console.log(JSON.stringify({
     message: dryRun ? "KB national crawl dry run completed." : "KB national crawl jobs queued.",
-    mode: yearsBack > 0 ? `${yearsBack} years` : "area-types-only",
+    mode: collectInfoFirst && yearsBack > 0 ? `area-types first, then ${yearsBack} years` : (yearsBack > 0 ? `${yearsBack} years` : "area-types-only"),
     regions: results
   }, null, 2));
 } finally {
   if (dbModule) await dbModule.closeDb();
+}
+
+async function shouldSkipRegion(dbQuery, regionId, yearsBack, { collectInfoFirst }) {
+  if (collectInfoFirst && yearsBack > 0) {
+    return await hasActiveJob(dbQuery, regionId, 0) || await hasActiveJob(dbQuery, regionId, yearsBack);
+  }
+  return await hasActiveJob(dbQuery, regionId, yearsBack);
 }
 
 async function hasActiveJob(dbQuery, regionId, yearsBack) {

@@ -46,21 +46,33 @@ async function getRunnableJob() {
   let regionClause = "";
   if (workerRegionIds.length) {
     params.push(workerRegionIds);
-    regionClause = `and region_id = any($${params.length}::text[])`;
+    regionClause = `and j.region_id = any($${params.length}::text[])`;
   }
   let yearsBackClause = "";
   if (workerYearsBack.length) {
     params.push(workerYearsBack);
-    yearsBackClause = `and years_back = any($${params.length}::int[])`;
+    yearsBackClause = `and j.years_back = any($${params.length}::int[])`;
   }
 
   const result = await query(`
-    select *
-    from crawl_jobs
-    where status in ('requested', 'discovering', 'running')
+    select j.*
+    from crawl_jobs j
+    left join crawl_jobs source on source.id = j.source_job_id
+    where j.status in ('requested', 'discovering', 'running')
+      and (
+        j.source_job_id is null
+        or j.status <> 'requested'
+        or source.status in ('completed', 'failed')
+      )
       ${regionClause}
       ${yearsBackClause}
-    order by created_at asc
+    order by
+      case
+        when j.years_back = 0 then 0
+        when j.years_back = 10 then 1
+        else 2
+      end,
+      j.created_at asc
     limit 1
   `, params);
   return result.rows[0] || null;
@@ -141,16 +153,60 @@ async function discoverJob(job) {
 }
 
 async function queueFromSourceJob(job) {
+  const sourceJobResult = await query(`
+    select id, status
+    from crawl_jobs
+    where id = $1
+  `, [job.source_job_id]);
+  const sourceJob = sourceJobResult.rows[0] || null;
+  if (!sourceJob) {
+    await updateJob(job.id, {
+      status: "failed",
+      error_message: `Missing source crawl job: ${job.source_job_id}`,
+      finished_at: new Date()
+    });
+    await log(job.id, "error", `Missing source crawl job ${job.source_job_id}`);
+    return;
+  }
+  if (sourceJob.status === "failed") {
+    await updateJob(job.id, {
+      status: "failed",
+      error_message: `Source crawl job failed: ${job.source_job_id}`,
+      finished_at: new Date()
+    });
+    await log(job.id, "error", `Source crawl job ${job.source_job_id} failed`);
+    return;
+  }
+  if (sourceJob.status !== "completed") {
+    await query(`
+      update crawl_jobs
+      set current_complex_name = $2,
+          updated_at = now()
+      where id = $1
+    `, [job.id, `선행 작업 ${job.source_job_id} 완료 대기`]);
+    return;
+  }
+
   const sourceRows = await query(`
     select distinct on (source_complex_id)
       source_complex_id,
       marker
     from crawl_queue
     where job_id = $1
+      and status = 'completed'
     order by source_complex_id, id
   `, [job.source_job_id]);
 
   const selected = sourceRows.rows.slice(0, Number(job.max_complexes || sourceRows.rows.length));
+  if (!selected.length) {
+    await updateJob(job.id, {
+      status: "failed",
+      error_message: `Source crawl job has no completed queue rows: ${job.source_job_id}`,
+      finished_at: new Date()
+    });
+    await log(job.id, "error", `Source crawl job ${job.source_job_id} has no completed queue rows`);
+    return;
+  }
 
   await withClient(async (client) => {
     await client.query("begin");
