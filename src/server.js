@@ -1098,7 +1098,12 @@ function crawlActivityAlert(jobProgress) {
   const runningThresholdMinutes = 15;
   const requestedThresholdMinutes = 10;
   const runningStatuses = new Set(["discovering", "running"]);
-  const activeItems = jobProgress.filter((item) => ["requested", "discovering", "running"].includes(item.job?.status));
+  const trackedYearsBack = new Set([0, 10]);
+  const activeItems = jobProgress.filter((item) => {
+    const job = item.job || {};
+    return trackedYearsBack.has(Number(job.yearsBack || 0))
+      && ["requested", "discovering", "running"].includes(job.status);
+  });
   const runningItems = activeItems.filter((item) => runningStatuses.has(item.job?.status));
   const staleRunning = runningItems
     .map((item) => inactiveJobAlertItem(item, now, "running"))
