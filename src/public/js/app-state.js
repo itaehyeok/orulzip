@@ -428,6 +428,7 @@ const els = {
   collectionSummaryFailureMeta: document.querySelector("#collectionSummaryFailureMeta"),
   collectionSummaryCache: document.querySelector("#collectionSummaryCache"),
   collectionSummaryCacheMeta: document.querySelector("#collectionSummaryCacheMeta"),
+  crawlActivityAlert: document.querySelector("#crawlActivityAlert"),
   kbCoverageGrid: document.querySelector("#kbCoverageGrid"),
   crawlView: document.querySelector("#crawlView"),
   formulaView: document.querySelector("#formulaView"),

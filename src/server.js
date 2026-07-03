@@ -1060,27 +1060,29 @@ function serializeCrawlStatus(crawl) {
     }
     recentLabelsByJob.set(jobId, labels);
   }
+  const jobProgress = (crawl.trackedJobs || []).map((row) => {
+    const trackedJob = serializeJob(row);
+    const trackedCounts = trackedQueueByJob.get(trackedJob.id) || {};
+    const trackedTotal = trackedJob.totalComplexes || 0;
+    const trackedDone = (trackedCounts.completed || 0) + (trackedCounts.failed || 0);
+    return {
+      job: trackedJob,
+      queueCounts: trackedCounts,
+      progress: trackedTotal ? Math.round((trackedDone / trackedTotal) * 1000) / 10 : 0,
+      recent: {
+        completedLast10Minutes: trackedRecentByJob.get(trackedJob.id)?.completedLast10Minutes || 0,
+        completedLastHour: trackedRecentByJob.get(trackedJob.id)?.completedLastHour || 0,
+        completedLastDay: trackedRecentByJob.get(trackedJob.id)?.completedLastDay || 0,
+        topLabels: recentLabelsByJob.get(trackedJob.id) || []
+      }
+    };
+  });
   return {
     job,
     queueCounts,
     progress: total ? Math.round((done / total) * 1000) / 10 : 0,
-    jobProgress: (crawl.trackedJobs || []).map((row) => {
-      const trackedJob = serializeJob(row);
-      const trackedCounts = trackedQueueByJob.get(trackedJob.id) || {};
-      const trackedTotal = trackedJob.totalComplexes || 0;
-      const trackedDone = (trackedCounts.completed || 0) + (trackedCounts.failed || 0);
-      return {
-        job: trackedJob,
-        queueCounts: trackedCounts,
-        progress: trackedTotal ? Math.round((trackedDone / trackedTotal) * 1000) / 10 : 0,
-        recent: {
-          completedLast10Minutes: trackedRecentByJob.get(trackedJob.id)?.completedLast10Minutes || 0,
-          completedLastHour: trackedRecentByJob.get(trackedJob.id)?.completedLastHour || 0,
-          completedLastDay: trackedRecentByJob.get(trackedJob.id)?.completedLastDay || 0,
-          topLabels: recentLabelsByJob.get(trackedJob.id) || []
-        }
-      };
-    }),
+    activityAlert: crawlActivityAlert(jobProgress),
+    jobProgress,
     kbCoverage: crawl.kbCoverage || [],
     logs: crawl.logs.map((row) => ({
       level: row.level,
@@ -1088,6 +1090,70 @@ function serializeCrawlStatus(crawl) {
       details: row.details,
       createdAt: row.created_at
     }))
+  };
+}
+
+function crawlActivityAlert(jobProgress) {
+  const now = Date.now();
+  const runningThresholdMinutes = 15;
+  const requestedThresholdMinutes = 10;
+  const runningStatuses = new Set(["discovering", "running"]);
+  const activeItems = jobProgress.filter((item) => ["requested", "discovering", "running"].includes(item.job?.status));
+  const runningItems = activeItems.filter((item) => runningStatuses.has(item.job?.status));
+  const staleRunning = runningItems
+    .map((item) => inactiveJobAlertItem(item, now, "running"))
+    .filter((item) => item.inactiveMinutes >= runningThresholdMinutes);
+  const waitingRequested = !runningItems.length
+    ? activeItems
+      .filter((item) => item.job?.status === "requested")
+      .map((item) => inactiveJobAlertItem(item, now, "requested"))
+      .filter((item) => item.inactiveMinutes >= requestedThresholdMinutes)
+    : [];
+
+  if (!staleRunning.length && !waitingRequested.length) {
+    return {
+      isStalled: false,
+      checkedAt: new Date(now).toISOString(),
+      runningThresholdMinutes,
+      requestedThresholdMinutes,
+      activeJobs: activeItems.length,
+      runningJobs: runningItems.length,
+      stalledJobs: []
+    };
+  }
+
+  const stalledJobs = [...staleRunning, ...waitingRequested]
+    .sort((a, b) => b.inactiveMinutes - a.inactiveMinutes);
+  const longestInactive = stalledJobs[0]?.inactiveMinutes || 0;
+  const reason = staleRunning.length
+    ? "진행 중 작업의 상태 갱신이 멈췄습니다."
+    : "대기 중인 작업이 있지만 처리 중인 워커가 없습니다.";
+
+  return {
+    isStalled: true,
+    checkedAt: new Date(now).toISOString(),
+    runningThresholdMinutes,
+    requestedThresholdMinutes,
+    activeJobs: activeItems.length,
+    runningJobs: runningItems.length,
+    stalledJobs,
+    title: "KB 수집이 진행되지 않고 있습니다",
+    message: `${reason} 마지막 활동은 약 ${longestInactive}분 전입니다.`
+  };
+}
+
+function inactiveJobAlertItem(item, now, reason) {
+  const job = item.job || {};
+  const updatedAt = job.updatedAt || job.startedAt || job.createdAt;
+  const updatedMs = updatedAt ? new Date(updatedAt).getTime() : 0;
+  const inactiveMinutes = updatedMs
+    ? Math.max(0, Math.floor((now - updatedMs) / 60000))
+    : 0;
+  return {
+    job,
+    reason,
+    inactiveMinutes,
+    updatedAt
   };
 }
 

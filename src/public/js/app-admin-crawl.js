@@ -65,6 +65,7 @@ function renderCollectionSummary() {
 
 function renderCrawlStatus(crawl) {
   if (!crawl) {
+    renderCrawlActivityAlert(null);
     els.crawlSummary.textContent = "작업 없음";
     els.progressBar.style.width = "0%";
     els.progressText.textContent = "0%";
@@ -77,6 +78,7 @@ function renderCrawlStatus(crawl) {
     return;
   }
 
+  renderCrawlActivityAlert(crawl.activityAlert);
   renderKbCoverage(crawl.kbCoverage || []);
   const job = crawl.job;
   if (!job) {
@@ -102,6 +104,32 @@ function renderCrawlStatus(crawl) {
     const time = new Date(log.createdAt).toLocaleTimeString("ko-KR");
     return `<div>[${time}] ${escapeHtml(log.level)} ${escapeHtml(log.message)}</div>`;
   }).join("");
+}
+
+function renderCrawlActivityAlert(alert) {
+  if (!els.crawlActivityAlert) return;
+  if (!alert?.isStalled) {
+    els.crawlActivityAlert.hidden = true;
+    els.crawlActivityAlert.innerHTML = "";
+    return;
+  }
+
+  const stalledJobs = (alert.stalledJobs || []).slice(0, 4);
+  const jobText = stalledJobs.length
+    ? stalledJobs.map((item) => {
+      const job = item.job || {};
+      const label = crawlJobLabel(job);
+      const updatedText = item.updatedAt ? formatDateTime(item.updatedAt) : "-";
+      return `${label} · ${formatInt(item.inactiveMinutes || 0)}분 정지 · ${updatedText}`;
+    }).join(" / ")
+    : "멈춘 작업 상세 없음";
+
+  els.crawlActivityAlert.hidden = false;
+  els.crawlActivityAlert.innerHTML = `
+    <strong>${escapeHtml(alert.title || "수집이 진행되지 않고 있습니다")}</strong>
+    <span>${escapeHtml(alert.message || "진행 중인 작업의 활동이 감지되지 않습니다.")}</span>
+    <em>${escapeHtml(jobText)}</em>
+  `;
 }
 
 function renderKbCoverage(items) {
