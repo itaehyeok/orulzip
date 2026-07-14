@@ -182,6 +182,8 @@ const state = {
   naverSdkPromise: null,
   naverAuthFailureWatch: null,
   naverMapTileWatchTimer: null,
+  naverMapTileWatchStartedAt: 0,
+  naverMapTileWatchTimeoutMs: 0,
   naverMapFailureReportKeys: new Set(),
   latestStatus: null,
   latestMolitStatus: null,

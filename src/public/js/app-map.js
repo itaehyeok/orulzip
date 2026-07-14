@@ -11,6 +11,8 @@ const progressiveMarkerInitialDesktop = 260;
 const progressiveMarkerInitialMobile = 180;
 const progressiveMarkerBatchDesktop = 180;
 const progressiveMarkerBatchMobile = 100;
+const naverSdkTimeoutMs = 6000;
+const naverTileTimeoutMs = 10000;
 
 function isMobileMapControlsViewport() {
   if (window.matchMedia) return window.matchMedia(mobileMapControlsQuery).matches;
@@ -77,6 +79,7 @@ function loadNaverSdk() {
 
   state.naverSdkPromise = new Promise((resolve, reject) => {
     const callbackName = "__orulzipNaverMapReady";
+    const startedAt = naverMapNowMs();
     let settled = false;
     const finish = (error = null) => {
       if (settled) return;
@@ -88,6 +91,7 @@ function loadNaverSdk() {
         window[callbackName] = undefined;
       }
       if (error) {
+        attachNaverMapTiming(error, { startedAt, timeoutMs: error.code === "sdk-timeout" ? naverSdkTimeoutMs : 0 });
         reject(error);
         return;
       }
@@ -95,12 +99,13 @@ function loadNaverSdk() {
     };
     const timeout = setTimeout(() => {
       finish(createNaverMapLoadError("sdk-timeout", "네이버 지도 SDK 로드 시간 초과"));
-    }, 6000);
+    }, naverSdkTimeoutMs);
     window[callbackName] = () => {
       finish();
     };
     window.navermaps_authFailure = () => {
       const error = createNaverMapLoadError("auth-failure", "네이버 지도 인증 실패");
+      attachNaverMapTiming(error, { startedAt, timeoutMs: 0 });
       if (!settled) {
         finish(error);
         return;
@@ -130,6 +135,7 @@ function createNaverMapLoadError(code, message, cause = null) {
 }
 
 function handleNaverMapLoadFailure(error, context = {}) {
+  attachNaverMapTiming(error, context);
   clearTimeout(state.naverMapTileWatchTimer);
   state.naverMapTileWatchTimer = null;
   clearZoomNaverOverlays();
@@ -158,11 +164,18 @@ function reportNaverMapLoadFailure(error, context = {}) {
     stage,
     reason: error?.message || "",
     message: error?.message || "",
+    failureDetail: naverMapFailureDetail(error, context),
+    elapsedMs: roundedNaverMapMs(error?.elapsedMs),
+    timeoutMs: roundedNaverMapMs(error?.timeoutMs),
+    overMs: roundedNaverMapMs(error?.overMs),
     stack: error?.stack || "",
     url: window.location.href,
     path: window.location.pathname,
     period: `${els.startInput?.value || "-"}~${els.endInput?.value || "-"}`,
     viewport: `${window.innerWidth || 0}x${window.innerHeight || 0}@${window.devicePixelRatio || 1}`,
+    screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
+    browserInfo: naverMapBrowserInfo(),
+    tileStats: naverMapTileStats(),
     userAgent: navigator.userAgent || "",
     dedupeKey: key
   };
@@ -173,6 +186,96 @@ function reportNaverMapLoadFailure(error, context = {}) {
     body: JSON.stringify(body),
     keepalive: true
   }).catch(() => {});
+}
+
+function attachNaverMapTiming(error, context = {}) {
+  if (!error) return error;
+  const elapsedMs = Number.isFinite(Number(context.elapsedMs))
+    ? Number(context.elapsedMs)
+    : elapsedNaverMapMs(context.startedAt);
+  if (Number.isFinite(elapsedMs)) {
+    error.elapsedMs = Math.max(0, elapsedMs);
+  }
+  if (Number.isFinite(Number(context.timeoutMs)) && Number(context.timeoutMs) > 0) {
+    error.timeoutMs = Number(context.timeoutMs);
+    if (Number.isFinite(error.elapsedMs)) {
+      error.overMs = Math.max(0, error.elapsedMs - error.timeoutMs);
+    }
+  }
+  return error;
+}
+
+function naverMapNowMs() {
+  if (window.performance && typeof window.performance.now === "function") return window.performance.now();
+  return Date.now();
+}
+
+function elapsedNaverMapMs(startedAt) {
+  const start = Number(startedAt);
+  if (!Number.isFinite(start) || start <= 0) return null;
+  return naverMapNowMs() - start;
+}
+
+function roundedNaverMapMs(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(0, Math.round(number));
+}
+
+function naverMapFailureDetail(error, context = {}) {
+  const code = String(error?.code || context.code || "unknown");
+  const elapsed = formatNaverMapSeconds(error?.elapsedMs);
+  const timeout = formatNaverMapSeconds(error?.timeoutMs);
+  const over = formatNaverMapSeconds(error?.overMs);
+  const timingText = elapsed
+    ? ` 경과 ${elapsed}${timeout ? ` / 제한 ${timeout}` : ""}${over ? ` / 초과 ${over}` : ""}.`
+    : "";
+  const detailByCode = {
+    "auth-failure": "네이버 지도 SDK가 인증 실패를 반환했습니다. NCP Maps 키의 Web 서비스 URL 허용 도메인과 키 상태를 확인해야 합니다.",
+    "sdk-load-failed": "네이버 지도 SDK 스크립트 요청 자체가 실패했습니다. 네트워크 차단, DNS, 브라우저 보안 정책, 네이버 SDK 응답 문제를 확인해야 합니다.",
+    "sdk-timeout": "네이버 지도 SDK callback이 제한 시간 안에 호출되지 않았습니다. SDK 응답 지연 또는 스크립트 실행 차단 가능성이 있습니다.",
+    "sdk-unavailable": "SDK 로드가 끝난 뒤에도 window.naver.maps 객체를 사용할 수 없습니다.",
+    "map-create-failed": "네이버 지도 SDK는 로드됐지만 지도 객체 생성 중 예외가 발생했습니다.",
+    "tile-timeout": "네이버 지도 객체는 생성됐지만 첫 지도 타일 이미지가 제한 시간 안에 로드되지 않았습니다. 네이버 타일 응답 지연, 네트워크 차단/지연, 브라우저 이미지 로드 차단 가능성이 있습니다.",
+    "missing-key": "서버가 네이버 지도 키를 내려주지 않았습니다.",
+    disabled: "서버 설정에서 네이버 지도가 비활성화되어 있습니다.",
+    "provider-unavailable": "클라이언트 지도 provider 설정이 네이버 지도로 준비되지 않았습니다."
+  };
+  return `${detailByCode[code] || "네이버 지도 로딩 실패 원인이 분류되지 않았습니다."}${timingText}`;
+}
+
+function formatNaverMapSeconds(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return `${(Math.max(0, number) / 1000).toFixed(2)}초`;
+}
+
+function naverMapTileStats() {
+  const images = Array.from(els.zoomMap?.querySelectorAll("img") || []);
+  const visibleImages = images.filter((image) => {
+    const rect = image.getBoundingClientRect();
+    return rect.width >= 16 && rect.height >= 16;
+  });
+  const loadedVisibleImages = visibleImages.filter((image) => image.complete && image.naturalWidth > 0);
+  return {
+    images: images.length,
+    visibleImages: visibleImages.length,
+    loadedVisibleImages: loadedVisibleImages.length
+  };
+}
+
+function naverMapBrowserInfo() {
+  const nav = window.navigator || {};
+  const connection = nav.connection || nav.mozConnection || nav.webkitConnection || null;
+  return {
+    visibilityState: document.visibilityState || "",
+    online: typeof nav.onLine === "boolean" ? nav.onLine : null,
+    language: nav.language || "",
+    platform: nav.platform || "",
+    touchPoints: Number(nav.maxTouchPoints || 0),
+    connectionType: connection?.effectiveType || connection?.type || "",
+    saveData: Boolean(connection?.saveData)
+  };
 }
 
 function naverLabelIcon(content, width, height, anchor = [width / 2, height / 2]) {
@@ -517,6 +620,7 @@ async function initNaverZoomMap() {
   }
 
   const initialView = initialZoomMapView();
+  const mapCreateStartedAt = naverMapNowMs();
   try {
     state.zoomNaverMap = new window.naver.maps.Map(els.zoomMap, {
       center: new window.naver.maps.LatLng(initialView.center[0], initialView.center[1]),
@@ -528,7 +632,7 @@ async function initNaverZoomMap() {
   } catch (error) {
     return handleNaverMapLoadFailure(
       createNaverMapLoadError("map-create-failed", error?.message || "네이버 지도 생성 실패", error),
-      { stage: "create" }
+      { stage: "create", startedAt: mapCreateStartedAt }
     );
   }
   bindNaverZoomControlSync();
@@ -547,13 +651,19 @@ async function initNaverZoomMap() {
 
 function watchNaverMapTileLoad() {
   clearTimeout(state.naverMapTileWatchTimer);
+  state.naverMapTileWatchStartedAt = naverMapNowMs();
+  state.naverMapTileWatchTimeoutMs = naverTileTimeoutMs;
   state.naverMapTileWatchTimer = setTimeout(() => {
     if (!state.zoomNaverMap || !isMapTab() || hasLoadedZoomMapTile()) return;
     handleNaverMapLoadFailure(
       createNaverMapLoadError("tile-timeout", "네이버 지도 타일 응답 지연"),
-      { stage: "tile" }
+      {
+        stage: "tile",
+        startedAt: state.naverMapTileWatchStartedAt,
+        timeoutMs: state.naverMapTileWatchTimeoutMs || naverTileTimeoutMs
+      }
     );
-  }, 10000);
+  }, naverTileTimeoutMs);
 }
 
 function scheduleZoomMapLoad() {

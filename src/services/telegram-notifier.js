@@ -221,16 +221,81 @@ function telegramMapLoadFailureMessage(event) {
     "오를집 네이버 지도 로딩 실패",
     `환경: ${event.environment || "unknown"}`,
     `원인: ${event.reason || event.message || "미확인"}`,
+    `상세: ${event.failureDetail || mapLoadFailureDetailFallback(event)}`,
     `코드: ${event.code || "unknown"}`,
     `단계: ${event.stage || "-"}`,
+    `경과시간: ${mapLoadDurationLine(event)}`,
     `페이지: ${event.url || event.path || "-"}`,
     `배포: ${event.deployCommitSha || "-"} / ${event.deployedAtKst || "-"}`,
     `기간: ${event.period || "-"}`,
-    `화면: ${event.viewport || "-"}`
+    `화면: ${[event.viewport, event.screen ? `screen ${event.screen}` : ""].filter(Boolean).join(" / ") || "-"}`,
+    `타일: ${mapLoadTileLine(event.tileStats)}`,
+    `브라우저상태: ${mapLoadBrowserInfoLine(event.browserInfo)}`,
+    `접속 분류: ${event.visitorTypeLabel || event.visitorType || "판단 불가"}`,
+    `판단 신뢰도: ${event.visitorConfidenceLabel || event.visitorConfidence || "미확인"} · ${event.visitorCertainty || "불확실"}`,
+    `판단 근거: ${event.visitorReason || "근거 없음"}`
   ];
   if (event.userAgent) lines.push(`UA: ${truncateText(event.userAgent, 160)}`);
   if (event.stack) lines.push("", truncateText(event.stack, 700));
   return lines.join("\n");
+}
+
+function mapLoadFailureDetailFallback(event = {}) {
+  return {
+    "auth-failure": "네이버 지도 SDK 인증 실패입니다. NCP Maps 키의 Web 서비스 URL 허용 도메인을 확인해야 합니다.",
+    "sdk-load-failed": "네이버 지도 SDK 스크립트 요청이 실패했습니다.",
+    "sdk-timeout": "네이버 지도 SDK callback이 제한 시간 안에 호출되지 않았습니다.",
+    "sdk-unavailable": "SDK 로드 후 window.naver.maps 객체를 사용할 수 없습니다.",
+    "map-create-failed": "네이버 지도 객체 생성 중 예외가 발생했습니다.",
+    "tile-timeout": "네이버 지도 객체는 생성됐지만 첫 지도 타일 이미지가 제한 시간 안에 로드되지 않았습니다.",
+    "missing-key": "서버가 네이버 지도 키를 내려주지 않았습니다.",
+    disabled: "서버 설정에서 네이버 지도가 비활성화되어 있습니다.",
+    "provider-unavailable": "클라이언트 지도 provider 설정을 찾지 못했습니다."
+  }[event.code] || "네이버 지도 로딩 실패 원인이 분류되지 않았습니다.";
+}
+
+function mapLoadDurationLine(event = {}) {
+  const elapsed = formatDurationMs(event.elapsedMs);
+  const timeout = formatDurationMs(event.timeoutMs);
+  const over = formatDurationMs(event.overMs);
+  if (!elapsed && !timeout) return "미측정";
+  return [
+    elapsed ? `${elapsed} 경과` : "",
+    timeout ? `${timeout} 제한` : "",
+    over ? `${over} 초과` : ""
+  ].filter(Boolean).join(" / ");
+}
+
+function formatDurationMs(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return `${(Math.max(0, number) / 1000).toFixed(2)}초`;
+}
+
+function mapLoadTileLine(tileStats = {}) {
+  if (!tileStats || typeof tileStats !== "object") return "미확인";
+  const images = formatNullableCount(tileStats.images);
+  const visible = formatNullableCount(tileStats.visibleImages);
+  const loaded = formatNullableCount(tileStats.loadedVisibleImages);
+  return `전체 ${images}개 / 표시 ${visible}개 / 로드 ${loaded}개`;
+}
+
+function mapLoadBrowserInfoLine(browserInfo = {}) {
+  if (!browserInfo || typeof browserInfo !== "object") return "미확인";
+  const online = typeof browserInfo.online === "boolean" ? (browserInfo.online ? "online" : "offline") : "";
+  const touch = browserInfo.touchPoints !== null && browserInfo.touchPoints !== undefined && Number.isFinite(Number(browserInfo.touchPoints))
+    ? `touch ${browserInfo.touchPoints}`
+    : "";
+  return [
+    browserInfo.visibilityState,
+    online,
+    browserInfo.connectionType,
+    browserInfo.saveData ? "saveData" : "",
+    browserInfo.platform,
+    browserInfo.language,
+    touch
+  ].filter(Boolean).join(" / ") || "미확인";
 }
 
 function telegramDataHealthMessage(event) {
@@ -339,6 +404,12 @@ function visitorSummaryLines(summary) {
 function formatCount(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? Math.round(number).toLocaleString("ko-KR") : "0";
+}
+
+function formatNullableCount(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number).toLocaleString("ko-KR") : "-";
 }
 
 function positiveNumber(value, fallback) {

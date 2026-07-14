@@ -1,6 +1,6 @@
 // Legacy entry point. New code lives in src/public/js/.
 (function loadSplitApp() {
-  const version = "20260702-amount-naver-map";
+  const version = "20260714-map-failure-detail";
   const scripts = [
     "app-prelude",
     "app-state",

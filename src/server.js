@@ -284,22 +284,33 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/map-load-failure" && req.method === "POST") {
       const body = await readLimitedJsonBody(req, 12 * 1024);
+      const userAgent = clientText(req.headers["user-agent"] || body.userAgent, 300);
+      const visitorClassification = classifyMapLoadFailureVisitor({ userAgent, body, headers: req.headers });
       const event = {
         environment: requestAnalyticsEnvironment,
         code: clientText(body.code, 80),
         stage: clientText(body.stage, 80),
         reason: clientText(body.reason || body.message, 240),
         message: clientText(body.message, 240),
+        failureDetail: clientText(body.failureDetail, 700),
+        elapsedMs: clientNumber(body.elapsedMs, { min: 0, max: 10 * 60 * 1000 }),
+        timeoutMs: clientNumber(body.timeoutMs, { min: 0, max: 10 * 60 * 1000 }),
+        overMs: clientNumber(body.overMs, { min: 0, max: 10 * 60 * 1000 }),
         stack: clientText(body.stack, 1200),
         url: clientText(body.url, 300) || analyticsPublicUrl(url.pathname),
         path: clientText(body.path, 160),
         period: clientText(body.period, 80),
         viewport: clientText(body.viewport, 80),
-        userAgent: clientText(req.headers["user-agent"] || body.userAgent, 300),
+        screen: clientText(body.screen, 80),
+        browserInfo: sanitizeMapLoadBrowserInfo(body.browserInfo),
+        tileStats: sanitizeMapLoadTileStats(body.tileStats),
+        userAgent,
+        ...visitorClassification,
         deployCommitSha,
         deployedAtKst,
         dedupeKey: clientText(body.dedupeKey, 180)
       };
+      console.warn("Naver map load failure:", mapLoadFailureLogPayload(event));
       const telegram = await notifyTelegramMapLoadFailure(event).catch((error) => ({
         sent: false,
         reason: error?.message || "send_failed"
@@ -1283,6 +1294,144 @@ function clientText(value, maxLength = 240) {
   const limit = Math.max(0, Number(maxLength) || 0);
   if (!limit || text.length <= limit) return text;
   return text.slice(0, limit);
+}
+
+function clientNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(Number(min) || 0, Math.min(Math.round(number), Number(max) || Number.MAX_SAFE_INTEGER));
+}
+
+function sanitizeMapLoadBrowserInfo(value) {
+  const info = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    visibilityState: clientText(info.visibilityState, 40),
+    online: typeof info.online === "boolean" ? info.online : null,
+    language: clientText(info.language, 40),
+    platform: clientText(info.platform, 80),
+    touchPoints: clientNumber(info.touchPoints, { min: 0, max: 20 }),
+    connectionType: clientText(info.connectionType, 40),
+    saveData: typeof info.saveData === "boolean" ? info.saveData : null
+  };
+}
+
+function sanitizeMapLoadTileStats(value) {
+  const stats = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    images: clientNumber(stats.images, { min: 0, max: 10000 }),
+    visibleImages: clientNumber(stats.visibleImages, { min: 0, max: 10000 }),
+    loadedVisibleImages: clientNumber(stats.loadedVisibleImages, { min: 0, max: 10000 })
+  };
+}
+
+function classifyMapLoadFailureVisitor({ userAgent = "", body = {}, headers = {} } = {}) {
+  const ua = String(userAgent || "");
+  const browserInfo = body?.browserInfo && typeof body.browserInfo === "object" && !Array.isArray(body.browserInfo)
+    ? body.browserInfo
+    : {};
+  const viewport = String(body?.viewport || "");
+  const hasViewport = /\d+x\d+/.test(viewport);
+  const hasTouchInfo = Number.isFinite(Number(browserInfo.touchPoints));
+  const secFetchSite = clientText(headers["sec-fetch-site"], 40);
+  const secFetchMode = clientText(headers["sec-fetch-mode"], 40);
+
+  const knownBotPattern = /(googlebot|bingbot|yandexbot|baiduspider|duckduckbot|naverbot|yeti|daumoa|slurp|semrushbot|ahrefsbot|mj12bot|crawler|spider|bot\b)/i;
+  const previewPattern = /(facebookexternalhit|kakaotalk-scrap|twitterbot|linkedinbot|discordbot|telegrambot|slackbot|bingpreview|applebot|preview)/i;
+  const automationPattern = /(headless|lighthouse|pagespeed|curl|wget|python-requests|go-http-client|httpclient|uptime|monitor|synthetic|rootevidence)/i;
+  const browserPattern = /(chrome|crios|safari|firefox|fxios|edg|edgios|samsungbrowser|whale|kakaotalk|naver)/i;
+
+  if (!ua) {
+    return {
+      visitorType: "unknown",
+      visitorTypeLabel: "판단 불가",
+      visitorConfidence: "low",
+      visitorConfidenceLabel: "낮음",
+      visitorCertainty: "불확실",
+      visitorReason: "User-Agent가 없어 사람/봇을 구분하기 어렵습니다."
+    };
+  }
+
+  if (knownBotPattern.test(ua) || previewPattern.test(ua) || automationPattern.test(ua)) {
+    const matched = matchedVisitorPattern(ua, [knownBotPattern, previewPattern, automationPattern]);
+    return {
+      visitorType: "bot",
+      visitorTypeLabel: "봇/자동화 추정",
+      visitorConfidence: "high",
+      visitorConfidenceLabel: "높음",
+      visitorCertainty: "높은 신뢰도",
+      visitorReason: `${matched || "자동화"} User-Agent 패턴과 일치합니다.`
+    };
+  }
+
+  if (browserPattern.test(ua) && hasViewport) {
+    return {
+      visitorType: "human",
+      visitorTypeLabel: "사람 추정",
+      visitorConfidence: "medium",
+      visitorConfidenceLabel: "중간",
+      visitorCertainty: "추정",
+      visitorReason: [
+        "일반 브라우저 User-Agent",
+        hasViewport ? "화면 크기 정보 있음" : "",
+        hasTouchInfo ? "터치 정보 있음" : "",
+        secFetchMode ? `fetch-mode ${secFetchMode}` : "",
+        secFetchSite ? `fetch-site ${secFetchSite}` : ""
+      ].filter(Boolean).join(", ")
+    };
+  }
+
+  if (browserPattern.test(ua)) {
+    return {
+      visitorType: "human",
+      visitorTypeLabel: "사람 추정",
+      visitorConfidence: "low",
+      visitorConfidenceLabel: "낮음",
+      visitorCertainty: "불확실",
+      visitorReason: "일반 브라우저 User-Agent지만 화면 정보가 부족해 신뢰도가 낮습니다."
+    };
+  }
+
+  return {
+    visitorType: "unknown",
+    visitorTypeLabel: "판단 불가",
+    visitorConfidence: "low",
+    visitorConfidenceLabel: "낮음",
+    visitorCertainty: "불확실",
+    visitorReason: `알려진 브라우저/봇 패턴과 명확히 일치하지 않습니다: ${ua.slice(0, 80)}`
+  };
+}
+
+function matchedVisitorPattern(value, patterns) {
+  for (const pattern of patterns) {
+    const match = String(value || "").match(pattern);
+    if (match?.[0]) return match[0];
+  }
+  return "";
+}
+
+function mapLoadFailureLogPayload(event = {}) {
+  return JSON.stringify({
+    environment: event.environment || "unknown",
+    code: event.code || "unknown",
+    stage: event.stage || "",
+    reason: event.reason || event.message || "",
+    failureDetail: event.failureDetail || "",
+    elapsedMs: event.elapsedMs,
+    timeoutMs: event.timeoutMs,
+    overMs: event.overMs,
+    url: event.url || event.path || "",
+    period: event.period || "",
+    viewport: event.viewport || "",
+    screen: event.screen || "",
+    tileStats: event.tileStats || {},
+    browserInfo: event.browserInfo || {},
+    visitorType: event.visitorTypeLabel || event.visitorType || "unknown",
+    visitorConfidence: event.visitorConfidenceLabel || event.visitorConfidence || "unknown",
+    visitorCertainty: event.visitorCertainty || "",
+    visitorReason: event.visitorReason || "",
+    deployCommitSha: event.deployCommitSha || "",
+    userAgent: event.userAgent || ""
+  });
 }
 
 async function injectRouteSeo(html, routePath) {
