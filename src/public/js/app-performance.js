@@ -83,10 +83,15 @@ function renderPerformanceSummary(run, status = {}) {
   els.performanceSummary.innerHTML = `
     ${performanceSummaryCard("상태", performanceStatusText(run.status), performanceStatusMeta(run), `status-${statusClass}`)}
     ${performanceSummaryCard("최대 지연", formatPerformanceSeconds(summary.maxDurationMs), performanceSlowestMeta(summary.slowest))}
-    ${performanceSummaryCard("평균", formatPerformanceSeconds(summary.averageDurationMs), `${formatInt(summary.measurementCount || 0)}개 항목`)}
+    ${performanceSummaryCard("평균", formatPerformanceSeconds(summary.averageDurationMs), `${formatInt(summary.measurementCount || 0)}개 항목 · ${performanceHouseholdFilterLabel(summary.minHouseholdCount)}`)}
     ${performanceSummaryCard("실패 / 주의", `${formatInt(run.issueCount)} / ${formatInt(run.warningCount)}`, performanceThresholdMeta(summary.thresholds || status.thresholds))}
     ${performanceSummaryCard("완료 시각", formatDateTime(run.finishedAt), run.live ? "수동 측정 결과" : "저장된 최근 측정")}
   `;
+}
+
+function performanceHouseholdFilterLabel(value) {
+  const count = Number(value || 0);
+  return count > 0 ? `${formatInt(Math.floor(count))}세대 이상` : "전체 아파트";
 }
 
 function performanceSummaryCard(label, value, meta, extraClass = "") {

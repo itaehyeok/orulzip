@@ -40,6 +40,7 @@ console.log(JSON.stringify({
   issueCount: result.issueCount,
   warningCount: result.warningCount,
   measurementCount: result.summary?.measurementCount || result.measurements?.length || 0,
+  minHouseholdCount: Number(result.summary?.minHouseholdCount || 0),
   slowest: result.summary?.slowest || null,
   issues: issueDetails,
   attempt: attemptResults.length,

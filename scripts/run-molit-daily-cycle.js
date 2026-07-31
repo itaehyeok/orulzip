@@ -8,6 +8,8 @@ const options = {
   geocodeLimit: process.env.MOLIT_GEOCODE_LIMIT || "5000",
   backfill: process.env.MOLIT_DAILY_BACKFILL !== "0",
   refreshPriceBandCache: process.env.MOLIT_DAILY_REFRESH_PRICE_BAND_CACHE !== "0",
+  refreshRebIdentity: process.env.MOLIT_DAILY_REFRESH_REB_IDENTITY !== "0",
+  rebIdentityKeyConfigured: Boolean(process.env.REB_APT_IDENTITY_SERVICE_KEY || process.env.DATA_GO_KR_SERVICE_KEY),
   recentStart: process.env.MOLIT_DAILY_RECENT_START || previousMonth(),
   recentEnd: process.env.MOLIT_DAILY_RECENT_END || currentMonth()
 };
@@ -48,6 +50,11 @@ if (options.backfill) {
 }
 
 runNpm(["run", "sync:molit-complexes", "--", "--geocode", "--geocode-mode", "missing", "--geocode-limit", options.geocodeLimit]);
+if (options.refreshRebIdentity && options.rebIdentityKeyConfigured) {
+  runNpm(["run", "sync:reb-apartments"]);
+} else if (options.refreshRebIdentity) {
+  console.log("[molit-daily] REB household sync skipped: service key is not configured.");
+}
 runNpm(["run", "refresh:molit-map-cache", "--", "--skip-complex-sync"]);
 if (options.refreshPriceBandCache) {
   runNpm(["run", "refresh:price-band-cache"]);

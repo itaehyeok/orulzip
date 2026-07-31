@@ -3,30 +3,56 @@ import { query } from "./db.js";
 const DEFAULT_MIN_HOUSEHOLD_COUNT = 100;
 
 export async function readMolitMapOptions() {
-  const result = await query(`
-    select
-      start_month,
-      end_month,
-      min_household_count,
-      apartment_count,
-      updated_at
-    from map_growth_snapshots
-    where source = 'molit'
-      and metric = 'rate'
-      and end_month = (
-        select max(end_month)
-        from map_growth_snapshots
-        where source = 'molit'
-          and metric = 'rate'
-          and min_household_count = 0
-          and apartment_count > 0
-      )
-    order by start_month, min_household_count
-  `);
-  return buildMolitMapOptions(result.rows);
+  const [mapResult, priceBandResult] = await Promise.all([
+    query(`
+      select
+        start_month,
+        end_month,
+        min_household_count,
+        apartment_count,
+        updated_at
+      from map_growth_snapshots
+      where source = 'molit'
+        and metric = 'rate'
+        and end_month = (
+          select max(end_month)
+          from map_growth_snapshots
+          where source = 'molit'
+            and metric = 'rate'
+            and min_household_count = 0
+            and apartment_count > 0
+        )
+      order by start_month, min_household_count
+    `),
+    query(`
+      select
+        start_month,
+        end_month,
+        min_household_count,
+        item_count,
+        updated_at
+      from price_band_rank_snapshots
+      where source = 'molit'
+        and basis = 'start'
+        and area_band_key = 'all'
+        and status = 'active'
+        and end_month = (
+          select max(end_month)
+          from price_band_rank_snapshots
+          where source = 'molit'
+            and basis = 'start'
+            and area_band_key = 'all'
+            and status = 'active'
+            and min_household_count = 0
+            and item_count > 0
+        )
+      order by start_month, min_household_count
+    `)
+  ]);
+  return buildMolitMapOptions(mapResult.rows, { priceBandRows: priceBandResult.rows });
 }
 
-export function buildMolitMapOptions(rows = []) {
+export function buildMolitMapOptions(rows = [], { priceBandRows = [] } = {}) {
   const latestEndMonth = rows
     .filter((row) => normalizedHouseholdCount(row.min_household_count) === 0 && Number(row.apartment_count || 0) > 0)
     .map((row) => normalizedMonth(row.end_month))
@@ -41,7 +67,7 @@ export function buildMolitMapOptions(rows = []) {
     .map(serializePeriod)
     .filter((period) => period.startMonth && period.endMonth);
   const periodKeys = new Set(basePeriods.map(periodKey));
-  const availableMinHouseholdCounts = [...new Set(latestRows.map((row) => normalizedHouseholdCount(row.min_household_count)))]
+  const mapAvailableMinHouseholdCounts = [...new Set(latestRows.map((row) => normalizedHouseholdCount(row.min_household_count)))]
     .filter((minHouseholdCount) => {
       if (!periodKeys.size) return false;
       const availablePeriods = new Set(latestRows
@@ -53,6 +79,10 @@ export function buildMolitMapOptions(rows = []) {
       return [...periodKeys].every((key) => availablePeriods.has(key));
     })
     .sort((a, b) => a - b);
+  const priceBandAvailableMinHouseholdCounts = availablePriceBandHouseholdCounts(priceBandRows);
+  const availableMinHouseholdCounts = priceBandAvailableMinHouseholdCounts.length
+    ? mapAvailableMinHouseholdCounts.filter((value) => priceBandAvailableMinHouseholdCounts.includes(value))
+    : mapAvailableMinHouseholdCounts;
   const earliestStartMonth = basePeriods.map((period) => period.startMonth).sort()[0] || "";
 
   return {
@@ -64,6 +94,31 @@ export function buildMolitMapOptions(rows = []) {
       : (availableMinHouseholdCounts[0] || 0),
     updatedAt: latestRows.map((row) => row.updated_at).filter(Boolean).sort().at(-1) || null
   };
+}
+
+function availablePriceBandHouseholdCounts(rows) {
+  const latestEndMonth = rows
+    .filter((row) => normalizedHouseholdCount(row.min_household_count) === 0 && Number(row.item_count || 0) > 0)
+    .map((row) => normalizedMonth(row.end_month))
+    .filter(Boolean)
+    .sort()
+    .at(-1) || "";
+  if (!latestEndMonth) return [];
+  const latestRows = rows.filter((row) => normalizedMonth(row.end_month) === latestEndMonth);
+  const basePeriodKeys = new Set(latestRows
+    .filter((row) => normalizedHouseholdCount(row.min_household_count) === 0 && Number(row.item_count || 0) > 0)
+    .map((row) => periodKey(serializePeriod(row))));
+  return [...new Set(latestRows.map((row) => normalizedHouseholdCount(row.min_household_count)))]
+    .filter((minHouseholdCount) => {
+      const availablePeriods = new Set(latestRows
+        .filter((row) => (
+          normalizedHouseholdCount(row.min_household_count) === minHouseholdCount
+          && Number(row.item_count || 0) > 0
+        ))
+        .map((row) => periodKey(serializePeriod(row))));
+      return basePeriodKeys.size > 0 && [...basePeriodKeys].every((key) => availablePeriods.has(key));
+    })
+    .sort((a, b) => a - b);
 }
 
 function serializePeriod(row) {

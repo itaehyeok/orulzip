@@ -1,9 +1,9 @@
 import { query } from "./db.js";
 import { readCachedZoomMapSummary } from "./map-growth-cache.js";
+import { readMolitMapOptions } from "./molit-map-options.js";
 import { readPriceBandRankPage } from "./price-band-rank-cache.js";
 
 const SOURCE = "molit";
-const MIN_HOUSEHOLD_COUNT = 100;
 const DEFAULT_ENVIRONMENT = process.env.ORULZIP_ENVIRONMENT || process.env.NODE_ENV || "unknown";
 const WARN_DURATION_MS = Number(process.env.PERFORMANCE_MEASUREMENT_WARN_MS || 1500);
 const FAIL_DURATION_MS = Number(process.env.PERFORMANCE_MEASUREMENT_FAIL_MS || 5000);
@@ -78,9 +78,11 @@ export async function runPerformanceMeasurements({
   save = false
 } = {}) {
   const startedAt = new Date();
+  const mapOptions = await readMolitMapOptions();
+  const minHouseholdCount = resolvePerformanceMinHouseholdCount(mapOptions);
   const [mapSnapshots, priceBandSnapshots] = await Promise.all([
-    readLatestMapSnapshotsByPeriod(),
-    readLatestPriceBandSnapshotsByPeriod()
+    readLatestMapSnapshotsByPeriod(minHouseholdCount),
+    readLatestPriceBandSnapshotsByPeriod(minHouseholdCount)
   ]);
   const measurements = [];
 
@@ -89,7 +91,7 @@ export async function runPerformanceMeasurements({
       const snapshot = unit.kind === "priceBand"
         ? priceBandSnapshots.get(period.key)
         : mapSnapshots.get(period.key);
-      measurements.push(await measureUnitPeriod({ unit, period, snapshot, environment }));
+      measurements.push(await measureUnitPeriod({ unit, period, snapshot, environment, minHouseholdCount }));
     }
   }
 
@@ -97,7 +99,7 @@ export async function runPerformanceMeasurements({
   const issueCount = measurements.filter((item) => item.status === "fail").length;
   const warningCount = measurements.filter((item) => item.status === "warn").length;
   const status = issueCount ? "fail" : warningCount ? "warn" : "pass";
-  const summary = buildSummary({ measurements, mapSnapshots, priceBandSnapshots });
+  const summary = buildSummary({ measurements, mapSnapshots, priceBandSnapshots, minHouseholdCount });
   const run = {
     environment,
     status,
@@ -119,7 +121,7 @@ export async function runPerformanceMeasurements({
   return run;
 }
 
-async function readLatestMapSnapshotsByPeriod() {
+async function readLatestMapSnapshotsByPeriod(minHouseholdCount) {
   const result = await query(`
     select
       start_month,
@@ -134,11 +136,11 @@ async function readLatestMapSnapshotsByPeriod() {
       and min_household_count = $2
       and metric = 'rate'
     order by end_month desc, updated_at desc
-  `, [SOURCE, MIN_HOUSEHOLD_COUNT]);
+  `, [SOURCE, minHouseholdCount]);
   return selectSnapshotsByPeriod(result.rows, (row) => monthsBetween(row.start_month, row.end_month));
 }
 
-async function readLatestPriceBandSnapshotsByPeriod() {
+async function readLatestPriceBandSnapshotsByPeriod(minHouseholdCount) {
   const result = await query(`
     select
       start_month,
@@ -155,7 +157,7 @@ async function readLatestPriceBandSnapshotsByPeriod() {
       and area_band_key = 'all'
       and status = 'active'
     order by end_month desc, activated_at desc nulls last, updated_at desc
-  `, [SOURCE, MIN_HOUSEHOLD_COUNT]);
+  `, [SOURCE, minHouseholdCount]);
   return selectSnapshotsByPeriod(result.rows, (row) => Number(row.period_months || monthsBetween(row.start_month, row.end_month)));
 }
 
@@ -182,14 +184,14 @@ function selectSnapshotsByPeriod(rows, monthGetter) {
   return selected;
 }
 
-async function measureUnitPeriod({ unit, period, snapshot, environment }) {
+async function measureUnitPeriod({ unit, period, snapshot, environment, minHouseholdCount }) {
   if (!snapshot) {
     return buildMeasurement({
       unit,
       period,
       snapshot: null,
       status: "fail",
-      message: "해당 기간의 100세대 캐시 스냅샷이 없습니다.",
+      message: `해당 기간의 ${householdFilterLabel(minHouseholdCount)} 캐시 스냅샷이 없습니다.`,
       durationMs: 0,
       dataCount: 0
     });
@@ -198,8 +200,8 @@ async function measureUnitPeriod({ unit, period, snapshot, environment }) {
   const started = Date.now();
   try {
     const result = unit.kind === "priceBand"
-      ? await measurePriceBandRanking(snapshot, period, environment)
-      : await measureMapSummary(unit, snapshot, environment);
+      ? await measurePriceBandRanking(snapshot, period, environment, minHouseholdCount)
+      : await measureMapSummary(unit, snapshot, environment, minHouseholdCount);
     const durationMs = Date.now() - started;
     const status = measurementStatus({ durationMs, dataCount: result.dataCount });
     return buildMeasurement({
@@ -224,14 +226,14 @@ async function measureUnitPeriod({ unit, period, snapshot, environment }) {
   }
 }
 
-async function measureMapSummary(unit, snapshot, environment) {
+async function measureMapSummary(unit, snapshot, environment, minHouseholdCount) {
   const filters = {
     source: SOURCE,
     start: snapshot.startMonth,
     end: snapshot.endMonth,
     zoom: unit.zoom,
     metric: "rate",
-    minHouseholdCount: MIN_HOUSEHOLD_COUNT,
+    minHouseholdCount,
     environment
   };
   if (unit.kind === "mapRanking") filters.rankingScope = "country";
@@ -252,13 +254,13 @@ async function measureMapSummary(unit, snapshot, environment) {
   };
 }
 
-async function measurePriceBandRanking(snapshot, period, environment) {
+async function measurePriceBandRanking(snapshot, period, environment, minHouseholdCount) {
   const result = await readPriceBandRankPage({
     source: SOURCE,
     basis: "start",
     startMonth: snapshot.startMonth,
     endMonth: snapshot.endMonth,
-    minHouseholdCount: MIN_HOUSEHOLD_COUNT,
+    minHouseholdCount,
     areaBandKey: "all",
     page: 1,
     pageSize: 50,
@@ -345,12 +347,12 @@ async function savePerformanceMeasurementRun(run) {
   };
 }
 
-function buildSummary({ measurements, mapSnapshots, priceBandSnapshots }) {
+function buildSummary({ measurements, mapSnapshots, priceBandSnapshots, minHouseholdCount }) {
   const durations = measurements.map((item) => Number(item.durationMs || 0));
   const slowest = [...measurements].sort((a, b) => Number(b.durationMs || 0) - Number(a.durationMs || 0))[0] || null;
   return {
     source: SOURCE,
-    minHouseholdCount: MIN_HOUSEHOLD_COUNT,
+    minHouseholdCount,
     measurementCount: measurements.length,
     passCount: measurements.filter((item) => item.status === "pass").length,
     warningCount: measurements.filter((item) => item.status === "warn").length,
@@ -371,6 +373,26 @@ function buildSummary({ measurements, mapSnapshots, priceBandSnapshots }) {
       failMs: FAIL_DURATION_MS
     }
   };
+}
+
+export function resolvePerformanceMinHouseholdCount(mapOptions = {}, env = process.env) {
+  const override = Number(env.PERFORMANCE_MEASUREMENT_MIN_HOUSEHOLD_COUNT);
+  const available = Array.isArray(mapOptions.availableMinHouseholdCounts)
+    ? mapOptions.availableMinHouseholdCounts.map(Number).filter(Number.isFinite)
+    : [];
+  if (Number.isFinite(override) && override >= 0 && available.includes(Math.floor(override))) {
+    return Math.floor(override);
+  }
+  const preferred = Number(mapOptions.defaultMinHouseholdCount);
+  if (Number.isFinite(preferred) && available.includes(Math.floor(preferred))) {
+    return Math.floor(preferred);
+  }
+  return available[0] || 0;
+}
+
+function householdFilterLabel(minHouseholdCount) {
+  const count = Number(minHouseholdCount || 0);
+  return count > 0 ? `${Math.floor(count)}세대 이상` : "전체 아파트";
 }
 
 function snapshotSummary(snapshotMap) {
