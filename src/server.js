@@ -410,7 +410,9 @@ const server = createServer(async (req, res) => {
         regions,
         regionStats: filters.regionStats,
         months: filters.months,
-        neighborhoods: filters.neighborhoods
+        neighborhoods: filters.neighborhoods,
+        householdFilter: filters.householdFilter,
+        molitMap: filters.molitMap
       });
     }
 

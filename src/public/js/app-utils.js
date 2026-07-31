@@ -33,11 +33,22 @@ function householdFilterLabel() {
   return minHouseholdCount > 0 ? `${formatInt(minHouseholdCount)}세대 이상` : "전체";
 }
 
+function isHouseholdFilterCountAvailable(value) {
+  const count = Number(value);
+  return Array.isArray(state.availableMinHouseholdCounts)
+    && state.availableMinHouseholdCounts.includes(Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0);
+}
+
 function syncHouseholdFilterToggles() {
   const isActive = activeMinHouseholdCount() > 0;
   els.householdFilterToggles?.forEach((button) => {
+    const nextCount = isActive ? 0 : 100;
+    const canToggle = isHouseholdFilterCountAvailable(nextCount);
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    button.disabled = !canToggle;
+    button.setAttribute("aria-disabled", canToggle ? "false" : "true");
+    button.title = canToggle ? "" : "세대수 데이터가 준비되면 사용할 수 있습니다.";
     if (button.getAttribute("role") === "switch") {
       button.setAttribute("aria-checked", isActive ? "true" : "false");
     }

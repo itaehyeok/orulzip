@@ -191,7 +191,9 @@ function bindEvents() {
   });
   els.householdFilterToggles?.forEach((button) => {
     button.addEventListener("click", () => {
-      state.minHouseholdCount = activeMinHouseholdCount() > 0 ? 0 : 100;
+      const nextCount = activeMinHouseholdCount() > 0 ? 0 : 100;
+      if (!isHouseholdFilterCountAvailable(nextCount)) return;
+      state.minHouseholdCount = nextCount;
       state.priceBandStartKey = "";
       state.priceBandEndKey = "";
       state.priceBandAreaKey = "all";
@@ -528,6 +530,7 @@ async function loadFilters() {
   state.regionStats = data.regionStats || [];
   state.months = data.months;
   state.neighborhoods = data.neighborhoods;
+  applyHouseholdFilterAvailability(data.householdFilter);
 
   if (!els.regionSelect.options.length) {
     els.regionSelect.innerHTML = state.regions
@@ -552,6 +555,21 @@ async function loadFilters() {
     applyFormulaDefaultPeriod();
     syncPeriodButtons();
   }
+  syncHouseholdFilterToggles();
+}
+
+function applyHouseholdFilterAvailability(filter = {}) {
+  const available = Array.isArray(filter.availableMinHouseholdCounts)
+    ? [...new Set(filter.availableMinHouseholdCounts
+      .map(Number)
+      .filter(Number.isFinite)
+      .map((value) => Math.max(0, Math.floor(value))))].sort((a, b) => a - b)
+    : [0, 100];
+  state.availableMinHouseholdCounts = available;
+  if (available.includes(activeMinHouseholdCount())) return;
+
+  const preferred = Number(filter.defaultMinHouseholdCount);
+  state.minHouseholdCount = available.includes(preferred) ? preferred : (available[0] || 0);
 }
 
 async function refresh() {

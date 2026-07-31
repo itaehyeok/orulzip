@@ -1,5 +1,6 @@
 import { query, withClient } from "./db.js";
 import { readAppOverviewCache } from "./app-overview-cache.js";
+import { readMolitMapOptions } from "./molit-map-options.js";
 import { kbCollectionRegions, legalDongCodePrefixes, listTiles } from "./region-config.js";
 
 export async function readDatasetFromDb() {
@@ -53,7 +54,10 @@ export async function readDatasetFromDb() {
 }
 
 export async function readFilterOptions({ regionId = "" } = {}) {
-  const overview = await readAppOverviewCache();
+  const [overview, molitMap] = await Promise.all([
+    readAppOverviewCache(),
+    readMolitMapOptions()
+  ]);
   const neighborhoods = overview.neighborhoods
     .filter((row) => !regionId || row.regionId === regionId)
     .map((row) => ({
@@ -62,9 +66,17 @@ export async function readFilterOptions({ regionId = "" } = {}) {
     }));
 
   return {
-    months: overview.months,
+    months: molitMap.months.length ? molitMap.months : overview.months,
     regionStats: overview.regionStats,
-    neighborhoods
+    neighborhoods,
+    householdFilter: {
+      availableMinHouseholdCounts: molitMap.availableMinHouseholdCounts,
+      defaultMinHouseholdCount: molitMap.defaultMinHouseholdCount
+    },
+    molitMap: {
+      periods: molitMap.periods,
+      updatedAt: molitMap.updatedAt
+    }
   };
 }
 

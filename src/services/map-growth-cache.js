@@ -502,6 +502,7 @@ export async function refreshMolitMapGrowthCache({
   const today = todayKstDateString();
   const endMonth = today.slice(0, 7).replace("-", "");
   const snapshots = [];
+  const skippedSnapshots = [];
   const householdFilters = normalizeMinHouseholdCounts(minHouseholdCounts);
   const metricFilters = normalizeMapGrowthMetrics(metrics);
   for (const period of normalizedPeriods(periodYears)) {
@@ -521,6 +522,17 @@ export async function refreshMolitMapGrowthCache({
           minHouseholdCount,
           metric
         });
+        if (minHouseholdCount > 0 && items.apartmentCount === 0) {
+          skippedSnapshots.push({
+            metric,
+            periodYears: period.storageYears,
+            startMonth,
+            endMonth,
+            minHouseholdCount,
+            reason: "No apartments have household-count data for this filter"
+          });
+          continue;
+        }
         const snapshot = await saveSnapshot({
           source: "molit",
           metric,
@@ -540,6 +552,7 @@ export async function refreshMolitMapGrowthCache({
   return {
     refreshedAt: new Date().toISOString(),
     snapshots,
+    skippedSnapshots,
     ...(snapshots.length ? {} : { reason: "No matched MOLIT trade data" })
   };
 }

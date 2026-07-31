@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test",
     "dev": "node src/server.js",
     "dev:firebat": "scripts/dev-firebat-local.sh",
     "tunnel:firebat-db": "scripts/start-firebat-db-tunnel.sh",

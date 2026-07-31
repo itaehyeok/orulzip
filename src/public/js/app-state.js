@@ -158,6 +158,7 @@ const state = {
   growthRateBandMode: readStoredGrowthRateBandMode(),
   mapGrowthMetric: readStoredMapGrowthMetric(),
   minHouseholdCount: 100,
+  availableMinHouseholdCounts: [0, 100],
   priceBandStartKey: "",
   priceBandEndKey: "",
   priceBandAreaKey: "all",
