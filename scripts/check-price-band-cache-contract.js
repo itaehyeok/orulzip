@@ -1,15 +1,20 @@
 import { closeDb } from "../src/services/db.js";
+import { readMolitMapOptions, resolveAvailableMinHouseholdCount } from "../src/services/molit-map-options.js";
 import { readPriceBandRankPage } from "../src/services/price-band-rank-cache.js";
 
 const SOURCE = "molit";
 const BASIS = "start";
-const MIN_HOUSEHOLD_COUNT = Number(process.env.PRICE_BAND_CONTRACT_MIN_HOUSEHOLD_COUNT || 100);
 const PERIOD_MONTHS = [3, 6, 12, 36, 60];
 const REGION_SMOKE_SIDO_CODE = process.env.PRICE_BAND_CONTRACT_SIDO_CODE || "41";
 
 const options = parseArgs(process.argv.slice(2));
 
 try {
+  const publicOptions = await readMolitMapOptions();
+  const minHouseholdCount = resolveAvailableMinHouseholdCount(
+    publicOptions,
+    process.env.PRICE_BAND_CONTRACT_MIN_HOUSEHOLD_COUNT
+  );
   const endMonth = options.endMonth || currentKstMonth();
   const checks = [];
   for (const months of PERIOD_MONTHS) {
@@ -18,13 +23,15 @@ try {
       label: `${months}개월 전국`,
       startMonth,
       endMonth,
-      months
+      months,
+      minHouseholdCount
     }));
     checks.push(await checkPriceBandPage({
       label: `${months}개월 지역 ${REGION_SMOKE_SIDO_CODE}`,
       startMonth,
       endMonth,
       months,
+      minHouseholdCount,
       sidoCode: REGION_SMOKE_SIDO_CODE,
       requireRegionOptions: true
     }));
@@ -35,6 +42,7 @@ try {
     ok: failed.length === 0,
     checkedAt: new Date().toISOString(),
     endMonth,
+    minHouseholdCount,
     checks,
     failedCount: failed.length
   };
@@ -49,6 +57,7 @@ async function checkPriceBandPage({
   startMonth,
   endMonth,
   months,
+  minHouseholdCount,
   sidoCode = "",
   requireRegionOptions = false
 }) {
@@ -59,7 +68,7 @@ async function checkPriceBandPage({
       basis: BASIS,
       startMonth,
       endMonth,
-      minHouseholdCount: MIN_HOUSEHOLD_COUNT,
+      minHouseholdCount,
       areaBandKey: "all",
       sidoCode,
       page: 1,

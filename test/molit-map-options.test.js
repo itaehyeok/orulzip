@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildMolitMapOptions } from "../src/services/molit-map-options.js";
+import {
+  buildMolitMapOptions,
+  resolveAvailableMinHouseholdCount
+} from "../src/services/molit-map-options.js";
 
 test("uses the latest non-empty all-household cache period", () => {
   const result = buildMolitMapOptions([
@@ -61,6 +64,16 @@ test("disables unavailable filters when there is no usable map snapshot", () => 
   assert.deepEqual(result.months, []);
   assert.deepEqual(result.availableMinHouseholdCounts, []);
   assert.equal(result.defaultMinHouseholdCount, 0);
+});
+
+test("resolves explicit filters only when their cache is available", () => {
+  const options = {
+    availableMinHouseholdCounts: [0, 100],
+    defaultMinHouseholdCount: 100
+  };
+  assert.equal(resolveAvailableMinHouseholdCount(options), 100);
+  assert.equal(resolveAvailableMinHouseholdCount(options, "0"), 0);
+  assert.equal(resolveAvailableMinHouseholdCount(options, "500"), 100);
 });
 
 function row(startMonth, endMonth, minHouseholdCount, apartmentCount) {

@@ -96,6 +96,24 @@ export function buildMolitMapOptions(rows = [], { priceBandRows = [] } = {}) {
   };
 }
 
+export function resolveAvailableMinHouseholdCount(options = {}, requestedValue) {
+  const available = Array.isArray(options.availableMinHouseholdCounts)
+    ? options.availableMinHouseholdCounts
+      .map(Number)
+      .filter(Number.isFinite)
+      .map((value) => Math.max(0, Math.floor(value)))
+    : [];
+  const requested = Number(requestedValue);
+  if (requestedValue !== undefined && Number.isFinite(requested) && available.includes(Math.floor(requested))) {
+    return Math.floor(requested);
+  }
+  const preferred = Number(options.defaultMinHouseholdCount);
+  if (Number.isFinite(preferred) && available.includes(Math.floor(preferred))) {
+    return Math.floor(preferred);
+  }
+  return available[0] || 0;
+}
+
 function availablePriceBandHouseholdCounts(rows) {
   const latestEndMonth = rows
     .filter((row) => normalizedHouseholdCount(row.min_household_count) === 0 && Number(row.item_count || 0) > 0)

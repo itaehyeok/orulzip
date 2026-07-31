@@ -1,6 +1,6 @@
 import { query } from "./db.js";
 import { readCachedZoomMapSummary } from "./map-growth-cache.js";
-import { readMolitMapOptions } from "./molit-map-options.js";
+import { readMolitMapOptions, resolveAvailableMinHouseholdCount } from "./molit-map-options.js";
 import { readPriceBandRankPage } from "./price-band-rank-cache.js";
 
 const SOURCE = "molit";
@@ -376,18 +376,10 @@ function buildSummary({ measurements, mapSnapshots, priceBandSnapshots, minHouse
 }
 
 export function resolvePerformanceMinHouseholdCount(mapOptions = {}, env = process.env) {
-  const override = Number(env.PERFORMANCE_MEASUREMENT_MIN_HOUSEHOLD_COUNT);
-  const available = Array.isArray(mapOptions.availableMinHouseholdCounts)
-    ? mapOptions.availableMinHouseholdCounts.map(Number).filter(Number.isFinite)
-    : [];
-  if (Number.isFinite(override) && override >= 0 && available.includes(Math.floor(override))) {
-    return Math.floor(override);
-  }
-  const preferred = Number(mapOptions.defaultMinHouseholdCount);
-  if (Number.isFinite(preferred) && available.includes(Math.floor(preferred))) {
-    return Math.floor(preferred);
-  }
-  return available[0] || 0;
+  return resolveAvailableMinHouseholdCount(
+    mapOptions,
+    env.PERFORMANCE_MEASUREMENT_MIN_HOUSEHOLD_COUNT
+  );
 }
 
 function householdFilterLabel(minHouseholdCount) {
