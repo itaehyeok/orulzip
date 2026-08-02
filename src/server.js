@@ -1570,6 +1570,7 @@ function injectDeployVersion(html, { environment = "unknown" } = {}) {
 
   return html
     .replaceAll("__ORULZIP_DEPLOY_BADGE_HIDDEN__", deployBadgeHidden)
+    .replaceAll("__ORULZIP_ASSET_VERSION__", escapeAttribute(deployCommitSha))
     .replaceAll("__ORULZIP_DEPLOY_VERSION__", escapeHtml(deployVersionText))
     .replaceAll("__ORULZIP_DEPLOYED_AT__", escapeHtml(`v ${deployedAtKst}`))
     .replaceAll("__ORULZIP_DEPLOY_COMMIT__", escapeHtml(deployCommitSha))

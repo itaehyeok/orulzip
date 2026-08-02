@@ -80,6 +80,7 @@ export async function readCachedZoomMapSummary(filters) {
   const source = filters.source || "kb";
   const minHouseholdCount = normalizeMinHouseholdCount(filters.minHouseholdCount);
   const metric = normalizeMapGrowthMetric(filters.metric);
+  const householdCandidates = minHouseholdCount > 0 ? [minHouseholdCount, 0] : [0];
 
   const snapshotResult = await query(`
     select *
@@ -87,11 +88,14 @@ export async function readCachedZoomMapSummary(filters) {
     where source = $3
       and start_month = $1
       and end_month = $2
-      and min_household_count = $4
+      and min_household_count = any($4::integer[])
       and metric = $5
-    order by updated_at desc
+      and apartment_count > 0
+    order by
+      case when min_household_count = $6 then 0 else 1 end,
+      updated_at desc
     limit 1
-  `, [startMonth, endMonth, source, minHouseholdCount, metric]);
+  `, [startMonth, endMonth, source, householdCandidates, metric, minHouseholdCount]);
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
 
@@ -325,7 +329,9 @@ export async function readCachedZoomMapSummary(filters) {
       metric,
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
-      minHouseholdCount: Number(snapshot.min_household_count || 0)
+      minHouseholdCount: Number(snapshot.min_household_count || 0),
+      requestedMinHouseholdCount: minHouseholdCount,
+      householdFallback: Number(snapshot.min_household_count || 0) !== minHouseholdCount
     },
     items: itemsResult.rows.map((row) => serializeCachedItem(row, level))
   };
@@ -378,6 +384,8 @@ async function readCachedApartmentBoundsRanking({ snapshot, filters, source }) {
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
       minHouseholdCount: Number(snapshot.min_household_count || 0),
+      requestedMinHouseholdCount: normalizeMinHouseholdCount(filters.minHouseholdCount),
+      householdFallback: Number(snapshot.min_household_count || 0) !== normalizeMinHouseholdCount(filters.minHouseholdCount),
       rankSource: "apartment-rank-bounds"
     },
     items: result.rows.map(serializeCachedDongApartmentRankItem)
@@ -463,6 +471,8 @@ async function readCachedApartmentRankingScope({ snapshot, filters, source, scop
       updatedAt: snapshot.updated_at,
       periodYears: Number(snapshot.period_years),
       minHouseholdCount: Number(snapshot.min_household_count || 0),
+      requestedMinHouseholdCount: normalizeMinHouseholdCount(filters.minHouseholdCount),
+      householdFallback: Number(snapshot.min_household_count || 0) !== normalizeMinHouseholdCount(filters.minHouseholdCount),
       rankSource,
       rankingScope: scope.type
     },

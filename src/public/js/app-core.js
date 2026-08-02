@@ -525,7 +525,7 @@ function positionTabMoreMenu(menu) {
 
 async function loadFilters() {
   const regionId = els.regionSelect.value;
-  const data = await api(`/api/filters${regionId ? `?regionId=${encodeURIComponent(regionId)}` : ""}`);
+  const data = await apiWithRetry(`/api/filters${regionId ? `?regionId=${encodeURIComponent(regionId)}` : ""}`);
   state.regions = data.regions;
   state.regionStats = data.regionStats || [];
   state.months = data.months;

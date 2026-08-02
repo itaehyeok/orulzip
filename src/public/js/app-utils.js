@@ -65,6 +65,21 @@ async function api(path) {
   return data;
 }
 
+async function apiWithRetry(path, { attempts = 3, delayMs = 300 } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await api(path);
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
 function selectedRegionName() {
   return state.regions.find((region) => region.id === els.regionSelect.value)?.name || "분당";
 }
