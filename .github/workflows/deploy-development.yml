@@ -33,6 +33,7 @@ jobs:
           DEPLOY_LOCK_FILE: /tmp/orulzip-development-deploy.lock
           HEALTHCHECK_URL: http://localhost:3051/map
           DEPLOY_DB_MIGRATIONS: "0"
+          DEPLOY_PRICE_BAND_SCHEMA_MIGRATION: "0"
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./scripts/deploy-production.sh
