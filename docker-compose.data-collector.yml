@@ -97,6 +97,25 @@ services:
     networks:
       - orulzip-shared
 
+  kb-crawl-notifications:
+    build: .
+    profiles: ["kb-national"]
+    container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-kb-crawl-notifications
+    restart: unless-stopped
+    command: ["npm", "run", "monitor:kb-crawl"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_ENVIRONMENT: ${ORULZIP_ENVIRONMENT:-production}
+      ORULZIP_DB_INIT: 0
+      ORULZIP_READ_ONLY: 0
+      KB_CRAWL_NOTIFICATION_JOB_IDS: ${KB_CRAWL_NOTIFICATION_JOB_IDS:-}
+      KB_CRAWL_NOTIFICATION_INTERVAL_MS: ${KB_CRAWL_NOTIFICATION_INTERVAL_MS:-30000}
+      ORULZIP_TELEGRAM_BOT_TOKEN: ${ORULZIP_TELEGRAM_BOT_TOKEN:-}
+      ORULZIP_TELEGRAM_CHAT_ID: ${ORULZIP_TELEGRAM_CHAT_ID:-}
+      ORULZIP_TELEGRAM_KB_CRAWL_ENVIRONMENTS: ${ORULZIP_TELEGRAM_KB_CRAWL_ENVIRONMENTS:-production}
+    networks:
+      - orulzip-shared
+
   price-band-cache:
     build: .
     profiles: ["loop"]

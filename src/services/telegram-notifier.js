@@ -99,6 +99,33 @@ export async function notifyTelegramDataHealth(event = {}) {
   }
 }
 
+export async function notifyTelegramKbCrawl(event = {}) {
+  const config = telegramConfig();
+  if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
+  if (!isTelegramKbCrawlEnvironment(event.environment)) return { sent: false, reason: "environment_filtered" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
+  try {
+    const response = await fetch(`${telegramApiBaseUrl}/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: telegramKbCrawlMessage(event),
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function notifyTelegramMapLoadFailure(event = {}) {
   const config = telegramConfig();
   if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
@@ -171,6 +198,15 @@ function isTelegramDataHealthEnvironment(environment) {
 
 function isTelegramMapAlertEnvironment(environment) {
   const allowed = String(process.env.ORULZIP_TELEGRAM_MAP_ALERT_ENVIRONMENTS || "production,development")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allowed.length || allowed.includes("all")) return true;
+  return allowed.includes(String(environment || "unknown").toLowerCase());
+}
+
+function isTelegramKbCrawlEnvironment(environment) {
+  const allowed = String(process.env.ORULZIP_TELEGRAM_KB_CRAWL_ENVIRONMENTS || "production")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -318,6 +354,89 @@ function telegramDataHealthMessage(event) {
     }
   }
   return lines.join("\n");
+}
+
+export function telegramKbCrawlMessage(event = {}) {
+  const title = {
+    monitoring_started: "오를집 KB 수집 알림 시작",
+    discovery_completed: "오를집 KB 단지 탐색 완료",
+    progress: `오를집 KB ${event.stage || "수집"} ${formatCount(event.threshold)}%`,
+    stage_completed: `오를집 KB ${event.stage || "수집"} 완료`,
+    item_failure: "오를집 KB 수집 오류 발생",
+    job_failed: "오를집 KB 수집 작업 실패",
+    cache_failed: "오를집 KB 지도 캐시 갱신 실패",
+    all_completed: "오를집 KB 전체 수집 완료"
+  }[event.kind] || "오를집 KB 수집 알림";
+  const lines = [
+    title,
+    `환경: ${event.environment || "unknown"}`,
+    `지역: ${event.regionName || event.regionId || "미확인"}`
+  ];
+
+  if (event.kind === "monitoring_started") {
+    lines.push(
+      `작업: ${Array.isArray(event.jobIds) ? event.jobIds.map((id) => `#${id}`).join(" -> ") : "-"}`,
+      `현재 단계: ${event.stage || "대기"}`
+    );
+    if (Number(event.total) > 0) lines.push(kbCrawlProgressLine(event));
+  } else if (event.kind === "discovery_completed") {
+    lines.push(
+      `발견 단지: ${formatCount(event.total)}개`,
+      `작업: #${event.jobId || "-"}`
+    );
+  } else if (["progress", "stage_completed", "item_failure", "job_failed", "cache_failed"].includes(event.kind)) {
+    lines.push(
+      `단계: ${event.stage || "-"}`,
+      kbCrawlProgressLine(event),
+      `작업: #${event.jobId || "-"}`
+    );
+    if (event.currentComplexName) lines.push(`현재 단지: ${event.currentComplexName}`);
+    if (event.errorMessage) lines.push(`오류: ${truncateText(event.errorMessage, 500)}`);
+  } else if (event.kind === "all_completed") {
+    const coverage = event.coverage || {};
+    lines.push(
+      `기본정보: ${kbCrawlStageSummary(event.sourceJob)}`,
+      `10년 시세: ${kbCrawlStageSummary(event.finalJob)}`,
+      `아파트: ${formatCount(coverage.apartments)}개`,
+      `면적형: ${formatCount(coverage.areaTypes)}개`,
+      `월별 시세: ${formatCount(coverage.monthlyPrices)}건`,
+      `시세 기간: ${coverage.minMonth || "-"} ~ ${coverage.maxMonth || "-"}`,
+      `KB 지도 캐시: 갱신 완료`,
+      `총 소요시간: ${formatLongDurationMs(event.elapsedMs) || "미측정"}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function kbCrawlProgressLine(event = {}) {
+  const completed = Number(event.completed || 0);
+  const failed = Number(event.failed || 0);
+  const total = Number(event.total || 0);
+  const processed = Math.min(total || completed + failed, completed + failed);
+  const percent = total > 0 ? ((processed / total) * 100).toFixed(1) : "0.0";
+  return `진행: ${formatCount(processed)}/${formatCount(total)} (${percent}%) · 성공 ${formatCount(completed)} · 실패 ${formatCount(failed)}`;
+}
+
+function kbCrawlStageSummary(job = {}) {
+  const completed = Number(job.completed || 0);
+  const failed = Number(job.failed || 0);
+  const total = Number(job.total || 0);
+  return `${formatCount(completed)}/${formatCount(total)} · 실패 ${formatCount(failed)}`;
+}
+
+function formatLongDurationMs(value) {
+  const milliseconds = Number(value);
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "";
+  const totalMinutes = Math.max(1, Math.round(milliseconds / 60_000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  return [
+    days ? `${days}일` : "",
+    hours ? `${hours}시간` : "",
+    minutes || (!days && !hours) ? `${minutes}분` : ""
+  ].filter(Boolean).join(" ");
 }
 
 function dataHealthStatusLabel(status) {
