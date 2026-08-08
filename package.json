@@ -11,6 +11,7 @@
     "worker": "node src/worker.js",
     "sync": "node scripts/sync-kb.js",
     "queue:kb-national": "node scripts/queue-kb-national-crawl.js",
+    "run:kb-national": "node scripts/run-kb-national-crawl.js",
     "monitor:kb-crawl": "node scripts/monitor-kb-crawl-notifications.js",
     "queue:kb-national-prices": "node scripts/queue-kb-national-crawl.js --yearsBack=10 --collectInfoFirst=1 --maxAreaTypesPerComplex=50 --maxTiles=all",
     "sync:molit": "node scripts/sync-molit-trades.js",

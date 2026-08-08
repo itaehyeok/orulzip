@@ -9,6 +9,8 @@ const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
 const staleRunningMinutes = Number(process.env.WORKER_STALE_RUNNING_MINUTES || 240);
 const workerRegionIds = parseWorkerRegionIds(process.env.WORKER_REGION_IDS || "");
 const workerYearsBack = parseNumberList(process.env.WORKER_YEARS_BACKS || "");
+const workerMaxItemAttempts = Math.max(1, Number(process.env.WORKER_MAX_ITEM_ATTEMPTS || 3));
+const workerRefreshMapCacheYearsBack = parseNumberList(process.env.WORKER_REFRESH_MAP_CACHE_YEARS_BACKS || "");
 
 await initDb();
 console.log(`KB worker started${workerRegionIds.length ? ` for ${workerRegionIds.join(",")}` : ""}${workerYearsBack.length ? ` / years_back ${workerYearsBack.join(",")}` : ""}`);
@@ -31,7 +33,7 @@ while (true) {
     if (job.status === "running") {
       const processed = await processNextQueueItem(job);
       if (!processed) {
-        await finishIfDone(job.id);
+        await finishIfDone(job);
         await sleep(idleDelayMs);
       }
     }
@@ -62,7 +64,7 @@ async function getRunnableJob() {
       and (
         j.source_job_id is null
         or j.status <> 'requested'
-        or source.status in ('completed', 'failed')
+        or source.status = 'completed'
       )
       ${regionClause}
       ${yearsBackClause}
@@ -196,21 +198,22 @@ async function queueFromSourceJob(job) {
       and status = 'completed'
     order by source_complex_id, id
   `, [job.source_job_id]);
-  const missingPriceRows = Number(job.years_back || 0) > 0
-    ? await existingApartmentsMissingPrices(job.region_id)
+  const existingPriceRows = Number(job.years_back || 0) > 0
+    ? await existingApartmentsForPriceRefresh(job.region_id)
     : { rows: [] };
 
-  const selected = dedupeBy([
-    ...sourceRows.rows,
-    ...missingPriceRows.rows
-  ], "source_complex_id").slice(0, Number(job.max_complexes || sourceRows.rows.length + missingPriceRows.rows.length));
+  const candidates = Number(job.years_back || 0) > 0
+    ? existingPriceRows.rows
+    : sourceRows.rows;
+  const selected = dedupeBy(candidates, "source_complex_id")
+    .slice(0, Number(job.max_complexes || candidates.length));
   if (!selected.length) {
     await updateJob(job.id, {
       status: "failed",
-      error_message: `Source crawl job has no completed queue rows: ${job.source_job_id}`,
+      error_message: `No regional complexes available after source crawl job: ${job.source_job_id}`,
       finished_at: new Date()
     });
-    await log(job.id, "error", `Source crawl job ${job.source_job_id} has no completed queue rows`);
+    await log(job.id, "error", `No regional complexes available after source crawl job ${job.source_job_id}`);
     return;
   }
 
@@ -239,12 +242,12 @@ async function queueFromSourceJob(job) {
   await log(job.id, "info", `Queued ${selected.length} complexes from source job ${job.source_job_id}`, {
     sourceJobId: Number(job.source_job_id),
     sourceQueueRows: sourceRows.rows.length,
-    missingPriceRows: missingPriceRows.rows.length,
+    existingPriceRows: existingPriceRows.rows.length,
     selected: selected.length
   });
 }
 
-async function existingApartmentsMissingPrices(regionId) {
+async function existingApartmentsForPriceRefresh(regionId) {
   const region = getRegion(regionId);
   const prefixes = legalDongCodePrefixes(region);
   const result = await query(`
@@ -258,19 +261,14 @@ async function existingApartmentsMissingPrices(regionId) {
       ) as marker
     from apartments a
     where (
-        a.region_id = $1
+        (cardinality($2::text[]) = 0 and a.region_id = $1)
         or exists (
           select 1
           from unnest($2::text[]) prefix
           where coalesce(a.legal_dong_code, '') like prefix || '%'
         )
       )
-      and not exists (
-        select 1
-        from area_types at
-        join monthly_prices mp on mp.area_type_id = at.id
-        where at.apartment_id = a.id
-      )
+      and a.source_complex_id is not null
     order by a.source_complex_id, a.updated_at desc
   `, [regionId, prefixes]);
   return result;
@@ -436,19 +434,33 @@ async function processNextQueueItem(job) {
       skippedByRegionFilter: collected.apartments.length - filtered.apartments.length
     });
   } catch (error) {
+    const attempt = Number(claimed.attempts || 0) + 1;
+    const exhausted = attempt >= workerMaxItemAttempts;
     await query(`
       update crawl_queue
-      set status = 'failed', error_message = $2, updated_at = now()
+      set status = $2,
+          error_message = $3,
+          started_at = case when $2 = 'pending' then null else started_at end,
+          updated_at = now()
       where id = $1
-    `, [claimed.id, error.message]);
-    await query(`
-      update crawl_jobs
-      set failed_complexes = failed_complexes + 1, updated_at = now()
-      where id = $1
-    `, [job.id]);
-    await log(job.id, "error", `Failed ${claimed.marker?.단지명 || claimed.source_complex_id}`, {
-      error: error.message
-    });
+    `, [claimed.id, exhausted ? "failed" : "pending", error.message]);
+    if (exhausted) {
+      await query(`
+        update crawl_jobs
+        set failed_complexes = failed_complexes + 1, updated_at = now()
+        where id = $1
+      `, [job.id]);
+    }
+    await log(
+      job.id,
+      exhausted ? "error" : "warn",
+      `${exhausted ? "Failed" : "Retrying"} ${claimed.marker?.단지명 || claimed.source_complex_id}`,
+      {
+        error: error.message,
+        attempt,
+        maxAttempts: workerMaxItemAttempts
+      }
+    );
   }
 
   await politeDelay(job);
@@ -486,16 +498,36 @@ async function updateDiscoveryProgress(jobId, progress) {
   ]);
 }
 
-async function finishIfDone(jobId) {
+async function finishIfDone(job) {
+  const jobId = job.id;
   const result = await query(`
     select
       count(*) filter (where status = 'pending')::int as pending,
-      count(*) filter (where status = 'running')::int as running
+      count(*) filter (where status = 'running')::int as running,
+      count(*) filter (where status = 'failed')::int as failed
     from crawl_queue
     where job_id = $1
   `, [jobId]);
   const row = result.rows[0];
   if (row.pending === 0 && row.running === 0) {
+    if (row.failed > 0) {
+      await query(`
+        update crawl_jobs
+        set status = 'failed',
+            failed_complexes = $2,
+            current_complex_id = null,
+            current_complex_name = null,
+            error_message = $3,
+            finished_at = now(),
+            updated_at = now()
+        where id = $1 and status = 'running'
+      `, [jobId, row.failed, `${row.failed} crawl item(s) failed after retries`]);
+      await log(jobId, "error", "Crawl job failed with exhausted queue items", {
+        failed: row.failed,
+        maxAttempts: workerMaxItemAttempts
+      });
+      return;
+    }
     await query(`
       update crawl_jobs
       set status = 'completed',
@@ -506,8 +538,20 @@ async function finishIfDone(jobId) {
       where id = $1 and status = 'running'
     `, [jobId]);
     await log(jobId, "info", "Crawl job completed");
-    await refreshMapCacheAfterJob(jobId);
+    if (shouldRefreshMapCache(job)) {
+      await refreshMapCacheAfterJob(jobId);
+    } else {
+      await log(jobId, "info", "Map growth cache refresh skipped by worker configuration", {
+        yearsBack: Number(job.years_back || 0),
+        configuredYearsBack: workerRefreshMapCacheYearsBack
+      });
+    }
   }
+}
+
+function shouldRefreshMapCache(job) {
+  return !workerRefreshMapCacheYearsBack.length
+    || workerRefreshMapCacheYearsBack.includes(Number(job.years_back || 0));
 }
 
 async function refreshMapCacheAfterJob(jobId) {

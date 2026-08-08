@@ -126,6 +126,33 @@ export async function notifyTelegramKbCrawl(event = {}) {
   }
 }
 
+export async function notifyTelegramKbNationalCrawl(event = {}) {
+  const config = telegramConfig();
+  if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
+  if (!isTelegramKbCrawlEnvironment(event.environment)) return { sent: false, reason: "environment_filtered" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), telegramTimeoutMs);
+  try {
+    const response = await fetch(`${telegramApiBaseUrl}/bot${config.botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: telegramKbNationalCrawlMessage(event),
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function notifyTelegramMapLoadFailure(event = {}) {
   const config = telegramConfig();
   if (!config.botToken || !config.chatId) return { sent: false, reason: "not_configured" };
@@ -407,6 +434,154 @@ export function telegramKbCrawlMessage(event = {}) {
   }
 
   return lines.join("\n");
+}
+
+export function telegramKbNationalCrawlMessage(event = {}) {
+  const title = {
+    national_started: "오를집 KB 전국 수집 시작",
+    region_started: `오를집 KB ${event.regionName || "지역"} 수집 시작`,
+    discovery_completed: `오를집 KB ${event.regionName || "지역"} 단지 탐색 완료`,
+    progress: "오를집 KB 전국 수집 진행",
+    region_retry: `오를집 KB ${event.regionName || "지역"} 수집 재시도`,
+    region_paused: `오를집 KB ${event.regionName || "지역"} 수집 중단`,
+    cache_retry: `오를집 KB ${event.regionName || "지역"} 캐시 재시도`,
+    region_completed: `오를집 KB ${event.regionName || "지역"} 수집 완료`,
+    finalizing: "오를집 KB 전국 수집 후처리 시작",
+    finalization_retry: "오를집 KB 전국 수집 후처리 재시도",
+    all_completed: "오를집 KB 전국 수집 완료"
+  }[event.kind] || "오를집 KB 전국 수집";
+  const lines = [title, `환경: ${event.environment || "unknown"}`];
+
+  if (event.kind === "national_started") {
+    lines.push(
+      `수집 대상: ${formatCount(event.totalCount)}개 시도`,
+      `기존 완료: ${(event.completedRegionNames || []).join(", ") || "없음"}`,
+      `수집 순서: ${(event.remainingRegionNames || []).join(" -> ") || "없음"}`
+    );
+    lines.push("", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (event.kind === "region_started") {
+    lines.push(
+      `현재 지역: ${event.regionName || event.regionId || "미확인"}`,
+      `작업: ${formatJobIds(event.jobIds)}`,
+      `타일: ${formatCount(event.tileCount)}개`,
+      "현재 단계: 단지 탐색"
+    );
+    lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (event.kind === "discovery_completed") {
+    lines.push(
+      `현재 지역: ${event.regionName || event.regionId || "미확인"}`,
+      `발견 단지: ${formatCount(event.total)}개`,
+      `작업: #${event.jobId || "-"}`
+    );
+    lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (event.kind === "progress") {
+    const stagePercent = Number.isFinite(Number(event.stagePercent))
+      ? `${Number(event.stagePercent).toFixed(1)}%`
+      : `${formatCount(event.threshold)}%`;
+    lines.push(
+      `현재 지역: ${event.regionName || event.regionId || "미확인"}`,
+      `지역 전체 진행률: ${formatPercent(event.regionProgressPercent)}`,
+      `현재 단계: ${event.stage || "수집"} ${stagePercent} (${formatCount(event.processed)}/${formatCount(event.total)})`
+    );
+    if (event.currentComplexName) lines.push(`현재 단지: ${event.currentComplexName}`);
+    lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (["region_retry", "region_paused", "cache_retry"].includes(event.kind)) {
+    lines.push(
+      `현재 지역: ${event.regionName || event.regionId || "미확인"}`,
+      `단계: ${event.stage || "-"}`,
+      `재시도: ${formatCount(event.retryAttempt)}/${formatCount(event.maxRetries)}`
+    );
+    if (event.errorMessage) lines.push(`원인: ${truncateText(event.errorMessage, 700)}`);
+    if (event.kind === "region_paused") lines.push("다음 지역 수집은 시작하지 않았습니다.");
+    lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (event.kind === "region_completed") {
+    const coverage = event.coverage || {};
+    lines.push(
+      `지역 소요시간: ${formatLongDurationMs(event.regionElapsedMs) || "미측정"}`,
+      `아파트: ${formatCount(coverage.apartments)}개`,
+      `면적형: ${formatCount(coverage.areaTypes)}개`,
+      `월별 시세: ${formatCount(coverage.monthlyPrices)}건`,
+      `시세 기간: ${coverage.minMonth || "-"} ~ ${coverage.maxMonth || "-"}`,
+      "KB 지도 캐시: 갱신 완료",
+      `다음 지역: ${event.nextRegionName || "없음"}`
+    );
+    lines.push("", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (["finalizing", "finalization_retry"].includes(event.kind)) {
+    lines.push(`단계: ${event.stage || "전국 캐시·매칭·상태 점검"}`);
+    if (event.kind === "finalization_retry") {
+      lines.push(`재시도: ${formatCount(event.retryAttempt)}/${formatCount(event.maxRetries)}`);
+    }
+    if (event.errorMessage) lines.push(`원인: ${truncateText(event.errorMessage, 700)}`);
+    lines.push("", ...kbNationalSummaryLines(event, { includeRegion: false }));
+  } else if (event.kind === "all_completed") {
+    const coverage = event.coverage || {};
+    const matching = event.matching || {};
+    lines.push(
+      `전국 진행: ${formatCount(event.completedCount)}/${formatCount(event.totalCount)}개 지역 완료 (100.0%)`,
+      `총 소요시간: ${formatLongDurationMs(event.nationalElapsedMs) || "미측정"}`,
+      `아파트: ${formatCount(coverage.apartments)}개`,
+      `면적형: ${formatCount(coverage.areaTypes)}개`,
+      `월별 시세: ${formatCount(coverage.monthlyPrices)}건`,
+      `시세 기간: ${coverage.minMonth || "-"} ~ ${coverage.maxMonth || "-"}`,
+      `국토부-KB 매칭: ${formatCount(matching.kbMatched)}개`,
+      `KB 지도 캐시: ${event.cacheStatus || "갱신 완료"}`,
+      `데이터 상태: ${event.dataHealthStatus || "미측정"}`,
+      `성능 상태: ${event.performanceStatus || "미측정"}`,
+      `완료: ${(event.completedRegionNames || []).join(", ") || "-"}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function kbNationalTimingLines(event = {}) {
+  return [
+    `지역 경과시간: ${formatLongDurationMs(event.regionElapsedMs) || "계산 중"}`,
+    `지역 예상 남은 시간: ${formatLongDurationMs(event.regionRemainingMs) || "계산 중"}`,
+    `지역 예상 완료: ${formatKstDateTime(event.regionExpectedAt) || "계산 중"}`
+  ];
+}
+
+function kbNationalSummaryLines(event = {}, { includeRegion = true } = {}) {
+  const lines = [];
+  if (includeRegion && event.regionName) {
+    lines.push(`현재 지역: ${event.regionName}`);
+  }
+  lines.push(
+    `전국 진행: ${formatCount(event.completedCount)}/${formatCount(event.totalCount)}개 지역 완료 (${formatPercent(event.nationalPercent)})`,
+    `전국 경과시간: ${formatLongDurationMs(event.nationalElapsedMs) || "계산 중"}`,
+    `전국 예상 남은 시간: ${formatLongDurationMs(event.nationalRemainingMs) || "계산 중"}`,
+    `전국 예상 완료: ${formatKstDateTime(event.nationalExpectedAt) || "계산 중"}`,
+    "",
+    `완료: ${(event.completedRegionNames || []).join(", ") || "없음"}`,
+    `남은 지역: ${formatCount(event.remainingCount)}곳${event.remainingRegionNames?.length ? ` · ${event.remainingRegionNames.join(", ")}` : ""}`
+  );
+  return lines;
+}
+
+function formatJobIds(jobIds) {
+  return Array.isArray(jobIds) && jobIds.length
+    ? jobIds.map((id) => `#${id}`).join(" -> ")
+    : "-";
+}
+
+function formatPercent(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(1)}%` : "0.0%";
+}
+
+function formatKstDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
 }
 
 function kbCrawlProgressLine(event = {}) {

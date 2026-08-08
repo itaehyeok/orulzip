@@ -3,6 +3,12 @@ import { getRegion, listTiles, regions } from "../services/region-config.js";
 const API_BASE = "https://api.kbland.kr";
 
 export class KBPriceProvider extends PriceDataProvider {
+  constructor({ request = requestJson, tileRetryPasses = 3 } = {}) {
+    super();
+    this.request = request;
+    this.tileRetryPasses = Math.max(1, Number(tileRetryPasses) || 3);
+  }
+
   listRegions() {
     return regions.map(({ id, name }) => ({ id, name }));
   }
@@ -114,54 +120,62 @@ export class KBPriceProvider extends PriceDataProvider {
     const onProgress = typeof options === "function" ? async () => {} : options.onProgress || (async () => {});
     const all = [];
     const tiles = listTiles(region).slice(0, maxTiles);
-    for (const [index, tile] of tiles.entries()) {
-      const centerLat = (tile.startLat + tile.endLat) / 2;
-      const centerLng = (tile.startLng + tile.endLng) / 2;
-      const payload = {
-        selectCode: "1,2,3",
-        zoomLevel: 17,
-        startLat: tile.startLat,
-        startLng: tile.startLng,
-        endLat: tile.endLat,
-        endLng: tile.endLng,
-        "물건종류": "01,41",
-        webCheck: "Y",
-        latitude: centerLat,
-        longitude: centerLng
-      };
-
-      try {
-        const data = await requestJson("/land-complex/map/map250mBlwInfoList", {
-          method: "POST",
-          body: payload
+    let pending = tiles.map((tile, index) => ({ tile, index, error: null }));
+    let completedTiles = 0;
+    for (let pass = 1; pass <= this.tileRetryPasses && pending.length; pass += 1) {
+      const failed = [];
+      for (const item of pending) {
+        try {
+          const data = await this.request("/land-complex/map/map250mBlwInfoList", {
+            method: "POST",
+            body: tileRequestPayload(item.tile)
+          });
+          all.push(...(data?.dataBody?.data?.단지리스트 || []));
+          completedTiles += 1;
+        } catch (error) {
+          failed.push({ ...item, error });
+        }
+        await onProgress({
+          current: completedTiles,
+          total: tiles.length,
+          found: all.length,
+          failed: failed.length,
+          retryPass: pass
         });
-        all.push(...(data?.dataBody?.data?.단지리스트 || []));
-      } catch {
-        // Some map tiles may fail transiently. Keep the MVP sync moving.
+        await wait();
       }
-      await onProgress({ current: index + 1, total: tiles.length, found: all.length });
-      await wait();
+      pending = failed;
+    }
+
+    if (pending.length) {
+      const first = pending[0];
+      const error = new Error(
+        `KB tile discovery incomplete: ${pending.length}/${tiles.length} tile(s) failed after ${this.tileRetryPasses} passes; first tile #${first.index + 1}: ${first.error?.message || "unknown error"}`
+      );
+      error.code = "KB_TILE_DISCOVERY_INCOMPLETE";
+      error.failedTiles = pending.map((item) => item.index + 1);
+      throw error;
     }
 
     return all;
   }
 
   async fetchComplexMain(complexId) {
-    const data = await requestJson("/land-complex/complex/main", {
+    const data = await this.request("/land-complex/complex/main", {
       params: { "단지기본일련번호": complexId }
     });
     return data?.dataBody?.data || null;
   }
 
   async fetchAreaTypes(complexId) {
-    const data = await requestJson("/land-complex/complex/mpriByType", {
+    const data = await this.request("/land-complex/complex/mpriByType", {
       params: { "단지기본일련번호": complexId }
     });
     return data?.dataBody?.data || [];
   }
 
   async fetchQuoteYears(complexId, areaId) {
-    const data = await requestJson("/land-price/price/QuotBaseYear", {
+    const data = await this.request("/land-price/price/QuotBaseYear", {
       params: {
         "단지기본일련번호": complexId,
         "면적일련번호": areaId
@@ -171,7 +185,7 @@ export class KBPriceProvider extends PriceDataProvider {
   }
 
   async fetchHistoricalPrices(complexId, areaId, years) {
-    const data = await requestJson("/land-price/price/WholQuotList", {
+    const data = await this.request("/land-price/price/WholQuotList", {
       params: {
         "단지기본일련번호": complexId,
         "면적일련번호": areaId,
@@ -180,6 +194,23 @@ export class KBPriceProvider extends PriceDataProvider {
     });
     return data?.dataBody?.data?.시세 || [];
   }
+}
+
+function tileRequestPayload(tile) {
+  const centerLat = (tile.startLat + tile.endLat) / 2;
+  const centerLng = (tile.startLng + tile.endLng) / 2;
+  return {
+    selectCode: "1,2,3",
+    zoomLevel: 17,
+    startLat: tile.startLat,
+    startLng: tile.startLng,
+    endLat: tile.endLat,
+    endLng: tile.endLng,
+    "물건종류": "01,41",
+    webCheck: "Y",
+    latitude: centerLat,
+    longitude: centerLng
+  };
 }
 
 function isUsableAreaType(row, { collectHistoricalPrices }) {
