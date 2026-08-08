@@ -111,15 +111,17 @@ async function discoverJob(job) {
     const wait = () => politeDelay(job);
     const markers = await provider.fetchComplexesFromTiles(region, job.max_tiles, {
       wait,
-      onProgress: (progress) => updateDiscoveryProgress(job.id, progress)
+      onProgress: (progress) => updateDiscoveryProgress(job.id, progress),
+      requireResults: true
     });
     const existingComplexIds = await existingSourceComplexIds(region, {
       requireMonthlyPrices: Number(job.years_back || 0) > 0
     });
-    const unique = dedupeBy(markers, "단지기본일련번호")
-      .filter((item) => ["01", "41"].includes(String(item.물건종류 || "")))
-      .filter((item) => !existingComplexIds.has(Number(item.단지기본일련번호)))
-      .slice(0, job.max_complexes);
+    const candidates = dedupeBy(markers, "단지기본일련번호")
+      .filter((item) => ["01", "41"].includes(String(item.물건종류 || "")));
+    const newCandidates = candidates
+      .filter((item) => !existingComplexIds.has(Number(item.단지기본일련번호)));
+    const unique = newCandidates.slice(0, job.max_complexes);
 
     await withClient(async (client) => {
       await client.query("begin");
@@ -145,7 +147,9 @@ async function discoverJob(job) {
 
     await log(job.id, "info", `Discovered ${unique.length} complexes`, {
       discovered: markers.length,
-      skippedExisting: existingComplexIds.size,
+      eligibleDiscovered: candidates.length,
+      skippedExisting: candidates.length - newCandidates.length,
+      skippedByLimit: newCandidates.length - unique.length,
       selected: unique.length
     });
   } catch (error) {

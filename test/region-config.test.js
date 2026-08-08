@@ -4,7 +4,9 @@ import { NATIONWIDE_LAWD_CODES } from "../scripts/molit-lawd-codes.js";
 import {
   getRegion,
   legalDongCodeMatchesRegion,
-  legalDongCodePrefixes
+  legalDongCodePrefixes,
+  listTiles,
+  MAX_KB_MAP_TILE_SIZE
 } from "../src/services/region-config.js";
 
 const gwangju = getRegion("gwangju");
@@ -51,4 +53,19 @@ test("uses the current Incheon district codes", () => {
   for (const code of ["28110", "28140", "28260"]) {
     assert.equal(incheonCodes.has(code), false);
   }
+});
+
+test("caps large regional tiles below the KB empty-response threshold", () => {
+  const jeju = getRegion("jeju");
+  const tiles = listTiles(jeju);
+
+  assert.equal(tiles.length, 540);
+  assert.equal(Math.min(...tiles.map((tile) => tile.startLat)), jeju.bbox.startLat);
+  assert.equal(Math.max(...tiles.map((tile) => tile.endLat)), jeju.bbox.endLat);
+  assert.equal(Math.min(...tiles.map((tile) => tile.startLng)), jeju.bbox.startLng);
+  assert.equal(Math.max(...tiles.map((tile) => tile.endLng)), jeju.bbox.endLng);
+  assert.ok(tiles.every((tile) => tile.endLat - tile.startLat <= MAX_KB_MAP_TILE_SIZE + 1e-7));
+  assert.ok(tiles.every((tile) => tile.endLng - tile.startLng <= MAX_KB_MAP_TILE_SIZE + 1e-7));
+  assert.ok(tiles.every((tile) => tile.endLat - tile.startLat < 0.03));
+  assert.ok(tiles.every((tile) => tile.endLng - tile.startLng < 0.03));
 });

@@ -56,3 +56,28 @@ test("fails discovery instead of silently accepting missing tiles", async () => 
     }
   );
 });
+
+test("fails required discovery when KB silently returns no complexes", async () => {
+  const provider = new KBPriceProvider({
+    request: async () => ({
+      dataBody: {
+        data: {
+          단지리스트: []
+        }
+      }
+    })
+  });
+
+  await assert.rejects(
+    provider.fetchComplexesFromTiles(region, 2, {
+      wait: async () => {},
+      requireResults: true
+    }),
+    (error) => {
+      assert.equal(error.code, "KB_TILE_DISCOVERY_EMPTY");
+      assert.equal(error.tileCount, 2);
+      assert.match(error.message, /no complexes across 2 completed tile/);
+      return true;
+    }
+  );
+});

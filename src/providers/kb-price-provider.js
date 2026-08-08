@@ -118,6 +118,7 @@ export class KBPriceProvider extends PriceDataProvider {
   async fetchComplexesFromTiles(region, maxTiles, options = {}) {
     const wait = typeof options === "function" ? options : options.wait || (async () => {});
     const onProgress = typeof options === "function" ? async () => {} : options.onProgress || (async () => {});
+    const requireResults = typeof options === "function" ? false : options.requireResults === true;
     const all = [];
     const tiles = listTiles(region).slice(0, maxTiles);
     let pending = tiles.map((tile, index) => ({ tile, index, error: null }));
@@ -154,6 +155,15 @@ export class KBPriceProvider extends PriceDataProvider {
       );
       error.code = "KB_TILE_DISCOVERY_INCOMPLETE";
       error.failedTiles = pending.map((item) => item.index + 1);
+      throw error;
+    }
+
+    if (requireResults && tiles.length && !all.length) {
+      const error = new Error(
+        `KB tile discovery returned no complexes across ${tiles.length} completed tile(s); check tile span and region bounds`
+      );
+      error.code = "KB_TILE_DISCOVERY_EMPTY";
+      error.tileCount = tiles.length;
       throw error;
     }
 

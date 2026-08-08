@@ -1,3 +1,5 @@
+export const MAX_KB_MAP_TILE_SIZE = 0.029;
+
 export const regions = [
   {
     id: "bundang",
@@ -276,7 +278,12 @@ export function legalDongCodeMatchesRegion(region, legalDongCode) {
 
 export function listTiles(region) {
   const tiles = [];
-  const step = region.tileSize;
+  const configuredStep = Number(region?.tileSize);
+  if (!Number.isFinite(configuredStep) || configuredStep <= 0) {
+    throw new Error(`Invalid tile size for region: ${region?.id || "unknown"}`);
+  }
+  // KB silently returns an empty list when either map span reaches 0.03 degrees.
+  const step = Math.min(configuredStep, MAX_KB_MAP_TILE_SIZE);
   const centerLat = (region.bbox.startLat + region.bbox.endLat) / 2;
   const centerLng = (region.bbox.startLng + region.bbox.endLng) / 2;
 
