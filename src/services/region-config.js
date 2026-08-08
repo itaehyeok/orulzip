@@ -89,7 +89,9 @@ export const regions = [
   {
     id: "gwangju",
     name: "광주",
-    legalDongCodePrefix: "29",
+    // Keep the former Gwangju code and the five city districts introduced by
+    // the 2026-07-01 Jeonnam-Gwangju integration.
+    legalDongCodePrefixes: ["29", "12210", "12240", "12270", "12300", "12330"],
     bbox: {
       startLat: 35.02,
       endLat: 35.28,
@@ -193,7 +195,14 @@ export const regions = [
   {
     id: "jeonnam",
     name: "전남",
-    legalDongCodePrefix: "46",
+    // Prefix 12 is shared with Gwangju, so the current Jeonnam cities and
+    // counties must be listed explicitly. Prefix 46 preserves legacy rows.
+    legalDongCodePrefixes: [
+      "46",
+      "12110", "12130", "12150", "12170", "12190",
+      "12710", "12720", "12730", "12740", "12750", "12760", "12770", "12780", "12790",
+      "12800", "12810", "12820", "12830", "12840", "12850", "12860", "12870"
+    ],
     bbox: {
       startLat: 33.9,
       endLat: 35.55,
@@ -258,6 +267,11 @@ export function legalDongCodePrefixes(region) {
     region?.legalDongCodePrefix
   ].filter(Boolean);
   return [...new Set(prefixes.map((prefix) => String(prefix)))];
+}
+
+export function legalDongCodeMatchesRegion(region, legalDongCode) {
+  const code = String(legalDongCode || "").trim();
+  return Boolean(code) && legalDongCodePrefixes(region).some((prefix) => code.startsWith(prefix));
 }
 
 export function listTiles(region) {

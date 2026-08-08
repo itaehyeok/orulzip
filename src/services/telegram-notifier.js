@@ -486,6 +486,7 @@ export function telegramKbNationalCrawlMessage(event = {}) {
     if (event.currentComplexName) lines.push(`현재 단지: ${event.currentComplexName}`);
     lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
   } else if (["region_retry", "region_paused", "cache_retry"].includes(event.kind)) {
+    const waitingForFix = event.kind === "region_paused";
     lines.push(
       `현재 지역: ${event.regionName || event.regionId || "미확인"}`,
       `단계: ${event.stage || "-"}`,
@@ -493,7 +494,12 @@ export function telegramKbNationalCrawlMessage(event = {}) {
     );
     if (event.errorMessage) lines.push(`원인: ${truncateText(event.errorMessage, 700)}`);
     if (event.kind === "region_paused") lines.push("다음 지역 수집은 시작하지 않았습니다.");
-    lines.push("", ...kbNationalTimingLines(event), "", ...kbNationalSummaryLines(event, { includeRegion: false }));
+    lines.push(
+      "",
+      ...kbNationalTimingLines(event, { waitingForFix }),
+      "",
+      ...kbNationalSummaryLines(event, { includeRegion: false, waitingForFix })
+    );
   } else if (event.kind === "region_completed") {
     const coverage = event.coverage || {};
     lines.push(
@@ -534,15 +540,15 @@ export function telegramKbNationalCrawlMessage(event = {}) {
   return lines.join("\n");
 }
 
-function kbNationalTimingLines(event = {}) {
+function kbNationalTimingLines(event = {}, { waitingForFix = false } = {}) {
   return [
     `지역 경과시간: ${formatLongDurationMs(event.regionElapsedMs) || "계산 중"}`,
-    `지역 예상 남은 시간: ${formatLongDurationMs(event.regionRemainingMs) || "계산 중"}`,
-    `지역 예상 완료: ${formatKstDateTime(event.regionExpectedAt) || "계산 중"}`
+    `지역 예상 남은 시간: ${waitingForFix ? "수정 대기" : formatLongDurationMs(event.regionRemainingMs) || "계산 중"}`,
+    `지역 예상 완료: ${waitingForFix ? "수정 대기" : formatKstDateTime(event.regionExpectedAt) || "계산 중"}`
   ];
 }
 
-function kbNationalSummaryLines(event = {}, { includeRegion = true } = {}) {
+function kbNationalSummaryLines(event = {}, { includeRegion = true, waitingForFix = false } = {}) {
   const lines = [];
   if (includeRegion && event.regionName) {
     lines.push(`현재 지역: ${event.regionName}`);
@@ -550,8 +556,8 @@ function kbNationalSummaryLines(event = {}, { includeRegion = true } = {}) {
   lines.push(
     `전국 진행: ${formatCount(event.completedCount)}/${formatCount(event.totalCount)}개 지역 완료 (${formatPercent(event.nationalPercent)})`,
     `전국 경과시간: ${formatLongDurationMs(event.nationalElapsedMs) || "계산 중"}`,
-    `전국 예상 남은 시간: ${formatLongDurationMs(event.nationalRemainingMs) || "계산 중"}`,
-    `전국 예상 완료: ${formatKstDateTime(event.nationalExpectedAt) || "계산 중"}`,
+    `전국 예상 남은 시간: ${waitingForFix ? "수정 대기" : formatLongDurationMs(event.nationalRemainingMs) || "계산 중"}`,
+    `전국 예상 완료: ${waitingForFix ? "수정 대기" : formatKstDateTime(event.nationalExpectedAt) || "계산 중"}`,
     "",
     `완료: ${(event.completedRegionNames || []).join(", ") || "없음"}`,
     `남은 지역: ${formatCount(event.remainingCount)}곳${event.remainingRegionNames?.length ? ` · ${event.remainingRegionNames.join(", ")}` : ""}`

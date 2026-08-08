@@ -16,6 +16,7 @@ import {
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
 import { refreshRebApartmentIdentityMatches } from "../src/services/reb-apartment-identity-store.js";
 import { refreshMapGrowthCacheIfUnlocked } from "../src/services/map-growth-cache.js";
+import { getRegion, legalDongCodePrefixes } from "../src/services/region-config.js";
 import { NATIONWIDE_LAWD_CODES } from "./molit-lawd-codes.js";
 
 const SEOUL_LAWD_CODES = [
@@ -112,21 +113,14 @@ const GYEONGGI_LAWD_CODES = [
   ["41830", "양평군"]
 ];
 
-const INCHEON_LAWD_CODES = [
-  ["28110", "인천 중구"],
-  ["28140", "인천 동구"],
-  ["28177", "인천 미추홀구"],
-  ["28185", "인천 연수구"],
-  ["28200", "인천 남동구"],
-  ["28237", "인천 부평구"],
-  ["28245", "인천 계양구"],
-  ["28260", "인천 서구"],
-  ["28710", "인천 강화군"],
-  ["28720", "인천 옹진군"]
-];
-
 const GANGWON_LAWD_CODES = NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => lawdCd.startsWith("51"));
 const lawdCodesBySido = (...sidoCodes) => NATIONWIDE_LAWD_CODES.filter(([lawdCd]) => sidoCodes.includes(lawdCd.slice(0, 2)));
+const lawdCodesByRegion = (regionId) => {
+  const prefixes = legalDongCodePrefixes(getRegion(regionId));
+  return NATIONWIDE_LAWD_CODES.filter(([lawdCd]) =>
+    prefixes.some((prefix) => lawdCd.startsWith(prefix))
+  );
+};
 const ALL_SIDO_TARGET_IDS = [
   "seoul",
   "busan",
@@ -170,11 +164,11 @@ const TARGETS = {
   },
   incheon: {
     id: "incheon",
-    lawdCodes: INCHEON_LAWD_CODES.map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+    lawdCodes: lawdCodesByRegion("incheon").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   gwangju: {
     id: "gwangju",
-    lawdCodes: lawdCodesBySido("29").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+    lawdCodes: lawdCodesByRegion("gwangju").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   daejeon: {
     id: "daejeon",
@@ -202,7 +196,7 @@ const TARGETS = {
   },
   jeonnam: {
     id: "jeonnam",
-    lawdCodes: lawdCodesBySido("46").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
+    lawdCodes: lawdCodesByRegion("jeonnam").map(([lawdCd, lawdName]) => ({ lawdCd, lawdName }))
   },
   gyeongbuk: {
     id: "gyeongbuk",

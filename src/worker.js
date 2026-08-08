@@ -2,7 +2,11 @@ import { KBPriceProvider } from "./providers/kb-price-provider.js";
 import { initDb, query, withClient } from "./services/db.js";
 import { upsertCollectedData } from "./services/db-store.js";
 import { refreshMapGrowthCacheIfUnlocked } from "./services/map-growth-cache.js";
-import { getRegion, legalDongCodePrefixes } from "./services/region-config.js";
+import {
+  getRegion,
+  legalDongCodeMatchesRegion,
+  legalDongCodePrefixes
+} from "./services/region-config.js";
 
 const provider = new KBPriceProvider();
 const idleDelayMs = Number(process.env.WORKER_IDLE_DELAY_MS || 5000);
@@ -472,7 +476,7 @@ function filterCollectedDataForRegion(collected, region) {
   if (!prefixes.length) return collected;
 
   const apartments = collected.apartments.filter((apartment) =>
-    prefixes.some((prefix) => String(apartment.legalDongCode || "").startsWith(prefix))
+    legalDongCodeMatchesRegion(region, apartment.legalDongCode)
   );
   const apartmentIds = new Set(apartments.map((apartment) => apartment.id));
   const areaTypes = collected.areaTypes.filter((areaType) => apartmentIds.has(areaType.apartmentId));

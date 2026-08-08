@@ -144,3 +144,33 @@ test("formats the accepted nationwide Telegram progress summary", () => {
   assert.match(message, /전국 진행: 3\/17개 지역 완료 \(17.6%\)/);
   assert.match(message, /남은 지역: 14곳/);
 });
+
+test("does not show a moving ETA while a region is paused for a fix", () => {
+  const message = telegramKbNationalCrawlMessage({
+    kind: "region_paused",
+    environment: "production",
+    regionName: "광주",
+    stage: "10년 시세",
+    retryAttempt: 2,
+    maxRetries: 2,
+    errorMessage: "No regional complexes available",
+    regionElapsedMs: 113 * 60_000,
+    regionRemainingMs: 7 * 60 * 60_000,
+    regionExpectedAt: "2026-08-08T10:54:00.000Z",
+    completedCount: 3,
+    totalCount: 17,
+    nationalPercent: 17.647,
+    nationalElapsedMs: 113 * 60_000,
+    nationalRemainingMs: 20 * 24 * 60 * 60_000,
+    nationalExpectedAt: "2026-08-28T04:13:00.000Z",
+    completedRegionNames: ["서울", "경기도", "세종"],
+    remainingRegionNames: ["광주", "대전"],
+    remainingCount: 14
+  });
+
+  assert.match(message, /지역 예상 남은 시간: 수정 대기/);
+  assert.match(message, /지역 예상 완료: 수정 대기/);
+  assert.match(message, /전국 예상 남은 시간: 수정 대기/);
+  assert.match(message, /전국 예상 완료: 수정 대기/);
+  assert.doesNotMatch(message, /20일/);
+});
