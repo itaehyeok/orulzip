@@ -174,3 +174,30 @@ test("does not show a moving ETA while a region is paused for a fix", () => {
   assert.match(message, /전국 예상 완료: 수정 대기/);
   assert.doesNotMatch(message, /20일/);
 });
+
+test("reports that regional completion no longer waits for the national cache", () => {
+  const message = telegramKbNationalCrawlMessage({
+    kind: "region_completed",
+    environment: "production",
+    regionName: "경남",
+    cacheStatus: "전국 수집 완료 후 갱신 예정",
+    nextRegionName: "전남",
+    coverage: {
+      apartments: 1200,
+      areaTypes: 3400,
+      monthlyPrices: 180000,
+      minMonth: "201608",
+      maxMonth: "202608"
+    },
+    completedCount: 13,
+    totalCount: 17,
+    nationalPercent: 76.47,
+    completedRegionNames: ["서울", "경기도", "세종", "경남"],
+    remainingRegionNames: ["전남", "강원", "경북", "인천"],
+    remainingCount: 4
+  });
+
+  assert.match(message, /오를집 KB 경남 수집 완료/);
+  assert.match(message, /KB 지도 캐시: 전국 수집 완료 후 갱신 예정/);
+  assert.match(message, /다음 지역: 전남/);
+});

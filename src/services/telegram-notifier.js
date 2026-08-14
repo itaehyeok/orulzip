@@ -508,7 +508,7 @@ export function telegramKbNationalCrawlMessage(event = {}) {
       `면적형: ${formatCount(coverage.areaTypes)}개`,
       `월별 시세: ${formatCount(coverage.monthlyPrices)}건`,
       `시세 기간: ${coverage.minMonth || "-"} ~ ${coverage.maxMonth || "-"}`,
-      "KB 지도 캐시: 갱신 완료",
+      `KB 지도 캐시: ${event.cacheStatus || "전국 수집 완료 후 갱신 예정"}`,
       `다음 지역: ${event.nextRegionName || "없음"}`
     );
     lines.push("", ...kbNationalSummaryLines(event, { includeRegion: false }));

@@ -1,5 +1,5 @@
-import { refreshApartmentRankCache } from "../src/services/apartment-rank-cache.js";
-import { refreshAppOverviewCache } from "../src/services/app-overview-cache.js";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { closeDb, initDb, withClient } from "../src/services/db.js";
 import { runDataHealthCheck } from "../src/services/data-health.js";
 import {
@@ -18,7 +18,6 @@ import {
   DEFAULT_MAP_CACHE_PERIOD_YEARS,
   DEFAULT_MAP_GROWTH_METRICS,
   DEFAULT_MIN_HOUSEHOLD_COUNTS,
-  refreshMapGrowthCacheIfUnlocked,
   refreshMolitMapGrowthCache
 } from "../src/services/map-growth-cache.js";
 import { syncMolitComplexes } from "../src/services/molit-complex-store.js";
@@ -32,8 +31,6 @@ const JOB_ASSIGNED_MESSAGE = "KB national crawl job assigned";
 const REGION_COMPLETED_MESSAGE = "KB national crawl region completed";
 const REGION_RETRY_MESSAGE = "KB national crawl region retry scheduled";
 const REGION_PAUSED_MESSAGE = "KB national crawl region paused";
-const CACHE_RETRY_MESSAGE = "KB national crawl cache retry failed";
-const CACHE_DEFERRED_MESSAGE = "KB national crawl cache retry deferred";
 const NOTIFICATION_MESSAGE = "Telegram KB national crawl notification sent";
 const FINALIZATION_COMPLETED_MESSAGE = "KB national crawl finalization stage completed";
 const FINALIZATION_FAILED_MESSAGE = "KB national crawl finalization stage failed";
@@ -56,11 +53,11 @@ const maxAreaTypesPerComplex = positiveInteger(process.env.KB_NATIONAL_MAX_AREA_
 const delayMinMs = positiveInteger(process.env.KB_NATIONAL_DELAY_MIN_MS, 800);
 const delayMaxMs = Math.max(delayMinMs, positiveInteger(process.env.KB_NATIONAL_DELAY_MAX_MS, 2_000));
 const maxRegionRetries = positiveInteger(process.env.KB_NATIONAL_MAX_REGION_RETRIES, 2);
-const maxCacheRetries = positiveInteger(process.env.KB_NATIONAL_MAX_CACHE_RETRIES, 3);
 const maxFinalizationRetries = positiveInteger(process.env.KB_NATIONAL_MAX_FINALIZATION_RETRIES, 3);
-const cacheWorkerGraceMs = positiveInteger(process.env.KB_NATIONAL_CACHE_WORKER_GRACE_MS, 10 * 60_000);
-const cacheRetryIntervalMs = positiveInteger(process.env.KB_NATIONAL_CACHE_RETRY_INTERVAL_MS, 5 * 60_000);
+const cacheTaskHeapMb = positiveInteger(process.env.KB_NATIONAL_CACHE_HEAP_MB, 4_096);
 const finalizationEnabled = boolValue(process.env.KB_NATIONAL_FINALIZE, true);
+const cacheTaskScript = fileURLToPath(new URL("./run-kb-cache-task.js", import.meta.url));
+const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 let stopping = false;
 
 if (!runId) throw new Error("KB_NATIONAL_RUN_ID must not be empty");
@@ -158,16 +155,6 @@ async function runCycle(client) {
   }
 
   if (!assignmentJobsCompleted(assignment)) return;
-
-  const cacheReady = await ensureRegionCache(client, {
-    run,
-    assignment,
-    assignments,
-    completionRecords,
-    profile,
-    sentKeys
-  });
-  if (!cacheReady) return;
 
   const coverage = await readRegionCoverage(client, assignment.regionId);
   const coverageError = validateRegionCoverage(assignment, coverage);
@@ -435,6 +422,7 @@ async function emitRecordedLifecycleEvents(client, state) {
       regionName: nationalRegionDescriptor(assignment.regionId).name,
       regionElapsedMs: record.regionElapsedMs,
       coverage: record.coverage,
+      cacheStatus: "전국 수집 완료 후 갱신 예정",
       nextRegionName: following ? nationalRegionDescriptor(following).name : "없음"
     }, state.sentKeys);
   }
@@ -629,93 +617,6 @@ async function pauseRegion(client, state) {
   }, state.sentKeys);
 }
 
-async function ensureRegionCache(client, state) {
-  const job = state.assignment.priceJob;
-  const terminal = await client.query(`
-    select message, details, created_at
-    from crawl_logs
-    where job_id = $1
-      and created_at >= $2
-      and message in ('Map growth cache refreshed', 'Map growth cache refresh failed', 'Map growth cache refresh skipped')
-    order by created_at desc
-    limit 1
-  `, [job.id, job.finishedAt]);
-  if (terminal.rows[0]?.message === "Map growth cache refreshed") return true;
-
-  const finishedMs = new Date(job.finishedAt || 0).getTime();
-  if (Number.isFinite(finishedMs) && Date.now() - finishedMs < cacheWorkerGraceMs && !terminal.rows[0]) return false;
-
-  const retryRows = await client.query(`
-    select message, created_at, details
-    from crawl_logs
-    where job_id = $1
-      and message in ($2, $3)
-      and details->>'runId' = $4
-    order by created_at desc
-  `, [job.id, CACHE_RETRY_MESSAGE, CACHE_DEFERRED_MESSAGE, runId]);
-  const failedRetries = retryRows.rows.filter((row) => row.message === CACHE_RETRY_MESSAGE);
-  const retryCount = failedRetries.length;
-  if (retryCount >= maxCacheRetries) {
-    await pauseRegion(client, {
-      ...state,
-      failedJob: job,
-      errorMessage: failedRetries[0]?.details?.error || terminal.rows[0]?.details?.error || "지도 캐시 갱신 실패",
-      retryAttempt: retryCount,
-      maxRetries: maxCacheRetries,
-      stage: "KB 지도 캐시"
-    });
-    return false;
-  }
-  const lastRetryMs = new Date(retryRows.rows[0]?.created_at || 0).getTime();
-  if (lastRetryMs && Date.now() - lastRetryMs < cacheRetryIntervalMs) return false;
-
-  try {
-    const result = await refreshMapGrowthCacheIfUnlocked();
-    if (result.skipped) {
-      await client.query(`
-        insert into crawl_logs (job_id, level, message, details)
-        values ($1, 'info', $2, $3)
-      `, [job.id, CACHE_DEFERRED_MESSAGE, { runId, regionId: state.assignment.regionId, reason: result.reason }]);
-      return false;
-    }
-    await client.query(`
-      insert into crawl_logs (job_id, level, message, details)
-      values ($1, 'info', 'Map growth cache refreshed', $2)
-    `, [job.id, {
-      runId,
-      source: "kb-national-orchestrator",
-      snapshots: (result.snapshots || []).length,
-      refreshedAt: result.refreshedAt
-    }]);
-    return true;
-  } catch (error) {
-    const attempt = retryCount + 1;
-    await client.query(`
-      insert into crawl_logs (job_id, level, message, details)
-      values ($1, 'error', $2, $3)
-    `, [job.id, CACHE_RETRY_MESSAGE, {
-      runId,
-      regionId: state.assignment.regionId,
-      attempt,
-      error: error.message
-    }]);
-    const key = `${runId}:region:${state.assignment.regionId}:cache-retry:${attempt}`;
-    await sendEvent(client, {
-      ...eventContext(state, state.assignment.regionId),
-      kind: "cache_retry",
-      key,
-      jobId: job.id,
-      regionId: state.assignment.regionId,
-      regionName: nationalRegionDescriptor(state.assignment.regionId).name,
-      stage: "KB 지도 캐시",
-      retryAttempt: attempt,
-      maxRetries: maxCacheRetries,
-      errorMessage: error.message
-    }, state.sentKeys);
-    return false;
-  }
-}
-
 async function readRegionCoverage(client, regionId) {
   const region = getRegion(regionId);
   const prefixes = legalDongCodePrefixes(region);
@@ -824,14 +725,13 @@ async function finalizeRun(client, state) {
       {
         key: "kb_caches",
         run: async () => {
-          const map = await refreshMapGrowthCacheIfUnlocked();
-          if (map.skipped) throw new Error(`KB map cache refresh skipped: ${map.reason}`);
-          const ranking = await refreshApartmentRankCache();
-          const overview = await refreshAppOverviewCache();
+          const map = await runKbCacheTask("map");
+          const ranking = await runKbCacheTask("ranking");
+          const overview = await runKbCacheTask("overview");
           return {
-            mapSnapshots: (map.snapshots || []).length,
-            rankingSnapshots: (ranking.snapshots || []).length,
-            overviewRefreshedAt: overview.cache?.refreshedAt || null
+            mapSnapshots: Number(map.snapshots || 0),
+            rankingSnapshots: Number(ranking.snapshots || 0),
+            overviewRefreshedAt: overview.refreshedAt || null
           };
         }
       },
@@ -1094,6 +994,63 @@ async function sendEvent(client, event, sentKeys) {
     }));
     return false;
   }
+}
+
+async function runKbCacheTask(task) {
+  console.log(JSON.stringify({ message: "KB cache child task started", runId, task, heapMb: cacheTaskHeapMb }));
+  const payload = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cacheTaskScript, `--task=${task}`], {
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        NODE_OPTIONS: cacheNodeOptions()
+      },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      process.stdout.write(chunk);
+      stdout = appendOutput(stdout, chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      process.stderr.write(chunk);
+      stderr = appendOutput(stderr, chunk);
+    });
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      if (code !== 0) {
+        const reason = stderr.trim() || stdout.trim() || `exit=${code}, signal=${signal || "none"}`;
+        reject(new Error(`KB cache task ${task} failed: ${reason.slice(-2_000)}`));
+        return;
+      }
+      const resultLine = stdout.split(/\r?\n/)
+        .findLast((line) => line.startsWith("KB_CACHE_TASK_RESULT "));
+      if (!resultLine) {
+        reject(new Error(`KB cache task ${task} did not return a result`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(resultLine.slice("KB_CACHE_TASK_RESULT ".length)));
+      } catch (error) {
+        reject(new Error(`KB cache task ${task} returned invalid JSON: ${error.message}`));
+      }
+    });
+  });
+  console.log(JSON.stringify({ message: "KB cache child task completed", runId, task }));
+  return payload.result || {};
+}
+
+function cacheNodeOptions() {
+  const inherited = String(process.env.NODE_OPTIONS || "")
+    .replace(/(?:^|\s)--max-old-space-size(?:=|\s+)\d+/g, " ")
+    .trim();
+  return `${inherited} --max-old-space-size=${cacheTaskHeapMb}`.trim();
+}
+
+function appendOutput(current, chunk, limit = 200_000) {
+  return `${current}${chunk}`.slice(-limit);
 }
 
 async function countRegionRetries(client, regionId, jobId) {

@@ -1,6 +1,10 @@
 import { query, withClient } from "./db.js";
-import { readDatasetFromDb } from "./db-store.js";
-import { buildApartmentAveragePyeongRankings, buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
+import {
+  readKbAvailableMonths,
+  readKbAveragePyeongRankingRows,
+  readKbGrowthRankingRows,
+  resolveKbCachePeriod
+} from "./kb-cache-data.js";
 
 export const DEFAULT_APARTMENT_RANK_PERIOD_MONTHS = [3, 6, 12, 36, 60];
 export const APARTMENT_RANK_METRICS = {
@@ -13,8 +17,7 @@ export async function refreshApartmentRankCache({
   metric = APARTMENT_RANK_METRICS.averagePyeong,
   periodMonths = DEFAULT_APARTMENT_RANK_PERIOD_MONTHS
 } = {}) {
-  const dataset = await readDatasetFromDb();
-  const months = getAvailableMonths(dataset);
+  const months = await readKbAvailableMonths();
   const endMonth = months.at(-1);
   if (!endMonth) {
     return {
@@ -27,17 +30,18 @@ export async function refreshApartmentRankCache({
   const snapshots = [];
   for (const monthsBack of normalizePeriodMonths(periodMonths)) {
     const requestedStart = addMonths(endMonth, -monthsBack);
-    const ranking = metric === APARTMENT_RANK_METRICS.averagePyeong
-      ? buildApartmentAveragePyeongRankings(dataset, { start: requestedStart, end: endMonth })
-      : buildApartmentRankings(dataset, { start: requestedStart, end: endMonth });
-    if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
+    const period = resolveKbCachePeriod(months, requestedStart, endMonth);
+    if (!period.startMonth || !period.endMonth) continue;
+    const rows = metric === APARTMENT_RANK_METRICS.averagePyeong
+      ? await readKbAveragePyeongRankingRows(period)
+      : await readKbGrowthRankingRows(period);
     const snapshot = await saveApartmentRankSnapshot({
       source,
       metric,
       periodMonths: monthsBack,
-      startMonth: ranking.period.startMonth,
-      endMonth: ranking.period.endMonth,
-      rows: ranking.rows
+      startMonth: period.startMonth,
+      endMonth: period.endMonth,
+      rows
     });
     snapshots.push(snapshot);
   }

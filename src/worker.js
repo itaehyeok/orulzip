@@ -14,6 +14,7 @@ const staleRunningMinutes = Number(process.env.WORKER_STALE_RUNNING_MINUTES || 2
 const workerRegionIds = parseWorkerRegionIds(process.env.WORKER_REGION_IDS || "");
 const workerYearsBack = parseNumberList(process.env.WORKER_YEARS_BACKS || "");
 const workerMaxItemAttempts = Math.max(1, Number(process.env.WORKER_MAX_ITEM_ATTEMPTS || 3));
+const workerRefreshMapCacheEnabled = booleanValue(process.env.WORKER_REFRESH_MAP_CACHE_ENABLED, true);
 const workerRefreshMapCacheYearsBack = parseNumberList(process.env.WORKER_REFRESH_MAP_CACHE_YEARS_BACKS || "");
 
 await initDb();
@@ -551,6 +552,7 @@ async function finishIfDone(job) {
     } else {
       await log(jobId, "info", "Map growth cache refresh skipped by worker configuration", {
         yearsBack: Number(job.years_back || 0),
+        enabled: workerRefreshMapCacheEnabled,
         configuredYearsBack: workerRefreshMapCacheYearsBack
       });
     }
@@ -558,8 +560,10 @@ async function finishIfDone(job) {
 }
 
 function shouldRefreshMapCache(job) {
-  return !workerRefreshMapCacheYearsBack.length
-    || workerRefreshMapCacheYearsBack.includes(Number(job.years_back || 0));
+  return workerRefreshMapCacheEnabled && (
+    !workerRefreshMapCacheYearsBack.length
+    || workerRefreshMapCacheYearsBack.includes(Number(job.years_back || 0))
+  );
 }
 
 async function refreshMapCacheAfterJob(jobId) {
@@ -624,6 +628,11 @@ function parseNumberList(value) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isFinite(item));
+}
+
+function booleanValue(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  return !["0", "false", "no", "off"].includes(String(value).toLowerCase());
 }
 
 function dedupeBy(items, key) {

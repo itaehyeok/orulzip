@@ -1,8 +1,12 @@
 import { query, withClient } from "./db.js";
 import { refreshAppOverviewCache } from "./app-overview-cache.js";
-import { readDatasetFromDb } from "./db-store.js";
+import {
+  readKbApartmentCatalog,
+  readKbAvailableMonths,
+  readKbGrowthRankingRows,
+  resolveKbCachePeriod
+} from "./kb-cache-data.js";
 import { resolveMolitDuplicateGroups } from "./molit-duplicate-resolver.js";
-import { buildApartmentRankings, getAvailableMonths } from "./price-calculator.js";
 import { notifyTelegramCacheFallback } from "./telegram-notifier.js";
 
 export const DEFAULT_MAP_CACHE_PERIOD_YEARS = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -844,8 +848,10 @@ export async function buildMolitApartmentDetail(apartmentId, {
 }
 
 export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PERIOD_YEARS } = {}) {
-  const dataset = await readDatasetFromDb();
-  const months = getAvailableMonths(dataset);
+  const [apartments, months] = await Promise.all([
+    readKbApartmentCatalog(),
+    readKbAvailableMonths()
+  ]);
   const endMonth = months.at(-1);
   if (!endMonth) {
     return {
@@ -858,17 +864,15 @@ export async function refreshMapGrowthCache({ periodYears = DEFAULT_MAP_CACHE_PE
   const snapshots = [];
   for (const period of normalizedPeriods(periodYears)) {
     const requestedStart = addMonths(endMonth, -period.months);
-    const ranking = buildApartmentRankings(dataset, {
-      start: requestedStart,
-      end: endMonth
-    });
-    if (!ranking.period.startMonth || !ranking.period.endMonth) continue;
-    const items = buildCacheItems(dataset, ranking.rows);
+    const resolvedPeriod = resolveKbCachePeriod(months, requestedStart, endMonth);
+    if (!resolvedPeriod.startMonth || !resolvedPeriod.endMonth) continue;
+    const rankingRows = await readKbGrowthRankingRows(resolvedPeriod);
+    const items = buildCacheItems({ apartments }, rankingRows);
     const snapshot = await saveSnapshot({
       metric: MAP_GROWTH_METRIC_RATE,
       periodYears: period.storageYears,
-      startMonth: ranking.period.startMonth,
-      endMonth: ranking.period.endMonth,
+      startMonth: resolvedPeriod.startMonth,
+      endMonth: resolvedPeriod.endMonth,
       apartmentCount: items.apartmentCount,
       areaCount: items.areaCount,
       items: items.rows
