@@ -69,8 +69,11 @@ services:
       - ALL
     networks:
       - development-private
+      - development-edge
 
 networks:
   development-private:
     name: ${ORULZIP_DEVELOPMENT_DOCKER_NETWORK:-orulzip-development-private}
     internal: true
+  development-edge:
+    name: ${ORULZIP_DEVELOPMENT_EDGE_DOCKER_NETWORK:-orulzip-development-edge}

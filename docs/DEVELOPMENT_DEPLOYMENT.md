@@ -42,6 +42,7 @@ CONTAINER_PREFIX=orulzip-development
 WEB_PORT=3051
 DEVELOPMENT_WEB_BIND_ADDRESS=192.168.0.6
 ORULZIP_DEVELOPMENT_DOCKER_NETWORK=orulzip-development-private
+ORULZIP_DEVELOPMENT_EDGE_DOCKER_NETWORK=orulzip-development-edge
 DEVELOPMENT_POSTGRES_DATA_DIR=/mnt/elements10tb/orulzip/postgres-development
 DEVELOPMENT_POSTGRES_PASSWORD=...
 DEVELOPMENT_DB_READONLY_PASSWORD=...
@@ -64,8 +65,10 @@ MOLIT_DAILY_DELAY_MS=500
 
 Development uses `docker-compose.development.yml`, a dedicated
 `orulzip-development-postgres` container, a dedicated bind-mounted data directory,
-and the internal-only `orulzip-development-private` network. It is never attached
-to `orulzip-shared`.
+and the internal-only `orulzip-development-private` database network. The database
+is attached only to that private network. The web container also joins the empty
+`orulzip-development-edge` bridge solely so Docker can publish the LAN-bound 3051
+port. Neither container is ever attached to `orulzip-shared`.
 
 The development database is a controlled snapshot of production with production
 analytics rows excluded. Development web uses its own read-only role and its

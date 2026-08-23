@@ -26,10 +26,13 @@ Current runtime responsibilities:
 - Data collector containers run with `ORULZIP_DB_INIT=1` and
   `ORULZIP_READ_ONLY=0`.
 
-The development runtime has no route to the production Docker network or database
-daemon. Development deployment is also kept off the production-capable
-self-hosted GitHub runner; it is performed only from an audited Firebat SSH
-session.
+The development runtime is never attached to the production Docker network and
+has no route to the production database daemon. Its PostgreSQL container is on an
+internal-only database network. The development web also joins a development-only
+edge bridge so its LAN-bound port can be published, but that bridge contains no
+production service. Development deployment is also kept off the
+production-capable self-hosted GitHub runner; it is performed only from an audited
+Firebat SSH session.
 The development snapshot excludes production analytics data. Daily MOLIT
 collection still writes only to production.
 
