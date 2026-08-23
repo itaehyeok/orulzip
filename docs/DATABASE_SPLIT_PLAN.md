@@ -26,7 +26,10 @@ Current runtime responsibilities:
 - Data collector containers run with `ORULZIP_DB_INIT=1` and
   `ORULZIP_READ_ONLY=0`.
 
-Development has no route to the production Docker network or database daemon.
+The development runtime has no route to the production Docker network or database
+daemon. Development deployment is also kept off the production-capable
+self-hosted GitHub runner; it is performed only from an audited Firebat SSH
+session.
 The development snapshot excludes production analytics data. Daily MOLIT
 collection still writes only to production.
 

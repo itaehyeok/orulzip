@@ -101,19 +101,23 @@ Reload Caddy after editing the Caddyfile.
 
 In Hostinger DNS, add `dev.orulzip.com` pointing to the same public target as `orulzip.com`.
 
-## GitHub Actions
+## Deployment boundary
 
-- `main` pushes deploy web-only compose to `/home/th/docker/custom/orulzip/production`
-- `develop` pushes deploy `docker-compose.development.yml` to
-  `/home/th/docker/custom/orulzip/development`
-- `database` and `data-collector` are managed separately and are not restarted by web deployments.
-- Development deploys do not run post-deploy MOLIT cache refresh. Refresh or
-  replace the isolated development snapshot only when explicitly requested.
+Development deployment is intentionally not run by GitHub Actions. A workflow
+running `develop` code on the production-capable self-hosted runner could read
+production host secrets or control production containers even though the runtime
+Docker networks and databases are separate.
 
-The development workflow expects the self-hosted runner label used by production:
+Deploy development only from an audited SSH session on Firebat. Before deploying:
 
-```yaml
-runs-on: [self-hosted, linux, orulzip-production]
-```
+1. acquire the repository production lock;
+2. verify the canonical `develop` checkout is clean and at the intended commit;
+3. check disk space;
+4. run the host-side deployment command with
+   `docker-compose.development.yml`;
+5. verify the exact commit, isolated network, database roles, and health endpoint;
+6. release only the lock acquired by that session.
 
-If the runner labels are changed later, update both workflow files.
+`database` and `data-collector` remain production-only and are never restarted by
+a development deployment. Do not run post-deploy MOLIT collection or cache refresh
+against development. Refresh the isolated snapshot only when explicitly requested.
