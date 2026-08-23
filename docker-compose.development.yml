@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ${CONTAINER_PREFIX:-orulzip-development}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DEVELOPMENT_POSTGRES_DB:-orulzip_dev}
+      POSTGRES_USER: ${DEVELOPMENT_POSTGRES_OWNER:-orulzip_dev_owner}
+      POSTGRES_PASSWORD: ${DEVELOPMENT_POSTGRES_PASSWORD:?set DEVELOPMENT_POSTGRES_PASSWORD}
+    volumes:
+      - ${DEVELOPMENT_POSTGRES_DATA_DIR:?set DEVELOPMENT_POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DEVELOPMENT_POSTGRES_OWNER:-orulzip_dev_owner} -d ${DEVELOPMENT_POSTGRES_DB:-orulzip_dev}
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - development-private
+
+  web:
+    build:
+      context: .
+      args:
+        ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+        ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
+        ORULZIP_RECENT_COMMITS_JSON: '${ORULZIP_RECENT_COMMITS_JSON:-[]}'
+    container_name: ${CONTAINER_PREFIX:-orulzip-development}-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3050
+      ORULZIP_ENVIRONMENT: development
+      ORULZIP_COMMIT_SHA: ${ORULZIP_COMMIT_SHA:-unknown}
+      ORULZIP_DEPLOYED_AT_KST: ${ORULZIP_DEPLOYED_AT_KST:-local}
+      ORULZIP_RECENT_COMMITS_JSON: '${ORULZIP_RECENT_COMMITS_JSON:-[]}'
+      DATABASE_URL: postgres://${DEVELOPMENT_DB_READONLY_USER:-orulzip_dev_readonly}:${DEVELOPMENT_DB_READONLY_PASSWORD:?set DEVELOPMENT_DB_READONLY_PASSWORD}@postgres:5432/${DEVELOPMENT_POSTGRES_DB:-orulzip_dev}
+      ANALYTICS_DATABASE_URL: postgres://${DEVELOPMENT_DB_ANALYTICS_USER:-orulzip_dev_analytics_writer}:${DEVELOPMENT_DB_ANALYTICS_PASSWORD:?set DEVELOPMENT_DB_ANALYTICS_PASSWORD}@postgres:5432/${DEVELOPMENT_POSTGRES_DB:-orulzip_dev}
+      ORULZIP_DB_INIT: 0
+      ORULZIP_READ_ONLY: 1
+      NAVER_MAP_NCP_KEY_ID: ${DEVELOPMENT_NAVER_MAP_NCP_KEY_ID:-}
+      NAVER_MAP_NCP_KEY_SECRET: ${DEVELOPMENT_NAVER_MAP_NCP_KEY_SECRET:-}
+      NAVER_MAP_DISABLED: ${DEVELOPMENT_NAVER_MAP_DISABLED:-1}
+      MOLIT_APT_TRADE_SERVICE_KEY: ${DEVELOPMENT_MOLIT_APT_TRADE_SERVICE_KEY:-}
+      ORULZIP_ADMIN_USER: ${DEVELOPMENT_ADMIN_USER:-}
+      ORULZIP_ADMIN_PASSWORD: ${DEVELOPMENT_ADMIN_PASSWORD:-}
+      ORULZIP_ADMIN_SESSION_SECRET: ${DEVELOPMENT_ADMIN_SESSION_SECRET:?set DEVELOPMENT_ADMIN_SESSION_SECRET}
+      ORULZIP_ANALYTICS_HASH_SECRET: ${DEVELOPMENT_ANALYTICS_HASH_SECRET:?set DEVELOPMENT_ANALYTICS_HASH_SECRET}
+      ORULZIP_ADMIN_COOKIE_SECURE: 1
+      ORULZIP_TELEGRAM_BOT_TOKEN: ${DEVELOPMENT_TELEGRAM_BOT_TOKEN:-}
+      ORULZIP_TELEGRAM_CHAT_ID: ${DEVELOPMENT_TELEGRAM_CHAT_ID:-}
+      ORULZIP_TELEGRAM_VISITOR_ALERT_ENVIRONMENTS: disabled
+      ORULZIP_TELEGRAM_DATA_HEALTH_ENVIRONMENTS: disabled
+      ORULZIP_TELEGRAM_CACHE_ALERT_ENVIRONMENTS: disabled
+      ORULZIP_TELEGRAM_MAP_ALERT_ENVIRONMENTS: disabled
+      ORULZIP_TELEGRAM_KB_CRAWL_ENVIRONMENTS: disabled
+    ports:
+      - "${DEVELOPMENT_WEB_BIND_ADDRESS:-192.168.0.6}:${WEB_PORT:-3051}:3050"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - development-private
+
+networks:
+  development-private:
+    name: ${ORULZIP_DEVELOPMENT_DOCKER_NETWORK:-orulzip-development-private}
+    internal: true

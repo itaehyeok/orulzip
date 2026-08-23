@@ -1,33 +1,37 @@
 # Database Split Plan
 
-Last reviewed: 2026-06-23
+Last reviewed: 2026-08-23
 
-This document records the database split direction and the current state after
-the first development database clone.
+This document records the database split direction and the current isolated
+development architecture.
 
 ## Current State
 
-Production and development use the same PostgreSQL container but separate
-databases:
+Production and development use separate PostgreSQL containers, storage paths,
+credentials, and Docker networks:
 
 ```text
-orulzip-postgres:5432/orulzip      # production
-orulzip-postgres:5432/orulzip_dev  # development snapshot
+orulzip-postgres:5432/orulzip                  # production, orulzip-shared
+orulzip-development-postgres:5432/orulzip_dev  # development, private network
 ```
 
 Current runtime responsibilities:
 
 - Production web reads `orulzip`.
-- Development web reads `orulzip_dev`.
+- Development web reads the isolated `orulzip_dev` snapshot.
 - Production analytics writes to `orulzip`.
 - Development analytics writes to `orulzip_dev`.
-- Data collector containers write to the same `orulzip` database.
+- Data collector containers write only to the production `orulzip` database.
 - Web containers run with `ORULZIP_DB_INIT=0` and `ORULZIP_READ_ONLY=1`.
 - Data collector containers run with `ORULZIP_DB_INIT=1` and
   `ORULZIP_READ_ONLY=0`.
 
-This removes the immediate production risk from development schema experiments.
-Daily MOLIT collection still writes only to production.
+Development has no route to the production Docker network or database daemon.
+The development snapshot excludes production analytics data. Daily MOLIT
+collection still writes only to production.
+
+The same-container split described below is retained as historical context. It
+was retired after the development runtime regressed to production credentials.
 
 Observed size before the split on 2026-06-23:
 
@@ -51,7 +55,7 @@ Observed size after the first clone on 2026-06-23:
 `orulzip_dev` is smaller than the original because dump/restore rebuilt tables
 and indexes in a compact form.
 
-## Completed First Split
+## Historical First Split (Retired)
 
 The first step was a full development database clone.
 
@@ -169,17 +173,18 @@ allowing arbitrary code to mix raw and environment-specific writes.
 
 ## Decision Summary
 
-Completed first step:
+Retired first step:
 
 ```text
-Full clone: orulzip -> orulzip_dev
+Same-container clone: orulzip -> orulzip_dev
 ```
 
-Current next step:
+Current architecture:
 
 ```text
-Keep daily collection on orulzip only.
-Refresh orulzip_dev from orulzip only when explicitly requested.
+Keep daily collection on production orulzip only.
+Run development PostgreSQL on its own storage and private network.
+Refresh the isolated orulzip_dev snapshot only when explicitly requested.
 ```
 
 Later target:
