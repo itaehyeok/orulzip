@@ -86,3 +86,8 @@ test("does not treat a malformed KB history response as a successful empty fetch
   const provider = new KBPriceProvider({request: async () => ({dataBody:{data:{}}})});
   await assert.rejects(provider.fetchHistoricalPrices(1,1,["2026"]), /missing the expected history array/);
 });
+
+test("accepts an explicit successful KB response with no data for a retired area", async () => {
+  const provider = new KBPriceProvider({request: async () => ({dataHeader:{resultCode:"10000",message:"NO_ERROR"}})});
+  assert.deepEqual(await provider.fetchHistoricalPrices(12228,60180,["2026"]),[]);
+});

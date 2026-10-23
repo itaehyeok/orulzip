@@ -1,12 +1,13 @@
 services:
   worker:
     build: .
+    profiles: ["legacy-manual"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment:
       DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
-      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_DB_INIT: 0
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
       WORKER_REGION_IDS: ${WORKER_REGION_IDS:-seoul}
@@ -16,12 +17,13 @@ services:
 
   worker-gyeonggi:
     build: .
+    profiles: ["legacy-manual"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-worker-gyeonggi
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment:
       DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
-      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_DB_INIT: 0
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       WORKER_IDLE_DELAY_MS: ${WORKER_IDLE_DELAY_MS:-5000}
       WORKER_REGION_IDS: ${WORKER_GYEONGGI_REGION_IDS:-gyeonggi}
@@ -168,7 +170,7 @@ services:
 
   price-band-cache:
     build: .
-    profiles: ["loop"]
+    profiles: ["legacy-manual"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-price-band-cache
     restart: unless-stopped
     command: ["npm", "run", "refresh:price-band-cache:loop"]
@@ -197,7 +199,7 @@ services:
 
   molit-daily-collector:
     build: .
-    profiles: ["loop"]
+    profiles: ["legacy-manual"]
     container_name: ${CONTAINER_PREFIX:-orulzip-data-collector}-molit-daily-collector
     restart: unless-stopped
     command:
@@ -211,7 +213,7 @@ services:
     environment:
       DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
       ORULZIP_ENVIRONMENT: ${ORULZIP_ENVIRONMENT:-production}
-      ORULZIP_DB_INIT: ${ORULZIP_DB_INIT:-1}
+      ORULZIP_DB_INIT: 0
       ORULZIP_READ_ONLY: ${ORULZIP_READ_ONLY:-0}
       MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
       REB_APT_IDENTITY_SERVICE_KEY: ${REB_APT_IDENTITY_SERVICE_KEY:-}

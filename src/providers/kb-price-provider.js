@@ -202,6 +202,7 @@ export class KBPriceProvider extends PriceDataProvider {
         "기준년": years.join(",")
       }
     });
+    if (data?.dataHeader?.resultCode === "10000" && data?.dataBody?.data == null) return [];
     const prices = data?.dataBody?.data?.시세;
     if (!Array.isArray(prices)) throw new Error("KB price response is missing the expected history array");
     return prices;

@@ -15,7 +15,7 @@ compose=(docker compose -p orulzip-data-collector --project-directory "$SOURCE_D
 mkdir -p "$RUNTIME_DIR/logs/daily-collection" "$RUNTIME_DIR/backups"
 backup="$RUNTIME_DIR/backups/crontab-before-daily-collection-$(date +%Y%m%d-%H%M%S)"
 (umask 077; crontab -l > "$backup" 2>/dev/null || true)
-for name in orulzip-data-collector-molit-daily-collector orulzip-data-collector-worker-kb-national-sequential orulzip-data-collector-kb-national-orchestrator orulzip-data-collector-price-band-cache; do
+for name in orulzip-worker orulzip-worker-gyeonggi orulzip-molit-daily-collector orulzip-price-band-cache orulzip-data-collector-worker orulzip-data-collector-worker-gyeonggi orulzip-data-collector-molit-daily-collector orulzip-data-collector-worker-kb-national-sequential orulzip-data-collector-kb-national-orchestrator orulzip-data-collector-price-band-cache; do
   if docker container inspect "$name" >/dev/null 2>&1; then
     docker update --restart=no "$name" >/dev/null
     docker stop --time 30 "$name" >/dev/null
