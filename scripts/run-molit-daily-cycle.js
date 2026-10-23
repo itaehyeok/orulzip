@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { buildMolitMonthCoverage } from "./molit-lawd-code-history.js";
+import { monthSequence } from "../src/services/data-health/coverage.js";
+import { query, closeDb } from "../src/services/db.js";
 import { DEFAULT_MAP_CACHE_PERIOD_YEARS } from "../src/services/map-growth-cache.js";
 import { DEFAULT_PRICE_BAND_PERIOD_MONTHS } from "../src/services/price-band-rank-cache.js";
 import { parseRepairMonthArgument, planRepairCachePeriods } from "./molit-repair-options.js";
@@ -28,11 +31,14 @@ if (repairMonth) await runRepairCycle();
 else await runScheduledCycle();
 
 async function runRepairCycle() {
+  const fetched = await query("select year_month,lawd_cd from molit_trade_fetches where status='completed'");
+  const gaps = buildMolitMonthCoverage({months:monthSequence("201601",currentMonth()),completedRows:fetched.rows})
+    .filter((row) => row.status === "fail").map((row) => row.month);
+  await closeDb();
   const collectionStatus = runNode("scripts/sync-molit-trades.js", [
     "--targets", options.targets,
     "--start", repairMonth,
     "--end", repairMonth,
-    "--force",
     "--limit", options.limit,
     "--delay-ms", options.delayMs,
     "--skip-map-cache-refresh"
@@ -41,6 +47,12 @@ async function runRepairCycle() {
     console.error(`[molit-repair] quota exhausted while repairing ${repairMonth}; the repair is incomplete.`);
     process.exit(75);
   }
+
+  const backfillStatus = runNode("scripts/sync-molit-trades.js", [
+    "--targets", options.targets, "--end", currentMonth(),
+    "--limit", options.limit, "--delay-ms", options.delayMs, "--skip-map-cache-refresh"
+  ], {allowQuotaExit:true});
+  if (backfillStatus === 75) process.exit(75);
 
   runNpm(["run", "sync:molit-complexes", "--", "--geocode", "--geocode-mode", "missing", "--geocode-limit", options.geocodeLimit]);
 
@@ -51,14 +63,14 @@ async function runRepairCycle() {
     pricePeriodMonths: DEFAULT_PRICE_BAND_PERIOD_MONTHS
   });
   const mapCacheArgs = ["run", "refresh:molit-map-cache", "--", "--skip-complex-sync"];
-  if (cachePeriods.mapPeriodYears) {
+  if (!gaps.some((month) => month !== repairMonth) && cachePeriods.mapPeriodYears) {
     mapCacheArgs.push(`--years=${cachePeriods.mapPeriodYears.join(",")}`);
   }
   runNpm(mapCacheArgs);
 
   if (options.refreshPriceBandCache) {
     const priceCacheArgs = ["run", "refresh:price-band-cache"];
-    if (cachePeriods.pricePeriodMonths) {
+    if (!gaps.some((month) => month !== repairMonth) && cachePeriods.pricePeriodMonths) {
       priceCacheArgs.push("--", `--months=${cachePeriods.pricePeriodMonths.join(",")}`);
     }
     runNpm(priceCacheArgs);
@@ -81,7 +93,6 @@ async function runScheduledCycle() {
     "--start", options.recentStart,
     "--end", options.recentEnd,
     "--force",
-    "--only-collected-targets",
     "--limit", options.limit,
     "--delay-ms", options.delayMs,
     "--skip-map-cache-refresh"

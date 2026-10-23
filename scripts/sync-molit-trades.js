@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
+import { isMolitFetchComplete } from "./molit-lawd-code-history.js";
 import { fileURLToPath } from "node:url";
 import { initDb } from "../src/services/db.js";
 import { MolitTradeProvider } from "../src/providers/molit-trade-provider.js";
 import {
   completedFetchSet,
   completedLawdCdSet,
-  fetchKey,
   latestKbPricePeriod,
   markTradeFetchCompleted,
   markTradeFetchFailed,
@@ -243,7 +243,7 @@ const provider = new MolitTradeProvider({
 
 const tasks = buildTasks({ targetIds, startMonth, endMonth });
 const completed = await completedFetchSet();
-const runnableTasks = tasks.filter((task) => options.force || !completed.has(fetchKey(task.lawdCd, task.yearMonth)));
+const runnableTasks = tasks.filter((task) => options.force || !isMolitFetchComplete({lawdCd:task.lawdCd,yearMonth:task.yearMonth,completedKeys:completed}));
 
 if (options.plan || !process.env.MOLIT_APT_TRADE_SERVICE_KEY) {
   console.log(JSON.stringify({

@@ -1,7 +1,8 @@
 import { query } from "../db.js";
 import { DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT } from "../map-growth-cache.js";
 import { REQUIRED_MAP_LEVELS, STALE_CACHE_HOURS } from "./context.js";
-import { buildMonthCodeCoverage, monthSequence } from "./coverage.js";
+import { monthSequence } from "./coverage.js";
+import { buildMolitMonthCoverage } from "../../../scripts/molit-lawd-code-history.js";
 import {
   addMonths,
   basisLabel,
@@ -47,9 +48,8 @@ async function checkMolitHistoricalCoverage(context) {
       from molit_trade_fetches
       where status = 'completed'
         and year_month between $1 and $2
-        and lawd_cd = any($3::text[])
       group by year_month, lawd_cd
-    `, [context.historicalStartMonth, context.endMonth, context.expectedLawdCodes]);
+    `, [context.historicalStartMonth, context.endMonth]);
   } catch (error) {
     if (isMissingTable(error, "molit_trade_fetches")) {
       return buildCheck({
@@ -63,7 +63,7 @@ async function checkMolitHistoricalCoverage(context) {
     }
     throw error;
   }
-  const details = buildMonthCodeCoverage({
+  const details = buildMolitMonthCoverage({
     months,
     lawdCodes: context.expectedLawdCodes,
     completedRows: result.rows
@@ -304,7 +304,7 @@ async function checkRecentTradeFetches(context) {
       and lawd_cd = any($2::text[])
     group by year_month, lawd_cd
   `, [context.recentMonths, context.expectedLawdCodes]);
-  const details = buildMonthCodeCoverage({
+  const details = buildMolitMonthCoverage({
     months: context.recentMonths,
     lawdCodes: context.expectedLawdCodes,
     completedRows: result.rows,
