@@ -8,3 +8,5 @@ orulzip-app.tgz
 ._*
 .DS_Store
 *.log
+/active-collection-image
+/backups/
