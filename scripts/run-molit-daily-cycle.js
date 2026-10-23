@@ -62,6 +62,11 @@ async function runRepairCycle() {
     mapPeriodYears: DEFAULT_MAP_CACHE_PERIOD_YEARS,
     pricePeriodMonths: DEFAULT_PRICE_BAND_PERIOD_MONTHS
   });
+  if (gaps.some((month) => month !== repairMonth)) {
+    cachePeriods.mapPeriodYears = null;
+    cachePeriods.pricePeriodMonths = null;
+    cachePeriods.fullRefreshReason = "Other missing months were repaired: " + gaps.filter((month) => month !== repairMonth).join(",");
+  }
   const mapCacheArgs = ["run", "refresh:molit-map-cache", "--", "--skip-complex-sync"];
   if (!gaps.some((month) => month !== repairMonth) && cachePeriods.mapPeriodYears) {
     mapCacheArgs.push(`--years=${cachePeriods.mapPeriodYears.join(",")}`);

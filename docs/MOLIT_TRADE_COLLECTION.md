@@ -34,7 +34,7 @@ After daily MOLIT collection, `REB_APT_IDENTITY_MATCH_ON_MOLIT_SYNC=1` refreshes
 - KB tables such as `monthly_prices`, `apartments`, and `area_types` must not receive MOLIT trade rows.
 - Default historical period starts at the earliest KB month (fallback 201601) and ends at the current KST month. It never stops at the latest KB month. The daily recent refresh covers the previous and current month; historical backfill repairs gaps through the current month.
 - Current coded targets:
-  - Nationwide: 254 current 시군구-level LAWD codes from 행정표준코드관리시스템 법정동코드 전체자료, downloaded 2026-06-17
+  - Nationwide: 255 current request codes from the 2026-07-20 master. The previous June master had 254 codes; verified older checkpoints are bridged through explicit historical aliases (see DAILY_COLLECTION.md)
   - Seoul: 25 gu codes
   - Gyeonggi: 시군구 codes currently listed in `scripts/sync-molit-trades.js`
   - Incheon: 10 gu/gun codes

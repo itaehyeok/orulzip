@@ -50,14 +50,14 @@ export class MolitTradeProvider extends PriceDataProvider {
       : encodeURIComponent(this.serviceKey);
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const response = await this.request(`${url}${separator}serviceKey=${keyParam}`, {signal:AbortSignal.timeout(30000)});
-    const text = await response.text();
+        const response = await this.request(`${url}${separator}serviceKey=${keyParam}`, { signal: AbortSignal.timeout(30_000) });
+        const text = await response.text();
 
-    if (!response.ok) {
-      throw new Error(`MOLIT API HTTP ${response.status}: ${text.slice(0, 200)}`);
-    }
+        if (!response.ok) {
+          throw new Error(`MOLIT API HTTP ${response.status}: ${text.slice(0, 200)}`);
+        }
 
-    return parseTradeResponse(text);
+        return parseTradeResponse(text);
       } catch (error) {
         const message = String(error?.message || "");
         const transient = ["TimeoutError","AbortError","TypeError"].includes(error?.name)
