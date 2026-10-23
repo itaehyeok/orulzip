@@ -28,7 +28,13 @@ export function buildDataHealthContext() {
     mapGrowthMetrics: DEFAULT_MAP_GROWTH_METRICS,
     areaBandKeys: DEFAULT_PRICE_AREA_BAND_KEYS,
     priceBandBases: PRICE_BAND_BASES,
-    expectedLawdCount: NATIONWIDE_LAWD_CODES.length
+    expectedLawdCount: NATIONWIDE_LAWD_CODES.length,
+    expectedLawdCodes: NATIONWIDE_LAWD_CODES.map(([lawdCd]) => lawdCd),
+    historicalStartMonth: process.env.MOLIT_HISTORICAL_START_MONTH || "201601",
+    kbPricePublicationGraceMonths: 1,
+    providerRunMaxAgeHours: 36,
+    kbPriceMaxUpdateAgeHours: 36,
+    collectionHealthProvider: String(process.env.COLLECTION_HEALTH_PROVIDER || "").trim().toLowerCase()
   };
 }
 

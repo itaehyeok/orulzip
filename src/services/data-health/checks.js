@@ -1,6 +1,7 @@
 import { query } from "../db.js";
 import { DEFAULT_ACTIVE_MIN_HOUSEHOLD_COUNT } from "../map-growth-cache.js";
 import { REQUIRED_MAP_LEVELS, STALE_CACHE_HOURS } from "./context.js";
+import { buildMonthCodeCoverage, monthSequence } from "./coverage.js";
 import {
   addMonths,
   basisLabel,
@@ -13,6 +14,11 @@ import {
 } from "./utils.js";
 
 const CHECKS = [
+  checkMolitHistoricalCoverage,
+  checkMolitProviderRunFreshness,
+  checkKbProviderRunFreshness,
+  checkKbDailyAreaCoverage,
+  checkKbPriceFreshness,
   checkRecentTradeFetches,
   checkRecentTradeDeals,
   checkMolitComplexCoverage,
@@ -24,47 +30,284 @@ const CHECKS = [
 
 export async function runDataHealthChecks(context) {
   const checks = [];
+  const kbOnlyChecks = new Set([checkKbProviderRunFreshness, checkKbDailyAreaCoverage, checkKbPriceFreshness]);
   for (const check of CHECKS) {
+    if (context.collectionHealthProvider === "molit" && kbOnlyChecks.has(check)) continue;
     checks.push(await safeCheck(check, context));
   }
   return checks;
 }
 
+async function checkMolitHistoricalCoverage(context) {
+  const months = monthSequence(context.historicalStartMonth, context.endMonth);
+  let result;
+  try {
+    result = await query(`
+      select year_month, lawd_cd
+      from molit_trade_fetches
+      where status = 'completed'
+        and year_month between $1 and $2
+        and lawd_cd = any($3::text[])
+      group by year_month, lawd_cd
+    `, [context.historicalStartMonth, context.endMonth, context.expectedLawdCodes]);
+  } catch (error) {
+    if (isMissingTable(error, "molit_trade_fetches")) {
+      return buildCheck({
+        key: "molit_historical_coverage",
+        category: "collection",
+        title: "실거래 전체 이력 커버리지",
+        status: "fail",
+        message: "molit_trade_fetches 테이블이 없습니다. DB 초기화 또는 필수 스키마 적용 상태를 확인하세요.",
+        metrics: { expectedLawdCount: context.expectedLawdCount, checkedMonths: months.length }
+      });
+    }
+    throw error;
+  }
+  const details = buildMonthCodeCoverage({
+    months,
+    lawdCodes: context.expectedLawdCodes,
+    completedRows: result.rows
+  });
+  const failed = details.filter((item) => item.status === "fail");
+  const missingPairs = failed.reduce((sum, item) => sum + item.missingLawdCount, 0);
+  return buildCheck({
+    key: "molit_historical_coverage",
+    category: "collection",
+    title: "실거래 전체 이력 커버리지",
+    status: failed.length ? "fail" : "pass",
+    message: failed.length
+      ? `${failed.length}개월에서 ${missingPairs}개 시군구 월 fetch가 누락되었습니다.`
+      : "2016년 시작월부터 현재월까지 전국 법정동 코드별 fetch 이력이 완료되었습니다.",
+    metrics: {
+      startMonth: context.historicalStartMonth,
+      endMonth: context.endMonth,
+      expectedLawdCount: context.expectedLawdCount,
+      checkedMonths: months.length,
+      missingMonths: failed.length,
+      missingLawdMonthPairs: missingPairs
+    },
+    details: details.map((item) => ({
+      ...item,
+      missingLawdCodes: item.missingLawdCodes.slice(0, 12)
+    }))
+  });
+}
+
+async function checkMolitProviderRunFreshness(context) {
+  return checkProviderRunFreshness("molit", context);
+}
+
+async function checkKbProviderRunFreshness(context) {
+  return checkProviderRunFreshness("kb", context);
+}
+
+async function checkProviderRunFreshness(provider, context) {
+  let result;
+  try {
+    result = await query(`
+      select
+        (select count(*)::int from collection_runs where provider = $1 and status = 'running') as running_count,
+        (select max(started_at) from collection_runs where provider = $1 and status = 'running') as running_started_at,
+        (select status from collection_runs where provider = $1 and status in ('succeeded', 'failed') order by started_at desc limit 1) as status,
+        (select scheduled_date::text from collection_runs where provider = $1 and status in ('succeeded', 'failed') order by started_at desc limit 1) as scheduled_date,
+        (select started_at from collection_runs where provider = $1 and status in ('succeeded', 'failed') order by started_at desc limit 1) as started_at,
+        (select finished_at from collection_runs where provider = $1 and status in ('succeeded', 'failed') order by started_at desc limit 1) as finished_at
+    `, [provider]);
+  } catch (error) {
+    if (isMissingTable(error, "collection_runs")) {
+      return buildCheck({
+        key: `${provider}_provider_run_freshness`,
+        category: "collection",
+        title: `${provider.toUpperCase()} 수집 실행 신선도`,
+        status: "fail",
+        message: "collection_runs 테이블이 없습니다. 수집 실행 이력 마이그레이션이 적용되지 않았습니다.",
+        metrics: { schemaReady: false }
+      });
+    }
+    throw error;
+  }
+  const row = result.rows[0] || {};
+  const runningCount = Number(row.running_count || 0);
+  const runningAgeHours = row.running_started_at
+    ? Math.max(0, (Date.now() - new Date(row.running_started_at).getTime()) / (60 * 60 * 1000))
+    : null;
+  const ageHours = row.finished_at
+    ? Math.max(0, (Date.now() - new Date(row.finished_at).getTime()) / (60 * 60 * 1000))
+    : null;
+  let status = "pass";
+  let message = `최근 ${provider.toUpperCase()} 수집 실행이 정상 종료되었습니다.`;
+  if (runningCount && runningAgeHours <= context.providerRunMaxAgeHours) {
+    status = "warn";
+    message = `${provider.toUpperCase()} 수집 실행이 진행 중이며 완료 후 결과를 기록합니다.`;
+  } else if (runningCount && runningAgeHours > context.providerRunMaxAgeHours) {
+    status = "fail";
+    message = `진행 중인 ${provider.toUpperCase()} 수집 실행이 ${context.providerRunMaxAgeHours}시간보다 오래되었습니다.`;
+  } else if (!row.status) {
+    status = "fail";
+    message = `완료된 ${provider.toUpperCase()} 수집 실행 이력이 없습니다.`;
+  } else if (row.status === "failed") {
+    status = "fail";
+    message = `가장 최근 ${provider.toUpperCase()} 수집 실행이 실패했습니다.`;
+  } else if (ageHours > context.providerRunMaxAgeHours) {
+    status = "fail";
+    message = `${provider.toUpperCase()} 수집 성공 이력이 ${context.providerRunMaxAgeHours}시간보다 오래되었습니다.`;
+  }
+  return buildCheck({
+    key: `${provider}_provider_run_freshness`,
+    category: "collection",
+    title: `${provider.toUpperCase()} 수집 실행 신선도`,
+    status,
+    message,
+    metrics: {
+      latestStatus: row.status || null,
+      scheduledDate: row.scheduled_date || null,
+      startedAt: row.started_at || null,
+      finishedAt: row.finished_at || null,
+      ageHours,
+      runningCount,
+      runningStartedAt: row.running_started_at || null,
+      runningAgeHours,
+      maxAgeHours: context.providerRunMaxAgeHours,
+      schemaReady: true
+    }
+  });
+}
+
+async function checkKbDailyAreaCoverage(context) {
+  let result;
+  try {
+    result = await query(`
+      select
+        count(*)::int as expected_area_count,
+        count(f.area_type_id)::int as tracked_area_count,
+        count(*) filter (where f.status in ('completed', 'no_price') and f.last_success_at >= now() - ($1::int * interval '1 hour'))::int as fresh_area_count,
+        count(*) filter (where f.area_type_id is null)::int as untracked_area_count,
+        count(*) filter (where f.status = 'failed')::int as failed_area_count,
+        count(*) filter (where f.area_type_id is not null and (coalesce(f.status, '') not in ('completed', 'no_price') or f.last_success_at is null or f.last_success_at < now() - ($1::int * interval '1 hour')))::int as stale_area_count,
+        max(f.latest_month) as latest_price_month,
+        max(f.last_success_at) as latest_success_at
+      from area_types at
+      join apartments a on a.id = at.apartment_id
+      left join kb_daily_area_fetches f on f.area_type_id = at.id
+      where a.source = 'kb_internal_mvp'
+        and a.source_complex_id is not null
+        and (coalesce(at.supply_area_pyeong, 0) > 0 or coalesce(at.exclusive_area_pyeong, 0) > 0)
+    `, [context.providerRunMaxAgeHours]);
+  } catch (error) {
+    if (isMissingTable(error, "kb_daily_area_fetches")) {
+      return buildCheck({
+        key: "kb_daily_area_coverage",
+        category: "collection",
+        title: "KB 기존 면적형 일일 갱신 커버리지",
+        status: "fail",
+        message: "kb_daily_area_fetches 테이블이 없습니다. KB 일일 갱신 마이그레이션이 적용되지 않았습니다.",
+        metrics: { schemaReady: false }
+      });
+    }
+    throw error;
+  }
+  const row = result.rows[0] || {};
+  const expected = Number(row.expected_area_count || 0);
+  const fresh = Number(row.fresh_area_count || 0);
+  const untracked = Number(row.untracked_area_count || 0);
+  const failed = Number(row.failed_area_count || 0);
+  const stale = Number(row.stale_area_count || 0);
+  const issues = [];
+  if (!expected) issues.push("현재 area_types가 비어 있습니다.");
+  if (untracked) issues.push(`${untracked}개 면적형이 아직 추적되지 않습니다.`);
+  if (failed) issues.push(`${failed}개 면적형의 최근 조회가 실패했습니다.`);
+  if (stale) issues.push(`${stale}개 면적형이 ${context.providerRunMaxAgeHours}시간 안에 성공적으로 조회되지 않았습니다.`);
+  return buildCheck({
+    key: "kb_daily_area_coverage",
+    category: "collection",
+    title: "KB 기존 면적형 일일 갱신 커버리지",
+    status: issues.length ? "fail" : "pass",
+    message: issues.length ? issues.join(" ") : "기존 면적형 전체가 최근 성공 조회 이력을 보유합니다.",
+    metrics: {
+      expectedAreaCount: expected,
+      trackedAreaCount: Number(row.tracked_area_count || 0),
+      freshAreaCount: fresh,
+      untrackedAreaCount: untracked,
+      failedAreaCount: failed,
+      staleAreaCount: stale,
+      latestPriceMonth: row.latest_price_month || null,
+      latestSuccessAt: row.latest_success_at || null,
+      maxAgeHours: context.providerRunMaxAgeHours,
+      schemaReady: true
+    }
+  });
+}
+
+async function checkKbPriceFreshness(context) {
+  let result;
+  try {
+    result = await query(`
+      select max(year_month) as latest_price_month,
+        max(updated_at) as latest_updated_at,
+        count(*)::int as price_count
+      from monthly_prices
+    `);
+  } catch (error) {
+    if (isMissingTable(error, "monthly_prices")) {
+      return buildCheck({
+        key: "kb_price_freshness",
+        category: "collection",
+        title: "KB 시세 데이터 신선도",
+        status: "fail",
+        message: "monthly_prices 테이블이 없습니다. KB 가격 데이터 스키마를 확인하세요.",
+        metrics: { schemaReady: false }
+      });
+    }
+    throw error;
+  }
+  const row = result.rows[0] || {};
+  const latestMonth = row.latest_price_month || null;
+  const latestUpdatedAt = row.latest_updated_at || null;
+  const minimumPublishedMonth = addMonths(context.endMonth, -context.kbPricePublicationGraceMonths);
+  const updateAgeHours = latestUpdatedAt
+    ? Math.max(0, (Date.now() - new Date(latestUpdatedAt).getTime()) / (60 * 60 * 1000))
+    : null;
+  const issues = [];
+  if (!Number(row.price_count || 0)) issues.push("가격 데이터가 비어 있습니다.");
+  if (!latestMonth) issues.push("최신 가격 월을 확인할 수 없습니다.");
+  else if (latestMonth < minimumPublishedMonth) {
+    issues.push(`최신 가격 월이 공개 유예 기준(${minimumPublishedMonth})보다 오래되었습니다.`);
+  }
+  if (!latestUpdatedAt) issues.push("가격 데이터 갱신 시각을 확인할 수 없습니다.");
+  else if (updateAgeHours > context.kbPriceMaxUpdateAgeHours) {
+    issues.push(`가격 데이터 갱신이 ${context.kbPriceMaxUpdateAgeHours}시간보다 오래되었습니다.`);
+  }
+  return buildCheck({
+    key: "kb_price_freshness",
+    category: "collection",
+    title: "KB 시세 데이터 신선도",
+    status: issues.length ? "fail" : "pass",
+    message: issues.length ? issues.join(" ") : "공개된 최신월 기준과 최근 갱신 시각이 정상입니다.",
+    metrics: {
+      priceCount: Number(row.price_count || 0),
+      latestPriceMonth: latestMonth,
+      minimumPublishedMonth,
+      latestUpdatedAt,
+      updateAgeHours,
+      maxUpdateAgeHours: context.kbPriceMaxUpdateAgeHours,
+      publicationGraceMonths: context.kbPricePublicationGraceMonths
+    }
+  });
+}
+
 async function checkRecentTradeFetches(context) {
   const result = await query(`
-    select
-      year_month,
-      count(distinct lawd_cd) filter (where status = 'completed')::int as completed_lawd_count,
-      count(distinct lawd_cd)::int as known_lawd_count,
-      count(*) filter (where status = 'completed')::int as completed_fetches,
-      count(*) filter (where status = 'running')::int as running_fetches,
-      count(*) filter (where status = 'failed')::int as failed_fetches,
-      count(*)::int as total_fetches,
-      coalesce(sum(saved_count) filter (where status = 'completed'), 0)::int as saved_count,
-      max(updated_at) as updated_at
+    select year_month, lawd_cd
     from molit_trade_fetches
-    where year_month = any($1::text[])
-    group by year_month
-  `, [context.recentMonths]);
-  const byMonth = new Map(result.rows.map((row) => [row.year_month, row]));
-  const details = context.recentMonths.map((month) => {
-    const row = byMonth.get(month) || {};
-    const completedLawdCount = Number(row.completed_lawd_count || 0);
-    const failedFetches = Number(row.failed_fetches || 0);
-    const runningFetches = Number(row.running_fetches || 0);
-    const missingLawdCount = Math.max(context.expectedLawdCount - completedLawdCount, 0);
-    return {
-      month,
-      status: missingLawdCount || failedFetches || runningFetches ? "fail" : "pass",
-      completedLawdCount,
-      expectedLawdCount: context.expectedLawdCount,
-      missingLawdCount,
-      completedFetches: Number(row.completed_fetches || 0),
-      runningFetches,
-      failedFetches,
-      savedCount: Number(row.saved_count || 0),
-      updatedAt: row.updated_at || null
-    };
+    where status = 'completed'
+      and year_month = any($1::text[])
+      and lawd_cd = any($2::text[])
+    group by year_month, lawd_cd
+  `, [context.recentMonths, context.expectedLawdCodes]);
+  const details = buildMonthCodeCoverage({
+    months: context.recentMonths,
+    lawdCodes: context.expectedLawdCodes,
+    completedRows: result.rows
   });
   const failed = details.filter((item) => item.status === "fail");
   return buildCheck({
@@ -78,9 +321,10 @@ async function checkRecentTradeFetches(context) {
     metrics: {
       expectedLawdCount: context.expectedLawdCount,
       checkedMonths: context.recentMonths.length,
-      failedMonths: failed.length
+      failedMonths: failed.length,
+      missingLawdMonthPairs: failed.reduce((sum, item) => sum + item.missingLawdCount, 0)
     },
-    details
+    details: details.map((item) => ({ ...item, missingLawdCodes: item.missingLawdCodes.slice(0, 12) }))
   });
 }
 
@@ -625,4 +869,8 @@ async function safeCheck(check, context) {
       metrics: {}
     });
   }
+}
+
+function isMissingTable(error, tableName) {
+  return error?.code === "42P01" && String(error.message || "").includes(tableName);
 }

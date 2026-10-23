@@ -81,3 +81,8 @@ test("fails required discovery when KB silently returns no complexes", async () 
     }
   );
 });
+
+test("does not treat a malformed KB history response as a successful empty fetch", async () => {
+  const provider = new KBPriceProvider({request: async () => ({dataBody:{data:{}}})});
+  await assert.rejects(provider.fetchHistoricalPrices(1,1,["2026"]), /missing the expected history array/);
+});

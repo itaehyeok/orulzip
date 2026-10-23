@@ -202,7 +202,9 @@ export class KBPriceProvider extends PriceDataProvider {
         "기준년": years.join(",")
       }
     });
-    return data?.dataBody?.data?.시세 || [];
+    const prices = data?.dataBody?.data?.시세;
+    if (!Array.isArray(prices)) throw new Error("KB price response is missing the expected history array");
+    return prices;
   }
 }
 
@@ -240,6 +242,7 @@ async function requestJson(path, { method = "GET", params = {}, body = null } = 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await fetch(url, {
+        signal: AbortSignal.timeout(Number(process.env.KB_API_TIMEOUT_MS || 15000)),
         method,
         headers: {
           "Accept": "application/json",
@@ -249,6 +252,7 @@ async function requestJson(path, { method = "GET", params = {}, body = null } = 
         },
         body: method === "POST" ? JSON.stringify(body || {}) : undefined
       });
+      if (!response.ok) throw new Error("KB API HTTP " + response.status);
       const parsed = await response.json();
       const code = parsed?.dataHeader?.resultCode;
       if (code && code !== "10000") {
@@ -296,7 +300,7 @@ function normalizeAreaType(apartmentId, row) {
   };
 }
 
-function normalizeMonthlyPrices(areaType, groups) {
+export function normalizeMonthlyPrices(areaType, groups) {
   const prices = [];
   for (const group of groups) {
     for (const item of group.items || []) {

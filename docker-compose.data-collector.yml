@@ -233,6 +233,35 @@ services:
     networks:
       - orulzip-shared
 
+
+  daily-collection:
+    build: .
+    image: ${ORULZIP_COLLECTOR_IMAGE:-orulzip-collector:main}
+    profiles: ["daily"]
+    restart: "no"
+    command: ["node", "scripts/run-daily-collection.js", "molit"]
+    environment:
+      DATABASE_URL: ${DATA_COLLECTOR_DATABASE_URL:-${DATABASE_URL:?set DATABASE_URL}}
+      ORULZIP_DB_INIT: 0
+      ORULZIP_READ_ONLY: 0
+      ORULZIP_ENVIRONMENT: production
+      MOLIT_APT_TRADE_SERVICE_KEY: ${MOLIT_APT_TRADE_SERVICE_KEY:-}
+      REB_APT_IDENTITY_SERVICE_KEY: ${REB_APT_IDENTITY_SERVICE_KEY:-}
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
+      MOLIT_DAILY_TARGETS: ${MOLIT_DAILY_TARGETS:-all-sido}
+      MOLIT_DAILY_RECENT_TARGETS: ${MOLIT_DAILY_RECENT_TARGETS:-all-sido}
+      MOLIT_DAILY_LIMIT: ${MOLIT_DAILY_LIMIT:-6500}
+      MOLIT_DAILY_DELAY_MS: ${MOLIT_DAILY_DELAY_MS:-500}
+      MOLIT_DAILY_BACKFILL: 1
+      MOLIT_GEOCODE_LIMIT: ${MOLIT_GEOCODE_LIMIT:-5000}
+      MOLIT_DAILY_REFRESH_REB_IDENTITY: ${MOLIT_DAILY_REFRESH_REB_IDENTITY:-1}
+      MOLIT_DAILY_REFRESH_PRICE_BAND_CACHE: ${MOLIT_DAILY_REFRESH_PRICE_BAND_CACHE:-1}
+      KB_DAILY_DELAY_MS: ${KB_DAILY_DELAY_MS:-250}
+      KB_DAILY_CONCURRENCY: ${KB_DAILY_CONCURRENCY:-3}
+      KB_API_TIMEOUT_MS: ${KB_API_TIMEOUT_MS:-15000}
+    networks:
+      - orulzip-shared
+
 networks:
   orulzip-shared:
     name: ${ORULZIP_DOCKER_NETWORK:-orulzip-shared}

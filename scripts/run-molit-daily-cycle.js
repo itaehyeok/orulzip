@@ -31,14 +31,15 @@ const recentStatus = runNode("scripts/sync-molit-trades.js", [
 ], { allowQuotaExit: true });
 
 if (recentStatus === 75) {
-  console.log("[molit-daily] quota exhausted during recent refresh; cache refresh will wait for the next cycle.");
-  process.exit(0);
+  console.error("[molit-daily] quota exhausted during recent refresh; the recent window is incomplete.");
+  process.exit(75);
 }
 
 let backfillQuotaExhausted = false;
 if (options.backfill) {
   const backfillStatus = runNode("scripts/sync-molit-trades.js", [
     "--targets", options.targets,
+    "--end", currentMonth(),
     "--limit", options.limit,
     "--delay-ms", options.delayMs,
     "--skip-map-cache-refresh"
@@ -59,7 +60,7 @@ runNpm(["run", "refresh:molit-map-cache", "--", "--skip-complex-sync"]);
 if (options.refreshPriceBandCache) {
   runNpm(["run", "refresh:price-band-cache"]);
 }
-runNpm(["run", "check:data-health"]);
+runNpm(["run", "check:data-health"], { ...process.env, COLLECTION_HEALTH_PROVIDER: "molit" });
 runNpm(["run", "check:price-band-cache", "--", "--fail-on-issue"]);
 runNpm(["run", "check:performance"]);
 
@@ -72,13 +73,13 @@ function runNode(script, args, { allowQuotaExit = false } = {}) {
   return run(process.execPath, [script, ...args], { allowQuotaExit });
 }
 
-function runNpm(args) {
-  run("npm", args);
+function runNpm(args, env = process.env) {
+  run("npm", args, { env });
 }
 
-function run(command, args, { allowQuotaExit = false } = {}) {
+function run(command, args, { allowQuotaExit = false, env = process.env } = {}) {
   const result = spawnSync(command, args, {
-    env: process.env,
+    env,
     stdio: "inherit"
   });
   if (result.status === 75 && allowQuotaExit) return 75;

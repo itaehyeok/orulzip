@@ -33,7 +33,9 @@
     "check": "node scripts/check.js",
     "check:analytics": "node scripts/check-analytics.js",
     "migrate:db": "node scripts/migrate-db.js",
-    "migrate:analytics": "node scripts/migrate-analytics-db.js"
+    "migrate:analytics": "node scripts/migrate-analytics-db.js",
+    "daily:kb": "node scripts/run-kb-daily-cycle.js",
+    "daily:collection": "node scripts/run-daily-collection.js"
   },
   "dependencies": {
     "pg": "^8.13.1"

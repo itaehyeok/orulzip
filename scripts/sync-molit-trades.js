@@ -231,7 +231,7 @@ const options = parseArgs(process.argv.slice(2));
 await initDb();
 const kbPeriod = await latestKbPricePeriod();
 const startMonth = options.start || kbPeriod.startMonth || "201601";
-const endMonth = options.end || kbPeriod.endMonth || currentYearMonth();
+const endMonth = options.end || currentYearMonth();
 const requestedTargetIds = expandTargetIds(options.targets.split(",").map((item) => item.trim()).filter(Boolean));
 const targetIds = options.onlyCollectedTargets
   ? await filterCollectedTargetIds(requestedTargetIds)
@@ -394,6 +394,8 @@ if (!stoppedEarly && !options.skipMapCacheRefresh) {
 
 if (stopReason === "quota-exceeded") {
   process.exitCode = 75;
+} else if (failedCount > 0) {
+  process.exitCode = 1;
 }
 
 function buildTasks({ targetIds, startMonth, endMonth }) {
@@ -491,6 +493,6 @@ async function filterCollectedTargetIds(targetIds) {
 }
 
 function currentYearMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 }
