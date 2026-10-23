@@ -2,6 +2,8 @@
 
 This document tracks the public apartment trade data collection setup. Keep this data separate from KB price data.
 
+Production scheduling and rollout instructions are in [DAILY_COLLECTION.md](DAILY_COLLECTION.md). Since 2026-10-23, the canonical main image runs one-shot jobs at fixed KST times, with DB-backed run history; the old sleep loops and national-batch cron are disabled.
+
 ## API
 
 - Provider: 공공데이터포털 / 국토교통부
@@ -30,8 +32,7 @@ After daily MOLIT collection, `REB_APT_IDENTITY_MATCH_ON_MOLIT_SYNC=1` refreshes
 
 - Data is stored only in `molit_` tables.
 - KB tables such as `monthly_prices`, `apartments`, and `area_types` must not receive MOLIT trade rows.
-- Default period follows the current KB data period:
-  - `201601` through `202606` as of 2026-06-12.
+- Default historical period starts at the earliest KB month (fallback 201601) and ends at the current KST month. It never stops at the latest KB month. The daily recent refresh covers the previous and current month; historical backfill repairs gaps through the current month.
 - Current coded targets:
   - Nationwide: 254 current 시군구-level LAWD codes from 행정표준코드관리시스템 법정동코드 전체자료, downloaded 2026-06-17
   - Seoul: 25 gu codes
@@ -69,7 +70,7 @@ Operational rule:
 - The daily collection should run automatically with a fixed `--limit`.
 - Do not require manual daily prompts; completed `(target_region_id, lawd_cd, year_month)` fetches are skipped.
 - Failed rows should remain marked as `failed` and be retried in a later run.
-- `molit-daily-collector` runs the current coded scope once, then sleeps for 24 hours before resuming.
+- The active production schedule starts MOLIT at 02:00 KST and KB at 05:00 KST. The legacy sleep loop is disabled and requires the legacy-manual profile.
 
 ## Commands
 
@@ -91,7 +92,7 @@ Collect nationwide scope within the safe daily budget:
 docker compose run --rm molit-daily-collector npm run sync:molit -- --targets nationwide --limit 6500 --delay-ms 500
 ```
 
-Start the automatic daily collector:
+Legacy collector command (superseded; use the canonical main deploy-data-collection.sh script and fixed cron installer instead):
 
 ```sh
 cd /home/th/docker/custom/orulzip/data-collector

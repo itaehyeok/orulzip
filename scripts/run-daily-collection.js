@@ -2,14 +2,22 @@ import { spawn } from "node:child_process";
 import { withCollectionRun, normalizeProvider } from "../src/services/collection-run-store.js";
 const [providerArg, ...childArgs] = process.argv.slice(2);
 const provider = normalizeProvider(providerArg);
+let skipped = false;
 const scripts = { molit: "scripts/run-molit-daily-cycle.js", kb: "scripts/run-kb-daily-cycle.js" };
 try {
   const result = await withCollectionRun(provider, () => runChild(scripts[provider], childArgs));
+  skipped = result.skipped;
   if (result.skipped) console.log(JSON.stringify({ message: "Daily collection skipped; provider lock is held", provider }));
   else console.log(JSON.stringify({ message: "Daily collection finished", provider, runId: result.runId, ...result.summary }));
 } catch (error) {
   console.error(JSON.stringify({ message: "Daily collection failed", provider, error: String(error?.message || "Collection process failed.").slice(0, 1000) }));
   process.exitCode = 1;
+} finally {
+  // Persist overall health only after the provider's success/failure history is finalized.
+  if (!skipped) {
+    try { await runChild("scripts/check-data-health.js", ["--no-notify"]); }
+    catch { console.error(JSON.stringify({message:"Overall collection health has issues; inspect the saved data health checks",provider})); }
+  }
 }
 function runChild(script, args) {
   return new Promise((resolve, reject) => {
