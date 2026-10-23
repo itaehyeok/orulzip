@@ -7,10 +7,12 @@ export class MolitTradeProvider extends PriceDataProvider {
     throw new Error("MOLIT provider is planned for commercial migration and is not implemented yet.");
   }
 
-  constructor({ serviceKey = process.env.MOLIT_APT_TRADE_SERVICE_KEY, numOfRows = 1000 } = {}) {
+  constructor({ serviceKey = process.env.MOLIT_APT_TRADE_SERVICE_KEY, numOfRows = 1000, request = fetch, retryDelayMs = 300 } = {}) {
     super();
     this.serviceKey = serviceKey;
     this.numOfRows = numOfRows;
+    this.request = request;
+    this.retryDelayMs = retryDelayMs;
   }
 
   async fetchDeals({ lawdCd, yearMonth }) {
@@ -46,7 +48,9 @@ export class MolitTradeProvider extends PriceDataProvider {
     const keyParam = this.serviceKey.includes("%")
       ? this.serviceKey
       : encodeURIComponent(this.serviceKey);
-    const response = await fetch(`${url}${separator}serviceKey=${keyParam}`);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await this.request(`${url}${separator}serviceKey=${keyParam}`, {signal:AbortSignal.timeout(30000)});
     const text = await response.text();
 
     if (!response.ok) {
@@ -54,6 +58,15 @@ export class MolitTradeProvider extends PriceDataProvider {
     }
 
     return parseTradeResponse(text);
+      } catch (error) {
+        const message = String(error?.message || "");
+        const transient = ["TimeoutError","AbortError","TypeError"].includes(error?.name)
+          || /MOLIT API HTTP (5[0-9]{2}|408)/.test(message)
+          || /MOLIT API (01|02|04):/.test(message);
+        if (!transient || attempt === 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * (attempt + 1)));
+      }
+    }
   }
 }
 
