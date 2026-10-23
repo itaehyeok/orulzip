@@ -297,7 +297,7 @@ async function checkKbPriceFreshness(context) {
 
 async function checkRecentTradeFetches(context) {
   const result = await query(`
-    select year_month, lawd_cd
+    select year_month, lawd_cd, max(completed_at) as completed_at
     from molit_trade_fetches
     where status = 'completed'
       and year_month = any($1::text[])
@@ -307,7 +307,8 @@ async function checkRecentTradeFetches(context) {
   const details = buildMonthCodeCoverage({
     months: context.recentMonths,
     lawdCodes: context.expectedLawdCodes,
-    completedRows: result.rows
+    completedRows: result.rows,
+    maxAgeHours: context.providerRunMaxAgeHours
   });
   const failed = details.filter((item) => item.status === "fail");
   return buildCheck({
@@ -316,7 +317,7 @@ async function checkRecentTradeFetches(context) {
     title: "최근 2개월 실거래가 fetch",
     status: failed.length ? "fail" : "pass",
     message: failed.length
-      ? `${failed.length}개월에서 완료되지 않은 시군구 fetch가 있습니다.`
+      ? `${failed.length}개월에서 fetch가 누락되었거나 ${context.providerRunMaxAgeHours}시간보다 오래되었습니다.`
       : "최근 2개월 전국 시군구 fetch가 완료되었습니다.",
     metrics: {
       expectedLawdCount: context.expectedLawdCount,
@@ -324,7 +325,11 @@ async function checkRecentTradeFetches(context) {
       failedMonths: failed.length,
       missingLawdMonthPairs: failed.reduce((sum, item) => sum + item.missingLawdCount, 0)
     },
-    details: details.map((item) => ({ ...item, missingLawdCodes: item.missingLawdCodes.slice(0, 12) }))
+    details: details.map((item) => ({
+      ...item,
+      missingLawdCodes: item.missingLawdCodes.slice(0, 12),
+      staleLawdCodes: item.staleLawdCodes.slice(0, 12)
+    }))
   });
 }
 
