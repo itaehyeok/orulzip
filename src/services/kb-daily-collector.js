@@ -37,6 +37,29 @@ export function requestPacer(intervalMs, { now = Date.now, sleep = (ms) => new P
   };
 }
 
+export function kbMetadataConfirmsNoPrice(types, areaId) {
+  if (!Array.isArray(types) || !types.length) return false;
+  const unavailable = (row) => String(row.시세제공여부) === "0"
+    && Object.hasOwn(row, "매매일반거래가") && Number(row.매매일반거래가) === 0;
+  const area = types.find((row) => String(row.면적일련번호) === String(areaId));
+  return area ? unavailable(area) : types.every(unavailable);
+}
+
+export async function fetchKbAreaHistory(provider, area, window, readMetadata = (id) => provider.fetchAreaTypes(id)) {
+  try {
+    return await provider.fetchHistoricalPrices(area.source_complex_id, area.source_area_id, window.years);
+  } catch (error) {
+    // Some explicitly unquoted complexes return INTERNAL_SERVER_ERROR from
+    // history/year endpoints. Confirm availability from the independent type API;
+    // a real quoted area or an ambiguous response must remain a failure.
+    if (!String(error?.message || "").includes("INTERNAL_SERVER_ERROR")) throw error;
+    const types = await readMetadata(area.source_complex_id);
+    if (!kbMetadataConfirmsNoPrice(types, area.source_area_id)) throw error;
+    console.log(JSON.stringify({message:"KB metadata confirms price unavailable",areaTypeId:area.id}));
+    return [];
+  }
+}
+
 export function parseKbDailyArgs(args, env = process.env) {
   let limit = 0;
   let resume = true;
@@ -87,13 +110,21 @@ export async function runKbDailyCollection({
   let stopped = false;
   const pace = requestPacer(delayMs);
   const failures = [];
+  const metadata = new Map();
+  function readMetadata(complexId) {
+    if (!metadata.has(complexId)) metadata.set(complexId, (async () => {
+      await pace();
+      return provider.fetchAreaTypes(complexId);
+    })());
+    return metadata.get(complexId);
+  }
   async function worker() {
     while (position < targets.length && !stopped) {
       const area = targets[position++];
       try {
         await pace();
         const window = priceWindow(area.latest_month, endMonth);
-        const groups = await provider.fetchHistoricalPrices(area.source_complex_id, area.source_area_id, window.years);
+        const groups = await fetchKbAreaHistory(provider, area, window, readMetadata);
         const prices = normalizeFetchedPrices(area, groups, window);
         await saveAreaResult(area.id, prices);
         summary.completedAreas += 1;

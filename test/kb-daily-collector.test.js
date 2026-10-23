@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { kstMonth,priceWindow,normalizeFetchedPrices,requestPacer,parseKbDailyArgs } from "../src/services/kb-daily-collector.js";
+import { kstMonth,priceWindow,normalizeFetchedPrices,requestPacer,parseKbDailyArgs,kbMetadataConfirmsNoPrice,fetchKbAreaHistory } from "../src/services/kb-daily-collector.js";
 
 test("KST month rollover and year window fill stale KB months", () => {
   assert.equal(kstMonth(new Date("2026-10-31T15:00:00Z")),"202611");
@@ -32,4 +32,21 @@ test("a malformed KB limit never expands to an unlimited collection", () => {
   assert.equal(parseKbDailyArgs([],{}).limit,0);
   assert.equal(parseKbDailyArgs(["--force"],{}).resume,false);
   assert.throws(() => parseKbDailyArgs([],{KB_DAILY_CONCURRENCY:"NaN"}));
+});
+
+test("KB internal history errors require independent metadata confirmation", async () => {
+  const area={id:"kb:2424:area:2302",source_complex_id:2424,source_area_id:2302};
+  const unavailable={면적일련번호:2302,시세제공여부:"0",매매일반거래가:0};
+  const p={fetchHistoricalPrices:async()=>{throw new Error("INTERNAL_SERVER_ERROR");},
+    fetchAreaTypes:async()=>[unavailable]};
+  assert.deepEqual(await fetchKbAreaHistory(p,area,{years:["2026"]}),[]);
+  p.fetchAreaTypes=async()=>[{...unavailable,시세제공여부:"1",매매일반거래가:50000}];
+  await assert.rejects(fetchKbAreaHistory(p,area,{years:["2026"]}),/INTERNAL_SERVER_ERROR/);
+  p.fetchAreaTypes=async()=>[];
+  await assert.rejects(fetchKbAreaHistory(p,area,{years:["2026"]}),/INTERNAL_SERVER_ERROR/);
+});
+test("KB placeholder types require explicit not-provided and zero price", () => {
+  assert.equal(kbMetadataConfirmsNoPrice([{면적일련번호:null,시세제공여부:"0",매매일반거래가:0}],1),true);
+  assert.equal(kbMetadataConfirmsNoPrice([{면적일련번호:null,시세제공여부:"0"}],1),false);
+  assert.equal(kbMetadataConfirmsNoPrice([],1),false);
 });
