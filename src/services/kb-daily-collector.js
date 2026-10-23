@@ -37,6 +37,32 @@ export function requestPacer(intervalMs, { now = Date.now, sleep = (ms) => new P
   };
 }
 
+export function parseKbDailyArgs(args, env = process.env) {
+  let limit = 0;
+  let resume = true;
+  let hasLimit = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--force") { resume = false; continue; }
+    if (arg === "--limit" || arg.startsWith("--limit=")) {
+      if (hasLimit) throw new Error("Use --limit only once");
+      hasLimit = true;
+      const value = arg === "--limit" ? args[++index] : arg.slice(8);
+      if (!/^[1-9][0-9]*$/.test(value || "") || !Number.isSafeInteger(Number(value))) {
+        throw new Error("--limit requires a positive integer");
+      }
+      limit = Number(value);
+      continue;
+    }
+    throw new Error("Unknown KB daily argument: " + arg);
+  }
+  const delayMs = Number(env.KB_DAILY_DELAY_MS || 250);
+  const concurrency = Number(env.KB_DAILY_CONCURRENCY || 3);
+  if (!Number.isFinite(delayMs) || delayMs < 100) throw new Error("KB_DAILY_DELAY_MS must be at least 100");
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) throw new Error("KB_DAILY_CONCURRENCY must be an integer from 1 to 8");
+  return { delayMs, concurrency, limit, resume };
+}
+
 export async function runKbDailyCollection({
   provider = new KBPriceProvider(),
   delayMs = 250,

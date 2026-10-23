@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { kstMonth,priceWindow,normalizeFetchedPrices,requestPacer } from "../src/services/kb-daily-collector.js";
+import { kstMonth,priceWindow,normalizeFetchedPrices,requestPacer,parseKbDailyArgs } from "../src/services/kb-daily-collector.js";
 
 test("KST month rollover and year window fill stale KB months", () => {
   assert.equal(kstMonth(new Date("2026-10-31T15:00:00Z")),"202611");
@@ -22,4 +22,14 @@ test("request pacing reserves separate slots for concurrent requests", async () 
   const pace=requestPacer(250,{now:()=>1000,sleep:async(ms)=>{sleeps.push(ms);}});
   await Promise.all([pace(),pace(),pace()]);
   assert.deepEqual(sleeps,[250,500]);
+});
+
+test("a malformed KB limit never expands to an unlimited collection", () => {
+  for (const args of [["--limit"],["--limit","-1"],["--limit","abc"],["--limit=0"],["--limit","2","--limit","3"],["--oops"]]) {
+    assert.throws(() => parseKbDailyArgs(args,{}));
+  }
+  assert.equal(parseKbDailyArgs(["--limit=5"],{}).limit,5);
+  assert.equal(parseKbDailyArgs([],{}).limit,0);
+  assert.equal(parseKbDailyArgs(["--force"],{}).resume,false);
+  assert.throws(() => parseKbDailyArgs([],{KB_DAILY_CONCURRENCY:"NaN"}));
 });

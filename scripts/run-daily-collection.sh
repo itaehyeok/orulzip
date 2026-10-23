@@ -24,7 +24,7 @@ git -C "$APP_DIR" merge-base --is-ancestor "$COMMIT" HEAD || { echo "Collection 
 docker image inspect "$ORULZIP_COLLECTOR_IMAGE" >/dev/null 2>&1 || { echo "Exact production image is not present locally; refusing to run."; exit 1; }
 cd "$APP_DIR"; set +e
 docker compose --project-name "$PROJECT_NAME" --project-directory "$APP_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" \
-  run --rm --no-deps --pull never --entrypoint node -e ORULZIP_DB_INIT=0 \
+  run --rm --no-deps -T --interactive=false --pull never --entrypoint node -e ORULZIP_DB_INIT=0 \
   "$SERVICE" scripts/run-daily-collection.js "$PROVIDER" "$@"
 status=$?; set -e
 if [[ "$status" -eq 0 ]]; then printf '[%s] %s daily collection completed\n' "$(date -Is)" "$PROVIDER"

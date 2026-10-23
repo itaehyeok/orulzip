@@ -10,8 +10,8 @@ COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
 export ORULZIP_COLLECTOR_IMAGE="orulzip-collector:$(git rev-parse HEAD)"
 compose=(docker compose -p orulzip-data-collector --project-directory "$SOURCE_DIR" --env-file "$RUNTIME_DIR/.env" -f "$SOURCE_DIR/docker-compose.data-collector.yml")
 "${compose[@]}" build --build-arg ORULZIP_COMMIT_SHA="$(git rev-parse HEAD)" daily-collection
-"${compose[@]}" run --rm --no-deps --entrypoint node daily-collection scripts/migrate-db.js
-"${compose[@]}" run --rm --no-deps --entrypoint node daily-collection --test
+"${compose[@]}" run --rm --no-deps -T --interactive=false --entrypoint node daily-collection scripts/migrate-db.js
+"${compose[@]}" run --rm --no-deps -T --interactive=false --entrypoint node daily-collection --test
 mkdir -p "$RUNTIME_DIR/logs/daily-collection" "$RUNTIME_DIR/backups"
 backup="$RUNTIME_DIR/backups/crontab-before-daily-collection-$(date +%Y%m%d-%H%M%S)"
 (umask 077; crontab -l > "$backup" 2>/dev/null || true)
