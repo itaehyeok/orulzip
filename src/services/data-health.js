@@ -1,6 +1,7 @@
 import { runDataHealthChecks } from "./data-health/checks.js";
 import { buildDataHealthContext, defaultEnvironment } from "./data-health/context.js";
-import { readDataHealthStatus, saveDataHealthRun } from "./data-health/store.js";
+import { readDataHealthStatus, saveDataHealthRun, saveDataHealthTelegramResult } from "./data-health/store.js";
+import { boundedErrorMessage } from "./collection-run-store.js";
 import { notifyTelegramDataHealth } from "./telegram-notifier.js";
 
 export { readDataHealthStatus };
@@ -8,7 +9,10 @@ export { readDataHealthStatus };
 export async function runDataHealthCheck({
   environment = defaultEnvironment(),
   save = true,
-  notify = false
+  notify = false,
+  notificationLabel,
+  notificationTestId,
+  requireNotification = false
 } = {}) {
   const startedAt = new Date();
   const context = buildDataHealthContext();
@@ -29,7 +33,9 @@ export async function runDataHealthCheck({
     warningCount,
     checkCount: checks.length,
     startedAt: startedAt.toISOString(),
-    finishedAt: finishedAt.toISOString()
+    finishedAt: finishedAt.toISOString(),
+    ...(nonempty(notificationLabel) ? { notificationLabel: String(notificationLabel) } : {}),
+    ...(nonempty(notificationTestId) ? { notificationTestId: String(notificationTestId) } : {})
   };
 
   const run = {
@@ -49,12 +55,20 @@ export async function runDataHealthCheck({
     run.createdAt = saved.createdAt;
   }
 
-  if (notify && shouldNotify(status)) {
-    run.telegram = await notifyTelegramDataHealth({ environment, status, summary, checks })
-      .catch((error) => ({ sent: false, reason: error.message || String(error) }));
+  if (notify && (requireNotification || shouldNotify(status))) {
+    const receipt = await notifyTelegramDataHealth({
+      environment, status, summary, checks, notificationLabel
+    }).catch((error) => ({ sent: false, reason: boundedErrorMessage(error?.message || error) }));
+    run.telegram = receipt;
+    run.summary.telegram = receipt;
+    if (save && run.id !== undefined) await saveDataHealthTelegramResult(run.id, receipt);
   }
 
   return run;
+}
+
+function nonempty(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
 }
 
 function shouldNotify(status) {

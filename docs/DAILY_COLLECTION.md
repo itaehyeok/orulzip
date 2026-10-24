@@ -21,3 +21,11 @@ After either provider finishes or fails, the runner saves a full overall health 
 The active MOLIT master has 255 request codes. API probes confirm current codes also return historical transactions, while retired codes return zero. Previously verified legacy checkpoints through 202606 are accepted as complete history through a tested alias map, including grouped Incheon boundary changes. From 202607 onward only current-code checkpoints count. This preserves valid stored history without duplicating it and repairs the missing current-code coverage for August through October as well as July.
 
 Collector deployment requires ORULZIP_PRODUCTION_LOCK_OWNER to match owner.json in the atomically acquired production lock. Hold that lock through integrated verification, rollout, and final production checks; an unrelated owner cannot deploy merely because a lock directory exists.
+
+## Telegram completion notifications
+
+The daily service passes the existing Telegram bot/chat configuration and enables successful health notifications. Each provider sends one labeled overall result only after its collection history is finalized. In-cycle MOLIT checks use --no-notify to prevent premature or duplicate messages. Telegram HTTP and JSON success plus message_id are required; the receipt or sanitized failure is stored in data_health_runs.summary.telegram. A required notification failure makes the runner exit nonzero while retaining the real collection outcome.
+
+A requested one-off connection test uses scripts/run-daily-collection.sh molit --notification-test=UNIQUE-ID. It really upserts one current-month district, skips expensive cache rebuilds, acquires the normal host/advisory locks, and labels its message as a partial test with its DB row count. Tests do not create or renew full daily collection_runs history. Reusing a delivered test ID skips collection and messaging. Schedule it with a transient user systemd timer when a delayed test is requested.
+
+Schema decision: no migration is required; notification metadata uses the existing JSONB summary and no table, index, or column contract changes.

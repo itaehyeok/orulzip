@@ -1,9 +1,9 @@
 import { closeDb, withClient } from "./db.js";
-const LOCK_IDS = Object.freeze({ molit: 731042011, kb: 731042012 });
+export const COLLECTION_LOCK_IDS = Object.freeze({ molit: 731042011, kb: 731042012 });
 const MAX_ERROR_LENGTH = 1000;
 export function normalizeProvider(value) {
   const provider = String(value || "").trim().toLowerCase();
-  if (!Object.hasOwn(LOCK_IDS, provider)) throw new Error("Provider must be either molit or kb.");
+  if (!Object.hasOwn(COLLECTION_LOCK_IDS, provider)) throw new Error("Provider must be either molit or kb.");
   return provider;
 }
 export function scheduledDateKst(now = new Date()) {
@@ -20,7 +20,7 @@ export function boundedErrorMessage(value) {
 }
 export async function startCollectionRun(client, provider, scheduledDate) {
   const normalized = normalizeProvider(provider);
-  const lockId = LOCK_IDS[normalized];
+  const lockId = COLLECTION_LOCK_IDS[normalized];
   const lock = await client.query("select pg_try_advisory_lock($1) as locked", [lockId]);
   if (!lock.rows[0]?.locked) return null;
   try {

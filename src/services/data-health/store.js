@@ -29,6 +29,14 @@ export async function readDataHealthStatus({ limit = 10 } = {}) {
   }
 }
 
+export async function saveDataHealthTelegramResult(id, receipt) {
+  await query(`
+    update data_health_runs
+    set summary = coalesce(summary, '{}'::jsonb) || jsonb_build_object('telegram', $2::jsonb)
+    where id = $1
+  `, [id, JSON.stringify(receipt)]);
+}
+
 export async function saveDataHealthRun(run) {
   const result = await query(`
     insert into data_health_runs (

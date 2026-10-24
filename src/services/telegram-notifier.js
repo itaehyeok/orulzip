@@ -91,9 +91,22 @@ export async function notifyTelegramDataHealth(event = {}) {
       signal: controller.signal
     });
     if (!response.ok) {
-      throw new Error(`Telegram sendMessage failed with HTTP ${response.status}`);
+      throw new Error(`Telegram data-health send failed (HTTP ${response.status})`);
     }
-    return { sent: true };
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error("Telegram data-health response was invalid");
+    }
+    if (payload?.ok !== true) {
+      throw new Error("Telegram data-health API rejected the message");
+    }
+    const messageId = payload?.result?.message_id;
+    if (!Number.isSafeInteger(messageId) || messageId <= 0) {
+      throw new Error("Telegram data-health response omitted the message receipt");
+    }
+    return { sent: true, messageId, sentAt: new Date().toISOString() };
   } finally {
     clearTimeout(timeout);
   }
@@ -361,7 +374,7 @@ function mapLoadBrowserInfoLine(browserInfo = {}) {
   ].filter(Boolean).join(" / ") || "미확인";
 }
 
-function telegramDataHealthMessage(event) {
+export function telegramDataHealthMessage(event = {}) {
   const summary = event.summary || {};
   const checks = Array.isArray(event.checks) ? event.checks : [];
   const issueChecks = checks.filter((check) => check.status === "fail");
@@ -369,6 +382,7 @@ function telegramDataHealthMessage(event) {
   const lines = [
     `오를집 데이터 상태 ${dataHealthStatusLabel(event.status)}`,
     `환경: ${event.environment || "unknown"}`,
+    ...(event.notificationLabel ? [String(event.notificationLabel)] : []),
     `기준월: ${summary.endMonth || "-"}`,
     `최근수집: ${Array.isArray(summary.recentMonths) ? summary.recentMonths.join(", ") : "-"}`,
     `결과: 실패 ${formatCount(summary.issueCount)} · 주의 ${formatCount(summary.warningCount)}`

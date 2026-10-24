@@ -82,7 +82,7 @@ async function runRepairCycle() {
   }
 
   // Verify all MOLIT history and recent district freshness; the other provider has an independent run.
-  runNpm(["run", "check:data-health"], { ...process.env, COLLECTION_HEALTH_PROVIDER: "molit" });
+  runNpm(["run", "check:data-health", "--", "--no-notify"], { ...process.env, COLLECTION_HEALTH_PROVIDER: "molit" });
   runNpm(["run", "check:price-band-cache", "--", "--fail-on-issue"]);
   runNpm(["run", "check:performance"]);
   console.log(JSON.stringify({
@@ -133,7 +133,7 @@ async function runScheduledCycle() {
   if (options.refreshPriceBandCache) {
     runNpm(["run", "refresh:price-band-cache"]);
   }
-  runNpm(["run", "check:data-health"], { ...process.env, COLLECTION_HEALTH_PROVIDER: "molit" });
+  runNpm(["run", "check:data-health", "--", "--no-notify"], { ...process.env, COLLECTION_HEALTH_PROVIDER: "molit" });
   runNpm(["run", "check:price-band-cache", "--", "--fail-on-issue"]);
   runNpm(["run", "check:performance"]);
 
