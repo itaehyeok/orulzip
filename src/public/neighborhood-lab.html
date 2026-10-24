@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>동네 가격 흐름 · 오를집 개발</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/css/neighborhood-lab.css"></head><body>
+<main class="lab-shell"><div class="lab-toolbar"><a href="/map">← 오를집 지도</a><label>자료 보기 <select id="lab-dataset"><option value="validated">검증 자료 · 2026.09</option><option value="development">개발 DB</option></select></label></div>
+<p id="lab-source" class="lab-source" role="status">자료를 불러오는 중…</p><div id="lab-content" hidden><div id="orulzip-gap-scene" aria-label="오를집 동네 가격 흐름 개발 전용">
+  <header class="ng-header"><a class="ng-brand" href="/map">오를집</a><span class="ng-title">먼저 오른 이웃, 아직 남은 간격</span><span class="ng-sample">개발 전용</span></header>
+  <div class="ng-map">
+    <div class="ng-drawing"></div><div class="ng-pins" aria-label="아파트 선택"></div>
+    <div class="ng-place">송파파인타운 일대<span>전용 84㎡ 안팎 · 관측 9개 단지 · 직선거리 비교</span></div>
+    <div class="ng-focus-label" aria-hidden="true">이웃보다 덜 움직인 곳</div>
+    <div class="ng-key"><span>과거 가격 움직임</span><div class="ng-color-key"></div><div class="ng-key-ends"><span>조용함</span><span>먼저 상승</span></div></div>
+    <section class="ng-selection" aria-live="polite">
+      <div class="ng-eyebrow" data-status></div><div class="ng-name" data-name></div><div class="ng-reading" data-reading></div>
+      <button type="button" class="ng-why ng-open-detail cursor-interaction">이유 자세히 보기</button><div data-evidence hidden></div>
+    </section>
+    <div class="ng-attribution">© OpenStreetMap · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">https://www.openstreetmap.org/copyright</a></div>
+  </div>
+  <div class="ng-time"><div class="ng-time-title"><label for="ng-month">지난 6개월의 움직임</label><output for="ng-month" id="ng-date"></output></div><input class="cursor-interaction" id="ng-month" type="range" min="0" max="6" value="6" step="1" aria-label="비교 기간의 과거 시점 선택"><div class="ng-time-labels"><span data-date-start></span><span data-date-mid></span><span data-date-end></span></div></div>
+  <div class="ng-note"><span class="ng-hollow"></span>빈 원: 이웃과 가격 흐름이 벌어진 단지<span class="ng-note-source">올려서 요약 · 눌러서 근거 보기</span></div>
+  <section class="ng-inspector" aria-label="선택 단지의 상세 판단 근거" hidden>
+    <header class="ng-inspector-head"><div><div class="ng-inspector-kicker">표시된 결과의 근거</div><h2 data-detail-name></h2></div><button type="button" class="ng-close-detail cursor-interaction">지도 보기</button></header>
+    <div class="ng-inspector-body"></div>
+  </section>
+  <div class="ng-hover-card" id="ng-hover-card" role="tooltip" hidden></div>
+
+
+</div>
+</div><p class="lab-caution">과거 가격 간격을 살펴보는 개발 화면입니다. 미래 상승 확률을 의미하지 않습니다.</p></main>
+<script src="/assets/neighborhood-lab-d3.min.js" defer></script><script src="/js/neighborhood-lab.js" defer></script></body></html>

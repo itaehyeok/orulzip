@@ -1,3 +1,4 @@
+import { handleNeighborhoodLab } from "./routes/neighborhood-lab.js";
 import { createServer } from "node:http";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -215,6 +216,7 @@ if (shouldInitDb) {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (await handleNeighborhoodLab(req, res, url)) return;
     const normalizedPath = normalizeRoute(url.pathname);
     const isAdmin = isAdminRequest(req);
     const requestAnalyticsHost = analyticsRequestHost(req);
