@@ -69,6 +69,8 @@ function loadNaverSdk() {
   if (window.naver?.maps) return Promise.resolve(true);
   if (state.naverSdkPromise) return state.naverSdkPromise;
 
+  if (state.clientConfigError) return Promise.reject(state.clientConfigError);
+
   const keyId = state.clientConfig?.maps?.naverKeyId;
   if (state.clientConfig?.maps?.disabled) {
     return Promise.reject(createNaverMapLoadError("disabled", "네이버 지도가 비활성화되어 있습니다."));
@@ -241,7 +243,8 @@ function naverMapFailureDetail(error, context = {}) {
     disabled: "서버 설정에서 네이버 지도가 비활성화되어 있습니다.",
     "provider-unavailable": "클라이언트 지도 provider 설정이 네이버 지도로 준비되지 않았습니다."
   };
-  return `${detailByCode[code] || "네이버 지도 로딩 실패 원인이 분류되지 않았습니다."}${timingText}`;
+  const configDetail = code === "client-config-load-failed" ? error?.failureDetail : "";
+  return `${configDetail || detailByCode[code] || "네이버 지도 로딩 실패 원인이 분류되지 않았습니다."}${timingText}`;
 }
 
 function formatNaverMapSeconds(value) {
@@ -598,7 +601,7 @@ async function initZoomMap() {
 
 async function initNaverZoomMap() {
   const loaded = await loadNaverSdk().catch((error) => {
-    handleNaverMapLoadFailure(error, { stage: "sdk" });
+    handleNaverMapLoadFailure(error, { stage: error.code === "client-config-load-failed" ? "client-config" : "sdk" });
     return false;
   });
   if (!loaded) return false;
