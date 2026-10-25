@@ -50,10 +50,62 @@ async function init() {
   setInterval(refreshStatusOnly, 5000);
 }
 
-async function loadClientConfig() {
-  state.clientConfig = await api("/api/client-config").catch(() => ({
-    maps: { provider: "naver", naverKeyId: "" }
-  }));
+async function loadClientConfig({ attempts = 3, timeoutMs = 4000, retryDelayMs = 300 } = {}) {
+  const startedAt = Date.now();
+  const failures = [];
+  state.clientConfigError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      state.clientConfig = await requestClientConfig(timeoutMs);
+      return;
+    } catch (error) {
+      failures.push(`${attempt}회: ${error.message}`);
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs * attempt));
+      }
+    }
+  }
+  const error = new Error("지도 설정을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.");
+  error.code = "client-config-load-failed";
+  error.elapsedMs = Date.now() - startedAt;
+  error.failureDetail = `/api/client-config 요청이 ${attempts}회 실패했습니다. ${failures.join(" / ")}`;
+  state.clientConfigError = error;
+  state.clientConfig = { maps: { provider: "naver" } };
+}
+
+async function requestClientConfig(timeoutMs) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const response = await fetch("/api/client-config", { signal: controller.signal, cache: "no-store" });
+    if (!response.ok) throw createClientConfigRequestError(`HTTP ${response.status}`);
+    let config;
+    try {
+      config = await response.json();
+    } catch {
+      throw createClientConfigRequestError("응답 JSON 파싱 실패");
+    }
+    if (config?.maps?.provider !== "naver" || typeof config.maps.naverKeyId !== "string") {
+      throw createClientConfigRequestError("지도 설정 응답 형식 오류");
+    }
+    return config;
+  } catch (error) {
+    if (timedOut) throw new Error(`요청 시간 초과 (${timeoutMs}ms)`);
+    if (error?.clientConfigFailure) throw error;
+    throw new Error(error?.name === "TypeError" ? "네트워크 요청 실패 (TypeError)" : "네트워크 요청 실패");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function createClientConfigRequestError(message) {
+  const error = new Error(message);
+  error.clientConfigFailure = true;
+  return error;
 }
 
 async function loadAdminSession() {

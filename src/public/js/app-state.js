@@ -88,6 +88,7 @@ const state = {
   isAdmin: false,
   activeTab: tabFromLocation(),
   clientConfig: { maps: { provider: "naver", naverKeyId: "" } },
+  clientConfigError: null,
   zoomNaverMap: null,
   zoomNaverOverlays: [],
   zoomNaverInfoWindow: null,
