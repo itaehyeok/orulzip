@@ -25,7 +25,7 @@ async function readSnapshot(area) {
   return JSON.parse(await readFile(new URL("../fixtures/" + area.snapshot, import.meta.url), "utf8"));
 }
 
-async function readDevelopmentData(area, ids) {
+async function readDevelopmentApartments(ids) {
   return withClient(async client => {
     await client.query("begin read only");
     try {
@@ -55,7 +55,7 @@ async function readDevelopmentData(area, ids) {
       const byArea = new Map(apartments.map(apartment => [apartment.area_type_id, { ...apartment, prices: {} }]));
       for (const price of prices) byArea.get(price.area_type_id).prices[price.year_month] = Number(price.sale_mid);
       await client.query("commit");
-      return buildLabPayload(displayApartments([...byArea.values()], area), latest.year_month, metadata(area, apartments.length, "development"));
+      return { apartments: [...byArea.values()], asOf: latest.year_month };
     } catch (error) {
       await client.query("rollback");
       throw error;
@@ -63,20 +63,58 @@ async function readDevelopmentData(area, ids) {
   });
 }
 
-export async function readNeighborhoodLab(dataset = "validated", areaId = "songpa") {
+export function combineNeighborhoodPayloads(payloads, areaId) {
+  const focus = payloads.find(payload => payload.area.id === areaId);
+  if (!focus || payloads.some(payload => payload.asOf !== focus.asOf)) throw new Error("지역 자료의 공통 기준월을 확인할 수 없습니다.");
+  const items = payloads.flatMap(payload => [payload.benchmark, ...payload.current_peers].map(item => ({
+    ...item, comparison_area_id: payload.area.id, comparison_area_label: payload.area.label,
+    comparison_pool_count: payload.area.pool_count, comparison_missing_history_count: payload.coverage.missing_history_count
+  })));
+  const codes = [...new Set(payloads.flatMap(payload => payload.filters.legal_dong_codes))].sort();
+  return {
+    ...focus, scope: "nearby", area: { ...focus.area, pool_count: items.length,
+      selection_count: focus.area.pool_count, display_label: payloads.map(payload => payload.area.label).join(" · ") },
+    benchmark: items.find(item => item.apt_id === focus.benchmark.apt_id),
+    current_peers: items.filter(item => item.apt_id !== focus.benchmark.apt_id),
+    models: Object.assign({}, ...payloads.map(payload => payload.models)),
+    focus_ids: [focus.benchmark, ...focus.current_peers].map(item => item.apt_id),
+    comparison_pools: payloads.map(payload => ({ id: payload.area.id, label: payload.area.label, count: payload.area.pool_count, relationship_count: Object.keys(payload.models).length })),
+    coverage: Object.fromEntries(Object.keys(focus.coverage).map(key => [key, payloads.reduce((sum, payload) => sum + payload.coverage[key], 0)])),
+    filters: { ...focus.filters, legal_dong_codes: codes, same_legal_dong_code: codes.length === 1 ? codes[0] : null },
+    ...(focus.snapshot ? { snapshot: { ...focus.snapshot, description: "동탄역과 동탄 목동의 지역별 검증용 KB 발췌 자료",
+      comparisonPools: payloads.map(payload => ({ area: payload.area.id, provenance: payload.snapshot })) } } : {})
+  };
+}
+
+export async function readNeighborhoodLab(dataset = "validated", areaId = "songpa", scope = "selected") {
   if (!["validated", "development"].includes(dataset)) {
     const error = new Error("지원하지 않는 자료입니다."); error.statusCode = 400; throw error;
   }
+  if (!["selected", "nearby"].includes(scope)) {
+    const error = new Error("지원하지 않는 표시 범위입니다."); error.statusCode = 400; throw error;
+  }
   const area = getNeighborhoodArea(areaId);
-  const key = area.id + ":" + dataset;
+  const key = area.id + ":" + dataset + ":" + scope;
   const previous = cached.get(key);
   if (previous && Date.now() - previous.at < 300000) return previous.data;
   if (pending.has(key)) return pending.get(key);
   const request = (async () => {
-    const snapshot = await readSnapshot(area);
-    const data = dataset === "development"
-      ? await readDevelopmentData(area, snapshot.apartments.map(apartment => apartment.apt_id))
-      : buildLabPayload(displayApartments(snapshot.apartments, area), snapshot.asOf, metadata(area, snapshot.apartments.length, dataset, snapshot.provenance));
+    // Load both bounded Dongtan pools so panning never replaces one area's data
+    // with the other's. Model selection remains isolated inside each pool.
+    const groups = scope === "nearby" && area.id.startsWith("dongtan-")
+      ? [getNeighborhoodArea("dongtan-station"), getNeighborhoodArea("dongtan-mokdong")] : [area];
+    const snapshots = await Promise.all(groups.map(readSnapshot));
+    const development = dataset === "development"
+      ? await readDevelopmentApartments(snapshots.flatMap(snapshot => snapshot.apartments.map(item => item.apt_id))) : null;
+    const asOf = development?.asOf || snapshots.map(snapshot => snapshot.asOf).sort()[0];
+    const payloads = groups.map((group, index) => {
+      const snapshot = snapshots[index];
+      const ids = new Set(snapshot.apartments.map(item => item.apt_id));
+      const apartments = development ? development.apartments.filter(item => ids.has(item.apt_id)) : snapshot.apartments;
+      return buildLabPayload(displayApartments(apartments, group), asOf, metadata(group, apartments.length, dataset,
+        dataset === "validated" ? snapshot.provenance : undefined));
+    });
+    const data = payloads.length > 1 ? combineNeighborhoodPayloads(payloads, area.id) : payloads[0];
     cached.set(key, { at: Date.now(), data });
     return data;
   })();

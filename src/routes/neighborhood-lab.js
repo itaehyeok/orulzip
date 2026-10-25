@@ -100,7 +100,7 @@ export async function handleNeighborhoodLab(req, res, url, {
   }
   if (decoded === apiPath) {
     if (req.method === "HEAD") return reply(200, "");
-    try { return reply(200, JSON.stringify(await readData(url.searchParams.get("dataset") || "validated", url.searchParams.get("area") ?? "songpa"))); }
+    try { return reply(200, JSON.stringify(await readData(url.searchParams.get("dataset") || "validated", url.searchParams.get("area") ?? "songpa", url.searchParams.get("scope") || "selected"))); }
     catch (error) { return reply(error.statusCode || 503, JSON.stringify({ error: error.statusCode === 400 ? error.message : "자료를 읽지 못했습니다. 잠시 후 다시 확인해 주세요." })); }
   }
   const [file, type] = staticFiles.get(decoded);

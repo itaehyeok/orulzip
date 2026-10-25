@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readNeighborhoodLab } from "../src/services/neighborhood-lab.js";
+import { readNeighborhoodLab, combineNeighborhoodPayloads } from "../src/services/neighborhood-lab.js";
 import { getNeighborhoodArea } from "../src/services/neighborhood-lab-areas.js";
 import { buildLabPayload, distanceMeters } from "../src/services/neighborhood-lab-model.js";
 import { handleNeighborhoodLab, createLabSession } from "../src/routes/neighborhood-lab.js";
@@ -58,6 +58,29 @@ test("an apartment with no monthly observations has nulls and no fitted relation
   assert.equal(data.benchmark.return_6m_pct, null);
   assert.ok(data.benchmark.monthly_prices.values.every(value => value === null));
   assert.deepEqual(data.models, {});
+});
+
+test("panning across Dongtan keeps both pools while comparison models and focus stay regional", async () => {
+  const [station, mokdong] = await Promise.all([readNeighborhoodLab("validated", "dongtan-station"), readNeighborhoodLab("validated", "dongtan-mokdong")]);
+  for (const focus of [station, mokdong]) {
+    const data = await readNeighborhoodLab("validated", focus.area.id, "nearby");
+    const items = [data.benchmark, ...data.current_peers];
+    assert.equal(data.area.id, focus.area.id);
+    assert.equal(items.length, 22);
+    assert.equal(data.asOf, "202609");
+    assert.equal(data.focus_ids.length, focus.area.pool_count);
+    assert.deepEqual(data.models, { ...station.models, ...mokdong.models });
+    assert.equal(items.filter(item => item.comparison_area_id === "dongtan-mokdong").length, 4);
+    const han = items.find(item => item.apt_id === "kb:34348");
+    const html = renderNeighborhoodEvidence({ data, item: han, monthIndex: 6 });
+    assert.ok(html.includes("동탄 목동 4개 단지"));
+    assert.ok(!html.includes("지역 자료 중 4개 단지는"), "station history gaps must not be attributed to Mokdong");
+    assert.ok(data.focus_ids.includes(data.benchmark.apt_id));
+  }
+  assert.equal((await readNeighborhoodLab("validated", "dongtan-station")).area.pool_count, 18, "nearby cache must not replace selected scope");
+  assert.equal((await readNeighborhoodLab("validated", "songpa", "nearby")).area.pool_count, 9);
+  assert.throws(() => combineNeighborhoodPayloads([station, { ...mokdong, asOf: "202608" }], "dongtan-station"));
+  await assert.rejects(readNeighborhoodLab("validated", "songpa", "nationwide"), { statusCode: 400 });
 });
 
 test("private entry preserves only the requested supported area and data source", async () => {

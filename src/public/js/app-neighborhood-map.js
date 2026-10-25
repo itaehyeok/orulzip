@@ -27,7 +27,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
   const overlay = document.createElement("div"); overlay.className = "nn-overlay";
   const controls = document.createElement("section"); controls.className = "nn-controls"; controls.setAttribute("aria-label", "동네 가격 흐름 표시 설정");
   controls.innerHTML = `<div class="nn-control-head"><label class="nn-toggle"><input type="checkbox" data-nn-toggle checked><span>동네 흐름</span></label><span class="nn-development">개발</span><button type="button" data-nn-reset>선택 지역 보기</button></div>
-    <div class="nn-area-row"><label for="nn-area">지역</label><select id="nn-area" data-nn-area aria-label="가격 흐름을 볼 지역"></select></div>
+    <div class="nn-area-row"><label for="nn-area">지도 이동</label><select id="nn-area" data-nn-area aria-label="이동해서 볼 지역"></select></div>
     <div class="nn-dataset-row"><label>자료 <select data-nn-dataset><option value="validated">검증 자료</option><option value="development">개발 DB</option></select></label><span data-nn-source></span></div>
     <div class="nn-time-row"><label for="nn-month">과거 움직임</label><output for="nn-month" data-nn-date></output></div><input id="nn-month" type="range" min="0" max="6" value="6" step="1" aria-label="과거 관측월 선택"><div class="nn-time-ends"><span data-nn-start></span><span data-nn-end></span></div>
     <div class="nn-key"><span>조용함</span><i></i><span>먼저 상승</span><span class="nn-ring-key">○ 상대 부진</span></div><p class="nn-scope" data-nn-scope role="status">선택 지역 자료를 준비하고 있습니다.</p>`;
@@ -81,7 +81,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
       : areaSummary();
   }
   function areaSummary() {
-    const label = data?.area?.label || area.selectedOptions[0]?.textContent || "선택 지역";
+    const label = data?.area?.display_label || data?.area?.label || area.selectedOptions[0]?.textContent || "선택 지역";
     const poolCount = Number.isInteger(data?.area?.pool_count) ? data.area.pool_count : items.length;
     const ids = new Set(items.map(item => String(item.apt_id)));
     const relationships = Object.entries(data?.models || {}).filter(([id, model]) => ids.has(id) && ids.has(String(model?.leader_id))).length;
@@ -91,12 +91,13 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
       (missingHistory > 0 ? " · 과거 월별 변화 자료 부족 " + missingHistory + "개" : "") +
       " · 과거 시세 비교 · 미래 상승 확률 아님";
   }
-  function update() {
+  function update(immediate = false) {
     if (!renderer || !data || destroyed) return;
     renderer.update({ items, models: data.models, monthIndex, baseMonth: data.timeline.start, months: data.timeline.months, selectedId, enabled: toggle.checked, zoom: provider.getView().zoom });
+    if (immediate) renderer.draw({ immediate: true });
     setScope();
   }
-  function onView() { if (destroyed) return; update(); hideTip(); }
+  function onView() { if (destroyed) return; update(true); hideTip(); }
   function sizeOverlay() {
     const a = container.getBoundingClientRect(), b = wrap.getBoundingClientRect();
     Object.assign(overlay.style, { left: a.left - b.left + "px", top: a.top - b.top + "px", width: a.width + "px", height: a.height + "px" });
@@ -110,7 +111,9 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
     controls.querySelector("[data-nn-scope]").textContent = areaSummary();
     const bounds = container.getBoundingClientRect(), panel = controls.getBoundingClientRect();
     const narrow = bounds.width <= 820;
-    provider.fit(items, narrow
+    const focusIds = data.focus_ids && new Set(data.focus_ids);
+    const focusItems = focusIds ? items.filter(item => focusIds.has(item.apt_id)) : items;
+    provider.fit(focusItems, narrow
       ? { top: Math.min(bounds.height * .6, panel.bottom - bounds.top + 32), left: 42, right: 42, bottom: 90 }
       : { top: 70, left: panel.right - bounds.left + 45, right: 90, bottom: 90 });
   }
@@ -141,7 +144,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
     status.hidden = false; status.textContent = "가격 자료를 불러오는 중…";
     try {
       if (mapFailed) throw new Error("네이버 지도 연결을 확인한 뒤 새로고침해 주세요.");
-      const query = new URLSearchParams({ dataset: requestedDataset, area: requestedArea });
+      const query = new URLSearchParams({ dataset: requestedDataset, area: requestedArea, scope: "nearby" });
       const response = await fetch("/api/neighborhood-lab?" + query, { cache: "no-store" });
       if (!response.ok) throw new Error(response.status === 401 ? "개인 확인 링크로 다시 접속해 주세요." : response.status === 400 ? "지원하지 않는 지역 또는 자료 선택입니다." : "가격 자료를 읽지 못했습니다.");
       const next = await response.json();
@@ -161,7 +164,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
       if (elements.zoomMapTitle) elements.zoomMapTitle.textContent = "동네 가격 흐름 지도 · 개발";
       if (elements.zoomMapCount) elements.zoomMapCount.textContent = `${items.length}개 관측 단지`;
       if (elements.zoomMapPeriod) elements.zoomMapPeriod.textContent = `${monthText(data.timeline.start)}~${monthText(data.timeline.end)}`;
-      elements.mapSearchInput.placeholder = (data.area?.label || area.selectedOptions[0]?.textContent || "선택 지역") + " 단지 찾기";
+      elements.mapSearchInput.placeholder = (data.area?.display_label || data.area?.label || area.selectedOptions[0]?.textContent || "선택 지역") + " 단지 찾기";
       status.hidden = true; update(); if (fit) fitRegion(); syncUrl();
     } catch (error) {
       if (current === requestId && !destroyed) {

@@ -128,7 +128,7 @@ export function createNeighborhoodRenderer({ container, project, metersToPixels,
     if (focusedId && !buttons.has(focusedId)) container.focus?.({ preventScroll: true });
   }
   function update(next = {}) { state = { ...state, ...next }; if (!Array.isArray(state.items)) state.items = []; if (!Array.isArray(state.months)) state.months = []; if (!state.models || typeof state.models !== "object") state.models = {}; if (!state.items.length || !state.enabled) { if (frame) cancelAnimationFrame(frame); frame = 0; render(); } else schedule(); }
-  function draw() { schedule(); }
+  function draw({ immediate = false } = {}) { if (immediate) { if (frame) cancelAnimationFrame(frame); frame = 0; render(); } else schedule(); }
   function destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); frame = 0; for (const b of buttons.values()) b.remove(); buttons.clear(); canvas.remove(); }
   return { update, draw, destroy };
 }

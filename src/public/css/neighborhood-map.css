@@ -4,6 +4,7 @@
 .nn-overlay canvas,.nn-overlay svg{position:absolute;inset:0;pointer-events:none}
 .nn-map-marker{position:absolute;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;padding:0;background:none;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;color:#20333e}
 .nn-map-marker:focus-visible{outline:2px solid #2589a5;outline-offset:4px;border-radius:50%}
+.nn-map-marker[hidden]{display:none!important}
 .nn-map-marker .nn-marker-mark{display:block;width:13px;height:13px;border-radius:50%;background:var(--nn-color,#4b9cae);border:2px solid white;box-shadow:0 1px 4px #23434a55}
 .nn-map-marker[data-candidate="true"] .nn-marker-mark{width:23px;height:23px;background:white;border:2px solid #348fae}
 .nn-map-marker[aria-pressed="true"] .nn-marker-mark{width:32px;height:32px;box-shadow:0 0 0 7px #348fae2b;border-width:3px}

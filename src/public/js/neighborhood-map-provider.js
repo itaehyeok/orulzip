@@ -2,7 +2,12 @@ function projectedPoint(map, api, point) {
   const projection = map?.getProjection?.();
   if (!projection?.fromCoordToOffset) return { x: NaN, y: NaN };
   const offset = projection.fromCoordToOffset(new api.LatLng(point.lat, point.lng));
-  return { x: Number(offset?.x), y: Number(offset?.y) };
+  // Offset coordinates belong to Naver's moving pane, not our fixed viewport.
+  // Subtract the center in the same coordinate system before placing the field.
+  const center = projection.fromCoordToOffset(map.getCenter());
+  const size = map.getSize();
+  return { x: Number(offset?.x) - Number(center?.x) + size.width / 2,
+    y: Number(offset?.y) - Number(center?.y) + size.height / 2 };
 }
 
 export async function createNeighborhoodMapProvider({ config, initializeNaver, getNaverMap, onView, onFailure = () => {} }) {
@@ -67,6 +72,8 @@ export async function createNeighborhoodMapProvider({ config, initializeNaver, g
       const bounds = new api.LatLngBounds(first, first);
       items.slice(1).forEach(item => bounds.extend(new api.LatLng(item.lat, item.lng)));
       map.fitBounds(bounds, { top: 120, right: 100, bottom: 130, left: 100, ...padding, maxZoom: 16 });
+      // A narrow screen may fit below the scale at which the field is visible.
+      if (map.getZoom() < 14) map.setZoom(14, false);
     },
     focus(item, zoom = 17) { if (live()) { map.setCenter(new api.LatLng(item.lat, item.lng)); map.setZoom(zoom); } },
     resize() { if (live()) { api.Event.trigger(map, "resize"); queueView(); } },

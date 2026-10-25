@@ -144,7 +144,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
     : "개발 자료 스냅샷 · 실시간 시세가 아닙니다.";
   const ownStart = priceAt(item, c.baseline), ownEnd = priceAt(item, c.selected);
   const sections = [];
-  const missingHistory = Math.max(0, Math.trunc(finite(data?.coverage?.missing_history_count) || 0));
+  const missingHistory = Math.max(0, Math.trunc(finite(item?.comparison_missing_history_count ?? data?.coverage?.missing_history_count) || 0));
   sections.push('<header class="nn-header"><h2>' + name + ' 비교 근거</h2><p>' +
     escapeHtml(monthLabel(c.baseline)) + " → " + escapeHtml(monthLabel(c.selected)) +
     " · 선택 기간 실제 변화 " + escapeHtml(pct(c.ownRate)) + "</p></header>");
@@ -194,7 +194,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
   sections.push('<section class="nn-section"><h3>월별 실제 시세</h3>' + chartMarkup(item, c.peer, c) + "</section>");
   sections.push('<section class="nn-section"><h3>실거래 확인</h3>' + tradeMarkup(data) + "</section>");
   if (missingHistory > 0) sections.push('<p class="nn-note">지역 자료 중 ' + missingHistory + '개 단지는 비교 시작 전 36개월 안에 계산 가능한 월별 변화가 30개 미만입니다. 결측 자료를 채우거나 비교 기준을 완화하지 않았습니다.</p>');
-  sections.push('<details class="nn-method"><summary>빈 원의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 ' + escapeHtml(data?.area?.label || "선택 지역") + ' ' + apartmentList(data).length + '개 단지 안에서 선정합니다.</p><p>빈 원은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 관측 단지의 가격 변화를 주변에 부드럽게 연결한 표현입니다. 모든 위치에 실제 가격 자료가 있다는 뜻은 아닙니다.</p></details>');
+  sections.push('<details class="nn-method"><summary>빈 원의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 ' + escapeHtml(item?.comparison_area_label || data?.area?.label || "선택 지역") + ' ' + (item?.comparison_pool_count || apartmentList(data).length) + '개 단지 안에서 선정합니다.</p><p>빈 원은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 관측 단지의 가격 변화를 주변에 부드럽게 연결한 표현입니다. 모든 위치에 실제 가격 자료가 있다는 뜻은 아닙니다.</p></details>');
   sections.push('<footer class="nn-footer"><p>출처: ' + source + " · 기준일 " + asOf + "</p><p>" +
     escapeHtml(snapshot) + " 이 화면은 " + escapeHtml(monthLabel(data?.timeline?.end || data?.asOf)) +
     " 기준으로 정한 비교 관계를 과거 선택 시점에 적용한 재생입니다. 시점별 당시 자료만으로 다시 선정한 백테스트가 아니며, 향후 회복 가능성을 추정하지 않습니다.</p></footer>");
