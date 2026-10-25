@@ -4,16 +4,14 @@ import { readNeighborhoodLab } from "../services/neighborhood-lab.js";
 
 const cookieName = "orulzip_lab_review";
 const maxAge = 86400;
+const entryPaths = new Set(["/neighborhood-lab", "/neighborhood-lab.html"]);
 const staticFiles = new Map([
-  ["/neighborhood-lab", ["neighborhood-lab.html", "text/html; charset=utf-8"]],
-  ["/neighborhood-lab.html", ["neighborhood-lab.html", "text/html; charset=utf-8"]],
-  ["/css/neighborhood-lab.css", ["css/neighborhood-lab.css", "text/css; charset=utf-8"]],
-  ["/js/neighborhood-lab.js", ["js/neighborhood-lab.js", "text/javascript; charset=utf-8"]],
-  ["/assets/neighborhood-lab-geometry.json", ["assets/neighborhood-lab-geometry.json", "application/json; charset=utf-8"]]
+  ["/js/app-neighborhood-map.js", ["js/app-neighborhood-map.js", "text/javascript; charset=utf-8"]],
+  ["/js/neighborhood-map-provider.js", ["js/neighborhood-map-provider.js", "text/javascript; charset=utf-8"]],
+  ["/js/neighborhood-map-renderer.js", ["js/neighborhood-map-renderer.js", "text/javascript; charset=utf-8"]],
+  ["/js/neighborhood-map-evidence.js", ["js/neighborhood-map-evidence.js", "text/javascript; charset=utf-8"]],
+  ["/css/neighborhood-map.css", ["css/neighborhood-map.css", "text/css; charset=utf-8"]]
 ]);
-staticFiles.set("/assets/neighborhood-lab-d3.min.js", ["assets/neighborhood-lab-d3.min.js", "text/javascript; charset=utf-8"]);
-staticFiles.set("/assets/neighborhood-lab-d3-LICENSE.txt", ["assets/neighborhood-lab-d3-LICENSE.txt", "text/plain; charset=utf-8"]);
-for (const [file, type] of [["js/app-neighborhood-map.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-provider.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-renderer.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-evidence.js", "text/javascript; charset=utf-8"], ["css/neighborhood-map.css", "text/css; charset=utf-8"], ["assets/neighborhood-map-leaflet.js", "text/javascript; charset=utf-8"], ["assets/neighborhood-map-leaflet.css", "text/css; charset=utf-8"], ["assets/neighborhood-map-leaflet-LICENSE.txt", "text/plain; charset=utf-8"]]) staticFiles.set("/"+file, [file, type]);
 const apiPath = "/api/neighborhood-lab";
 
 function equal(a, b) {
@@ -38,7 +36,7 @@ export function hasNeighborhoodLabAccess(req, { environment = process.env.ORULZI
   return environment === "development" && secret.length >= 32 && isLabSessionValid(cookie ? cookie.slice(cookieName.length+1) : "", secret);
 }
 export function neighborhoodMapConfig(req) {
-  return hasNeighborhoodLabAccess(req) ? { enabled: true, tileUrl: process.env.ORULZIP_DEVELOPMENT_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png" } : { enabled: false };
+  return hasNeighborhoodLabAccess(req) ? { enabled: true } : { enabled: false };
 }
 
 export async function handleNeighborhoodLab(req, res, url, {
@@ -51,7 +49,7 @@ export async function handleNeighborhoodLab(req, res, url, {
   let decoded;
   try { decoded = decodeURIComponent(path); } catch { return false; }
   const nativeEntry = decoded === "/map" && url.searchParams.get("lab") === "neighborhood";
-  const isFeature = staticFiles.has(decoded) || decoded === apiPath || nativeEntry;
+  const isFeature = entryPaths.has(decoded) || staticFiles.has(decoded) || decoded === apiPath || nativeEntry;
   if (!isFeature) return false;
   const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff" };
   const reply = (status, body, type = "application/json; charset=utf-8", extra = {}) => {
@@ -61,7 +59,7 @@ export async function handleNeighborhoodLab(req, res, url, {
   if (secret.length < 32) return reply(503, '{"error":"비공개 확인 링크가 설정되지 않았습니다."}');
   if (!["GET", "HEAD"].includes(req.method)) return reply(405, '{"error":"method_not_allowed"}', undefined, { Allow: "GET, HEAD" });
   const provided = url.searchParams.get("access") || "";
-  if (["/neighborhood-lab", "/neighborhood-lab.html"].includes(decoded) && equal(provided, secret)) {
+  if (entryPaths.has(decoded) && equal(provided, secret)) {
     // LAN HTTP uses an HttpOnly cookie; HTTPS adds Secure. The link credential
     // is removed before the page and its subresources are requested.
     const secure = req.socket.encrypted ? "; Secure" : "";
@@ -80,7 +78,7 @@ export async function handleNeighborhoodLab(req, res, url, {
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     return false;
   }
-  if (["/neighborhood-lab", "/neighborhood-lab.html"].includes(decoded) && url.searchParams.get("view") !== "reference") {
+  if (entryPaths.has(decoded)) {
     return reply(302, "", "text/plain", { Location: "/map?lab=neighborhood" });
   }
   if (decoded === apiPath) {

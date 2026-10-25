@@ -667,6 +667,7 @@ function watchNaverMapTileLoad() {
 }
 
 function scheduleZoomMapLoad() {
+  if (state.neighborhoodMapInitializing || state.neighborhoodMap) return;
   if (!isMapTab()) return;
   clearTimeout(state.zoomMapTimer);
   if (shouldSuppressZoomMapLoad()) return;

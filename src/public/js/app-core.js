@@ -32,22 +32,24 @@ async function init() {
   bindEvents();
   syncApartmentMarkerDesignControls();
   syncRegionMarkerDesignControls();
-  await Promise.all([
-    loadClientConfig(),
-    loadFilters(),
-    loadAdminSession()
-  ]);
+  if (new URLSearchParams(location.search).get("lab") === "neighborhood") {
+    await loadClientConfig();
+    await loadAdminSession();
+    if (!state.neighborhoodMap) await loadFilters();
+  } else {
+    await Promise.all([loadClientConfig(), loadFilters(), loadAdminSession()]);
+  }
   renderAdminNavigation();
   syncHouseholdFilterToggles();
   if (isMapTab()) {
     await loadActiveViewData();
-    refreshStatusOnly().catch((error) => {
+    if (!state.neighborhoodMap) refreshStatusOnly().catch((error) => {
       console.warn("Status refresh after map load failed:", error?.message || error);
     });
   } else {
     await refresh();
   }
-  setInterval(refreshStatusOnly, 5000);
+  if (!state.neighborhoodMap) setInterval(refreshStatusOnly, 5000);
 }
 
 async function loadClientConfig() {
@@ -56,11 +58,16 @@ async function loadClientConfig() {
   }));
   if (state.clientConfig.neighborhoodLab?.enabled && new URLSearchParams(location.search).get("lab") === "neighborhood") {
     const { installNeighborhoodMap } = await import("/js/app-neighborhood-map.js");
-    state.neighborhoodMap = await installNeighborhoodMap({
-      elements: els, config: state.clientConfig,
-      initializeNaver: initNaverZoomMap, getNaverMap: () => state.zoomNaverMap,
-      hideLoading: () => hideMapLoadingOverlay()
-    });
+    state.neighborhoodMapInitializing = true;
+    try {
+      state.neighborhoodMap = await installNeighborhoodMap({
+        elements: els, config: state.clientConfig,
+        initializeNaver: initNaverZoomMap, getNaverMap: () => state.zoomNaverMap,
+        hideLoading: () => hideMapLoadingOverlay()
+      });
+    } finally {
+      state.neighborhoodMapInitializing = false;
+    }
   }
 }
 

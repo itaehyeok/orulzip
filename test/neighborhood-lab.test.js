@@ -73,7 +73,7 @@ test("signed review session rejects tampering, expiry and future-dated cookies",
 
 test("page, API, static and encoded aliases fail closed outside development", async () => {
   let reads = 0;
-  for (const path of ["/neighborhood-lab", "/neighborhood-lab.html", "/api/neighborhood-lab", "/js/neighborhood-lab.js", "/css/neighborhood-lab.css", "/assets/neighborhood-lab-geometry.json", "/%6eeighborhood-lab.html", "//assets/neighborhood-lab-geometry.json", "/js//neighborhood-lab.js", "/assets/neighborhood-lab-d3.min.js", "/map?lab=neighborhood", "/js/app-neighborhood-map.js", "/js/neighborhood-map-provider.js", "/js/neighborhood-map-renderer.js", "/js/neighborhood-map-evidence.js", "/assets/neighborhood-map-leaflet.js", "/css/neighborhood-map.css"]) {
+  for (const path of ["/neighborhood-lab", "/neighborhood-lab.html", "/api/neighborhood-lab", "/map?lab=neighborhood", "/js/app-neighborhood-map.js", "/js/neighborhood-map-provider.js", "/js/neighborhood-map-renderer.js", "/js/neighborhood-map-evidence.js", "/css/neighborhood-map.css", "/js//neighborhood-map-provider.js", "/%6eeighborhood-lab.html"]) {
     const res = mockResponse();
     assert.equal(await handleNeighborhoodLab(mockRequest(), res, new URL("http://test"+path), { environment: "production", secret, readData: () => { reads++; } }), true);
     assert.equal(res.status, 404, path);

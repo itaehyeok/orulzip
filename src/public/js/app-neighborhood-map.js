@@ -32,7 +32,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
   const dataset = controls.querySelector("[data-nn-dataset]"); dataset.value = mode;
   const slider = controls.querySelector("#nn-month"), toggle = controls.querySelector("[data-nn-toggle]");
   let data = null, items = [], selectedId = "kb:15663", monthIndex = 6, provider, renderer, destroyed = false, requestId = 0, resizeObserver;
-  let hoverItem = null, hoverNode = null;
+  let hoverItem = null, hoverNode = null, lastSize = "";
   const selected = () => items.find(item => item.apt_id === selectedId);
 
   function hideTip() { tip.hidden = true; hoverNode?.removeAttribute("aria-describedby"); hoverItem = null; hoverNode = null; }
@@ -68,7 +68,9 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
   function sizeOverlay() {
     const a = container.getBoundingClientRect(), b = wrap.getBoundingClientRect();
     Object.assign(overlay.style, { left: a.left - b.left + "px", top: a.top - b.top + "px", width: a.width + "px", height: a.height + "px" });
-    provider?.resize(); renderer?.draw();
+    const size = a.width + ":" + a.height;
+    if (size !== lastSize) { lastSize = size; provider?.resize(); }
+    renderer?.draw();
   }
   async function loadData({ fit = false } = {}) {
     const current = ++requestId; status.hidden = false; status.textContent = "가격 자료를 불러오는 중…"; dataset.disabled = true;
@@ -94,7 +96,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
     finally { dataset.disabled = false; hideLoading(); }
   }
   try {
-    provider = await createNeighborhoodMapProvider({ container, config, initializeNaver, getNaverMap, onView, onTileError: () => { status.hidden = false; status.textContent = "지도 바탕 일부를 읽지 못했습니다. 잠시 후 다시 확인해 주세요."; } });
+    provider = await createNeighborhoodMapProvider({ container, config, initializeNaver, getNaverMap, onView, onFailure: error => { toggle.checked = false; renderer?.update({ items: [], enabled: false }); status.hidden = false; status.textContent = error.message; } });
     renderer = createNeighborhoodRenderer({ container: overlay, project: provider.project, metersToPixels: provider.metersToPixels, onSelect: select, onHover: placeTip, onLeave: hideTip });
     sizeOverlay(); resizeObserver = new ResizeObserver(sizeOverlay); resizeObserver.observe(container);
     await loadData({ fit: true });
