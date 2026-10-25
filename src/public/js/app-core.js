@@ -54,6 +54,14 @@ async function loadClientConfig() {
   state.clientConfig = await api("/api/client-config").catch(() => ({
     maps: { provider: "naver", naverKeyId: "" }
   }));
+  if (state.clientConfig.neighborhoodLab?.enabled && new URLSearchParams(location.search).get("lab") === "neighborhood") {
+    const { installNeighborhoodMap } = await import("/js/app-neighborhood-map.js");
+    state.neighborhoodMap = await installNeighborhoodMap({
+      elements: els, config: state.clientConfig,
+      initializeNaver: initNaverZoomMap, getNaverMap: () => state.zoomNaverMap,
+      hideLoading: () => hideMapLoadingOverlay()
+    });
+  }
 }
 
 async function loadAdminSession() {
@@ -736,7 +744,7 @@ function setActiveTab(tab, { push = false } = {}) {
 
   const nextRoute = tabRoutes[nextTab];
   if (push && normalizeRoute(window.location.pathname) !== nextRoute) {
-    window.history.pushState({ tab: nextTab }, "", nextRoute);
+    window.history.pushState({ tab: nextTab }, "", state.neighborhoodMap && isMapTab(nextTab) ? state.neighborhoodMap.entryUrl() : nextRoute);
   }
   if (typeof trackAnalyticsPageView === "function") trackAnalyticsPageView();
 }

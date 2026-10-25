@@ -1,4 +1,4 @@
-import { handleNeighborhoodLab } from "./routes/neighborhood-lab.js";
+import { handleNeighborhoodLab, neighborhoodMapConfig } from "./routes/neighborhood-lab.js";
 import { createServer } from "node:http";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -441,8 +441,9 @@ const server = createServer(async (req, res) => {
           provider: "naver",
           naverKeyId,
           disabled: naverDisabled
-        }
-      });
+        },
+        neighborhoodLab: neighborhoodMapConfig(req)
+      }, 200, { "Cache-Control": "private, no-store" });
     }
 
     if (url.pathname === "/api/map-search") {

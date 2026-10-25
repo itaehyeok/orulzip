@@ -73,7 +73,7 @@ test("signed review session rejects tampering, expiry and future-dated cookies",
 
 test("page, API, static and encoded aliases fail closed outside development", async () => {
   let reads = 0;
-  for (const path of ["/neighborhood-lab", "/neighborhood-lab.html", "/api/neighborhood-lab", "/js/neighborhood-lab.js", "/css/neighborhood-lab.css", "/assets/neighborhood-lab-geometry.json", "/%6eeighborhood-lab.html", "//assets/neighborhood-lab-geometry.json", "/js//neighborhood-lab.js", "/assets/neighborhood-lab-d3.min.js"]) {
+  for (const path of ["/neighborhood-lab", "/neighborhood-lab.html", "/api/neighborhood-lab", "/js/neighborhood-lab.js", "/css/neighborhood-lab.css", "/assets/neighborhood-lab-geometry.json", "/%6eeighborhood-lab.html", "//assets/neighborhood-lab-geometry.json", "/js//neighborhood-lab.js", "/assets/neighborhood-lab-d3.min.js", "/map?lab=neighborhood", "/js/app-neighborhood-map.js", "/js/neighborhood-map-provider.js", "/js/neighborhood-map-renderer.js", "/js/neighborhood-map-evidence.js", "/assets/neighborhood-map-leaflet.js", "/css/neighborhood-map.css"]) {
     const res = mockResponse();
     assert.equal(await handleNeighborhoodLab(mockRequest(), res, new URL("http://test"+path), { environment: "production", secret, readData: () => { reads++; } }), true);
     assert.equal(res.status, 404, path);
@@ -97,7 +97,7 @@ test("bootstrap removes private credential from URL and issues an HttpOnly sessi
   const res = mockResponse();
   await handleNeighborhoodLab(mockRequest(), res, new URL(`/neighborhood-lab?access=${secret}`, "http://test"), { environment: "development", secret });
   assert.equal(res.status, 302);
-  assert.equal(res.headers.Location, "/neighborhood-lab");
+  assert.equal(res.headers.Location, "/map?lab=neighborhood");
   assert.ok(res.headers["Set-Cookie"].includes("HttpOnly; SameSite=Strict"));
   assert.equal(res.headers["Referrer-Policy"], "no-referrer");
   assert.ok(!res.headers["Set-Cookie"].includes(secret));

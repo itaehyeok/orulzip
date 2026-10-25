@@ -13,6 +13,7 @@ const staticFiles = new Map([
 ]);
 staticFiles.set("/assets/neighborhood-lab-d3.min.js", ["assets/neighborhood-lab-d3.min.js", "text/javascript; charset=utf-8"]);
 staticFiles.set("/assets/neighborhood-lab-d3-LICENSE.txt", ["assets/neighborhood-lab-d3-LICENSE.txt", "text/plain; charset=utf-8"]);
+for (const [file, type] of [["js/app-neighborhood-map.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-provider.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-renderer.js", "text/javascript; charset=utf-8"], ["js/neighborhood-map-evidence.js", "text/javascript; charset=utf-8"], ["css/neighborhood-map.css", "text/css; charset=utf-8"], ["assets/neighborhood-map-leaflet.js", "text/javascript; charset=utf-8"], ["assets/neighborhood-map-leaflet.css", "text/css; charset=utf-8"], ["assets/neighborhood-map-leaflet-LICENSE.txt", "text/plain; charset=utf-8"]]) staticFiles.set("/"+file, [file, type]);
 const apiPath = "/api/neighborhood-lab";
 
 function equal(a, b) {
@@ -32,6 +33,14 @@ export function isLabSessionValid(value, secret, now = Date.now()) {
     && equal(signed, signature(expires, secret));
 }
 
+export function hasNeighborhoodLabAccess(req, { environment = process.env.ORULZIP_ENVIRONMENT, secret = process.env.ORULZIP_NEIGHBORHOOD_LAB_TOKEN || "" } = {}) {
+  const cookie = String(req.headers.cookie || "").split(";").map(value => value.trim()).find(value => value.startsWith(cookieName+"="));
+  return environment === "development" && secret.length >= 32 && isLabSessionValid(cookie ? cookie.slice(cookieName.length+1) : "", secret);
+}
+export function neighborhoodMapConfig(req) {
+  return hasNeighborhoodLabAccess(req) ? { enabled: true, tileUrl: process.env.ORULZIP_DEVELOPMENT_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png" } : { enabled: false };
+}
+
 export async function handleNeighborhoodLab(req, res, url, {
   environment = process.env.ORULZIP_ENVIRONMENT,
   secret = process.env.ORULZIP_NEIGHBORHOOD_LAB_TOKEN || "",
@@ -41,7 +50,8 @@ export async function handleNeighborhoodLab(req, res, url, {
   // Decode before checking, so static-file aliases cannot bypass the dev gate.
   let decoded;
   try { decoded = decodeURIComponent(path); } catch { return false; }
-  const isFeature = staticFiles.has(decoded) || decoded === apiPath;
+  const nativeEntry = decoded === "/map" && url.searchParams.get("lab") === "neighborhood";
+  const isFeature = staticFiles.has(decoded) || decoded === apiPath || nativeEntry;
   if (!isFeature) return false;
   const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff" };
   const reply = (status, body, type = "application/json; charset=utf-8", extra = {}) => {
@@ -56,13 +66,22 @@ export async function handleNeighborhoodLab(req, res, url, {
     // is removed before the page and its subresources are requested.
     const secure = req.socket.encrypted ? "; Secure" : "";
     return reply(302, "", "text/plain", {
-      Location: "/neighborhood-lab",
+      Location: "/map?lab=neighborhood",
       "Set-Cookie": `${cookieName}=${createLabSession(secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure}`
     });
   }
   const cookie = String(req.headers.cookie || "").split(";").map(value => value.trim()).find(value => value.startsWith(`${cookieName}=`));
   if (!isLabSessionValid(cookie ? cookie.slice(cookieName.length + 1) : "", secret)) {
     return reply(401, decoded === apiPath ? '{"error":"private_review_required"}' : "개인 확인 링크로 접속해 주세요.", decoded === apiPath ? undefined : "text/plain; charset=utf-8");
+  }
+  if (nativeEntry) {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Referrer-Policy", "origin");
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    return false;
+  }
+  if (["/neighborhood-lab", "/neighborhood-lab.html"].includes(decoded) && url.searchParams.get("view") !== "reference") {
+    return reply(302, "", "text/plain", { Location: "/map?lab=neighborhood" });
   }
   if (decoded === apiPath) {
     if (req.method === "HEAD") return reply(200, "");

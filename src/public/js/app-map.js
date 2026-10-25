@@ -807,6 +807,7 @@ function clearMapApartmentFocusUrl() {
 }
 
 async function loadZoomMapSummary() {
+  if (state.neighborhoodMap) return state.neighborhoodMap.refresh();
   const requestId = ++state.zoomMapRequestId;
   const hasExistingMap = Boolean(state.zoomNaverMap);
   state.zoomMapLoadSuppressedUntil = Date.now() + 1200;
@@ -1317,7 +1318,7 @@ async function loadMapSearchResults() {
 
   const requestId = ++state.mapSearchRequestId;
   try {
-    const result = await api(`/api/map-search?q=${encodeURIComponent(keyword)}&limit=12`);
+    const result = state.neighborhoodMap ? { items: state.neighborhoodMap.search(keyword) } : await api(`/api/map-search?q=${encodeURIComponent(keyword)}&limit=12`);
     if (requestId !== state.mapSearchRequestId) return;
     state.mapSearchItems = result.items || [];
     state.mapSearchActiveIndex = state.mapSearchItems.length ? 0 : -1;
@@ -1420,6 +1421,7 @@ async function selectMapSearchResult(item) {
       mapSource: currentMapSource()
     });
   }
+  if (state.neighborhoodMap) return state.neighborhoodMap.focus(item);
   if (!(await initZoomMap())) return;
   focusMapTarget(item, Number(item.targetZoom || 16));
 }
