@@ -120,13 +120,14 @@ export function createNeighborhoodRenderer({ container, project, metersToPixels,
       mark.style.borderColor = p.candidate ? "#348fae" : "white";
       mark.style.background = p.candidate ? "white" : "var(--nn-color)";
       mark.style.boxShadow = selected ? "0 0 0 2px white, 0 1px 5px #0005" : "0 1px 5px #0005";
-      b.querySelector(".nn-marker-name").textContent = String(p.item.name ?? "").replace("송파파인타운", "");
+      b.querySelector(".nn-marker-name").textContent = String(p.item.short_name || p.item.name || "");
+      b.querySelector(".nn-marker-name").hidden = Number(state.zoom) < 16 && !selected && !p.candidate;
       if (b.parentNode !== container) container.append(b);
     }
     for (const [id, b] of buttons) if (!active.has(id)) { b.remove(); buttons.delete(id); }
     if (focusedId && !buttons.has(focusedId)) container.focus?.({ preventScroll: true });
   }
-  function update(next = {}) { state = { ...state, ...next }; if (!Array.isArray(state.items)) state.items = []; if (!Array.isArray(state.months)) state.months = []; if (!state.models || typeof state.models !== "object") state.models = {}; schedule(); }
+  function update(next = {}) { state = { ...state, ...next }; if (!Array.isArray(state.items)) state.items = []; if (!Array.isArray(state.months)) state.months = []; if (!state.models || typeof state.models !== "object") state.models = {}; if (!state.items.length || !state.enabled) { if (frame) cancelAnimationFrame(frame); frame = 0; render(); } else schedule(); }
   function draw() { schedule(); }
   function destroy() { if (destroyed) return; destroyed = true; if (frame) cancelAnimationFrame(frame); frame = 0; for (const b of buttons.values()) b.remove(); buttons.clear(); canvas.remove(); }
   return { update, draw, destroy };

@@ -61,12 +61,12 @@ export async function createNeighborhoodMapProvider({ config, initializeNaver, g
       const point = map.getCenter();
       return { lat: point.lat(), lng: point.lng(), zoom: map.getZoom() };
     },
-    fit(items) {
+    fit(items, padding = {}) {
       if (!items.length || !live()) return;
       const first = new api.LatLng(items[0].lat, items[0].lng);
       const bounds = new api.LatLngBounds(first, first);
       items.slice(1).forEach(item => bounds.extend(new api.LatLng(item.lat, item.lng)));
-      map.fitBounds(bounds, { top: 120, right: 100, bottom: 130, left: 100, maxZoom: 16 });
+      map.fitBounds(bounds, { top: 120, right: 100, bottom: 130, left: 100, ...padding, maxZoom: 16 });
     },
     focus(item, zoom = 17) { if (live()) { map.setCenter(new api.LatLng(item.lat, item.lng)); map.setZoom(zoom); } },
     resize() { if (live()) { api.Event.trigger(map, "resize"); queueView(); } },

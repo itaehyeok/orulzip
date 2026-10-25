@@ -144,6 +144,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
     : "개발 자료 스냅샷 · 실시간 시세가 아닙니다.";
   const ownStart = priceAt(item, c.baseline), ownEnd = priceAt(item, c.selected);
   const sections = [];
+  const missingHistory = Math.max(0, Math.trunc(finite(data?.coverage?.missing_history_count) || 0));
   sections.push('<header class="nn-header"><h2>' + name + ' 비교 근거</h2><p>' +
     escapeHtml(monthLabel(c.baseline)) + " → " + escapeHtml(monthLabel(c.selected)) +
     " · 선택 기간 실제 변화 " + escapeHtml(pct(c.ownRate)) + "</p></header>");
@@ -177,7 +178,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
       (c.k > 0 ? (c.triggered ? " 현재 빈 원 표시 기준을 충족합니다." : " 현재 빈 원 표시 기준은 충족하지 않습니다.") : " 시작월이라 선택 기간 차이가 없습니다.") +
       "</p></section>");
   } else {
-    sections.push('<section class="nn-section"><h3>관측 자료</h3><p>이 단지는 주변 월별 시세를 보여주는 관측점입니다. 선정된 비교 관계가 없어 동행 상대를 지정하지 않았습니다.</p><p>' +
+    sections.push('<section class="nn-section"><h3>관측 자료</h3><p>이 단지는 주변 월별 시세를 보여주는 관측점입니다. 비교 상대 선정 기준을 충족하지 못해 동행 상대를 지정하지 않았습니다.</p><p>' +
       name + " · " + escapeHtml(pct(c.ownRate)) + " · " + escapeHtml(money(ownStart)) + " → " +
       escapeHtml(money(ownEnd)) + "</p><p class=\"nn-note\">관측된 가격 움직임만 표시하며, 지도 색만으로 상승 여력이나 미래 가격을 판정하지 않습니다.</p></section>");
   }
@@ -192,7 +193,8 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
     '</p><p class="nn-note">기간을 바꾸면 상대 차이가 작아지거나 반대 방향으로 보일 수 있습니다.</p></section>');
   sections.push('<section class="nn-section"><h3>월별 실제 시세</h3>' + chartMarkup(item, c.peer, c) + "</section>");
   sections.push('<section class="nn-section"><h3>실거래 확인</h3>' + tradeMarkup(data) + "</section>");
-  sections.push('<details class="nn-method"><summary>빈 원의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 9개 단지 안에서 선정합니다.</p><p>빈 원은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 관측 단지의 가격 변화를 주변에 부드럽게 연결한 표현입니다. 모든 위치에 실제 가격 자료가 있다는 뜻은 아닙니다.</p></details>');
+  if (missingHistory > 0) sections.push('<p class="nn-note">지역 자료 중 ' + missingHistory + '개 단지는 비교 시작 전 36개월 안에 계산 가능한 월별 변화가 30개 미만입니다. 결측 자료를 채우거나 비교 기준을 완화하지 않았습니다.</p>');
+  sections.push('<details class="nn-method"><summary>빈 원의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 ' + escapeHtml(data?.area?.label || "선택 지역") + ' ' + apartmentList(data).length + '개 단지 안에서 선정합니다.</p><p>빈 원은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 관측 단지의 가격 변화를 주변에 부드럽게 연결한 표현입니다. 모든 위치에 실제 가격 자료가 있다는 뜻은 아닙니다.</p></details>');
   sections.push('<footer class="nn-footer"><p>출처: ' + source + " · 기준일 " + asOf + "</p><p>" +
     escapeHtml(snapshot) + " 이 화면은 " + escapeHtml(monthLabel(data?.timeline?.end || data?.asOf)) +
     " 기준으로 정한 비교 관계를 과거 선택 시점에 적용한 재생입니다. 시점별 당시 자료만으로 다시 선정한 백테스트가 아니며, 향후 회복 가능성을 추정하지 않습니다.</p></footer>");
@@ -209,7 +211,7 @@ export function renderNeighborhoodHover({ data, item, monthIndex: selectedIndex 
       escapeHtml(pct(c.peerRate)) + "</strong></div>");
     details.push('<div class="nn-hover-row"><span>실제 상승률 차이</span><strong>' + escapeHtml(pp(c.rawGap)) + "</strong></div>");
   } else {
-    details.push('<div class="nn-hover-note">선정된 비교 관계가 없는 관측 단지입니다.</div>');
+    details.push('<div class="nn-hover-note">비교 상대 선정 기준을 충족하지 못한 관측 단지입니다.</div>');
   }
   details.push('<div class="nn-hover-note">과거 가격 자료의 비교이며 미래 가격 예측이 아닙니다.</div>');
   return '<section class="nn-hover-content" role="group" aria-label="' + title + " 비교 요약\"><strong class=\"nn-hover-title\">" +

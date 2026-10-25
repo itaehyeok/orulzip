@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { readNeighborhoodLab } from "../services/neighborhood-lab.js";
+import { getNeighborhoodArea } from "../services/neighborhood-lab-areas.js";
 
 const cookieName = "orulzip_lab_review";
 const maxAge = 86400;
@@ -39,6 +40,19 @@ export function neighborhoodMapConfig(req) {
   return hasNeighborhoodLabAccess(req) ? { enabled: true } : { enabled: false };
 }
 
+function entryLocation(url) {
+  const params = new URLSearchParams({ lab: "neighborhood" });
+  if (url.searchParams.has("area")) params.set("area", getNeighborhoodArea(url.searchParams.get("area")).id);
+  const dataset = url.searchParams.get("dataset");
+  if (dataset) {
+    if (!["validated", "development"].includes(dataset)) {
+      const error = new Error("지원하지 않는 자료입니다."); error.statusCode = 400; throw error;
+    }
+    params.set("dataset", dataset);
+  }
+  return "/map?" + params;
+}
+
 export async function handleNeighborhoodLab(req, res, url, {
   environment = process.env.ORULZIP_ENVIRONMENT,
   secret = process.env.ORULZIP_NEIGHBORHOOD_LAB_TOKEN || "",
@@ -63,8 +77,10 @@ export async function handleNeighborhoodLab(req, res, url, {
     // LAN HTTP uses an HttpOnly cookie; HTTPS adds Secure. The link credential
     // is removed before the page and its subresources are requested.
     const secure = req.socket.encrypted ? "; Secure" : "";
+    let location;
+    try { location = entryLocation(url); } catch (error) { return reply(400, JSON.stringify({ error: error.message })); }
     return reply(302, "", "text/plain", {
-      Location: "/map?lab=neighborhood",
+      Location: location,
       "Set-Cookie": `${cookieName}=${createLabSession(secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure}`
     });
   }
@@ -79,11 +95,12 @@ export async function handleNeighborhoodLab(req, res, url, {
     return false;
   }
   if (entryPaths.has(decoded)) {
-    return reply(302, "", "text/plain", { Location: "/map?lab=neighborhood" });
+    try { return reply(302, "", "text/plain", { Location: entryLocation(url) }); }
+    catch (error) { return reply(400, JSON.stringify({ error: error.message })); }
   }
   if (decoded === apiPath) {
     if (req.method === "HEAD") return reply(200, "");
-    try { return reply(200, JSON.stringify(await readData(url.searchParams.get("dataset") || "validated"))); }
+    try { return reply(200, JSON.stringify(await readData(url.searchParams.get("dataset") || "validated", url.searchParams.get("area") ?? "songpa"))); }
     catch (error) { return reply(error.statusCode || 503, JSON.stringify({ error: error.statusCode === 400 ? error.message : "자료를 읽지 못했습니다. 잠시 후 다시 확인해 주세요." })); }
   }
   const [file, type] = staticFiles.get(decoded);

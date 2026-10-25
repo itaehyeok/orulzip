@@ -53,6 +53,7 @@ export function fitRelationship(target, leader, baseline) {
 }
 
 export function buildLabPayload(apartments, asOf, metadata = {}) {
+  if (!apartments.length) throw new Error("비교할 단지 자료가 없습니다.");
   const baseline = shiftMonth(asOf, -6);
   const timeline = monthsBetween(baseline, asOf);
   const historyMonths = monthsBetween(shiftMonth(baseline, -23), baseline);
@@ -90,23 +91,35 @@ export function buildLabPayload(apartments, asOf, metadata = {}) {
       target_households: target.households, peer_households: chosen.leader.households
     };
   }
+  const reference = apartments.find(apartment => apartment.apt_id === metadata.area?.reference_id) || apartments[0];
   const formatted = apartments.map(apartment => {
-    const start = Object.keys(apartment.prices).sort()[0];
+    const start = Object.keys(apartment.prices).filter(month => month <= asOf).sort()[0] || shiftMonth(asOf, -42);
     const values = monthsBetween(start, asOf).map(month => validPrice(apartment.prices[month]) ? apartment.prices[month] : null);
     const base = apartment.prices[baseline], end = apartment.prices[asOf];
     return {
       ...apartment, prices: undefined, monthly_prices: { start: Number(start), end: Number(asOf), values },
       return_6m_pct: validPrice(base) && validPrice(end) ? (end / base - 1) * 100 : null,
-      distance_m: distanceMeters(apartment, apartments.find(item => item.apt_id === "kb:15699") || apartments[0])
+      distance_m: distanceMeters(apartment, reference)
     };
   });
-  const benchmark = formatted.find(apartment => apartment.apt_id === "kb:15699") || formatted[0];
+  const benchmark = formatted.find(apartment => apartment.apt_id === reference.apt_id);
+  const legalDongCodes = [...new Set(apartments.map(apartment => apartment.legal_dong_code))].sort();
+  const trainingMonths = monthsBetween(shiftMonth(baseline, -35), baseline);
+  const coverage = {
+    observed_at_as_of: apartments.filter(apartment => validPrice(apartment.prices[asOf])).length,
+    complete_replay: apartments.filter(apartment => timeline.every(month => validPrice(apartment.prices[month]))).length,
+    relationship_count: Object.keys(models).length,
+    missing_history_count: apartments.filter(apartment => trainingMonths.filter(month =>
+      validPrice(apartment.prices[month]) && validPrice(apartment.prices[shiftMonth(month, -1)]))
+      .length < 30).length
+  };
   return {
     environment: "development", asOf, source: "KB 월별 시세", ...metadata,
     generatedAt: new Date().toISOString(), timeline: { start: baseline, end: asOf, months: timeline },
-    benchmark, current_peers: formatted.filter(apartment => apartment.apt_id !== benchmark.apt_id), models,
+    benchmark, current_peers: formatted.filter(apartment => apartment.apt_id !== benchmark.apt_id), models, coverage,
     historical_examples: [], tradeChecks: {}, tradeMethod: null,
-    filters: { same_legal_dong_code: "1171010900", minimum_households: 100, max_distance_m: 500,
+    filters: { same_legal_dong_required: true, same_legal_dong_code: legalDongCodes.length === 1 ? legalDongCodes[0] : null,
+      legal_dong_codes: legalDongCodes, minimum_households: 100, max_distance_m: 500,
       max_built_year_difference: 5, area_ratio_max: 1.15, area_selection: "전용 84㎡에 가장 가까운 면적형", monthly_prices: "관측값만 사용 · 보간 없음" },
     method: { version: 1, leaderLookbackMonths: 24, trainingMonths: 36, minimumPairedMonths: 30,
       minimumChangedMonths: 8, minCorrelation: .4, minBeta: .25, maxBeta: 2.5,
