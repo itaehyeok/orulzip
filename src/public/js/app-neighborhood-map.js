@@ -1,3 +1,4 @@
+import { neighborhoodComparison } from "./neighborhood-map-signal.js";
 import { createNeighborhoodMapProvider } from "./neighborhood-map-provider.js";
 import { createNeighborhoodRenderer } from "./neighborhood-map-renderer.js";
 import { renderNeighborhoodEvidence, renderNeighborhoodHover } from "./neighborhood-map-evidence.js";
@@ -25,13 +26,13 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
   const logo = document.querySelector(".map-top-logo");
   const wrap = elements.mapCanvasWrap, container = elements.zoomMap;
   const overlay = document.createElement("div"); overlay.className = "nn-overlay";
-  const controls = document.createElement("section"); controls.className = "nn-controls"; controls.setAttribute("aria-label", "동네 가격 흐름 표시 설정");
-  controls.innerHTML = `<div class="nn-control-head"><label class="nn-toggle"><input type="checkbox" data-nn-toggle checked><span>동네 흐름</span></label><span class="nn-development">개발</span><button type="button" data-nn-reset>선택 지역 보기</button></div>
+  const controls = document.createElement("section"); controls.className = "nn-controls"; controls.setAttribute("aria-label", "주변 단지 상대 비교 표시 설정");
+  controls.innerHTML = `<div class="nn-control-head"><label class="nn-toggle"><input type="checkbox" data-nn-toggle checked><span>덜 오른 단지</span></label><span class="nn-development">개발</span><button type="button" data-nn-reset>선택 지역 보기</button></div>
     <div class="nn-area-row"><label for="nn-area">지도 이동</label><select id="nn-area" data-nn-area aria-label="이동해서 볼 지역"></select></div>
     <div class="nn-dataset-row"><label>자료 <select data-nn-dataset><option value="validated">검증 자료</option><option value="development">개발 DB</option></select></label><span data-nn-source></span></div>
-    <div class="nn-time-row"><label for="nn-month">과거 움직임</label><output for="nn-month" data-nn-date></output></div><input id="nn-month" type="range" min="0" max="6" value="6" step="1" aria-label="과거 관측월 선택"><div class="nn-time-ends"><span data-nn-start></span><span data-nn-end></span></div>
-    <div class="nn-key"><span>조용함</span><i></i><span>먼저 상승</span><span class="nn-ring-key">○ 상대 부진</span></div><p class="nn-scope" data-nn-scope role="status">선택 지역 자료를 준비하고 있습니다.</p>`;
-  const status = document.createElement("div"); status.className = "nn-map-status"; status.setAttribute("role", "status"); status.textContent = "실제 지도에 가격 흐름을 연결하는 중…";
+    <div class="nn-time-row"><label for="nn-month">비교 시점</label><output for="nn-month" data-nn-date></output></div><input id="nn-month" type="range" min="0" max="6" value="6" step="1" aria-label="과거 관측월 선택"><div class="nn-time-ends"><span data-nn-start></span><span data-nn-end></span></div>
+    <div class="nn-key"><span class="nn-key-lagging">○ 상대 덜 오름</span><span class="nn-key-ahead">● 관계보다 더 오름</span><span class="nn-key-neutral">● 차이 작음·미충족</span><span class="nn-key-unknown">○ 판단 보류</span></div><p class="nn-explanation">색은 과거 동행 관계 대비 차이입니다. 미래 상승 확률이 아닙니다.</p><p class="nn-scope" data-nn-scope role="status">선택 지역 자료를 준비하고 있습니다.</p>`;
+  const status = document.createElement("div"); status.className = "nn-map-status"; status.setAttribute("role", "status"); status.textContent = "실제 지도에 단지 비교를 연결하는 중…";
   const tip = document.createElement("div"); tip.className = "nn-hover"; tip.id = "nn-hover"; tip.hidden = true; tip.setAttribute("role", "tooltip");
   const details = document.createElement("aside"); details.className = "nn-details"; details.hidden = true; details.tabIndex = -1;
   details.setAttribute("role", "dialog"); details.setAttribute("aria-label", "선택 단지의 가격 비교 근거");
@@ -82,14 +83,16 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
   }
   function areaSummary() {
     const label = data?.area?.display_label || data?.area?.label || area.selectedOptions[0]?.textContent || "선택 지역";
-    const poolCount = Number.isInteger(data?.area?.pool_count) ? data.area.pool_count : items.length;
-    const ids = new Set(items.map(item => String(item.apt_id)));
-    const relationships = Object.entries(data?.models || {}).filter(([id, model]) => ids.has(id) && ids.has(String(model?.leader_id))).length;
-    const missingHistory = Number(data?.coverage?.missing_history_count) || 0;
-    return label + " · " + poolCount + "개 단지 · " +
-      (relationships ? "선정 비교 관계 " + relationships + "개" : "비교 관계 0개 · 선정 기준을 충족하지 못했습니다.") +
-      (missingHistory > 0 ? " · 과거 월별 변화 자료 부족 " + missingHistory + "개" : "") +
-      " · 과거 시세 비교 · 미래 상승 확률 아님";
+    const comparisons = items.map(item => ({ item, comparison: neighborhoodComparison({ data, item, monthIndex }) }));
+    const relationships = comparisons.filter(entry => entry.comparison.available).length;
+    const signals = comparisons.filter(entry => entry.comparison.triggered).length;
+    const focusIds = data?.focus_ids ? new Set(data.focus_ids.map(String)) : null;
+    const focus = focusIds ? comparisons.filter(entry => focusIds.has(String(entry.item.apt_id))) : comparisons;
+    const focusLabel = data?.area?.label || area.selectedOptions[0]?.textContent || "선택 지역";
+    const focusNote = !focus.some(entry => entry.comparison.available)
+      ? focusLabel + "은 비교 근거 부족으로 판단 보류 · " : "";
+    return focusNote + label + " · 관측 " + items.length + "개 · 비교 관계 " + relationships + "개 · " +
+      monthText(data?.timeline?.months?.[monthIndex]) + " 상대 덜 오름 " + signals + "개";
   }
   function update(immediate = false) {
     if (!renderer || !data || destroyed) return;
@@ -155,13 +158,13 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
       data = next; items = [data.benchmark, ...(Array.isArray(data.current_peers) ? data.current_peers : [])].filter(Boolean);
       populateAreas(data.areas, requestedArea);
       monthIndex = data.timeline.months.length - 1;
-      selectedId = items[0]?.apt_id || "";
+      selectedId = "";
       slider.max = String(monthIndex); slider.value = String(monthIndex); slider.disabled = false;
       controls.querySelector("[data-nn-source]").textContent = `${data.source} · ${monthText(data.asOf)}`;
       controls.querySelector("[data-nn-start]").textContent = monthText(data.timeline.start);
       controls.querySelector("[data-nn-end]").textContent = monthText(data.timeline.end);
       controls.querySelector("[data-nn-date]").textContent = monthText(data.timeline.months[monthIndex]);
-      if (elements.zoomMapTitle) elements.zoomMapTitle.textContent = "동네 가격 흐름 지도 · 개발";
+      if (elements.zoomMapTitle) elements.zoomMapTitle.textContent = "주변 비교 대비 덜 오른 단지 · 개발";
       if (elements.zoomMapCount) elements.zoomMapCount.textContent = `${items.length}개 관측 단지`;
       if (elements.zoomMapPeriod) elements.zoomMapPeriod.textContent = `${monthText(data.timeline.start)}~${monthText(data.timeline.end)}`;
       elements.mapSearchInput.placeholder = (data.area?.display_label || data.area?.label || area.selectedOptions[0]?.textContent || "선택 지역") + " 단지 찾기";
@@ -198,7 +201,7 @@ export async function installNeighborhoodMap({ elements, config, initializeNaver
     provider,
     entryUrl,
     refresh() { provider?.resize(); update(); hideLoading(); },
-    search(keyword) { return items.filter(item => String(item.name || "").includes(keyword) || String(item.short_name || item.name || "").startsWith(keyword)).map(item => ({ ...item, id: item.apt_id, type: "apartment", meta: "동네 흐름 관측 자료 · 전용 " + item.area_m2 + "㎡" })); },
+    search(keyword) { return items.filter(item => String(item.name || "").includes(keyword) || String(item.short_name || item.name || "").startsWith(keyword)).map(item => ({ ...item, id: item.apt_id, type: "apartment", meta: "주변 비교 관측 자료 · 전용 " + item.area_m2 + "㎡" })); },
     focus(item) { const found = items.find(apartment => apartment.apt_id === (item.apt_id || item.id)); if (found) { provider?.focus(found); select(found); } },
     destroy() { destroyed = true; requestId++; resizeObserver?.disconnect(); renderer?.destroy(); provider?.destroy(); document.removeEventListener("keydown", onKeyDown); window.removeEventListener("pageshow", onPageShow); [overlay, controls, status, tip, details].forEach(node => node.remove()); wrap.classList.remove("nn-detail-open"); document.body.classList.remove("neighborhood-map-mode"); }
   };

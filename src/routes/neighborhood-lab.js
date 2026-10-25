@@ -10,6 +10,7 @@ const staticFiles = new Map([
   ["/js/app-neighborhood-map.js", ["js/app-neighborhood-map.js", "text/javascript; charset=utf-8"]],
   ["/js/neighborhood-map-provider.js", ["js/neighborhood-map-provider.js", "text/javascript; charset=utf-8"]],
   ["/js/neighborhood-map-renderer.js", ["js/neighborhood-map-renderer.js", "text/javascript; charset=utf-8"]],
+  ["/js/neighborhood-map-signal.js", ["js/neighborhood-map-signal.js", "text/javascript; charset=utf-8"]],
   ["/js/neighborhood-map-evidence.js", ["js/neighborhood-map-evidence.js", "text/javascript; charset=utf-8"]],
   ["/css/neighborhood-map.css", ["css/neighborhood-map.css", "text/css; charset=utf-8"]]
 ]);

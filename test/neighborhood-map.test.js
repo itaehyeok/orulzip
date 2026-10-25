@@ -18,7 +18,8 @@ test("native hover uses the selected month and displays no future probability", 
   const html = renderNeighborhoodHover({ data, item, monthIndex: 6 });
   assert.ok(html.includes("2026.03 → 2026.09"));
   assert.ok(html.includes("+2.9%")); assert.ok(html.includes("+15.6%"));
-  assert.ok(html.includes("+12.7%p")); assert.ok(html.includes("미래 가격 예측이 아닙니다"));
+  assert.ok(html.includes("송파파인타운5단지 대비")); assert.ok(html.includes("12.7%p 덜 상승"));
+  assert.ok(html.includes("+12.2%p")); assert.ok(html.includes("미래 가격 예측이 아닙니다"));
 });
 
 test("shorter replay labels the actual 12+k month range", () => {

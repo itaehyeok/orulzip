@@ -1,3 +1,4 @@
+import { neighborhoodComparison, relativeSignalLabel } from "./neighborhood-map-signal.js";
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 })[char]);
@@ -41,20 +42,7 @@ const number = (value, digits = 0) => Number.isFinite(finite(value))
 const apartmentList = (data) => [data?.benchmark, ...(Array.isArray(data?.current_peers) ? data.current_peers : [])].filter(Boolean);
 
 function context(data, item, monthIndexValue) {
-  const months = Array.isArray(data?.timeline?.months) ? data.timeline.months.map(validMonth).filter(Boolean) : [];
-  const baseline = months[0] || validMonth(data?.timeline?.start);
-  const rawIndex = Math.trunc(finite(monthIndexValue));
-  const k = months.length ? Math.max(0, Math.min(months.length - 1, Number.isFinite(rawIndex) ? rawIndex : 0)) : 0;
-  const selected = months[k] || baseline, prior = baseline ? shiftMonth(baseline, -12) : "";
-  const model = data?.models?.[String(item?.apt_id ?? "")] || null;
-  const peer = model ? apartmentList(data).find((a) => String(a.apt_id) === String(model.leader_id)) || null : null;
-  const ownRate = rateBetween(item, baseline, selected), peerRate = peer ? rateBetween(peer, baseline, selected) : NaN;
-  const rawGap = peer && Number.isFinite(ownRate) && Number.isFinite(peerRate) ? peerRate - ownRate : NaN;
-  const expected = model && Number.isFinite(peerRate) && Number.isFinite(finite(model.alpha)) && Number.isFinite(finite(model.beta))
-    ? Math.expm1(finite(model.alpha) * k + finite(model.beta) * Math.log1p(peerRate / 100)) * 100 : NaN;
-  const adjustedGap = Number.isFinite(expected) && Number.isFinite(ownRate) ? expected - ownRate : NaN;
-  const triggered = Boolean(model && peer && k > 0 && peerRate >= 5 && rawGap >= 5 && adjustedGap >= 3);
-  return { months, baseline, selected, prior, k, model, peer, ownRate, peerRate, rawGap, expected, adjustedGap, triggered };
+  return neighborhoodComparison({ data, item, monthIndex: monthIndexValue });
 }
 function priceChangeRow(item, from, to) {
   const first = priceAt(item, from), last = priceAt(item, to);
@@ -145,7 +133,12 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
   const ownStart = priceAt(item, c.baseline), ownEnd = priceAt(item, c.selected);
   const sections = [];
   const missingHistory = Math.max(0, Math.trunc(finite(item?.comparison_missing_history_count ?? data?.coverage?.missing_history_count) || 0));
-  sections.push('<header class="nn-header"><h2>' + name + ' 비교 근거</h2><p>' +
+  const summary = c.available
+    ? escapeHtml(c.peer.name) + " 대비 · " + escapeHtml(relativeSignalLabel(c)) +
+      '<br>과거 관계 대비 차이 <strong>' + escapeHtml(pp(c.adjustedGap)) + '</strong>'
+    : "비교 근거 부족으로 판단 보류";
+  sections.push('<header class="nn-header"><h2>' + name + ' 비교 근거</h2><p class="nn-relative-summary" data-status="' +
+    escapeHtml(c.status) + '">' + summary + '</p><p>' +
     escapeHtml(monthLabel(c.baseline)) + " → " + escapeHtml(monthLabel(c.selected)) +
     " · 선택 기간 실제 변화 " + escapeHtml(pct(c.ownRate)) + "</p></header>");
   if (c.model && c.peer) {
@@ -175,7 +168,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
     sections.push('<section class="nn-section"><h3>과거 관계를 반영한 참고값</h3><p>상대 단지의 선택 기간 상승률을 과거 회귀식에 넣으면 ' +
       escapeHtml(pct(c.expected)) + "가 나오고, 실제 선택 단지 변화와의 차이는 <strong>" +
       escapeHtml(pp(c.adjustedGap)) + "</strong>입니다.</p><p class=\"nn-note\">계산식: exp(α × 선택 개월 + β × ln(1 + 비교 단지 상승률)) − 1. 이 값은 과거 관계와의 차이를 설명하는 방식이며 예측이나 미래 확률이 아닙니다." +
-      (c.k > 0 ? (c.triggered ? " 현재 빈 원 표시 기준을 충족합니다." : " 현재 빈 원 표시 기준은 충족하지 않습니다.") : " 시작월이라 선택 기간 차이가 없습니다.") +
+      (c.k > 0 ? (c.triggered ? " 현재 상대 덜 오름 표시 기준을 충족합니다." : " 현재 상대 덜 오름 표시 기준은 충족하지 않습니다.") : " 시작월이라 선택 기간 차이가 없습니다.") +
       "</p></section>");
   } else {
     sections.push('<section class="nn-section"><h3>관측 자료</h3><p>이 단지는 주변 월별 시세를 보여주는 관측점입니다. 비교 상대 선정 기준을 충족하지 못해 동행 상대를 지정하지 않았습니다.</p><p>' +
@@ -194,7 +187,7 @@ export function renderNeighborhoodEvidence({ data, item, monthIndex: selectedInd
   sections.push('<section class="nn-section"><h3>월별 실제 시세</h3>' + chartMarkup(item, c.peer, c) + "</section>");
   sections.push('<section class="nn-section"><h3>실거래 확인</h3>' + tradeMarkup(data) + "</section>");
   if (missingHistory > 0) sections.push('<p class="nn-note">지역 자료 중 ' + missingHistory + '개 단지는 비교 시작 전 36개월 안에 계산 가능한 월별 변화가 30개 미만입니다. 결측 자료를 채우거나 비교 기준을 완화하지 않았습니다.</p>');
-  sections.push('<details class="nn-method"><summary>빈 원의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 ' + escapeHtml(item?.comparison_area_label || data?.area?.label || "선택 지역") + ' ' + (item?.comparison_pool_count || apartmentList(data).length) + '개 단지 안에서 선정합니다.</p><p>빈 원은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 관측 단지의 가격 변화를 주변에 부드럽게 연결한 표현입니다. 모든 위치에 실제 가격 자료가 있다는 뜻은 아닙니다.</p></details>');
+  sections.push('<details class="nn-method"><summary>상대 비교의 계산 기준과 자료 범위</summary><p>같은 법정동, 직선거리 30~500m, 준공연도 차이 5년 이내, 면적비 1.15 이내의 단지를 비교합니다. 대상 100세대 이상, 비교 상대 300세대 이상이며 이번 지도에 표시한 ' + escapeHtml(item?.comparison_area_label || data?.area?.label || "선택 지역") + ' ' + (item?.comparison_pool_count || apartmentList(data).length) + '개 단지 안에서 선정합니다.</p><p>상대 덜 오름은 비교 상대 상승률 5% 이상, 실제 상승률 차이 5%p 이상, 과거 관계 조정 차이 3%p 이상일 때 표시합니다. 과거 관계는 기준월까지 최대 36개월의 월 변화율로 계산하고 결측은 채우지 않습니다.</p><p>지도 색은 비교 근거가 있는 단지의 과거 관계 대비 차이를 단지 주변에 표시합니다. 보라색은 상대 덜 오름, 파란색은 관계 대비 차이 -3%p 이하로 더 오른 상태입니다. 회색 점은 차이가 작거나 신호 기준 미충족, 회색 빈 원은 비교 근거 부족으로 판단 보류입니다. 모든 위치에 비교 근거가 있다는 뜻은 아닙니다.</p></details>');
   sections.push('<footer class="nn-footer"><p>출처: ' + source + " · 기준일 " + asOf + "</p><p>" +
     escapeHtml(snapshot) + " 이 화면은 " + escapeHtml(monthLabel(data?.timeline?.end || data?.asOf)) +
     " 기준으로 정한 비교 관계를 과거 선택 시점에 적용한 재생입니다. 시점별 당시 자료만으로 다시 선정한 백테스트가 아니며, 향후 회복 가능성을 추정하지 않습니다.</p></footer>");
@@ -205,15 +198,22 @@ export function renderNeighborhoodHover({ data, item, monthIndex: selectedIndex 
   const c = context(data, item, selectedIndex);
   const title = escapeHtml(item?.name || "선택 단지");
   const period = escapeHtml(monthLabel(c.baseline)) + " → " + escapeHtml(monthLabel(c.selected));
-  const details = ['<div class="nn-hover-row"><span>실제 시세 변화</span><strong>' + escapeHtml(pct(c.ownRate)) + "</strong></div>"];
-  if (c.peer) {
-    details.push('<div class="nn-hover-row"><span>' + escapeHtml(c.peer.name) + " · 같은 기간</span><strong>" +
-      escapeHtml(pct(c.peerRate)) + "</strong></div>");
-    details.push('<div class="nn-hover-row"><span>실제 상승률 차이</span><strong>' + escapeHtml(pp(c.rawGap)) + "</strong></div>");
+  const details = [];
+  if (c.available) {
+    const rawDescription = Math.abs(c.rawGap) < 1e-9 ? "실제 상승률 차이 없음"
+      : fmt(Math.abs(c.rawGap)) + "%p " + (c.rawGap > 0 ? "덜 상승" : "더 상승");
+    details.push('<p class="nn-hover-comparison">' + escapeHtml(c.peer.name) + ' 대비 <strong>' +
+      escapeHtml(rawDescription) + '</strong></p>');
+    details.push('<div class="nn-hover-row"><span>과거 관계 대비 차이</span><strong>' +
+      escapeHtml(pp(c.adjustedGap)) + '</strong></div>');
+    details.push('<div class="nn-hover-note" data-status="' + escapeHtml(c.status) + '">' + escapeHtml(relativeSignalLabel(c)) + '</div>');
+    details.push('<div class="nn-hover-row"><span>선택 단지 실제 변화</span><strong>' + escapeHtml(pct(c.ownRate)) + '</strong></div>');
+    details.push('<div class="nn-hover-row"><span>비교 상대 실제 변화</span><strong>' + escapeHtml(pct(c.peerRate)) + '</strong></div>');
   } else {
-    details.push('<div class="nn-hover-note">비교 상대 선정 기준을 충족하지 못한 관측 단지입니다.</div>');
+    details.push('<p class="nn-hover-comparison">비교 근거 부족으로 판단 보류</p><div class="nn-hover-note">선정된 비교 관계가 없어 상대 차이를 계산하지 않습니다.</div>');
+    details.push('<div class="nn-hover-row"><span>선택 단지 실제 변화</span><strong>' + escapeHtml(pct(c.ownRate)) + '</strong></div>');
   }
   details.push('<div class="nn-hover-note">과거 가격 자료의 비교이며 미래 가격 예측이 아닙니다.</div>');
-  return '<section class="nn-hover-content" role="group" aria-label="' + title + " 비교 요약\"><strong class=\"nn-hover-title\">" +
-    title + '</strong><div class="nn-hover-period">' + period + "</div>" + details.join("") + "</section>";
+  return '<section class="nn-hover-content" role="group" aria-label="' + title + ' 비교 요약"><strong class="nn-hover-title">' +
+    title + '</strong><div class="nn-hover-period">' + period + '</div>' + details.join('') + '</section>';
 }

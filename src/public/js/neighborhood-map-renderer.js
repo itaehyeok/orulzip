@@ -1,27 +1,11 @@
+import { compareNeighborhood, relativeSignalPaint, relativeSignalLabel } from "./neighborhood-map-signal.js";
+
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const num = (v) => Number.isFinite(Number(v)) ? Number(v) : NaN;
 const month = (v) => {
   const m = String(v ?? "").match(/^(\d{4})-?(\d{2})/);
   return m ? m[1] + m[2] : "";
 };
-const offset = (a, b) => {
-  a = month(a); b = month(b);
-  return a && b ? (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(4) - +a.slice(4)) : NaN;
-};
-function growth(item, base, end) {
-  const series = item?.monthly_prices;
-  if (!Array.isArray(series?.values)) return NaN;
-  const start = month(series.start);
-  const a = num(series.values[offset(start, base)]);
-  const b = num(series.values[offset(start, end)]);
-  return a > 0 && b > 0 ? (b / a - 1) * 100 : NaN;
-}
-function color(rate) {
-  const t = clamp((num(rate) || 0) / 15, 0, 1);
-  const stops = [[101, 182, 202], [233, 216, 177], [221, 126, 76]];
-  const p = t * 2, i = Math.min(1, Math.floor(p)), f = p - i;
-  return stops[i].map((v, c) => Math.round(v + (stops[i + 1][c] - v) * f));
-}
 export function createNeighborhoodRenderer({ container, project, metersToPixels, onSelect = () => {}, onHover = () => {}, onLeave = () => {} }) {
   if (!container || typeof project !== "function" || typeof metersToPixels !== "function") throw new TypeError("container, project, and metersToPixels are required");
   const doc = container.ownerDocument || document;
@@ -42,38 +26,34 @@ export function createNeighborhoodRenderer({ container, project, metersToPixels,
       const p = project({ lat: Number(item.lat), lng: Number(item.lng) });
       const model = state.models?.[String(item.apt_id)];
       const leader = model ? byId.get(String(model.leader_id)) : null;
-      const ownGrowth = growth(item, state.baseMonth, monthKey);
-      const leaderGrowth = leader ? growth(leader, state.baseMonth, monthKey) : NaN;
-      const k = Math.max(0, Math.trunc(num(state.monthIndex) || 0));
-      const expected = model && Number.isFinite(leaderGrowth)
-        ? Math.expm1(num(model.alpha) * k + num(model.beta) * Math.log1p(leaderGrowth / 100)) * 100 : NaN;
+      const comparison = compareNeighborhood({ item, peer: leader, model, baseline: state.baseMonth, selected: monthKey });
       return {
-        item, id: String(item.apt_id), x: num(p?.x), y: num(p?.y), growth: ownGrowth, leader,
-        candidate: Boolean(k > 0 && leaderGrowth >= 5 && leaderGrowth - ownGrowth >= 5 && expected - ownGrowth >= 3),
+        item, id: String(item.apt_id), x: num(p?.x), y: num(p?.y), leader,
+        comparison, paint: relativeSignalPaint(comparison), candidate: comparison.triggered,
       };
     }).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   }
   function field(pts, w, h, dpr) {
-    const observed = pts.filter((p) => Number.isFinite(p.growth));
-    if (observed.length < 2) return;
-    const sigma = num(metersToPixels(120, observed[0].item));
-    if (!(sigma >= 3) || observed.every((p) => observed.every((q) => Math.hypot(p.x - q.x, p.y - q.y) < 10))) return;
+    const observed = pts.filter((p) => p.paint.strength > 0);
+    if (!observed.length) return;
+    const sigma = num(metersToPixels(90, observed[0].item));
+    if (!(sigma >= 3)) return;
     const cell = Math.max(8, Math.sqrt(w * h / 20000)), cols = Math.max(1, Math.ceil(w / cell)), rows = Math.max(1, Math.ceil(h / cell));
     const grid = doc.createElement("canvas"); grid.width = cols; grid.height = rows;
-    const g = grid.getContext("2d"), image = g.createImageData(cols, rows), reach2 = 6.25 * sigma * sigma;
+    const g = grid.getContext("2d"), image = g.createImageData(cols, rows), reach2 = 4 * sigma * sigma;
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
       const px = (x + .5) * w / cols, py = (y + .5) * h / rows;
-      let sum = 0, value = 0;
+      let sum = 0; const rgbSum = [0, 0, 0];
       for (const p of observed) {
         const dx = px - p.x, dy = py - p.y, d2 = dx * dx + dy * dy;
         if (d2 > reach2) continue;
-        const weight = Math.exp(-d2 / (2 * sigma * sigma));
-        sum += weight; value += weight * p.growth;
+        const weight = Math.exp(-d2 / (2 * sigma * sigma)) * p.paint.strength;
+        sum += weight; p.paint.rgb.forEach((value, index) => { rgbSum[index] += weight * value; });
       }
       if (sum < .045) continue;
-      const rgb = color(value / sum), at = (y * cols + x) * 4;
+      const rgb = rgbSum.map(value => Math.round(value / sum)), at = (y * cols + x) * 4;
       image.data[at] = rgb[0]; image.data[at + 1] = rgb[1]; image.data[at + 2] = rgb[2];
-      image.data[at + 3] = Math.round(194 * clamp(sum / .6, 0, 1));
+      image.data[at + 3] = Math.round(175 * clamp(sum, 0, 1));
     }
     g.putImageData(image, 0, 0); ctx.imageSmoothingEnabled = true;
     ctx.drawImage(grid, 0, 0, cols, rows, 0, 0, w, h);
@@ -110,16 +90,19 @@ export function createNeighborhoodRenderer({ container, project, metersToPixels,
       if (!b) { b = doc.createElement("button"); setupButton(b, p.item); buttons.set(p.id, b); }
       const selected = p.id === String(state.selectedId);
       b.dataset.apt = p.id; b.dataset.candidate = String(p.candidate); b.dataset.selected = String(selected);
+      b.dataset.relativeStatus = p.comparison.status;
+      if (p.comparison.available) b.dataset.relativeGap = String(p.comparison.adjustedGap); else delete b.dataset.relativeGap;
       b.setAttribute("aria-pressed", String(selected));
-      b.setAttribute("aria-label", p.candidate ? p.item.name + ", 과거 비교 상대보다 상승폭이 낮은 단지" : p.item.name);
+      b.setAttribute("aria-label", p.item.name + ", " + relativeSignalLabel(p.comparison) + (p.leader ? ", 비교 상대 " + p.leader.name : ""));
       b.style.left = p.x + "px"; b.style.top = p.y + "px"; b.hidden = !state.enabled || detailScale < 10 || p.x < -30 || p.y < -30 || p.x > w+30 || p.y > h+30;
-      b.style.setProperty("--nn-color", "rgb(" + color(p.growth).join(" ") + ")");
+      b.style.setProperty("--nn-color", "rgb(" + p.paint.rgb.join(" ") + ")");
       const mark = b.querySelector(".nn-marker-mark");
-      mark.style.width = mark.style.height = selected ? "34px" : p.candidate ? "23px" : "13px";
-      mark.style.borderStyle = "solid";
-      mark.style.borderColor = p.candidate ? "#348fae" : "white";
-      mark.style.background = p.candidate ? "white" : "var(--nn-color)";
-      mark.style.boxShadow = selected ? "0 0 0 2px white, 0 1px 5px #0005" : "0 1px 5px #0005";
+      mark.style.width = mark.style.height = selected ? "26px" : p.candidate ? "23px" : p.comparison.available ? "13px" : "10px";
+      mark.style.borderStyle = p.comparison.available ? "solid" : "dashed";
+      mark.style.borderWidth = selected || p.candidate ? "2.5px" : "1.5px";
+      mark.style.borderColor = selected ? "#334e60" : p.candidate || !p.comparison.available ? "var(--nn-color)" : "white";
+      mark.style.background = p.candidate || !p.comparison.available ? "white" : "var(--nn-color)";
+      mark.style.boxShadow = selected ? "0 0 0 3px white, 0 1px 5px #0004" : "0 1px 4px #0003";
       b.querySelector(".nn-marker-name").textContent = String(p.item.short_name || p.item.name || "");
       b.querySelector(".nn-marker-name").hidden = Number(state.zoom) < 16 && !selected && !p.candidate;
       if (b.parentNode !== container) container.append(b);
