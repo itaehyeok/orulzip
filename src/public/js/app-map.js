@@ -670,7 +670,7 @@ function watchNaverMapTileLoad() {
 }
 
 function scheduleZoomMapLoad() {
-  if (!isMapTab()) return;
+  if (!isMapTab() || state.mapStartupPending) return;
   clearTimeout(state.zoomMapTimer);
   if (shouldSuppressZoomMapLoad()) return;
   state.zoomMapTimer = setTimeout(loadZoomMapSummary, 180);
@@ -810,6 +810,7 @@ function clearMapApartmentFocusUrl() {
 }
 
 async function loadZoomMapSummary() {
+  if (state.mapStartupPending) return;
   const requestId = ++state.zoomMapRequestId;
   const hasExistingMap = Boolean(state.zoomNaverMap);
   state.zoomMapLoadSuppressedUntil = Date.now() + 1200;

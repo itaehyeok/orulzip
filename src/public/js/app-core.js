@@ -32,15 +32,10 @@ async function init() {
   bindEvents();
   syncApartmentMarkerDesignControls();
   syncRegionMarkerDesignControls();
-  await Promise.all([
-    loadClientConfig(),
-    loadFilters(),
-    loadAdminSession()
-  ]);
-  renderAdminNavigation();
+  const { mapInitialized } = await loadStartupResources();
   syncHouseholdFilterToggles();
   if (isMapTab()) {
-    await loadActiveViewData();
+    if (mapInitialized) await loadActiveViewData();
     refreshStatusOnly().catch((error) => {
       console.warn("Status refresh after map load failed:", error?.message || error);
     });
