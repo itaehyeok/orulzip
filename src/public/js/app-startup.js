@@ -7,7 +7,7 @@ async function loadStartupResources() {
   const configReady = loadClientConfig();
   const filtersReady = loadFilters();
   const adminReady = loadAdminSession()
-    .then(renderAdminNavigation)
+    .then(() => renderAdminNavigation({ closeMenus: false }))
     .catch((error) => {
       console.warn("Admin navigation refresh failed:", error?.message || error);
     });

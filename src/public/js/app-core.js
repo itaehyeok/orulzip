@@ -108,15 +108,23 @@ async function loadAdminSession() {
   state.isAdmin = Boolean(session.authenticated);
 }
 
-function renderAdminNavigation() {
+function renderAdminNavigation({ closeMenus = true } = {}) {
   const showAdminNav = Boolean(state.isAdmin);
   document.querySelectorAll("[data-admin-only]").forEach((item) => {
     item.hidden = !showAdminNav;
   });
-  if (!showAdminNav) {
+  if (!showAdminNav && closeMenus) {
     closeTabMoreMenus();
     closeMapSettingsMenus();
   }
+}
+
+async function handlePageShow(event) {
+  syncMobileViewportInsets();
+  // Initial navigation gets its session from loadStartupResources.
+  if (!event.persisted) return;
+  await loadAdminSession();
+  renderAdminNavigation();
 }
 
 function bindEvents() {
@@ -143,11 +151,7 @@ function bindEvents() {
   window.addEventListener("scroll", positionOpenTabMoreMenus, { passive: true });
   window.visualViewport?.addEventListener("resize", syncMobileViewportInsets);
   window.visualViewport?.addEventListener("scroll", syncMobileViewportInsets, { passive: true });
-  window.addEventListener("pageshow", async () => {
-    syncMobileViewportInsets();
-    await loadAdminSession();
-    renderAdminNavigation();
-  });
+  window.addEventListener("pageshow", handlePageShow);
   document.querySelector(".deploy-version-copy")?.addEventListener("click", copyDeployVersion);
   document.querySelector(".deploy-version-commit")?.addEventListener("click", toggleDeployCommitPopover);
   document.querySelector("[data-display-settings-open]")?.addEventListener("click", openMapDisplaySettingsPanel);

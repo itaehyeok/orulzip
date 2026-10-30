@@ -154,3 +154,89 @@ test("map scheduling and summary guards suppress requests during startup", async
   await c.context.loadZoomMapSummary();
   assert.equal(c.timers.length, 0);
 });
+
+function createAdminNavigationClient(admin) {
+  const state = { activeTab: "molitMap", isAdmin: false };
+  const adminLink = { hidden: false };
+  const menu = { open: true, classList: { remove() {} } };
+  const panel = { hidden: false };
+  const context = vm.createContext({
+    state,
+    console,
+    document: {
+      querySelectorAll(selector) {
+        if (selector === "[data-admin-only]") return [adminLink];
+        if (selector === "[data-display-settings-panel]") return [panel];
+        if (selector.includes("map-settings-menu")) return [menu];
+        return [];
+      }
+    }
+  });
+  vm.runInContext(`${coreSource}\n${startupSource}`, context);
+  Object.assign(context, {
+    isMapTab: () => true,
+    loadClientConfig: async () => {},
+    loadFilters: async () => {},
+    loadAdminSession: () => admin.promise,
+    initZoomMap: async () => true
+  });
+  return { context, adminLink, menu, panel };
+}
+
+test("delayed startup admin response hides admin links without closing open map settings", async () => {
+  const admin = deferred();
+  const c = createAdminNavigationClient(admin);
+  await c.context.loadStartupResources();
+  assert.equal(c.menu.open, true);
+  assert.equal(c.panel.hidden, false);
+
+  admin.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(c.adminLink.hidden, true);
+  assert.equal(c.menu.open, true);
+  assert.equal(c.panel.hidden, false);
+});
+
+test("ordinary admin navigation refresh still closes non-admin map settings", () => {
+  const c = createAdminNavigationClient(deferred());
+  c.context.renderAdminNavigation();
+  assert.equal(c.adminLink.hidden, true);
+  assert.equal(c.menu.open, false);
+  assert.equal(c.panel.hidden, true);
+});
+
+
+test("initial pageshow updates viewport without duplicating startup session fetch", async () => {
+  const c = createAdminNavigationClient(deferred());
+  let viewportUpdates = 0;
+  let sessionLoads = 0;
+  c.context.syncMobileViewportInsets = () => { viewportUpdates += 1; };
+  c.context.loadAdminSession = async () => { sessionLoads += 1; };
+
+  await c.context.handlePageShow({ persisted: false });
+  assert.equal(viewportUpdates, 1);
+  assert.equal(sessionLoads, 0);
+  assert.equal(c.menu.open, true);
+  assert.equal(c.panel.hidden, false);
+});
+
+test("BFCache pageshow refreshes session before hiding admin links and closing settings", async () => {
+  const admin = deferred();
+  const c = createAdminNavigationClient(admin);
+  let viewportUpdates = 0;
+  let sessionLoads = 0;
+  c.context.syncMobileViewportInsets = () => { viewportUpdates += 1; };
+  c.context.loadAdminSession = () => { sessionLoads += 1; return admin.promise; };
+
+  const restored = c.context.handlePageShow({ persisted: true });
+  assert.equal(viewportUpdates, 1);
+  assert.equal(sessionLoads, 1);
+  assert.equal(c.adminLink.hidden, false);
+  assert.equal(c.menu.open, true);
+  admin.resolve();
+  await restored;
+  assert.equal(c.adminLink.hidden, true);
+  assert.equal(c.menu.open, false);
+  assert.equal(c.panel.hidden, true);
+});
